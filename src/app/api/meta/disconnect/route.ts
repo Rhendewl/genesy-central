@@ -33,6 +33,17 @@ export async function DELETE(req: NextRequest) {
 
     if (error) throw error;
 
+    // Clear page tokens so stale/revoked tokens don't linger after reconnect
+    await supabase
+      .from("meta_page_subscriptions")
+      .update({
+        encrypted_page_token: null,
+        subscribed:           false,
+        error_message:        "Conta desconectada — reconecte e sincronize para reativar.",
+      })
+      .eq("platform_account_id", platformAccountId)
+      .eq("user_id", user.id);
+
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error("[meta/disconnect]", err);

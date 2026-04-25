@@ -1,6 +1,5 @@
 // POST /api/meta/pages/sync
-// Re-fetches pages from Meta API, refreshes tokens, and ensures each page
-// is subscribed to receive leadgen webhook events.
+// Re-fetches pages, refreshes tokens, and subscribes each page to receive leadgen events.
 
 export const dynamic = 'force-dynamic';
 
@@ -14,7 +13,6 @@ export async function POST() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
 
-  // Find any connected Meta account for this user
   const { data: tokenRows } = await supabase
     .from("meta_tokens")
     .select("encrypted_token, platform_account_id")
@@ -26,17 +24,30 @@ export async function POST() {
     return NextResponse.json({ error: "Nenhuma conta Meta conectada" }, { status: 404 });
   }
 
-  const accessToken     = decryptToken(tokenRows[0].encrypted_token as string);
+  const accessToken       = decryptToken(tokenRows[0].encrypted_token as string);
   const platformAccountId = tokenRows[0].platform_account_id as string;
 
-  const pages = await getPagesWithTokens(accessToken);
-
-  if (pages.length === 0) {
-    return NextResponse.json({ synced: 0, subscribed: 0 });
+  let pages: Awaited<ReturnType<typeof getPagesWithTokens>>;
+  try {
+    pages = await getPagesWithTokens(accessToken);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return NextResponse.json({ error: `Falha ao buscar páginas da Meta: ${msg}` }, { status: 502 });
   }
 
-  // Upsert page tokens
-  const { error: upsertError } = await supabase
+  if (pages.length === 0) {
+    return NextResponse.json({ synced: 0, subscribed: 0, pages: [] });
+  }
+
+  // Remove stale rows with NULL meta_page_id (left over from old schema versions)
+  await supabase
+    .from("meta_page_subscriptions")
+    .delete()
+    .eq("user_id", user.id)
+    .is("meta_page_id", null);
+
+  // Upsert fresh page tokens
+  const { error: upsertErr } = await supabase
     .from("meta_page_subscriptions")
     .upsert(
       pages.map(p => ({
@@ -47,20 +58,22 @@ export async function POST() {
         page_name:            p.name,
         encrypted_page_token: p.access_token ? encryptToken(p.access_token) : null,
         is_active:            true,
+        subscribed:           false,
       })),
       { onConflict: "user_id,meta_page_id" }
     );
 
-  if (upsertError) return NextResponse.json({ error: upsertError.message }, { status: 500 });
+  if (upsertErr) {
+    return NextResponse.json({ error: upsertErr.message }, { status: 500 });
+  }
 
-  // Subscribe each page to receive leadgen webhook events.
-  // Without POST /{page_id}/subscribed_apps Meta never delivers events here.
+  // Subscribe each page to receive leadgen webhook events
   let subscribed = 0;
-  const subscriptionResults: { page_id: string; page_name: string; subscribed: boolean; error?: string }[] = [];
+  const results: { page_id: string; page_name: string; subscribed: boolean; error?: string }[] = [];
 
   for (const p of pages) {
     if (!p.access_token) {
-      subscriptionResults.push({ page_id: p.id, page_name: p.name, subscribed: false, error: "no page token" });
+      results.push({ page_id: p.id, page_name: p.name, subscribed: false, error: "sem page token" });
       continue;
     }
     try {
@@ -71,23 +84,19 @@ export async function POST() {
         .eq("user_id", user.id)
         .eq("meta_page_id", p.id);
       subscribed++;
-      subscriptionResults.push({ page_id: p.id, page_name: p.name, subscribed: true });
-      console.log(`[pages/sync] subscribed page ${p.id} (${p.name}) to webhook`);
-    } catch (subErr) {
-      const msg = subErr instanceof Error ? subErr.message : String(subErr);
-      console.warn(`[pages/sync] failed to subscribe page ${p.id}: ${msg}`);
+      results.push({ page_id: p.id, page_name: p.name, subscribed: true });
+      console.log(`[pages/sync] ✓ subscribed ${p.id} (${p.name})`);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
       await supabase
         .from("meta_page_subscriptions")
         .update({ subscribed: false, error_message: msg, last_synced_at: new Date().toISOString() })
         .eq("user_id", user.id)
         .eq("meta_page_id", p.id);
-      subscriptionResults.push({ page_id: p.id, page_name: p.name, subscribed: false, error: msg });
+      results.push({ page_id: p.id, page_name: p.name, subscribed: false, error: msg });
+      console.warn(`[pages/sync] failed ${p.id}: ${msg}`);
     }
   }
 
-  return NextResponse.json({
-    synced:    pages.length,
-    subscribed,
-    pages:     subscriptionResults,
-  });
+  return NextResponse.json({ synced: pages.length, subscribed, pages: results });
 }

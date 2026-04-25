@@ -63,9 +63,14 @@ export async function POST(req: NextRequest) {
       .update({ platform_account_id: account.id })
       .eq("id", pendingId);
 
-    // Initial sync for current month
     const accessToken = decryptToken(tokenRow.encrypted_token as string);
-    await syncMetaAccount({
+
+    // Page subscriptions run FIRST — independent of campaign sync success.
+    // syncMetaAccount can throw on API/DB errors; page subscription must not be blocked by it.
+    await subscribePages({ supabase, userId: user.id, platformAccountId: account.id, accessToken });
+
+    // Campaign sync is best-effort — failure here does not affect lead capture.
+    syncMetaAccount({
       supabase,
       userId:            user.id,
       platformAccountId: account.id,
@@ -74,58 +79,81 @@ export async function POST(req: NextRequest) {
       accessToken,
       since: format(startOfMonth(new Date()), "yyyy-MM-dd"),
       until: format(endOfToday(), "yyyy-MM-dd"),
-    });
-
-    // Store page → user mapping with page access tokens, then subscribe each page to webhook
-    try {
-      const pages = await getPagesWithTokens(accessToken);
-      if (pages.length > 0) {
-        // Persist page tokens
-        await supabase
-          .from("meta_page_subscriptions")
-          .upsert(
-            pages.map(p => ({
-              user_id:               user.id,
-              platform_account_id:   account.id,
-              meta_page_id:          p.id,
-              page_id:               p.id,
-              page_name:             p.name,
-              encrypted_page_token:  p.access_token ? encryptToken(p.access_token) : null,
-              is_active:             true,
-            })),
-            { onConflict: "user_id,meta_page_id" }
-          );
-
-        // Subscribe each page to receive leadgen webhook events.
-        // Without this call Meta never delivers events to this webhook URL.
-        for (const p of pages) {
-          if (!p.access_token) continue;
-          try {
-            await subscribePageToWebhook(p.id, p.access_token);
-            await supabase
-              .from("meta_page_subscriptions")
-              .update({ subscribed: true, error_message: null })
-              .eq("user_id", user.id)
-              .eq("meta_page_id", p.id);
-            console.log(`[meta/connect] subscribed page ${p.id} to webhook`);
-          } catch (subErr) {
-            const msg = subErr instanceof Error ? subErr.message : String(subErr);
-            console.warn(`[meta/connect] failed to subscribe page ${p.id}: ${msg}`);
-            await supabase
-              .from("meta_page_subscriptions")
-              .update({ subscribed: false, error_message: msg })
-              .eq("user_id", user.id)
-              .eq("meta_page_id", p.id);
-          }
-        }
-      }
-    } catch (pageErr) {
-      console.warn("[meta/connect] failed to fetch/subscribe pages:", pageErr);
-    }
+    }).catch(err => console.warn("[meta/connect] syncMetaAccount failed (non-fatal):", err));
 
     return NextResponse.json({ success: true, accountId: account.id });
   } catch (err) {
     console.error("[meta/connect]", err);
     return NextResponse.json({ error: String(err) }, { status: 500 });
+  }
+}
+
+// ── Shared helper: fetch pages, save tokens, subscribe to webhook ─────────────
+
+export async function subscribePages({
+  supabase,
+  userId,
+  platformAccountId,
+  accessToken,
+}: {
+  supabase:          Awaited<ReturnType<typeof import("@/lib/supabase-server").createServerSupabaseClient>>;
+  userId:            string;
+  platformAccountId: string;
+  accessToken:       string;
+}) {
+  try {
+    const pages = await getPagesWithTokens(accessToken);
+    if (pages.length === 0) {
+      console.warn("[meta/connect] no pages returned from /me/accounts");
+      return;
+    }
+
+    // Delete stale rows (meta_page_id IS NULL) left over from old schema versions
+    await supabase
+      .from("meta_page_subscriptions")
+      .delete()
+      .eq("user_id", userId)
+      .is("meta_page_id", null);
+
+    // Upsert fresh page tokens
+    await supabase
+      .from("meta_page_subscriptions")
+      .upsert(
+        pages.map(p => ({
+          user_id:              userId,
+          platform_account_id:  platformAccountId,
+          meta_page_id:         p.id,
+          page_id:              p.id,
+          page_name:            p.name,
+          encrypted_page_token: p.access_token ? encryptToken(p.access_token) : null,
+          is_active:            true,
+          subscribed:           false,
+        })),
+        { onConflict: "user_id,meta_page_id" }
+      );
+
+    // Subscribe each page to receive leadgen events
+    for (const p of pages) {
+      if (!p.access_token) continue;
+      try {
+        await subscribePageToWebhook(p.id, p.access_token);
+        await supabase
+          .from("meta_page_subscriptions")
+          .update({ subscribed: true, error_message: null, last_synced_at: new Date().toISOString() })
+          .eq("user_id", userId)
+          .eq("meta_page_id", p.id);
+        console.log(`[meta/connect] ✓ subscribed page ${p.id} (${p.name})`);
+      } catch (subErr) {
+        const msg = subErr instanceof Error ? subErr.message : String(subErr);
+        console.warn(`[meta/connect] failed to subscribe page ${p.id}: ${msg}`);
+        await supabase
+          .from("meta_page_subscriptions")
+          .update({ subscribed: false, error_message: msg })
+          .eq("user_id", userId)
+          .eq("meta_page_id", p.id);
+      }
+    }
+  } catch (err) {
+    console.warn("[meta/connect] subscribePages failed:", err);
   }
 }
