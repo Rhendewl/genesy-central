@@ -90,7 +90,7 @@ export async function POST(req: NextRequest) {
 
 // ── Shared helper: fetch pages, save tokens, subscribe to webhook ─────────────
 
-export async function subscribePages({
+async function subscribePages({
   supabase,
   userId,
   platformAccountId,
