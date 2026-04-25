@@ -2,10 +2,9 @@ export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
-import { decryptToken } from "@/lib/crypto";
+import { decryptToken, encryptToken } from "@/lib/crypto";
 import { syncMetaAccount } from "@/lib/meta-sync";
-import { getPagesWithTokens } from "@/lib/meta-api";
-import { encryptToken } from "@/lib/crypto";
+import { getPagesWithTokens, subscribePageToWebhook } from "@/lib/meta-api";
 import { format, startOfMonth, endOfToday } from "date-fns";
 
 // POST /api/meta/connect
@@ -77,10 +76,11 @@ export async function POST(req: NextRequest) {
       until: format(endOfToday(), "yyyy-MM-dd"),
     });
 
-    // Store page → user mapping with page access tokens
+    // Store page → user mapping with page access tokens, then subscribe each page to webhook
     try {
       const pages = await getPagesWithTokens(accessToken);
       if (pages.length > 0) {
+        // Persist page tokens
         await supabase
           .from("meta_page_subscriptions")
           .upsert(
@@ -88,15 +88,39 @@ export async function POST(req: NextRequest) {
               user_id:               user.id,
               platform_account_id:   account.id,
               meta_page_id:          p.id,
+              page_id:               p.id,
               page_name:             p.name,
               encrypted_page_token:  p.access_token ? encryptToken(p.access_token) : null,
               is_active:             true,
             })),
             { onConflict: "user_id,meta_page_id" }
           );
+
+        // Subscribe each page to receive leadgen webhook events.
+        // Without this call Meta never delivers events to this webhook URL.
+        for (const p of pages) {
+          if (!p.access_token) continue;
+          try {
+            await subscribePageToWebhook(p.id, p.access_token);
+            await supabase
+              .from("meta_page_subscriptions")
+              .update({ subscribed: true, error_message: null })
+              .eq("user_id", user.id)
+              .eq("meta_page_id", p.id);
+            console.log(`[meta/connect] subscribed page ${p.id} to webhook`);
+          } catch (subErr) {
+            const msg = subErr instanceof Error ? subErr.message : String(subErr);
+            console.warn(`[meta/connect] failed to subscribe page ${p.id}: ${msg}`);
+            await supabase
+              .from("meta_page_subscriptions")
+              .update({ subscribed: false, error_message: msg })
+              .eq("user_id", user.id)
+              .eq("meta_page_id", p.id);
+          }
+        }
       }
     } catch (pageErr) {
-      console.warn("[meta/connect] failed to fetch pages:", pageErr);
+      console.warn("[meta/connect] failed to fetch/subscribe pages:", pageErr);
     }
 
     return NextResponse.json({ success: true, accountId: account.id });

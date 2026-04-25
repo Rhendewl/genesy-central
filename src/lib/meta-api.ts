@@ -185,6 +185,47 @@ export async function getLeadGenForms(pageId: string, pageToken: string): Promis
   return data.data ?? [];
 }
 
+// ── Page webhook subscription ─────────────────────────────────────────────────
+
+/**
+ * Subscribe a Facebook Page to receive leadgen webhook events.
+ * Must be called with a Page Access Token (not a user token).
+ * This is the call the old Make integration made on setup and Genesy never did.
+ *
+ * POST /{page_id}/subscribed_apps?subscribed_fields=leadgen
+ */
+export async function subscribePageToWebhook(
+  pageId: string,
+  pageToken: string
+): Promise<void> {
+  const params = new URLSearchParams({
+    subscribed_fields: "leadgen",
+    access_token: pageToken,
+  });
+  const res = await fetch(`${GRAPH}/${pageId}/subscribed_apps`, {
+    method: "POST",
+    body: params,
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({})) as { error?: { message?: string } };
+    throw new Error(body?.error?.message ?? `subscribed_apps failed HTTP ${res.status}`);
+  }
+}
+
+/**
+ * Returns the list of apps currently subscribed to a Page's webhooks.
+ * Used for diagnostic: confirms whether our app received the subscription.
+ */
+export async function getPageSubscribedApps(
+  pageId: string,
+  pageToken: string
+): Promise<{ id: string; name: string; subscribed_fields: string[] }[]> {
+  const data = await metaGet<{
+    data: { id: string; name: string; subscribed_fields: string[] }[];
+  }>(`/${pageId}/subscribed_apps`, pageToken);
+  return data.data ?? [];
+}
+
 // ── Token exchange ────────────────────────────────────────────────────────────
 
 export async function exchangeCodeForToken(
