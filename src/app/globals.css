@@ -4,91 +4,446 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer base {
+  /* ── Lancaster Premium Dark Theme ── */
+  :root,
+  .dark {
+    --background: #0a0a0a;
+    --foreground: #ffffff;
+
+    --card: #060a18;
+    --card-foreground: #ffffff;
+
+    --popover: #07091a;
+    --popover-foreground: #ffffff;
+
+    --primary: #66aed6;
+    --primary-foreground: #ffffff;
+
+    --secondary: #0d1226;
+    --secondary-foreground: #ffffff;
+
+    --muted: #0d1226;
+    --muted-foreground: #6b7280;
+
+    --accent: #0d1226;
+    --accent-foreground: #ffffff;
+
+    --destructive: #ef4444;
+    --destructive-foreground: #ffffff;
+
+    --border: rgba(255, 255, 255, 0.07);
+    --input: rgba(255, 255, 255, 0.04);
+    --ring: #27a3ff;
+
+    --radius: 0.75rem;
+
+    /* Lancaster custom tokens */
+    --bg-base: #000000;
+    --bg-card: rgba(15, 23, 74, 0.4);
+    --border-color: rgba(255, 255, 255, 0.07);
+    --text-title: #ffffff;
+    --text-body: #9ca3af;
+    --hover: rgba(255, 255, 255, 0.04);
+
+    /* Button gradient */
+    --btn-from: #0b0c20;
+    --btn-mid: #093079;
+    --btn-to: #66aed6;
+    --btn-border: #133d83;
+
+    /* Legacy silver (kept for backward compat) */
+    --silver: #b4b4b4;
+    --silver-dim: rgba(180, 180, 180, 0.08);
+    --silver-border: rgba(180, 180, 180, 0.18);
+
+    /* Blue accent palette */
+    --accent-blue: #27a3ff;
+    --accent-cyan: #27f2e6;
+    --accent-orange: #fe7b4a;
+    --accent-blue-glow: rgba(39, 163, 255, 0.45);
+
+    /* Gold (kept for backward compat) */
+    --gold: #27a3ff;
+    --gold-border: rgba(39, 163, 255, 0.35);
+
+    /* Glassmorphism */
+    --glass-bg: rgba(15, 23, 74, 0.35);
+    --glass-border: rgba(76, 76, 76, 0.45);
+
+    /* Chart grid */
+    --chart-grid: rgba(255, 255, 255, 0.05);
+
+    /* Shadows */
+    --shadow-sm: rgba(0, 0, 0, 0.35);
+    --shadow-md: rgba(0, 0, 0, 0.5);
+    --shadow-lg: rgba(0, 0, 0, 0.65);
+
+    /* Kanban */
+    --bg-lead-card: rgba(255, 255, 255, 0.04);
+    --text-card-primary: rgba(255, 255, 255, 0.90);
+    --text-card-secondary: rgba(255, 255, 255, 0.60);
+    --text-card-subtle: rgba(255, 255, 255, 0.42);
+    --border-card: rgba(255, 255, 255, 0.07);
+    --border-card-hover: rgba(255, 255, 255, 0.12);
+    --border-card-drag: rgba(255, 255, 255, 0.10);
+    --border-empty: rgba(255, 255, 255, 0.04);
+    --text-empty: rgba(255, 255, 255, 0.18);
+
+    /* Skeleton */
+    --shimmer-base: rgba(255, 255, 255, 0.06);
+    --shimmer-light: rgba(255, 255, 255, 0.03);
+
+    /* Tooltip */
+    --bg-tooltip: #07091a;
+    --text-tooltip: #ffffff;
+    --border-tooltip: rgba(255, 255, 255, 0.10);
+
+    /* Chart tooltip */
+    --chart-tooltip-bg: rgba(7, 9, 26, 0.97);
+    --chart-tooltip-border: rgba(39, 163, 255, 0.20);
+    --chart-tooltip-text: rgba(255, 255, 255, 1);
+    --chart-tooltip-label: rgba(255, 255, 255, 0.40);
+    --chart-tooltip-entry: rgba(255, 255, 255, 0.60);
+    --chart-dot-stroke: rgba(255, 255, 255, 0.70);
+
+    /* Modal */
+    --bg-modal: rgba(7, 9, 26, 0.98);
+    --border-modal: rgba(39, 163, 255, 0.15);
+    --shadow-modal: rgba(0, 0, 0, 0.70);
+  }
+
+  /* ── Lancaster Light Theme ── */
+  .light {
+    --background: #f8f8f8;
+    --foreground: #111111;
+
+    --card: #ffffff;
+    --card-foreground: #111111;
+
+    --popover: #ffffff;
+    --popover-foreground: #111111;
+
+    --primary: #093079;
+    --primary-foreground: #ffffff;
+
+    --secondary: #f2f2f2;
+    --secondary-foreground: #111111;
+
+    --muted: #f2f2f2;
+    --muted-foreground: #71717a;
+
+    --accent: #f2f2f2;
+    --accent-foreground: #111111;
+
+    --destructive: #ef4444;
+    --destructive-foreground: #ffffff;
+
+    --border: rgba(0, 0, 0, 0.09);
+    --input: rgba(0, 0, 0, 0.04);
+    --ring: #093079;
+
+    --bg-base: #f8f8f8;
+    --bg-card: rgba(0, 0, 0, 0.02);
+    --border-color: rgba(0, 0, 0, 0.09);
+    --text-title: #111111;
+    --text-body: #52525b;
+    --hover: rgba(0, 0, 0, 0.04);
+    --btn-from: #0b0c20;
+    --btn-mid: #093079;
+    --btn-to: #66aed6;
+    --btn-border: #133d83;
+
+    --silver: #6b7280;
+    --silver-dim: rgba(107, 114, 128, 0.10);
+    --silver-border: rgba(107, 114, 128, 0.25);
+
+    --accent-blue: #093079;
+    --accent-cyan: #0a8c85;
+    --accent-orange: #d6582a;
+    --accent-blue-glow: rgba(9, 48, 121, 0.3);
+
+    --gold: #093079;
+    --gold-border: rgba(9, 48, 121, 0.35);
+
+    --glass-bg: rgba(0, 0, 0, 0.03);
+    --glass-border: rgba(0, 0, 0, 0.07);
+
+    --chart-grid: rgba(0, 0, 0, 0.07);
+
+    --shadow-sm: rgba(0, 0, 0, 0.06);
+    --shadow-md: rgba(0, 0, 0, 0.08);
+    --shadow-lg: rgba(0, 0, 0, 0.12);
+
+    --bg-lead-card: rgba(0, 0, 0, 0.015);
+    --text-card-primary: rgba(17, 17, 17, 0.88);
+    --text-card-secondary: rgba(17, 17, 17, 0.52);
+    --text-card-subtle: rgba(17, 17, 17, 0.38);
+    --border-card: rgba(0, 0, 0, 0.08);
+    --border-card-hover: rgba(9, 48, 121, 0.35);
+    --border-card-drag: rgba(9, 48, 121, 0.25);
+    --border-empty: rgba(0, 0, 0, 0.06);
+    --text-empty: rgba(0, 0, 0, 0.22);
+
+    --shimmer-base: rgba(0, 0, 0, 0.06);
+    --shimmer-light: rgba(0, 0, 0, 0.03);
+
+    --bg-tooltip: #ffffff;
+    --text-tooltip: #111111;
+    --border-tooltip: rgba(0, 0, 0, 0.10);
+
+    --chart-tooltip-bg: rgba(248, 248, 248, 0.97);
+    --chart-tooltip-border: rgba(9, 48, 121, 0.18);
+    --chart-tooltip-text: rgba(17, 17, 17, 1);
+    --chart-tooltip-label: rgba(17, 17, 17, 0.45);
+    --chart-tooltip-entry: rgba(17, 17, 17, 0.60);
+    --chart-dot-stroke: rgba(17, 17, 17, 0.55);
+
+    --bg-modal: rgba(248, 248, 248, 0.98);
+    --border-modal: rgba(9, 48, 121, 0.12);
+    --shadow-modal: rgba(0, 0, 0, 0.14);
+  }
+
+  * {
+    @apply border-border;
+    box-sizing: border-box;
+  }
+
+  html {
+    font-family: "Plus Jakarta Sans", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    background-color: #0a0a0a;
+    background-image: linear-gradient(180deg, #161616 0%, #000000 100%);
+    color: var(--foreground);
+    min-height: 100dvh;
+  }
+
+  .light body {
+    background-color: #f8f8f8;
+    background-image: none;
+  }
+
+  ::-webkit-scrollbar {
+    width: 5px;
+    height: 5px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.10);
+    border-radius: 9999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.18);
+  }
+}
+
+@layer components {
+  .dashboard-geral-bg {
+    position: relative;
+    border-radius: 24px;
+    padding-top: 0.25rem;
+    padding-bottom: 1rem;
+    background: linear-gradient(180deg, rgba(0, 0, 0, 0.55) 0%, rgba(0, 0, 0, 0.82) 100%);
+    overflow: hidden;
+  }
+
+  .light .dashboard-geral-bg {
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.50) 0%, rgba(255, 255, 255, 0.72) 100%);
+  }
+
+  /* ── Lancaster Card — white 3% bg, no border ── */
+  .lc-card {
+    background: rgba(255, 255, 255, 0.03);
+    border: none;
+    border-radius: 20px;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.30);
+    transition: box-shadow 0.28s ease, transform 0.28s ease, background 0.28s ease;
+  }
+  .lc-card:hover {
+    transform: translateY(-2px);
+    background: rgba(255, 255, 255, 0.05);
+    box-shadow: 0 8px 36px rgba(0, 0, 0, 0.40);
+  }
+
+  /* ── Shadcn Card override ── */
+  .lc-card-base {
+    background: rgba(255, 255, 255, 0.03);
+    border: none !important;
+    box-shadow: none;
+    border-radius: 16px;
+    transition: box-shadow 0.25s ease, transform 0.25s ease, background 0.25s ease;
+  }
+  .lc-card-base:hover {
+    background: rgba(255, 255, 255, 0.05);
+    box-shadow: 0 6px 28px rgba(0, 0, 0, 0.30);
+    transform: translateY(-1px);
+  }
+
+  /* ── Glassmorphism (auth card) ── */
+  .lc-glass {
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    background: rgba(255, 255, 255, 0.03);
+    border: none;
+    box-shadow: 0 8px 40px rgba(0, 0, 0, 0.35);
+  }
+
+  /* ── Lancaster Primary Action Button — metallic luminous ── */
+  .lc-btn {
+    background: linear-gradient(90deg, #afb7c0 0%, #7c878e 100%);
+    border: none;
+    border-radius: 12px;
+    color: #000000;
+    font-weight: 700;
+    cursor: pointer;
+    letter-spacing: -0.01em;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    box-shadow: 0 1px 10px rgba(255, 255, 255, 0.06);
+  }
+  .lc-btn:not(:disabled):hover {
+    animation: lcGlowPulse 1.8s ease-in-out infinite;
+  }
+  .lc-btn:not(:disabled):active {
+    transform: scale(0.97);
+    animation: none;
+    box-shadow: 0 0 8px rgba(255, 255, 255, 0.12);
+  }
+  .lc-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+    box-shadow: none;
+    animation: none;
+  }
+
+  /* ── Lead Card (Kanban) — no border ── */
+  .lc-lead-card {
+    border: none;
+    background: rgba(255, 255, 255, 0.03);
+  }
+  .lc-lead-card:not(.is-dragging):hover {
+    background: rgba(255, 255, 255, 0.06);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+  }
+
+  /* ── KPI number ── */
+  .lc-kpi {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--text-title);
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+  }
+
+  /* ── Dock item ── */
+  .dock-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 10px 16px;
+    border-radius: 9999px;
+    transition: all 0.2s ease;
+    cursor: pointer;
+    color: rgba(255, 255, 255, 0.40);
+    position: relative;
+  }
+  .dock-item:hover {
+    color: rgba(255, 255, 255, 0.72);
+    background: rgba(255, 255, 255, 0.05);
+    transform: scale(1.08);
+  }
+  .dock-item.active {
+    color: #ffffff;
+  }
+  .dock-item.active::after {
+    content: "";
+    position: absolute;
+    bottom: 4px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 4px;
+    height: 4px;
+    border-radius: 9999px;
+    background: rgba(255, 255, 255, 0.60);
+  }
+
+  /* ── Icon gradient — #ffffff → #9a9a9a via SVG defs in layout ── */
+  svg.lucide path,
+  svg.lucide circle,
+  svg.lucide line,
+  svg.lucide polyline,
+  svg.lucide rect,
+  svg.lucide ellipse,
+  svg.lucide polygon {
+    stroke: url(#icon-gradient) !important;
+  }
+}
+
 @layer utilities {
   .text-balance {
     text-wrap: balance;
   }
-}
 
-@layer base {
-  .theme {
-    --font-heading: var(--font-sans);
-    --font-sans: var(--font-sans);
+  .gradient-text {
+    background: linear-gradient(135deg, #27a3ff, #66aed6);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
   }
-  :root {
-    --background: oklch(1 0 0);
-    --foreground: oklch(0.145 0 0);
-    --card: oklch(1 0 0);
-    --card-foreground: oklch(0.145 0 0);
-    --popover: oklch(1 0 0);
-    --popover-foreground: oklch(0.145 0 0);
-    --primary: oklch(0.205 0 0);
-    --primary-foreground: oklch(0.985 0 0);
-    --secondary: oklch(0.97 0 0);
-    --secondary-foreground: oklch(0.205 0 0);
-    --muted: oklch(0.97 0 0);
-    --muted-foreground: oklch(0.556 0 0);
-    --accent: oklch(0.97 0 0);
-    --accent-foreground: oklch(0.205 0 0);
-    --destructive: oklch(0.577 0.245 27.325);
-    --border: oklch(0.922 0 0);
-    --input: oklch(0.922 0 0);
-    --ring: oklch(0.708 0 0);
-    --chart-1: oklch(0.87 0 0);
-    --chart-2: oklch(0.556 0 0);
-    --chart-3: oklch(0.439 0 0);
-    --chart-4: oklch(0.371 0 0);
-    --chart-5: oklch(0.269 0 0);
-    --radius: 0.625rem;
-    --sidebar: oklch(0.985 0 0);
-    --sidebar-foreground: oklch(0.145 0 0);
-    --sidebar-primary: oklch(0.205 0 0);
-    --sidebar-primary-foreground: oklch(0.985 0 0);
-    --sidebar-accent: oklch(0.97 0 0);
-    --sidebar-accent-foreground: oklch(0.205 0 0);
-    --sidebar-border: oklch(0.922 0 0);
-    --sidebar-ring: oklch(0.708 0 0);
+
+  .animate-fade-up {
+    animation: fadeUp 0.4s ease-out both;
   }
-  .dark {
-    --background: oklch(0.145 0 0);
-    --foreground: oklch(0.985 0 0);
-    --card: oklch(0.205 0 0);
-    --card-foreground: oklch(0.985 0 0);
-    --popover: oklch(0.205 0 0);
-    --popover-foreground: oklch(0.985 0 0);
-    --primary: oklch(0.922 0 0);
-    --primary-foreground: oklch(0.205 0 0);
-    --secondary: oklch(0.269 0 0);
-    --secondary-foreground: oklch(0.985 0 0);
-    --muted: oklch(0.269 0 0);
-    --muted-foreground: oklch(0.708 0 0);
-    --accent: oklch(0.269 0 0);
-    --accent-foreground: oklch(0.985 0 0);
-    --destructive: oklch(0.704 0.191 22.216);
-    --border: oklch(1 0 0 / 10%);
-    --input: oklch(1 0 0 / 15%);
-    --ring: oklch(0.556 0 0);
-    --chart-1: oklch(0.87 0 0);
-    --chart-2: oklch(0.556 0 0);
-    --chart-3: oklch(0.439 0 0);
-    --chart-4: oklch(0.371 0 0);
-    --chart-5: oklch(0.269 0 0);
-    --sidebar: oklch(0.205 0 0);
-    --sidebar-foreground: oklch(0.985 0 0);
-    --sidebar-primary: oklch(0.488 0.243 264.376);
-    --sidebar-primary-foreground: oklch(0.985 0 0);
-    --sidebar-accent: oklch(0.269 0 0);
-    --sidebar-accent-foreground: oklch(0.985 0 0);
-    --sidebar-border: oklch(1 0 0 / 10%);
-    --sidebar-ring: oklch(0.556 0 0);
+
+  .animate-scale-in {
+    animation: scaleIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) both;
   }
-  * {
-    @apply border-border outline-ring/50;
+
+  @keyframes fadeUp {
+    from {
+      opacity: 0;
+      transform: translateY(16px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
-  body {
-    @apply bg-background text-foreground;
+
+  @keyframes scaleIn {
+    from {
+      opacity: 0;
+      transform: scale(0.95);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
   }
-  html {
-    @apply font-sans;
+
+  @keyframes glowPulse {
+    0%, 100% { box-shadow: 0 0 12px rgba(39, 163, 255, 0.3); }
+    50% { box-shadow: 0 0 24px rgba(39, 163, 255, 0.6); }
+  }
+
+  @keyframes lcGlowPulse {
+    0%, 100% {
+      box-shadow: 0 0 14px rgba(255, 255, 255, 0.22),
+                  0 0 30px rgba(255, 255, 255, 0.09);
+    }
+    50% {
+      box-shadow: 0 0 26px rgba(255, 255, 255, 0.42),
+                  0 0 54px rgba(255, 255, 255, 0.18);
+    }
+  }
+
+  .animate-glow-pulse {
+    animation: glowPulse 2s ease-in-out infinite;
   }
 }
