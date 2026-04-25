@@ -7,7 +7,7 @@ import { NextResponse, type NextRequest } from "next/server";
 // Refreshes session tokens automatically (Supabase SSR requirement)
 // ─────────────────────────────────────────────────────────────────────────────
 
-const PUBLIC_ROUTES = ["/auth"];
+const PUBLIC_ROUTES = ["/auth", "/data-deletion"];
 
 export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
