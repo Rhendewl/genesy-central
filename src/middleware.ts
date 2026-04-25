@@ -7,7 +7,10 @@ import { NextResponse, type NextRequest } from "next/server";
 // Refreshes session tokens automatically (Supabase SSR requirement)
 // ─────────────────────────────────────────────────────────────────────────────
 
-const PUBLIC_ROUTES = ["/auth", "/data-deletion"];
+// Accessible without login
+const PUBLIC_ROUTES = ["/auth", "/data-deletion", "/privacy-policy"];
+// Redirect authenticated users away from these (login page only)
+const AUTH_REDIRECT_ROUTES = ["/auth"];
 
 export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
@@ -40,7 +43,8 @@ export async function middleware(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const pathname = request.nextUrl.pathname;
-  const isPublicRoute = PUBLIC_ROUTES.some((r) => pathname.startsWith(r));
+  const isPublicRoute      = PUBLIC_ROUTES.some((r) => pathname.startsWith(r));
+  const isAuthRedirectRoute = AUTH_REDIRECT_ROUTES.some((r) => pathname.startsWith(r));
 
   // Not authenticated + trying to access a protected route → redirect to login
   if (!user && !isPublicRoute) {
@@ -50,7 +54,7 @@ export async function middleware(request: NextRequest) {
   }
 
   // Authenticated + trying to access /auth → redirect to dashboard
-  if (user && isPublicRoute) {
+  if (user && isAuthRedirectRoute) {
     const url = request.nextUrl.clone();
     url.pathname = "/";
     return NextResponse.redirect(url);
