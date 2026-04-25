@@ -1,6 +1,8 @@
 // POST /api/meta/forms/toggle
 // Enable or disable lead capture for a specific form.
 
+export const dynamic = 'force-dynamic';
+
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 

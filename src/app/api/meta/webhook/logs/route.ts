@@ -1,6 +1,8 @@
 // GET /api/meta/webhook/logs
 // Returns the last N webhook events for the authenticated user, for the debug UI.
 
+export const dynamic = 'force-dynamic';
+
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 

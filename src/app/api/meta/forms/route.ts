@@ -1,6 +1,8 @@
 // GET /api/meta/forms?pageId=xxx
 // Lists lead gen forms for a Facebook page, merging with subscription state.
 
+export const dynamic = 'force-dynamic';
+
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { decryptToken } from "@/lib/crypto";

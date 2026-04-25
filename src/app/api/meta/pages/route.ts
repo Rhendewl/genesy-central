@@ -1,4 +1,7 @@
 // GET /api/meta/pages — list connected Facebook pages for the current user
+
+export const dynamic = 'force-dynamic';
+
 import { NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 

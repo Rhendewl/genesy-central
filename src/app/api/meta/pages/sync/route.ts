@@ -2,6 +2,8 @@
 // Re-fetches pages from Meta API and refreshes page tokens in meta_page_subscriptions.
 // Needed when user connected before page-token storage was added.
 
+export const dynamic = 'force-dynamic';
+
 import { NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { decryptToken, encryptToken } from "@/lib/crypto";

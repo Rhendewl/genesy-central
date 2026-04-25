@@ -3,6 +3,8 @@
 // (or a synthetic dummy) so the user can verify the full pipeline without
 // waiting for a real Facebook form submission.
 
+export const dynamic = 'force-dynamic';
+
 import { NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { createAdminSupabaseClient } from "@/lib/supabase-admin";
