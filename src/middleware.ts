@@ -67,7 +67,8 @@ export const config = {
      * - _next/image (image optimization)
      * - favicon.ico
      * - public assets
+     * - api/meta/webhook (Meta crawler has no auth cookies — must bypass auth middleware)
      */
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|api/meta/webhook|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };

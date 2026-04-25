@@ -1,5 +1,4 @@
-export const dynamic = 'force-dynamic';
-
+export const dynamic = 'force-dynamic'
 // ── /api/meta/webhook ─────────────────────────────────────────────────────────
 // GET  — Meta webhook verification (hub.challenge)
 // POST — Receive leadgen events and save leads to CRM
