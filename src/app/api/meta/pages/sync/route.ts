@@ -39,6 +39,7 @@ export async function POST() {
           user_id:              user.id,
           platform_account_id:  platformAccountId,
           meta_page_id:         p.id,
+          page_id:              p.id,
           page_name:            p.name,
           encrypted_page_token: p.access_token ? encryptToken(p.access_token) : null,
           is_active:            true,

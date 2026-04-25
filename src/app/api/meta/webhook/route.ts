@@ -45,6 +45,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
+  console.log(`[webhook] POST received object=${body.object} entries=${body.entry?.length ?? 0}`);
+
   // Respond immediately (Meta requires < 20s); process async
   if (body.object === "page") {
     processEntries(body.entry).catch(err =>
@@ -100,8 +102,20 @@ async function processEntries(entries: WebhookEntry[]) {
 
       const { page_id, leadgen_id, form_id } = change.value;
 
-      // Insert initial log — wrapped in try/catch so a missing table
-      // doesn't silently abort the entire lead processing.
+      console.log(`[webhook] Processing leadgen=${leadgen_id} page=${page_id} form=${form_id ?? "—"}`);
+
+      // Resolve user_id early so the log is visible to the user even on failure.
+      let earlyUserId: string | undefined;
+      try {
+        const { data: earlyPage } = await supabase
+          .from("meta_page_subscriptions")
+          .select("user_id")
+          .or(`meta_page_id.eq.${page_id},page_id.eq.${page_id}`)
+          .eq("is_active", true)
+          .maybeSingle();
+        earlyUserId = (earlyPage as { user_id?: string } | null)?.user_id;
+      } catch { /* best-effort; missing user_id just means the log won't be visible */ }
+
       let logId: string | undefined;
       try {
         const { data: logRow } = await supabase
@@ -110,6 +124,7 @@ async function processEntries(entries: WebhookEntry[]) {
             page_id,
             form_id:    form_id ?? null,
             leadgen_id,
+            user_id:    earlyUserId ?? null,
             status:     "received",
             step:       "received",
             payload:    change.value,
@@ -154,9 +169,8 @@ async function processLead({
   // ── Step 1: Resolve page subscription ────────────────────────────────────
 
   await updateLog(supabase, logId, { step: "resolving_page" });
+  console.log(`[webhook] step=resolving_page page=${page_id}`);
 
-  // Try OR query (works after migration 016 adds both columns).
-  // Falls back to meta_page_id-only if the OR causes a column-not-found error.
   let pageSub: {
     user_id:              string;
     platform_account_id:  string | null;
@@ -171,7 +185,6 @@ async function processLead({
     .maybeSingle();
 
   if (psErr) {
-    // Column might not exist yet — fall back to meta_page_id only
     console.warn(`[webhook] OR query failed (${psErr.message}), retrying meta_page_id only`);
     const { data: ps2 } = await supabase
       .from("meta_page_subscriptions")
@@ -193,8 +206,11 @@ async function processLead({
 
   const { user_id, platform_account_id, encrypted_page_token } = pageSub;
   await updateLog(supabase, logId, { user_id, step: "page_resolved" });
+  console.log(`[webhook] step=page_resolved user=${user_id}`);
 
   // ── Step 2: Form-level filter ────────────────────────────────────────────
+  // Only enforce if user has explicitly activated at least one form subscription.
+  // When no forms are active, all leads from the page pass through.
 
   if (form_id) {
     await updateLog(supabase, logId, { step: "checking_form" });
@@ -205,33 +221,38 @@ async function processLead({
       .eq("user_id", user_id)
       .eq("page_id", page_id);
 
-    if (formSubs && formSubs.length > 0) {
-      const activeForms = new Set(
-        (formSubs as { form_id: string; is_active: boolean }[])
-          .filter(s => s.is_active)
-          .map(s => s.form_id)
-      );
-      if (!activeForms.has(form_id)) {
-        await updateLog(supabase, logId, {
-          status:        "skipped",
-          step:          "form_not_subscribed",
-          error_message: `Formulário ${form_id} não está ativo. Ative-o em Integrações → Meta Leads.`,
-          processed_at:  new Date().toISOString(),
-        });
-        console.log(`[webhook] form ${form_id} not active — skipped`);
-        return;
-      }
+    const activeForms = new Set(
+      ((formSubs ?? []) as { form_id: string; is_active: boolean }[])
+        .filter(s => s.is_active)
+        .map(s => s.form_id)
+    );
+
+    console.log(
+      `[webhook] form check: total_subs=${formSubs?.length ?? 0} active=${activeForms.size} form=${form_id}`
+    );
+
+    // FIX: was `formSubs.length > 0` which triggered on any subscription, even all-inactive.
+    // Now only skips if there are active subscriptions AND this form is not among them.
+    if (activeForms.size > 0 && !activeForms.has(form_id)) {
+      await updateLog(supabase, logId, {
+        status:        "skipped",
+        step:          "form_not_subscribed",
+        error_message: `Formulário ${form_id} não está ativo. Ative-o em Integrações → Meta Leads.`,
+        processed_at:  new Date().toISOString(),
+      });
+      console.log(`[webhook] form ${form_id} not in active set (${activeForms.size} active) — skipped`);
+      return;
     }
   }
 
   // ── Step 3: Resolve access token ─────────────────────────────────────────
 
   await updateLog(supabase, logId, { step: "resolving_token" });
+  console.log(`[webhook] step=resolving_token`);
 
   let accessToken: string;
 
   if (encrypted_page_token) {
-    // Best: page-specific token stored during sync
     try {
       accessToken = decryptToken(encrypted_page_token);
     } catch (decryptErr) {
@@ -241,7 +262,6 @@ async function processLead({
       );
     }
   } else if (platform_account_id) {
-    // Fallback: look up from meta_tokens
     const { data: tokenRow } = await supabase
       .from("meta_tokens")
       .select("encrypted_token")
@@ -265,16 +285,34 @@ async function processLead({
   // ── Step 4: Fetch lead from Graph API ────────────────────────────────────
 
   await updateLog(supabase, logId, { step: "fetching_lead" });
+  console.log(`[webhook] step=fetching_lead leadgen=${leadgen_id}`);
 
   let leadData: Awaited<ReturnType<typeof fetchMetaLead>>;
   try {
     leadData = await fetchMetaLead(leadgen_id, accessToken);
   } catch (apiErr) {
-    throw new Error(
-      `Graph API falhou ao buscar leadgen_id=${leadgen_id}: ` +
-      `${apiErr instanceof Error ? apiErr.message : String(apiErr)}`
-    );
+    const apiMsg = apiErr instanceof Error ? apiErr.message : String(apiErr);
+    // Detect synthetic test events from the Developer Panel (fake leadgen_id).
+    const isTestEvent =
+      apiMsg.includes("does not exist") ||
+      apiMsg.includes("Unsupported get request") ||
+      apiMsg.includes("Invalid parameter");
+    if (isTestEvent) {
+      await updateLog(supabase, logId, {
+        status:        "error",
+        step:          "test_event_detected",
+        error_message: `Evento de teste do painel de desenvolvedores — leadgen_id=${leadgen_id} não existe na Graph API. Isso é esperado para testes de conectividade. Para testar o pipeline completo, clique em "Testar Lead" na aba Integrações.`,
+        processed_at:  new Date().toISOString(),
+      });
+      console.log(`[webhook] Test event detected (fake leadgen_id=${leadgen_id}) — skipping`);
+      return;
+    }
+    throw new Error(`Graph API falhou ao buscar leadgen_id=${leadgen_id}: ${apiMsg}`);
   }
+
+  console.log(
+    `[webhook] step=lead_fetched name="${leadData.full_name}" phone=${leadData.phone ?? "—"} email=${leadData.email ?? "—"}`
+  );
 
   // ── Step 5: Deduplication (exact leadgen_id) ──────────────────────────────
 
@@ -349,6 +387,7 @@ async function processLead({
   // ── Step 9: Insert lead → Abordados ──────────────────────────────────────
 
   await updateLog(supabase, logId, { step: "inserting_lead" });
+  console.log(`[webhook] step=inserting_lead user=${user_id}`);
 
   const { data: newLead, error: insertErr } = await supabase
     .from("leads")
