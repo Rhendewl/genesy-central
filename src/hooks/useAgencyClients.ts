@@ -40,7 +40,7 @@ export function useAgencyClients(): UseAgencyClientsReturn {
   useEffect(() => { fetch(); }, [fetch]);
 
   const createClient = useCallback(
-    async (data: NewAgencyClient): Promise<{ error: string | null }> => {
+    async (data: NewAgencyClient): Promise<{ error: string | null; id?: string }> => {
       try {
         const supabase = getSupabaseClient();
         const { data: { user } } = await supabase.auth.getUser();
