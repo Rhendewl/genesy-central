@@ -157,7 +157,7 @@ function MetaAdsCard({ connections, pages, lastLead, onConnect, onDisconnect }: 
         {/* Stats */}
         <div
           className="grid grid-cols-3 gap-3 mb-5 p-4 rounded-2xl"
-          style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}
+          style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.06)" }}
         >
           <div className="text-center">
             <p className="text-xl font-bold text-white">{connected.length}</p>
@@ -290,7 +290,6 @@ function WebhookLogsModal({
           background: "rgba(10,16,26,0.97)",
           border: "1px solid rgba(255,255,255,0.1)",
           boxShadow: "0 24px 60px rgba(0,0,0,0.5)",
-          backdropFilter: "blur(24px)",
         }}
       >
         <div className="flex items-center justify-between mb-5">
@@ -305,7 +304,7 @@ function WebhookLogsModal({
 
         <div
           className="rounded-2xl p-4 mb-4"
-          style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}
+          style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.06)" }}
         >
           <div className="flex items-center justify-between mb-3">
             <span className="text-[#6b8fa8] text-sm">Total recebido</span>
@@ -331,7 +330,7 @@ function WebhookLogsModal({
         <button
           onClick={onClose}
           className="w-full py-2.5 rounded-xl text-sm font-medium text-[#8ba5bb] hover:text-white transition-colors"
-          style={{ background: "rgba(255,255,255,0.05)" }}
+          style={{ background: "rgba(255,255,255,0.09)" }}
         >
           Fechar
         </button>
@@ -391,7 +390,6 @@ function TestWebhookModal({ apiKey, onClose }: { apiKey: string; onClose: () => 
           background: "rgba(10,16,26,0.97)",
           border: "1px solid rgba(255,255,255,0.1)",
           boxShadow: "0 24px 60px rgba(0,0,0,0.5)",
-          backdropFilter: "blur(24px)",
         }}
       >
         <div className="flex items-center justify-between mb-5">
@@ -424,7 +422,7 @@ function TestWebhookModal({ apiKey, onClose }: { apiKey: string; onClose: () => 
         {/* Payload fields */}
         <div
           className="rounded-xl p-4 mb-5 text-xs space-y-2"
-          style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}
+          style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.06)" }}
         >
           <p className="text-[#6b8fa8] font-medium uppercase tracking-wider text-[10px] mb-3">Campos aceitos</p>
           {[
@@ -487,7 +485,7 @@ function TestWebhookModal({ apiKey, onClose }: { apiKey: string; onClose: () => 
           <button
             onClick={onClose}
             className="px-4 py-2.5 rounded-xl text-sm text-[#8ba5bb] hover:text-white transition-colors"
-            style={{ background: "rgba(255,255,255,0.05)" }}
+            style={{ background: "rgba(255,255,255,0.09)" }}
           >
             Fechar
           </button>
@@ -603,7 +601,7 @@ function WebhookCard({ userId, count, lastLead }: WebhookCardProps) {
               <button
                 onClick={() => setKeyVisible(v => !v)}
                 className="text-[#6b8fa8] hover:text-white transition-colors text-xs px-2 py-1 rounded-lg"
-                style={{ background: "rgba(255,255,255,0.05)" }}
+                style={{ background: "rgba(255,255,255,0.09)" }}
               >
                 {keyVisible ? "Ocultar" : "Mostrar"}
               </button>
@@ -614,7 +612,7 @@ function WebhookCard({ userId, count, lastLead }: WebhookCardProps) {
           {/* Stats */}
           <div
             className="grid grid-cols-2 gap-3 mb-5 p-4 rounded-2xl"
-            style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}
+            style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.06)" }}
           >
             <div>
               <p className="text-xl font-bold text-white">{count}</p>
@@ -648,7 +646,7 @@ function WebhookCard({ userId, count, lastLead }: WebhookCardProps) {
               onClick={() => setShowLogs(true)}
               className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all hover:scale-[1.02] active:scale-95"
               style={{
-                background: "rgba(255,255,255,0.05)",
+                background: "rgba(255,255,255,0.09)",
                 border: "1px solid rgba(255,255,255,0.1)",
                 color: "#8ba5bb",
               }}
@@ -751,7 +749,7 @@ export function CrmIntegracoes() {
             onClick={refetch}
             disabled={isLoading}
             className="w-9 h-9 flex items-center justify-center rounded-xl text-[#6b8fa8] hover:text-white transition-all"
-            style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)" }}
+            style={{ background: "rgba(255,255,255,0.09)", border: "1px solid rgba(255,255,255,0.08)" }}
           >
             <RefreshCw size={15} className={isLoading ? "animate-spin" : ""} />
           </button>
@@ -760,7 +758,7 @@ export function CrmIntegracoes() {
             onClick={() => router.push("/crm")}
             className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all hover:scale-[1.02] active:scale-95"
             style={{
-              background: "rgba(255,255,255,0.05)",
+              background: "rgba(255,255,255,0.09)",
               border: "1px solid rgba(255,255,255,0.1)",
               color: "#8ba5bb",
             }}

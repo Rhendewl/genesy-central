@@ -66,7 +66,7 @@ function TrendBadge({ change, metricType = "volume" }: { change: number | null; 
   if (change === null) return null;
   if (Math.abs(change) < 0.5) {
     return (
-      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
+      <span className="shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded-full whitespace-nowrap"
         style={{ color: "#b4b4b4", background: "rgba(180,180,180,0.10)" }}
         title="Comparado ao período anterior">
         estável
@@ -76,18 +76,14 @@ function TrendBadge({ change, metricType = "volume" }: { change: number | null; 
   const isImprovement = metricType === "cost" ? change < 0 : change > 0;
   const color = isImprovement ? "#10b981" : "#ef4444";
   const bg    = isImprovement ? "rgba(16,185,129,0.10)" : "rgba(239,68,68,0.10)";
-  const label = metricType === "cost"
-    ? (isImprovement ? "eficiência" : "custo +")
-    : (isImprovement ? "cresceu"    : "caiu");
   const tooltip = metricType === "cost"
     ? `Comparado ao período anterior — ${isImprovement ? "redução = melhora" : "aumento = piora"}`
     : "Comparado ao período anterior";
   return (
-    <span className="flex items-center gap-0.5 text-[10px] font-semibold px-2 py-0.5 rounded-full cursor-default"
+    <span className="shrink-0 flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-full cursor-default whitespace-nowrap"
       style={{ color, background: bg }} title={tooltip}>
       {change < 0 ? <TrendingDown size={9} /> : <TrendingUp size={9} />}
       {Math.abs(change).toFixed(1)}%
-      <span className="opacity-70 ml-0.5 hidden sm:inline">· {label}</span>
     </span>
   );
 }
@@ -101,15 +97,25 @@ function PeriodSelector({ value, onChange, size = "sm" }: {
 }) {
   return (
     <div className="flex items-center gap-0.5 p-0.5 rounded-lg"
-      style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.07)" }}>
+      style={{
+        background: "rgba(0,0,0,0.45)",
+        backdropFilter: "blur(14px) saturate(140%)",
+        WebkitBackdropFilter: "blur(14px) saturate(140%)",
+        border: "1px solid rgba(255,255,255,0.08)",
+        boxShadow: "0 2px 12px rgba(0,0,0,0.30), inset 0 1px 0 rgba(255,255,255,0.04)",
+      }}>
       {PERIODS.map(p => (
         <button key={p.key} onClick={() => onChange(p.key)}
           className={cn(
             "rounded-md font-medium transition-all",
             size === "xs" ? "px-2 py-0.5 text-[10px]" : "px-2.5 py-1 text-[11px]",
-            value === p.key ? "text-white" : "text-[#b4b4b4] hover:text-white"
+            value === p.key ? "text-white" : "text-[#b4b4b4] hover:text-white hover:bg-white/5"
           )}
-          style={value === p.key ? { background: "rgba(74,143,212,0.20)", color: "#4a8fd4" } : {}}>
+          style={value === p.key ? {
+            background: "rgba(74,143,212,0.22)",
+            color: "#4a8fd4",
+            boxShadow: "inset 0 1px 0 rgba(74,143,212,0.20), 0 1px 6px rgba(0,0,0,0.25)",
+          } : {}}>
           {p.label}
         </button>
       ))}
@@ -157,13 +163,13 @@ function KpiCardPremium({ title, value, sub, icon, accent, change, metricType = 
     >
       <div className="absolute -top-6 -left-6 w-20 h-20 rounded-full blur-2xl pointer-events-none"
         style={{ background: `${accent}18` }} />
-      <div className="flex items-start justify-between mb-2 relative">
-        <div className="flex items-center gap-2.5">
+      <div className="flex items-start justify-between mb-2 relative gap-1">
+        <div className="flex items-center gap-2.5 min-w-0 flex-1">
           <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
             style={{ background: `${accent}18`, border: `1px solid ${accent}25` }}>
             <div style={{ color: accent }}>{icon}</div>
           </div>
-          <p className="text-[10px] font-semibold uppercase tracking-widest"
+          <p className="text-[10px] font-semibold uppercase tracking-widest truncate"
             style={{ color: "#7a7a8a" }}>{title}</p>
         </div>
         <TrendBadge change={change ?? null} metricType={metricType} />
@@ -181,21 +187,41 @@ function KpiCardPremium({ title, value, sub, icon, accent, change, metricType = 
 
 // ── Custom Tooltip ─────────────────────────────────────────────────────────────
 
-const FinTooltip = ({ active, payload, label }: {
+const FinTooltip = ({ active, payload, label, commissionTotal, isDaily }: {
   active?: boolean;
-  payload?: Array<{ name: string; value: number; color: string }>;
+  payload?: ReadonlyArray<{ name: string; dataKey?: string; value: number; color: string }>;
   label?: string;
+  commissionTotal?: number;
+  isDaily?: boolean;
 }) => {
   if (!active || !payload?.length) return null;
+
+  const byKey = Object.fromEntries(payload.map(p => [p.dataKey ?? p.name, p]));
+  // For daily charts use the period commission total; for monthly use the per-month value from data
+  const comissao = isDaily
+    ? (commissionTotal ?? 0)
+    : (byKey["comissao"]?.value ?? 0);
+
+  const rows = payload.filter(p => p.dataKey !== "comissao");
+
   return (
     <div className="rounded-xl px-4 py-3 text-sm shadow-2xl"
-      style={{ background: "rgba(10,12,22,0.92)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", border: "1px solid rgba(255,255,255,0.08)" }}>
+      style={{ background: "rgba(10,12,22,0.92)", border: "1px solid rgba(255,255,255,0.08)" }}>
       <p className="text-[#7a7a8a] text-[11px] mb-2 font-medium">{label}</p>
-      {payload.map(p => (
-        <div key={p.name} className="flex items-center gap-2 mb-1 last:mb-0">
-          <span className="w-2 h-2 rounded-full shrink-0" style={{ background: p.color }} />
-          <span className="text-[#c7e5ff] text-xs">{p.name}:</span>
-          <span className="text-white font-semibold text-xs">{fmtBRL(p.value)}</span>
+      {rows.map(p => (
+        <div key={p.dataKey ?? p.name}>
+          <div className="flex items-center gap-2 mb-1">
+            <span className="w-2 h-2 rounded-full shrink-0" style={{ background: p.color }} />
+            <span className="text-[#c7e5ff] text-xs">{p.name}:</span>
+            <span className="text-white font-semibold text-xs">{fmtBRL(p.value)}</span>
+          </div>
+          {(p.dataKey === "despesa") && comissao > 0 && (
+            <div className="flex items-center gap-2 mb-1 pl-4">
+              <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: "#a78bfa" }} />
+              <span className="text-[#9a7aba] text-[11px]">↳ Comissões:</span>
+              <span className="text-[#c4b5fd] font-semibold text-[11px]">{fmtBRL(comissao)}</span>
+            </div>
+          )}
         </div>
       ))}
     </div>
@@ -204,11 +230,13 @@ const FinTooltip = ({ active, payload, label }: {
 
 // ── Hero Chart ─────────────────────────────────────────────────────────────────
 
-function HeroChart({ data, period, onPeriodChange }: {
+function HeroChart({ data, period, commissionTotal = 0, onPeriodChange }: {
   data: { label: string; receita: number; despesa: number; lucro: number }[];
   period: PeriodKey;
+  commissionTotal?: number;
   onPeriodChange: (p: PeriodKey) => void;
 }) {
+  const isDaily = period === "7d" || period === "30d";
   const isEmpty = !data.length || data.every(d => d.receita === 0 && d.despesa === 0);
   const interval = data.length > 60 ? Math.floor(data.length / 8) - 1 : data.length > 30 ? 6 : "preserveStartEnd";
 
@@ -245,11 +273,21 @@ function HeroChart({ data, period, onPeriodChange }: {
               interval={interval} />
             <YAxis tick={{ fill: "#5a5a6a", fontSize: 10 }} axisLine={false} tickLine={false} width={52}
               tickFormatter={v => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)} />
-            <Tooltip content={<FinTooltip />} />
+            <Tooltip content={({ active, payload, label }) => (
+              <FinTooltip
+                active={active}
+                payload={payload as ReadonlyArray<{ name: string; dataKey?: string; value: number; color: string }>}
+                label={label != null ? String(label) : undefined}
+                commissionTotal={commissionTotal}
+                isDaily={isDaily}
+              />
+            )} />
             <Line type="monotone" dataKey="receita" name="Receita" stroke="#10b981" strokeWidth={2}
               dot={false} activeDot={{ r: 4, fill: "#10b981", strokeWidth: 2, stroke: "#0e151b" }} />
             <Line type="monotone" dataKey="despesa" name="Despesas" stroke="#f59e0b" strokeWidth={2}
               dot={false} activeDot={{ r: 4, fill: "#f59e0b", strokeWidth: 2, stroke: "#0e151b" }} />
+            <Line type="monotone" dataKey="comissao" name="Comissão" stroke="transparent" strokeWidth={0}
+              dot={false} legendType="none" isAnimationActive={false} />
             <Line type="monotone" dataKey="lucro" name="Lucro" stroke="#4a8fd4" strokeWidth={2}
               dot={false} activeDot={{ r: 4, fill: "#4a8fd4", strokeWidth: 2, stroke: "#0e151b" }} />
           </ComposedChart>
@@ -285,7 +323,7 @@ function SaudeFinanceira({ data }: {
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: 0.4 + i * 0.05 }}
             className="rounded-xl p-3.5"
-            style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
+            style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.06)" }}>
             <div className="flex items-center gap-1.5 mb-1.5" style={{ color: item.color }}>
               {item.icon}
               <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "#6a6a7a" }}>{item.label}</p>
@@ -364,7 +402,7 @@ function ProjecaoFinanceira({ data, goal, receitaChange }: {
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.45 + i * 0.05 }}
             className="flex items-center justify-between gap-3 py-3 px-3 rounded-xl"
-            style={{ background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.05)" }}>
+            style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.05)" }}>
             <div className="flex items-center gap-2.5 min-w-0">
               <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
                 style={{ background: `${row.color}18`, color: row.color }}>
@@ -588,7 +626,7 @@ function MetricasDetalhadas({ data }: {
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 p-5 pt-0">
               {items.map(item => (
                 <div key={item.label} className="rounded-xl p-3.5"
-                  style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                  style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.06)" }}>
                   <div className="flex items-center gap-1.5 mb-1.5" style={{ color: item.color }}>
                     {item.icon}
                     <p className="text-[10px] font-medium uppercase tracking-wider" style={{ color: "#6a6a7a" }}>{item.label}</p>
@@ -668,17 +706,19 @@ export function DashboardFinanceiro({ year, month, onNavigateToTab }: Props) {
     if (!heroRaw) return [];
     if (["7d", "30d"].includes(heroPeriod)) {
       return heroRaw.receita_diaria.map((r, i) => ({
-        label: r.data,
-        receita: r.valor,
-        despesa: heroRaw.despesa_diaria[i]?.valor ?? 0,
-        lucro:   heroRaw.lucro_diario[i]?.valor ?? 0,
+        label:    r.data,
+        receita:  r.valor,
+        despesa:  heroRaw.despesa_diaria[i]?.valor ?? 0,
+        comissao: heroRaw.comissao_diaria[i]?.valor ?? 0,
+        lucro:    heroRaw.lucro_diario[i]?.valor ?? 0,
       }));
     }
     return heroRaw.receita_vs_despesa.map(d => ({
-      label:   d.mes,
-      receita: d.receita,
-      despesa: d.despesa,
-      lucro:   d.receita - d.despesa,
+      label:    d.mes,
+      receita:  d.receita,
+      despesa:  d.despesa,
+      comissao: d.comissao,
+      lucro:    d.receita - d.despesa,
     }));
   }, [heroRaw, heroPeriod]);
 
@@ -716,7 +756,8 @@ export function DashboardFinanceiro({ year, month, onNavigateToTab }: Props) {
           sparklineKey="valor" delay={0}
         />
         <KpiCardPremium
-          title="Despesas" value={fmtBRL(data.total_despesas)} sub="Saídas no período"
+          title="Despesas" value={fmtBRL(data.total_despesas)}
+          sub={data.total_comissoes > 0 ? `incl. ${fmtBRL(data.total_comissoes)} comissões` : "Saídas no período"}
           icon={<TrendingDown size={16} />} accent="#f59e0b"
           change={changes.despesa} metricType="cost"
           sparklineData={data.despesa_diaria as unknown as Record<string, unknown>[]}
@@ -742,7 +783,7 @@ export function DashboardFinanceiro({ year, month, onNavigateToTab }: Props) {
       </div>
 
       {/* ── Row 2: Hero chart ──────────────────────────────────────────────── */}
-      <HeroChart data={heroData} period={heroPeriod} onPeriodChange={setHeroPeriod} />
+      <HeroChart data={heroData} period={heroPeriod} commissionTotal={heroRaw?.total_comissoes ?? 0} onPeriodChange={setHeroPeriod} />
 
       {/* ── Row 3: Saúde Financeira + Projeção ──────────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

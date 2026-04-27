@@ -11,7 +11,7 @@
     --background: #0a0a0a;
     --foreground: #ffffff;
 
-    --card: #060a18;
+    --card: rgba(0, 0, 0, 0.52);
     --card-foreground: #ffffff;
 
     --popover: #07091a;
@@ -68,8 +68,9 @@
     --gold-border: rgba(39, 163, 255, 0.35);
 
     /* Glassmorphism */
-    --glass-bg: rgba(15, 23, 74, 0.35);
-    --glass-border: rgba(76, 76, 76, 0.45);
+    --glass-bg: rgba(0, 0, 0, 0.52);
+    --glass-border: rgba(255, 255, 255, 0.09);
+    --glass-shadow: 0 4px 32px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.06);
 
     /* Chart grid */
     --chart-grid: rgba(255, 255, 255, 0.05);
@@ -95,21 +96,21 @@
     --shimmer-light: rgba(255, 255, 255, 0.03);
 
     /* Tooltip */
-    --bg-tooltip: #07091a;
-    --text-tooltip: #ffffff;
-    --border-tooltip: rgba(255, 255, 255, 0.10);
+    --bg-tooltip: rgba(0, 0, 0, 0.78);
+    --text-tooltip: rgba(255, 255, 255, 0.90);
+    --border-tooltip: rgba(255, 255, 255, 0.09);
 
     /* Chart tooltip */
-    --chart-tooltip-bg: rgba(7, 9, 26, 0.97);
-    --chart-tooltip-border: rgba(39, 163, 255, 0.20);
+    --chart-tooltip-bg: rgba(0, 0, 0, 0.75);
+    --chart-tooltip-border: rgba(255, 255, 255, 0.08);
     --chart-tooltip-text: rgba(255, 255, 255, 1);
     --chart-tooltip-label: rgba(255, 255, 255, 0.40);
     --chart-tooltip-entry: rgba(255, 255, 255, 0.60);
     --chart-dot-stroke: rgba(255, 255, 255, 0.70);
 
     /* Modal */
-    --bg-modal: rgba(7, 9, 26, 0.98);
-    --border-modal: rgba(39, 163, 255, 0.15);
+    --bg-modal: rgba(0, 0, 0, 0.55);
+    --border-modal: rgba(255, 255, 255, 0.09);
     --shadow-modal: rgba(0, 0, 0, 0.70);
   }
 
@@ -216,15 +217,28 @@
   }
 
   body {
-    background-color: #0a0a0a;
-    background-image: linear-gradient(180deg, #161616 0%, #000000 100%);
+    background-color: #000000;
     color: var(--foreground);
     min-height: 100dvh;
+    position: relative;
+  }
+
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    background-image: url('/bg-premium.jpg');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    opacity: 0.4;
   }
 
   .light body {
     background-color: #f8f8f8;
     background-image: none;
+    background-attachment: scroll;
   }
 
   ::-webkit-scrollbar {
@@ -246,52 +260,97 @@
 @layer components {
   .dashboard-geral-bg {
     position: relative;
-    border-radius: 24px;
     padding-top: 0.25rem;
     padding-bottom: 1rem;
-    background: linear-gradient(180deg, rgba(0, 0, 0, 0.55) 0%, rgba(0, 0, 0, 0.82) 100%);
-    overflow: hidden;
+    background: transparent;
+    overflow: visible;
   }
 
   .light .dashboard-geral-bg {
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.50) 0%, rgba(255, 255, 255, 0.72) 100%);
+    background: transparent;
   }
 
-  /* ── Lancaster Card — white 3% bg, no border ── */
+  /* ── Lancaster Card — glassmorphism com massa visual ── */
   .lc-card {
-    background: rgba(255, 255, 255, 0.03);
-    border: none;
+    background: rgba(0, 0, 0, 0.52);
+    backdrop-filter: blur(20px) saturate(160%);
+    -webkit-backdrop-filter: blur(20px) saturate(160%);
+    border: 1px solid rgba(255, 255, 255, 0.09);
     border-radius: 20px;
-    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.30);
-    transition: box-shadow 0.28s ease, transform 0.28s ease, background 0.28s ease;
+    box-shadow:
+      0 4px 32px rgba(0, 0, 0, 0.45),
+      inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    transition: box-shadow 0.28s ease, transform 0.28s ease, background 0.28s ease, border-color 0.28s ease;
   }
   .lc-card:hover {
     transform: translateY(-2px);
-    background: rgba(255, 255, 255, 0.05);
-    box-shadow: 0 8px 36px rgba(0, 0, 0, 0.40);
+    background: rgba(0, 0, 0, 0.62);
+    border-color: rgba(255, 255, 255, 0.13);
+    box-shadow:
+      0 8px 40px rgba(0, 0, 0, 0.55),
+      inset 0 1px 0 rgba(255, 255, 255, 0.08);
   }
 
   /* ── Shadcn Card override ── */
   .lc-card-base {
-    background: rgba(255, 255, 255, 0.03);
-    border: none !important;
-    box-shadow: none;
+    background: rgba(0, 0, 0, 0.52);
+    backdrop-filter: blur(20px) saturate(160%);
+    -webkit-backdrop-filter: blur(20px) saturate(160%);
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
     border-radius: 16px;
+    box-shadow:
+      0 4px 24px rgba(0, 0, 0, 0.42),
+      inset 0 1px 0 rgba(255, 255, 255, 0.05);
     transition: box-shadow 0.25s ease, transform 0.25s ease, background 0.25s ease;
   }
   .lc-card-base:hover {
-    background: rgba(255, 255, 255, 0.05);
-    box-shadow: 0 6px 28px rgba(0, 0, 0, 0.30);
+    background: rgba(0, 0, 0, 0.62);
+    border-color: rgba(255, 255, 255, 0.12) !important;
+    box-shadow:
+      0 6px 32px rgba(0, 0, 0, 0.52),
+      inset 0 1px 0 rgba(255, 255, 255, 0.07);
     transform: translateY(-1px);
   }
 
-  /* ── Glassmorphism (auth card) ── */
+  /* ── Glass premium (auth card, painéis genéricos) ── */
   .lc-glass {
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    background: rgba(255, 255, 255, 0.03);
-    border: none;
-    box-shadow: 0 8px 40px rgba(0, 0, 0, 0.35);
+    backdrop-filter: blur(40px) saturate(180%);
+    -webkit-backdrop-filter: blur(40px) saturate(180%);
+    background: rgba(0, 0, 0, 0.65);
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    box-shadow:
+      0 8px 48px rgba(0, 0, 0, 0.50),
+      inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  }
+
+  /* ── Modal panel — glass escuro com blur ── */
+  .lc-modal-panel {
+    background: rgba(0, 0, 0, 0.78);
+    backdrop-filter: blur(28px) saturate(160%);
+    -webkit-backdrop-filter: blur(28px) saturate(160%);
+    border: 1px solid rgba(255, 255, 255, 0.09) !important;
+    box-shadow:
+      0 24px 64px rgba(0, 0, 0, 0.65),
+      inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  }
+
+  /* ── Filter inputs / selects — glassmorphism inline ── */
+  .lc-filter-control {
+    background: rgba(0, 0, 0, 0.42);
+    backdrop-filter: blur(14px) saturate(140%);
+    -webkit-backdrop-filter: blur(14px) saturate(140%);
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    color: #ffffff;
+    transition: border-color 0.2s ease, background 0.2s ease;
+  }
+  .lc-filter-control:focus,
+  .lc-filter-control:focus-within {
+    border-color: rgba(255, 255, 255, 0.18) !important;
+    background: rgba(0, 0, 0, 0.55);
+    outline: none;
+  }
+  .lc-filter-control::placeholder {
+    color: rgba(180, 180, 180, 0.45);
   }
 
   /* ── Lancaster Primary Action Button — metallic luminous ── */
@@ -321,14 +380,22 @@
     animation: none;
   }
 
-  /* ── Lead Card (Kanban) — no border ── */
+  /* ── Lead Card (Kanban) — glassmorphism real ── */
   .lc-lead-card {
-    border: none;
-    background: rgba(255, 255, 255, 0.03);
+    background: rgba(0, 0, 0, 0.48);
+    backdrop-filter: blur(18px) saturate(150%);
+    -webkit-backdrop-filter: blur(18px) saturate(150%);
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    box-shadow:
+      0 2px 16px rgba(0, 0, 0, 0.38),
+      inset 0 1px 0 rgba(255, 255, 255, 0.05);
   }
   .lc-lead-card:not(.is-dragging):hover {
-    background: rgba(255, 255, 255, 0.06);
-    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+    background: rgba(0, 0, 0, 0.60);
+    border-color: rgba(255, 255, 255, 0.13) !important;
+    box-shadow:
+      0 6px 24px rgba(0, 0, 0, 0.50),
+      inset 0 1px 0 rgba(255, 255, 255, 0.07);
   }
 
   /* ── KPI number ── */

@@ -3,43 +3,44 @@
 import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  LayoutDashboard, DollarSign, TrendingDown, Users,
-  Wallet, AlertTriangle, Target, Bell, ChevronLeft, ChevronRight,
+  LayoutDashboard, DollarSign, TrendingDown,
+  Wallet, AlertTriangle, Target, Bell, ChevronLeft, ChevronRight, Plug2,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { Header } from "@/components/layout/Header";
 import { DashboardFinanceiro } from "@/components/financeiro/DashboardFinanceiro";
 import { GestaoReceitas } from "@/components/financeiro/GestaoReceitas";
 import { GestaoDespesas } from "@/components/financeiro/GestaoDespesas";
-import { ClientesRentabilidade } from "@/components/financeiro/ClientesRentabilidade";
 import { FluxoCaixa } from "@/components/financeiro/FluxoCaixa";
 import { Inadimplencia } from "@/components/financeiro/Inadimplencia";
 import { MetasFinanceiras } from "@/components/financeiro/MetasFinanceiras";
 import { AlertasFinanceiros } from "@/components/financeiro/AlertasFinanceiros";
+import { IntegracoesFinanceiras } from "@/components/financeiro/IntegracoesFinanceiras";
 import { cn } from "@/lib/utils";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Financeiro Page — Módulo Financeiro Completo
+// Financeiro Page — Dashboard / Receitas / Despesas / Fluxo / Cobranças / Metas / Alertas
 // ─────────────────────────────────────────────────────────────────────────────
 
 type TabId =
   | "dashboard"
   | "receitas"
   | "despesas"
-  | "clientes"
   | "fluxo"
   | "inadimplencia"
   | "metas"
-  | "alertas";
+  | "alertas"
+  | "integracoes";
 
 const TABS: { id: TabId; label: string; icon: React.ReactNode; shortLabel?: string }[] = [
-  { id: "dashboard", label: "Dashboard", icon: <LayoutDashboard size={15} />, shortLabel: "Dashboard" },
-  { id: "receitas", label: "Receitas", icon: <DollarSign size={15} /> },
-  { id: "despesas", label: "Despesas", icon: <TrendingDown size={15} /> },
-  { id: "clientes", label: "Clientes", icon: <Users size={15} /> },
-  { id: "fluxo", label: "Fluxo de Caixa", icon: <Wallet size={15} />, shortLabel: "Fluxo" },
-  { id: "inadimplencia", label: "Inadimplência", icon: <AlertTriangle size={15} />, shortLabel: "Cobranças" },
-  { id: "metas", label: "Metas", icon: <Target size={15} /> },
-  { id: "alertas", label: "Alertas", icon: <Bell size={15} /> },
+  { id: "dashboard",    label: "Dashboard",      icon: <LayoutDashboard size={15} /> },
+  { id: "receitas",     label: "Receitas",       icon: <DollarSign size={15} /> },
+  { id: "despesas",     label: "Despesas",       icon: <TrendingDown size={15} /> },
+  { id: "fluxo",        label: "Fluxo de Caixa", icon: <Wallet size={15} />, shortLabel: "Fluxo" },
+  { id: "inadimplencia",label: "Inadimplência",  icon: <AlertTriangle size={15} />, shortLabel: "Cobranças" },
+  { id: "metas",        label: "Metas",          icon: <Target size={15} /> },
+  { id: "alertas",      label: "Alertas",        icon: <Bell size={15} /> },
+  { id: "integracoes",  label: "Integrações",    icon: <Plug2 size={15} /> },
 ];
 
 const MONTH_NAMES = [
@@ -49,6 +50,7 @@ const MONTH_NAMES = [
 
 export default function FinanceiroPage() {
   const now = new Date();
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabId>("dashboard");
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
@@ -69,6 +71,7 @@ export default function FinanceiroPage() {
 
   const tabSubtitle = useMemo(() => {
     const tab = TABS.find(t => t.id === activeTab);
+    if (activeTab === "integracoes") return tab?.label ?? "";
     return `${tab?.label} · ${MONTH_NAMES[month - 1]} ${year}`;
   }, [activeTab, month, year]);
 
@@ -78,10 +81,15 @@ export default function FinanceiroPage() {
 
       {/* Period selector + tabs */}
       <div className="sticky top-0 z-30 pt-2 pb-4"
-        style={{ background: "linear-gradient(to bottom, var(--background) 85%, transparent)" }}>
+        style={{
+          background: "rgba(0,0,0,0.60)",
+          backdropFilter: "blur(24px) saturate(160%)",
+          WebkitBackdropFilter: "blur(24px) saturate(160%)",
+          borderBottom: "1px solid rgba(255,255,255,0.06)",
+        }}>
 
-        {/* Period navigator */}
-        <div className="flex items-center gap-2 mb-4">
+        {/* Period navigator — hidden on integrations tab */}
+        <div className={cn("flex items-center gap-2 mb-4", activeTab === "integracoes" && "hidden")}>
           <button onClick={prevMonth}
             className="w-8 h-8 rounded-xl flex items-center justify-center text-[#b4b4b4] hover:text-white hover:bg-white/5 transition-all"
             style={{ borderColor: "rgba(255,255,255,0.08)" }}>
@@ -104,7 +112,7 @@ export default function FinanceiroPage() {
         {/* Tab bar */}
         <div className="overflow-x-auto scrollbar-none">
           <div className="flex gap-1 p-1 rounded-2xl min-w-max"
-            style={{ background: "linear-gradient(to right, rgba(255,255,255,0.15), rgba(255,255,255,0.03))", border: "none", backdropFilter: "blur(12px)" }}>
+            style={{ background: "rgba(0,0,0,0.30)", border: "1px solid rgba(255,255,255,0.08)" }}>
             {TABS.map(tab => (
               <button
                 key={tab.id}
@@ -116,9 +124,8 @@ export default function FinanceiroPage() {
                     : "text-white/50 hover:text-white hover:bg-white/[0.05]"
                 )}
                 style={activeTab === tab.id ? {
-                  background: "rgba(255,255,255,0.12)",
-                  border: "none",
-                  boxShadow: "none",
+                  background: "rgba(255,255,255,0.14)",
+                  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.10), 0 1px 8px rgba(0,0,0,0.30)",
                 } : {}}
               >
                 {tab.icon}
@@ -140,14 +147,14 @@ export default function FinanceiroPage() {
           transition={{ duration: 0.2 }}
           className="pb-8"
         >
-          {activeTab === "dashboard" && <DashboardFinanceiro year={year} month={month} onNavigateToTab={(tab) => setActiveTab(tab as TabId)} />}
+          {activeTab === "dashboard" && <DashboardFinanceiro year={year} month={month} onNavigateToTab={(tab) => tab === "clientes" ? router.push("/clientes") : setActiveTab(tab as TabId)} />}
           {activeTab === "receitas" && <GestaoReceitas year={year} month={month} />}
           {activeTab === "despesas" && <GestaoDespesas year={year} month={month} />}
-          {activeTab === "clientes" && <ClientesRentabilidade year={year} month={month} />}
           {activeTab === "fluxo" && <FluxoCaixa year={year} month={month} />}
           {activeTab === "inadimplencia" && <Inadimplencia year={year} month={month} />}
           {activeTab === "metas" && <MetasFinanceiras year={year} month={month} />}
           {activeTab === "alertas" && <AlertasFinanceiros year={year} month={month} />}
+          {activeTab === "integracoes" && <IntegracoesFinanceiras />}
         </motion.div>
       </AnimatePresence>
     </div>

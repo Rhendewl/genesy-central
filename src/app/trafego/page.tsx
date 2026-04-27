@@ -84,8 +84,6 @@ function AccountSelector({ accounts, selectedAccountId, onChange }: AccountSelec
               className="absolute left-0 top-full mt-1.5 z-50 min-w-[220px] rounded-xl overflow-hidden shadow-2xl"
               style={{
                 background: "rgba(16,20,28,0.95)",
-                backdropFilter: "blur(20px)",
-                WebkitBackdropFilter: "blur(20px)",
                 border: "1px solid rgba(255,255,255,0.10)",
               }}
             >
@@ -200,7 +198,12 @@ function TrafegoPageInner() {
 
       <div
         className="sticky top-0 z-30 pt-2 pb-4"
-        style={{ background: "linear-gradient(to bottom, var(--background) 85%, transparent)" }}
+        style={{
+          background: "rgba(0,0,0,0.60)",
+          backdropFilter: "blur(24px) saturate(160%)",
+          WebkitBackdropFilter: "blur(24px) saturate(160%)",
+          borderBottom: "1px solid rgba(255,255,255,0.06)",
+        }}
       >
         {/* Period navigator + account selector */}
         {showPeriodNav && (
@@ -247,9 +250,8 @@ function TrafegoPageInner() {
           <div
             className="flex gap-1 p-1 rounded-2xl min-w-max"
             style={{
-              background: "linear-gradient(to right, rgba(255,255,255,0.15), rgba(255,255,255,0.03))",
-              border: "none",
-              backdropFilter: "blur(12px)",
+              background: "rgba(0,0,0,0.30)",
+              border: "1px solid rgba(255,255,255,0.08)",
             }}
           >
             {TABS.map(tab => (
@@ -264,7 +266,7 @@ function TrafegoPageInner() {
                 )}
                 style={
                   activeTab === tab.id
-                    ? { background: "rgba(255,255,255,0.12)", border: "none", boxShadow: "none" }
+                    ? { background: "rgba(255,255,255,0.14)", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.10), 0 1px 8px rgba(0,0,0,0.30)" }
                     : {}
                 }
               >

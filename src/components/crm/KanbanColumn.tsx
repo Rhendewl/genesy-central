@@ -20,7 +20,6 @@ type ColumnDef = (typeof KANBAN_COLUMNS)[number];
 
 interface KanbanColumnProps {
   column: ColumnDef;
-  index: number;
   leads: Lead[];
   totalValue: number;
   onEditLead: (leadId: string) => void;
@@ -31,10 +30,8 @@ function fmtBRL(v: number): string {
   return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
-export function KanbanColumn({ column, index, leads, totalValue, onEditLead }: KanbanColumnProps) {
+export function KanbanColumn({ column, leads, totalValue, onEditLead }: KanbanColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id: column.id });
-
-  const bgOpacity = (0.03 + index * 0.02).toFixed(2);
 
   return (
     <div
@@ -42,10 +39,16 @@ export function KanbanColumn({ column, index, leads, totalValue, onEditLead }: K
       className="flex w-72 flex-shrink-0 flex-col rounded-[20px] transition-all duration-200"
       style={{
         background: isOver
-          ? `rgba(255, 255, 255, ${(parseFloat(bgOpacity) + 0.03).toFixed(2)})`
-          : `rgba(0, 0, 0, ${bgOpacity})`,
-        border: "none",
-        boxShadow: isOver ? "0 4px 24px rgba(0,0,0,0.25)" : "none",
+          ? "rgba(255, 255, 255, 0.06)"
+          : "rgba(0, 0, 0, 0.32)",
+        backdropFilter: "blur(14px) saturate(140%)",
+        WebkitBackdropFilter: "blur(14px) saturate(140%)",
+        border: isOver
+          ? "1px solid rgba(255, 255, 255, 0.14)"
+          : "1px solid rgba(255, 255, 255, 0.07)",
+        boxShadow: isOver
+          ? "0 8px 32px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.08)"
+          : "0 4px 20px rgba(0,0,0,0.30), inset 0 1px 0 rgba(255,255,255,0.04)",
         minHeight: 660,
       }}
     >

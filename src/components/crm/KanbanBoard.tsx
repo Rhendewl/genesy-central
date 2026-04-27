@@ -220,7 +220,6 @@ export function KanbanBoard() {
             >
               <KanbanColumn
                 column={col}
-                index={i}
                 leads={leadsByColumn[col.id]}
                 totalValue={leadsByColumn[col.id].reduce(
                   (sum, l) => sum + (l.deal_value ?? 0),

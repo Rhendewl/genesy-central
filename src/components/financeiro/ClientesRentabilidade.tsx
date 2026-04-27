@@ -117,8 +117,6 @@ function ClienteModal({ client, onClose, onSave, onDelete }: ClientModalProps) {
         className="relative w-full max-w-2xl rounded-2xl shadow-2xl p-6 max-h-[92vh] overflow-y-auto"
         style={{
           background: "rgba(10,14,20,0.97)",
-          backdropFilter: "blur(24px)",
-          WebkitBackdropFilter: "blur(24px)",
           border: "1px solid rgba(255,255,255,0.08)",
         }}
         onClick={e => e.stopPropagation()}
@@ -338,7 +336,7 @@ function ClienteModal({ client, onClose, onSave, onDelete }: ClientModalProps) {
             <motion.div
               initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
               className="mt-4 rounded-xl p-4"
-              style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}
+              style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.07)" }}
             >
               <p className="text-[10px] text-[#5a5a5a] font-medium uppercase tracking-wider mb-3">Prévia financeira</p>
               <div className="grid grid-cols-4 gap-3 text-center">
@@ -389,7 +387,7 @@ function ClienteModal({ client, onClose, onSave, onDelete }: ClientModalProps) {
           <button
             onClick={onClose}
             className="flex-1 rounded-xl py-2.5 text-sm font-medium text-[#b4b4b4] hover:text-white transition-colors"
-            style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}
+            style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.08)" }}
           >
             Cancelar
           </button>
@@ -419,9 +417,12 @@ export function ClientesRentabilidade({ year, month }: Props) {
   const [sortKey, setSortKey] = useState<SortKey>("lucro");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
 
-  const mrr           = data?.mrr ?? 0;
+  const mrr            = data?.mrr ?? 0;
   const clientesAtivos = data?.clientes_ativos ?? 0;
-  const margemGeral   = data?.margem_geral ?? 0;
+
+  // Lucro e margem derivados de clientProfitability (base: monthly_fee) para consistência com a tabela
+  const lucroTotal  = clientProfitability.reduce((s, p) => s + p.lucro, 0);
+  const margemGeral = mrr > 0 ? (lucroTotal / mrr) * 100 : 0;
 
   const sorted = [...clientProfitability].sort((a, b) =>
     sortDir === "desc" ? b[sortKey] - a[sortKey] : a[sortKey] - b[sortKey]
@@ -443,13 +444,15 @@ export function ClientesRentabilidade({ year, month }: Props) {
       // Edit flow
       const result = await updateClient(modal.client.id, clientData as UpdateAgencyClient);
       if (result.error) { toast.error(result.error); return result; }
-      await saveShares(modal.client.id, shares);
+      const sharesResult = await saveShares(modal.client.id, shares);
+      if (sharesResult.error) { toast.error(`Erro ao salvar parceiros: ${sharesResult.error}`); return sharesResult; }
     } else {
       // Create flow — need the new id to save shares
       const result = await createClient(clientData as NewAgencyClient);
       if (result.error) { toast.error(result.error); return result; }
       if (result.id) {
-        await saveShares(result.id, shares);
+        const sharesResult = await saveShares(result.id, shares);
+        if (sharesResult.error) { toast.error(`Cliente criado, mas erro ao salvar parceiros: ${sharesResult.error}`); }
       }
     }
     toast.success(modal.client ? "Cliente atualizado!" : "Cliente criado!");
@@ -471,10 +474,10 @@ export function ClientesRentabilidade({ year, month }: Props) {
       {/* Summary cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: "Clientes Ativos",  value: String(clientesAtivos),              icon: <Users size={18} />,      accent: "#4a8fd4" },
-          { label: "MRR Total",        value: fmt(mrr),                            icon: <DollarSign size={18} />, accent: "#10b981" },
-          { label: "Lucro Total",      value: fmt(data?.lucro_liquido ?? 0),       icon: <TrendingUp size={18} />, accent: data && data.lucro_liquido >= 0 ? "#10b981" : "#ef4444" },
-          { label: "Margem Geral",     value: `${margemGeral.toFixed(1)}%`,        icon: <TrendingDown size={18} />, accent: margemGeral >= 30 ? "#10b981" : margemGeral >= 0 ? "#f59e0b" : "#ef4444" },
+          { label: "Clientes Ativos",  value: String(clientesAtivos),         icon: <Users size={18} />,        accent: "#4a8fd4" },
+          { label: "MRR Total",        value: fmt(mrr),                       icon: <DollarSign size={18} />,   accent: "#10b981" },
+          { label: "Lucro Total",      value: fmt(lucroTotal),                icon: <TrendingUp size={18} />,   accent: lucroTotal >= 0 ? "#10b981" : "#ef4444" },
+          { label: "Margem Geral",     value: `${margemGeral.toFixed(1)}%`,   icon: <TrendingDown size={18} />, accent: margemGeral >= 30 ? "#10b981" : margemGeral >= 0 ? "#f59e0b" : "#ef4444" },
         ].map((s, i) => (
           <motion.div key={s.label} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.06 }}
             className="lc-card px-5 py-4 flex items-center gap-3">

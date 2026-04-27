@@ -114,7 +114,7 @@ function StatsCard({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35, delay, ease: "easeOut" }}
       className="flex items-center gap-4 rounded-2xl p-4"
-      style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}
+      style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.06)" }}
     >
       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl" style={{ background: `${accent}18` }}>
         <Icon size={18} style={{ color: accent }} strokeWidth={1.75} />
@@ -184,8 +184,6 @@ function RowActions({
               style={{
                 background: "rgba(18,18,18,0.04)",
                 border: "1px solid rgba(255,255,255,0.1)",
-                backdropFilter: "blur(20px)",
-                WebkitBackdropFilter: "blur(20px)",
               }}
             >
               {actions.map(({ icon: ActionIcon, label, action, color }) => (
@@ -229,7 +227,7 @@ function FilterSelect({
         onChange={e => onChange(e.target.value)}
         className="h-9 appearance-none rounded-xl pl-3.5 pr-8 text-[13px] outline-none transition-all cursor-pointer"
         style={{
-          background: "rgba(255,255,255,0.05)",
+          background: "rgba(255,255,255,0.09)",
           border: "1px solid rgba(255,255,255,0.08)",
           color: "rgba(255,255,255,0.7)",
         }}
@@ -283,7 +281,7 @@ function UserModal({
   const f = form;
 
   const inputStyle = {
-    background: "rgba(255,255,255,0.05)",
+    background: "rgba(255,255,255,0.09)",
     border: "1px solid rgba(255,255,255,0.1)",
     color: "#ffffff",
   };
@@ -296,7 +294,6 @@ function UserModal({
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         onClick={onClose}
-        style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(8px)" }}
       />
       <motion.div
         initial={{ opacity: 0, scale: 0.96, y: 12 }}
@@ -411,7 +408,7 @@ function UserModal({
           </div>
 
           {/* Toggles */}
-          <div className="flex flex-col gap-3 rounded-xl p-4" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
+          <div className="flex flex-col gap-3 rounded-xl p-4" style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.06)" }}>
             <Toggle
               label="Usuário ativo"
               description="Permite acesso imediato à plataforma"
@@ -444,7 +441,7 @@ function UserModal({
               type="button"
               onClick={onClose}
               className="h-9 rounded-xl px-5 text-[13px] transition-colors"
-              style={{ color: "rgba(255,255,255,0.5)", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)" }}
+              style={{ color: "rgba(255,255,255,0.5)", background: "rgba(255,255,255,0.09)", border: "1px solid rgba(255,255,255,0.08)" }}
               onMouseEnter={e => (e.currentTarget.style.color = "#ffffff")}
               onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,255,255,0.5)")}
             >
@@ -522,7 +519,6 @@ function DeleteConfirm({
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         onClick={onClose}
-        style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(8px)" }}
       />
       <motion.div
         initial={{ opacity: 0, scale: 0.96, y: 8 }}
@@ -543,7 +539,7 @@ function DeleteConfirm({
           <button
             onClick={onClose}
             className="h-9 rounded-xl px-5 text-[13px]"
-            style={{ color: "rgba(255,255,255,0.5)", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)" }}
+            style={{ color: "rgba(255,255,255,0.5)", background: "rgba(255,255,255,0.09)", border: "1px solid rgba(255,255,255,0.08)" }}
           >
             Cancelar
           </button>
@@ -582,14 +578,14 @@ function Skeleton() {
   return (
     <div className="space-y-2">
       {[...Array(5)].map((_, i) => (
-        <div key={i} className="flex animate-pulse items-center gap-4 rounded-xl px-4 py-3.5" style={{ background: "rgba(255,255,255,0.03)" }}>
+        <div key={i} className="flex animate-pulse items-center gap-4 rounded-xl px-4 py-3.5" style={{ background: "rgba(255,255,255,0.06)" }}>
           <div className="h-8 w-8 rounded-full" style={{ background: "rgba(255,255,255,0.07)" }} />
           <div className="flex-1 space-y-1.5">
             <div className="h-3 w-32 rounded" style={{ background: "rgba(255,255,255,0.06)" }} />
-            <div className="h-2.5 w-48 rounded" style={{ background: "rgba(255,255,255,0.04)" }} />
+            <div className="h-2.5 w-48 rounded" style={{ background: "rgba(255,255,255,0.08)" }} />
           </div>
-          <div className="h-5 w-20 rounded-full" style={{ background: "rgba(255,255,255,0.05)" }} />
-          <div className="h-5 w-14 rounded-full" style={{ background: "rgba(255,255,255,0.04)" }} />
+          <div className="h-5 w-20 rounded-full" style={{ background: "rgba(255,255,255,0.09)" }} />
+          <div className="h-5 w-14 rounded-full" style={{ background: "rgba(255,255,255,0.08)" }} />
         </div>
       ))}
     </div>
@@ -742,7 +738,7 @@ export default function UsuariosPage() {
             placeholder="Buscar por nome ou e-mail…"
             className="h-9 w-full rounded-xl pl-9 pr-3.5 text-[13px] outline-none transition-all"
             style={{
-              background: "rgba(255,255,255,0.05)",
+              background: "rgba(255,255,255,0.09)",
               border: "1px solid rgba(255,255,255,0.08)",
               color: "#ffffff",
             }}

@@ -17,7 +17,7 @@ const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?:
   if (!active || !payload?.length) return null;
   return (
     <div className="rounded-xl border px-4 py-3 shadow-xl"
-      style={{ background: "rgba(0,0,0,0.10)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", border: "none" }}>
+      style={{ background: "rgba(0,0,0,0.72)", border: "none" }}>
       <p className="text-[#b4b4b4] text-xs mb-2 font-medium">{label}</p>
       {payload.map(p => (
         <div key={p.name} className="flex items-center gap-2 mb-1">

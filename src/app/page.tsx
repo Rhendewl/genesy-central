@@ -108,8 +108,6 @@ function ChartTooltip({ active, payload, label }: {
     <div
       style={{
         background: "rgba(0, 0, 0, 0.10)",
-        backdropFilter: "blur(20px)",
-        WebkitBackdropFilter: "blur(20px)",
         border: "none",
         borderRadius: "12px",
         padding: "11px 14px",

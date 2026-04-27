@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { getSupabaseClient } from "@/lib/supabase";
 import {
   format, subMonths, startOfMonth, endOfMonth,
-  eachDayOfInterval, parseISO,
+  eachDayOfInterval, parseISO, differenceInMonths,
 } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import type { FinancialDashboardData, ClientProfitability } from "@/types";
@@ -70,10 +70,10 @@ export function useFinanceiroDashboard(
       ]);
 
       // ── KPIs ──────────────────────────────────────────────────────────────────
-      const faturamento  = (revenues ?? []).filter(r => r.status === "pago").reduce((s: number, r: { amount: number }) => s + Number(r.amount), 0);
-      const totalDespesas = (expenses ?? []).reduce((s: number, e: { amount: number }) => s + Number(e.amount), 0);
-      const receitaTotal  = (revenues ?? []).reduce((s: number, r: { amount: number }) => s + Number(r.amount), 0);
-      const inadimplencia = (revenues ?? []).filter(r => r.status === "atrasado").reduce((s: number, r: { amount: number }) => s + Number(r.amount), 0);
+      const faturamento       = (revenues ?? []).filter(r => r.status === "pago").reduce((s: number, r: { amount: number }) => s + Number(r.amount), 0);
+      const totalDespesasDiretas = (expenses ?? []).reduce((s: number, e: { amount: number }) => s + Number(e.amount), 0);
+      const receitaTotal      = (revenues ?? []).reduce((s: number, r: { amount: number }) => s + Number(r.amount), 0);
+      const inadimplencia     = (revenues ?? []).filter(r => r.status === "atrasado").reduce((s: number, r: { amount: number }) => s + Number(r.amount), 0);
 
       const clientesAtivos  = (clients ?? []).filter(c => c.status === "ativo").length;
       const novosContratos  = (clients ?? []).filter(c =>
@@ -81,9 +81,32 @@ export function useFinanceiroDashboard(
       ).length;
       const mrr             = (clients ?? []).filter(c => c.status === "ativo").reduce((s: number, c: { monthly_fee: number }) => s + Number(c.monthly_fee), 0);
       const ticketMedio     = clientesAtivos > 0 ? mrr / clientesAtivos : 0;
-      const lucroBruto      = receitaTotal - totalDespesas;
-      const lucroLiquido    = faturamento - totalDespesas;
-      const margemGeral     = faturamento > 0 ? ((faturamento - totalDespesas) / faturamento) * 100 : 0;
+
+      // ── Commissions (cost shares) ─────────────────────────────────────────────
+      // Monthly total = sum of (monthly_fee × percentage%) for each active client's partners
+      const totalComissoesMes = (clients ?? [])
+        .filter(c => c.status === "ativo")
+        .reduce((total: number, c: { id: string; monthly_fee: number }) => {
+          const clientShares = (costShares ?? [])
+            .filter((s: { client_id: string }) => s.client_id === c.id);
+          const clientComm = clientShares.reduce(
+            (sum: number, s: { percentage: number }) => sum + (Number(c.monthly_fee) * Number(s.percentage) / 100),
+            0
+          );
+          return total + clientComm;
+        }, 0);
+
+      // ── Daily arrays (declare early — reused in commission scaling) ────────────
+      const days = eachDayOfInterval({ start: parseISO(currentStart), end: parseISO(currentEnd) });
+
+      // Scale commissions to period length (proportional to 30-day month)
+      const totalComissoesPeriodo = totalComissoesMes * (days.length / 30);
+      const comissaoPorDia        = totalComissoesMes / 30;
+
+      const totalDespesas = totalDespesasDiretas + totalComissoesPeriodo;
+      const lucroBruto    = receitaTotal - totalDespesas;
+      const lucroLiquido  = faturamento - totalDespesas;
+      const margemGeral   = faturamento > 0 ? ((faturamento - totalDespesas) / faturamento) * 100 : 0;
 
       // receita_nova / receita_perdida based on 6m history (prev calendar month vs current)
       const prevMonthStart = format(startOfMonth(subMonths(new Date(year, month - 1), 1)), "yyyy-MM-dd");
@@ -94,9 +117,6 @@ export function useFinanceiroDashboard(
       const receitaNova    = Math.max(0, faturamento - prevFaturamento);
       const receitaPerdida = Math.max(0, prevFaturamento - faturamento);
 
-      // ── Daily arrays (for hero chart when period ≤ 30d) ──────────────────────
-      const days = eachDayOfInterval({ start: parseISO(currentStart), end: parseISO(currentEnd) });
-
       const receita_diaria = days.map(d => {
         const key = format(d, "yyyy-MM-dd");
         const val = (revenues ?? [])
@@ -105,12 +125,19 @@ export function useFinanceiroDashboard(
         return { data: format(d, "dd/MM", { locale: ptBR }), valor: val };
       });
 
-      const despesa_diaria = days.map(d => {
+      // commissions spread evenly per day
+      const comissao_diaria = days.map(d => ({
+        data: format(d, "dd/MM", { locale: ptBR }),
+        valor: comissaoPorDia,
+      }));
+
+      // direct expenses + daily commission slice
+      const despesa_diaria = days.map((d, i) => {
         const key = format(d, "yyyy-MM-dd");
-        const val = (expenses ?? [])
+        const direct = (expenses ?? [])
           .filter((e: { date: string }) => e.date === key)
           .reduce((s: number, e: { amount: number }) => s + Number(e.amount), 0);
-        return { data: format(d, "dd/MM", { locale: ptBR }), valor: val };
+        return { data: format(d, "dd/MM", { locale: ptBR }), valor: direct + (comissao_diaria[i]?.valor ?? 0) };
       });
 
       const lucro_diario = receita_diaria.map((r, i) => ({
@@ -125,9 +152,10 @@ export function useFinanceiroDashboard(
       });
 
       const receitaVsDespesa = meses6.map(({ key, label }) => {
-        const rec  = (allRevenues6m ?? []).filter((r: { date: string; status: string }) => r.date.startsWith(key) && r.status === "pago").reduce((s: number, r: { amount: number }) => s + Number(r.amount), 0);
-        const desp = (allExpenses6m ?? []).filter((e: { date: string }) => e.date.startsWith(key)).reduce((s: number, e: { amount: number }) => s + Number(e.amount), 0);
-        return { mes: label, receita: rec, despesa: desp };
+        const rec       = (allRevenues6m ?? []).filter((r: { date: string; status: string }) => r.date.startsWith(key) && r.status === "pago").reduce((s: number, r: { amount: number }) => s + Number(r.amount), 0);
+        const despDirect = (allExpenses6m ?? []).filter((e: { date: string }) => e.date.startsWith(key)).reduce((s: number, e: { amount: number }) => s + Number(e.amount), 0);
+        const comissao  = totalComissoesMes;
+        return { mes: label, receita: rec, despesa: despDirect + comissao, comissao };
       });
 
       const evolucaoLucro  = receitaVsDespesa.map(({ mes, receita, despesa }) => ({ mes, lucro: receita - despesa }));
@@ -137,22 +165,37 @@ export function useFinanceiroDashboard(
       }));
 
       // ── Client profitability ──────────────────────────────────────────────────
+      const today = new Date();
       const profitability: ClientProfitability[] = (clients ?? [])
         .filter(c => c.status === "ativo")
         .map(c => {
-          const custosExpenses  = (c.expenses ?? []).filter((e: { date: string }) => e.date >= currentStart && e.date <= currentEnd).reduce((s: number, e: { amount: number }) => s + Number(e.amount), 0);
+          const mensalidade = Number(c.monthly_fee);
+
+          // Direct expenses linked to this client in the period
+          const custosExpenses = (c.expenses ?? [])
+            .filter((e: { date: string }) => e.date >= currentStart && e.date <= currentEnd)
+            .reduce((s: number, e: { amount: number }) => s + Number(e.amount), 0);
+
+          // Partner/commission costs based on monthly_fee percentage
           const custosParceiros = (costShares ?? [])
             .filter((s: { client_id: string }) => s.client_id === c.id)
-            .reduce((sum: number, s: { percentage: number }) => sum + (Number(c.monthly_fee) * Number(s.percentage) / 100), 0);
-          const custoTotal      = custosExpenses + custosParceiros;
-          const receitasCliente = (c.revenues ?? []).filter((r: { date: string; status: string }) => r.date >= currentStart && r.date <= currentEnd && r.status === "pago").reduce((s: number, r: { amount: number }) => s + Number(r.amount), 0);
-          const lucro   = receitasCliente - custoTotal;
-          const margem  = receitasCliente > 0 ? (lucro / receitasCliente) * 100 : 0;
-          const contractStart = c.contract_start ? new Date(c.contract_start) : new Date(c.created_at);
-          const tempoMeses = Math.max(1, Math.round((new Date(currentEnd).getTime() - contractStart.getTime()) / (1000 * 60 * 60 * 24 * 30)));
+            .reduce((sum: number, s: { percentage: number }) => sum + (mensalidade * Number(s.percentage) / 100), 0);
+
+          const custoTotal = custosExpenses + custosParceiros;
+
+          // Lucro and margem use monthly_fee as revenue base (not revenues table entries,
+          // which may be absent even when the client is active and paying their monthly fee).
+          const lucro  = mensalidade - custoTotal;
+          const margem = mensalidade > 0 ? (lucro / mensalidade) * 100 : 0;
+
+          // Contract duration: active clients use today; encerrados use contract_end.
+          const contractStart = c.contract_start ? parseISO(c.contract_start) : parseISO(c.created_at);
+          const endRef = c.contract_end ? parseISO(c.contract_end) : today;
+          const tempoMeses = Math.max(0, differenceInMonths(endRef, contractStart));
+
           return {
             client: c,
-            mensalidade: Number(c.monthly_fee),
+            mensalidade,
             custo_total: custoTotal,
             custo_midia: 0,
             outros_custos: custosExpenses,
@@ -171,12 +214,13 @@ export function useFinanceiroDashboard(
         caixa_disponivel: lucroLiquido,
         clientes_ativos: clientesAtivos, novos_contratos: novosContratos,
         ticket_medio: ticketMedio, total_despesas: totalDespesas,
+        total_comissoes: totalComissoesPeriodo,
         inadimplencia, margem_geral: margemGeral,
         receita_vs_despesa: receitaVsDespesa,
         evolucao_lucro: evolucaoLucro,
         crescimento_mrr: crescimentoMrr,
         fluxo_mensal: fluxoMensal,
-        receita_diaria, despesa_diaria, lucro_diario,
+        receita_diaria, despesa_diaria, comissao_diaria, lucro_diario,
       });
 
       setClientProfitability(profitability);

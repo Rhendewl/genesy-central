@@ -613,14 +613,14 @@ export function MetaLeadsManager() {
             onClick={refetch}
             disabled={isLoadingPages}
             className="w-9 h-9 flex items-center justify-center rounded-xl text-[#6b8fa8] hover:text-white transition-all"
-            style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)" }}
+            style={{ background: "rgba(255,255,255,0.09)", border: "1px solid rgba(255,255,255,0.08)" }}
           >
             <RefreshCw size={14} className={isLoadingPages ? "animate-spin" : ""} />
           </button>
           <button
             onClick={() => router.push("/crm/integracoes")}
             className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all hover:scale-[1.02] active:scale-95"
-            style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#8ba5bb" }}
+            style={{ background: "rgba(255,255,255,0.09)", border: "1px solid rgba(255,255,255,0.1)", color: "#8ba5bb" }}
           >
             <ArrowLeft size={14} />
             Voltar

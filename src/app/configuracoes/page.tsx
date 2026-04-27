@@ -41,8 +41,9 @@ function SettingsCard({
       whileHover="hover"
       className="group relative flex flex-col gap-5 rounded-2xl p-6 cursor-pointer overflow-hidden"
       style={{
-        background: "rgba(255,255,255,0.03)",
-        border: "none",
+        background: "rgba(0,0,0,0.52)",
+        border: "1px solid rgba(255,255,255,0.08)",
+        boxShadow: "0 4px 32px rgba(0,0,0,0.40), inset 0 1px 0 rgba(255,255,255,0.05)",
       }}
     >
       {/* Glow layer */}

@@ -92,7 +92,7 @@ function GoalModal({ goal, clients, onSave, onClose, year, month }: GoalModalPro
   };
 
   const inputClass = "w-full rounded-lg px-3 py-2 text-sm text-[#d0e8ff] outline-none placeholder-[#3d5a70]";
-  const inputStyle = { background: "rgba(255,255,255,0.05)", border: "1px solid rgba(42,82,128,0.4)" };
+  const inputStyle = { background: "rgba(255,255,255,0.09)", border: "1px solid rgba(42,82,128,0.4)" };
   const labelClass = "block text-xs font-medium text-[#b4b4b4] mb-1";
 
   return (
@@ -189,7 +189,7 @@ function GoalModal({ goal, clients, onSave, onClose, year, month }: GoalModalPro
             <button
               type="button" onClick={onClose}
               className="flex-1 py-2 rounded-xl text-sm font-medium text-[#b4b4b4] transition-colors"
-              style={{ background: "rgba(255,255,255,0.05)", border: "none" }}
+              style={{ background: "rgba(255,255,255,0.09)", border: "none" }}
             >
               Cancelar
             </button>
@@ -292,7 +292,7 @@ function GoalCard({ goal, clientName, actual, onEdit, onDelete, delay = 0 }: Goa
           <button
             onClick={onEdit}
             className="p-1.5 rounded-lg text-[#4a8fd4] transition-colors"
-            style={{ background: "rgba(255,255,255,0.05)" }}
+            style={{ background: "rgba(255,255,255,0.09)" }}
           >
             <Edit3 size={13} />
           </button>
@@ -436,7 +436,7 @@ export function MetasTrafego({ year, month }: MetasTrafegoProps) {
           <div className="flex flex-col items-center justify-center py-20 gap-4">
             <div
               className="w-16 h-16 rounded-2xl flex items-center justify-center"
-              style={{ background: "rgba(255,255,255,0.05)", border: "none" }}
+              style={{ background: "rgba(255,255,255,0.09)", border: "none" }}
             >
               <Target size={28} className="text-[#4a8fd4]" />
             </div>
@@ -496,7 +496,7 @@ export function MetasTrafego({ year, month }: MetasTrafegoProps) {
                 <button
                   onClick={() => setConfirmDelete(null)}
                   className="flex-1 py-2 rounded-xl text-sm text-[#b4b4b4]"
-                  style={{ background: "rgba(255,255,255,0.05)", border: "none" }}
+                  style={{ background: "rgba(255,255,255,0.09)", border: "none" }}
                 >
                   Cancelar
                 </button>

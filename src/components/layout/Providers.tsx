@@ -28,7 +28,6 @@ export function Providers({ children }: { children: React.ReactNode }) {
             background: "rgba(18,18,18,0.95)",
             border: "1px solid rgba(255,255,255,0.1)",
             color: "#ffffff",
-            backdropFilter: "blur(12px)",
           },
         }}
       />

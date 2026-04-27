@@ -58,11 +58,9 @@ export function LeadCard({ lead, isDragOverlay = false, onEdit }: LeadCardProps)
         isDragOverlay && "cursor-grabbing"
       )}
       style={{
-        background: "linear-gradient(to right, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.02) 100%)",
         boxShadow: isDragOverlay
-          ? "0 28px 64px var(--shadow-lg), 0 0 0 1px var(--border-card-drag)"
-          : "0 2px 14px var(--shadow-sm)",
-        // Obrigatório para dnd-kit funcionar corretamente no mobile
+          ? "0 28px 64px rgba(0,0,0,0.65), 0 0 0 1px rgba(255,255,255,0.12)"
+          : undefined,
         touchAction: "none",
       }}
     >

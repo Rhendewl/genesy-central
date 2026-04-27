@@ -185,8 +185,6 @@ export function LeadModal({
             transition={{ duration: 0.22 }}
             className="fixed inset-0 z-40"
             style={{
-              backdropFilter: "blur(12px)",
-              WebkitBackdropFilter: "blur(12px)",
               background: "transparent",
             }}
             onClick={onClose}
@@ -201,8 +199,6 @@ export function LeadModal({
               transition={{ type: "spring", stiffness: 420, damping: 34 }}
               className="pointer-events-auto w-full max-w-md rounded-3xl"
               style={{
-                backdropFilter: "blur(32px)",
-                WebkitBackdropFilter: "blur(32px)",
                 background: "rgba(0, 0, 0, 0.10)",
                 border: "none",
                 boxShadow: "none",

@@ -116,8 +116,6 @@ function AccountPickerModal({
         className="relative w-full sm:max-w-lg z-10 flex flex-col rounded-t-2xl sm:rounded-2xl overflow-hidden"
         style={{
           background: "rgba(12,12,14,0.07)",
-          backdropFilter: "blur(24px)",
-          WebkitBackdropFilter: "blur(24px)",
           border: "none",
           maxHeight: "90dvh",
         }}
@@ -146,7 +144,7 @@ function AccountPickerModal({
                 onChange={e => setSearch(e.target.value)}
                 placeholder="Buscar conta por nome ou ID…"
                 className="w-full pl-9 pr-3 py-2.5 rounded-xl text-sm text-white placeholder-[#5a5a5a] outline-none transition-colors"
-                style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)" }}
+                style={{ background: "rgba(255,255,255,0.09)", border: "1px solid rgba(255,255,255,0.08)" }}
               />
               <svg
                 className="absolute left-3 top-1/2 -translate-y-1/2 text-[#5a5a5a]"
@@ -300,7 +298,7 @@ function AccountPickerModal({
                       onChange={e => setClientId(e.target.value)}
                       className="w-full appearance-none px-3 py-2.5 rounded-xl text-sm text-white outline-none pr-8 transition-colors"
                       style={{
-                        background: "rgba(255,255,255,0.05)",
+                        background: "rgba(255,255,255,0.09)",
                         border: "1px solid rgba(255,255,255,0.08)",
                       }}
                     >
@@ -346,7 +344,7 @@ function AccountPickerModal({
                 onClick={onClose}
                 disabled={saving}
                 className="flex-1 py-2.5 rounded-xl text-sm font-medium text-[#b4b4b4] hover:text-white transition-colors"
-                style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)" }}
+                style={{ background: "rgba(255,255,255,0.09)", border: "1px solid rgba(255,255,255,0.08)" }}
               >
                 Cancelar
               </button>
@@ -402,7 +400,7 @@ function MetaAccountRow({
       transition={{ duration: 0.2, delay: index * 0.04 }}
       className="rounded-xl p-4"
       style={{
-        background: "rgba(255,255,255,0.03)",
+        background: "rgba(255,255,255,0.06)",
         border: hasError
           ? "1px solid rgba(239,68,68,0.20)"
           : "1px solid rgba(255,255,255,0.07)",

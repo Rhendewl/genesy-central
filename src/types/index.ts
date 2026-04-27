@@ -437,15 +437,17 @@ export interface FinancialDashboardData {
   novos_contratos: number;
   ticket_medio: number;
   total_despesas: number;
+  total_comissoes: number;
   inadimplencia: number;
   margem_geral: number;
-  receita_vs_despesa: Array<{ mes: string; receita: number; despesa: number }>;
+  receita_vs_despesa: Array<{ mes: string; receita: number; despesa: number; comissao: number }>;
   evolucao_lucro: Array<{ mes: string; lucro: number }>;
   crescimento_mrr: Array<{ mes: string; mrr: number }>;
   fluxo_mensal: Array<{ mes: string; entradas: number; saidas: number; saldo: number }>;
   // Daily arrays for hero chart (populated when since/until date range is provided)
   receita_diaria: Array<{ data: string; valor: number }>;
   despesa_diaria: Array<{ data: string; valor: number }>;
+  comissao_diaria: Array<{ data: string; valor: number }>;
   lucro_diario: Array<{ data: string; valor: number }>;
 }
 
@@ -725,3 +727,25 @@ export interface FinancialAlert {
   client_name?: string;
   value?: number;
 }
+
+// ── NPS ───────────────────────────────────────────────────────────────────────
+
+export type NpsChannel = "manual" | "formulario" | "whatsapp" | "outro";
+export type NpsClassification = "promotor" | "neutro" | "detrator";
+
+export interface NpsRecord {
+  id: string;
+  user_id: string;
+  client_id: string;
+  reference_month: string; // YYYY-MM
+  score: number;           // 0–10
+  comment: string | null;
+  channel: NpsChannel;
+  responsible: string | null;
+  created_at: string;
+  updated_at: string;
+  client?: AgencyClient;
+}
+
+export type NewNpsRecord = Omit<NpsRecord, "id" | "user_id" | "created_at" | "updated_at" | "client">;
+export type UpdateNpsRecord = Partial<NewNpsRecord>;

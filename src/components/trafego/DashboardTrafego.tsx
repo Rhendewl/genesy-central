@@ -121,7 +121,7 @@ function PeriodSelector({
 }) {
   return (
     <div className="flex items-center gap-0.5 p-0.5 rounded-lg"
-      style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.07)" }}>
+      style={{ background: "rgba(255,255,255,0.09)", border: "1px solid rgba(255,255,255,0.07)" }}>
       {PERIODS.map(p => (
         <button key={p.key} onClick={() => onChange(p.key)}
           className={cn(
@@ -233,8 +233,6 @@ const CustomTooltip = ({
     <div className="rounded-xl px-4 py-3 text-sm shadow-2xl"
       style={{
         background: "rgba(10,12,22,0.92)",
-        backdropFilter: "blur(20px)",
-        WebkitBackdropFilter: "blur(20px)",
         border: "1px solid rgba(255,255,255,0.08)",
       }}>
       <p className="text-[#7a7a8a] text-[11px] mb-2 font-medium">{label}</p>
@@ -395,7 +393,7 @@ function FunnelStep({
         {/* Outer track */}
         <div className="relative h-12 rounded-xl overflow-hidden"
           style={{
-            background: "rgba(255,255,255,0.025)",
+            background: "rgba(255,255,255,0.06)",
             border: "1px solid rgba(255,255,255,0.06)",
           }}>
           {/* Animated fill */}
@@ -440,7 +438,7 @@ function FunnelStep({
         >
           <div className="flex flex-col gap-0.5">
             <div className="w-px h-2 rounded-full" style={{ background: "rgba(255,255,255,0.08)" }} />
-            <div className="w-px h-2 rounded-full" style={{ background: "rgba(255,255,255,0.04)" }} />
+            <div className="w-px h-2 rounded-full" style={{ background: "rgba(255,255,255,0.08)" }} />
           </div>
           <span className="text-[10px] font-medium" style={{ color: micro.color }}>
             {micro.text}
@@ -853,7 +851,7 @@ function InsightsBlock({ data }: { data: Parameters<typeof useInsights>[0] }) {
       {insights.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-8 gap-2">
           <div className="w-10 h-10 rounded-xl flex items-center justify-center"
-            style={{ background: "rgba(255,255,255,0.04)" }}>
+            style={{ background: "rgba(255,255,255,0.08)" }}>
             <Activity size={18} style={{ color: "#3a3a4a" }} />
           </div>
           <p className="text-sm" style={{ color: "#5a5a6a" }}>Sem dados suficientes para insights</p>
@@ -953,7 +951,7 @@ function SecondaryMetrics({ data }: {
                 <div key={item.label}
                   className="rounded-xl p-3.5"
                   style={{
-                    background: "rgba(255,255,255,0.03)",
+                    background: "rgba(255,255,255,0.06)",
                     border: "1px solid rgba(255,255,255,0.06)",
                   }}>
                   <div className="flex items-center gap-1.5 mb-1.5" style={{ color: item.color }}>

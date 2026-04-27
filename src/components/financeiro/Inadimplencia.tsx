@@ -81,8 +81,7 @@ function ContactModal({ collectionId, clientName, amount, phone, onClose, onUpda
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.95 }}
-        className="relative w-full max-w-md rounded-2xl border shadow-2xl p-6 space-y-4"
-        style={{ background: "rgba(0,0,0,0.10)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", border: "none" }}
+        className="lc-modal-panel relative w-full max-w-md rounded-2xl p-6 space-y-4"
         onClick={e => e.stopPropagation()}
       >
         <div className="flex items-center justify-between">

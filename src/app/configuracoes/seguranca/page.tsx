@@ -87,13 +87,13 @@ const sectionStyle = {
 };
 
 const inputBase = {
-  background: "rgba(255,255,255,0.05)",
+  background: "rgba(255,255,255,0.09)",
   border:     "1px solid rgba(255,255,255,0.08)",
   color:      "#ffffff",
 };
 
 const focusStyle  = { borderColor: "rgba(167,139,250,0.45)", background: "rgba(255,255,255,0.07)" };
-const blurStyle   = { borderColor: "rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.05)" };
+const blurStyle   = { borderColor: "rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.09)" };
 
 // ─────────────────────────────────────────────────────────────────────────────
 // StatCard
@@ -264,7 +264,7 @@ function SessionRow({
       onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.02)")}
       onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
     >
-      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl" style={{ background: "rgba(255,255,255,0.05)" }}>
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl" style={{ background: "rgba(255,255,255,0.09)" }}>
         <DeviceIcon size={16} style={{ color: "rgba(255,255,255,0.5)" }} strokeWidth={1.5} />
       </div>
 
@@ -313,7 +313,7 @@ function Skeleton({ rows = 3 }: { rows?: number }) {
           <div className="h-9 w-9 rounded-xl" style={{ background: "rgba(255,255,255,0.06)" }} />
           <div className="flex-1 space-y-1.5">
             <div className="h-3 w-40 rounded" style={{ background: "rgba(255,255,255,0.06)" }} />
-            <div className="h-2.5 w-56 rounded" style={{ background: "rgba(255,255,255,0.04)" }} />
+            <div className="h-2.5 w-56 rounded" style={{ background: "rgba(255,255,255,0.08)" }} />
           </div>
         </div>
       ))}

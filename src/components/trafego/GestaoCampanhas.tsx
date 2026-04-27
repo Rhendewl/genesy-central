@@ -10,7 +10,7 @@ import {
 } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
-  Plus, Edit2, Trash2, X, Search, Filter, BarChart2,
+  Edit2, Trash2, X, Search, Filter, BarChart2,
   Play, Pause, CheckCircle2, AlertTriangle, Clock, RefreshCw,
   Calendar, ChevronLeft, ChevronRight, ChevronDown,
   ArrowUpDown, ArrowUp, ArrowDown,
@@ -278,8 +278,6 @@ function PeriodPicker({ since, until, label, onApply }: PeriodPickerProps) {
               className="relative w-full max-w-[520px] rounded-2xl overflow-hidden"
               style={{
                 background: "rgba(0,0,0,0.07)",
-                backdropFilter: "blur(18px) saturate(160%)",
-                WebkitBackdropFilter: "blur(18px) saturate(160%)",
                 border: "1px solid rgba(255,255,255,0.10)",
                 boxShadow: "0 24px 64px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.08)",
               }}
@@ -548,8 +546,7 @@ function CampaignModal({ campaign, clients, onClose, onSave }: CampaignModalProp
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.95 }}
-        className="relative w-full max-w-lg rounded-2xl shadow-2xl p-6 space-y-3 max-h-[90vh] overflow-y-auto"
-        style={{ background: "rgba(0,0,0,0.10)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", border: "none" }}
+        className="lc-modal-panel relative w-full max-w-lg rounded-2xl p-6 space-y-3 max-h-[90vh] overflow-y-auto"
         onClick={e => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-1">
@@ -678,8 +675,7 @@ function MetricsModal({ campaign, onClose, onSave }: MetricsModalProps) {
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.95 }}
-        className="relative w-full max-w-lg rounded-2xl shadow-2xl p-6 space-y-4 max-h-[90vh] overflow-y-auto"
-        style={{ background: "rgba(0,0,0,0.10)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", border: "none" }}
+        className="lc-modal-panel relative w-full max-w-lg rounded-2xl p-6 space-y-4 max-h-[90vh] overflow-y-auto"
         onClick={e => e.stopPropagation()}
       >
         <div className="flex items-center justify-between">
@@ -953,8 +949,7 @@ export function GestaoCampanhas({ platformAccountId }: Props) {
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder="Buscar campanha..."
-              className="rounded-xl bg-white/5 pl-8 pr-3 py-2 text-sm text-white outline-none placeholder:text-[#b4b4b4]/50 w-52"
-              style={{ border: "none" }}
+              className="lc-filter-control rounded-xl pl-8 pr-3 py-2 text-sm outline-none w-52"
             />
           </div>
 
@@ -964,8 +959,7 @@ export function GestaoCampanhas({ platformAccountId }: Props) {
             <select
               value={filterStatus}
               onChange={e => setFilterStatus(e.target.value as CampaignStatus | "todos")}
-              className="rounded-xl bg-white/5 pl-8 pr-3 py-2 text-sm text-white outline-none appearance-none"
-              style={{ border: "none" }}
+              className="lc-filter-control rounded-xl pl-8 pr-3 py-2 text-sm outline-none appearance-none"
             >
               <option value="todos">Status</option>
               {Object.entries(STATUS_CONFIG).map(([k, v]) => (
@@ -980,8 +974,7 @@ export function GestaoCampanhas({ platformAccountId }: Props) {
             <select
               value={filterPlatform}
               onChange={e => setFilterPlatform(e.target.value as CampaignPlatform | "todos")}
-              className="rounded-xl bg-white/5 pl-8 pr-3 py-2 text-sm text-white outline-none appearance-none"
-              style={{ border: "none" }}
+              className="lc-filter-control rounded-xl pl-8 pr-3 py-2 text-sm outline-none appearance-none"
             >
               <option value="todos">Plataforma</option>
               {Object.entries(PLATFORM_CONFIG).map(([k, v]) => (
@@ -1007,12 +1000,6 @@ export function GestaoCampanhas({ platformAccountId }: Props) {
               {syncing ? "Sincronizando…" : "Sync Meta"}
             </button>
           )}
-          <PrimaryButton
-            onClick={() => setCampaignModal({ open: true })}
-            className="flex items-center gap-2 px-4 py-2 text-sm"
-          >
-            <Plus size={15} /> Nova Campanha
-          </PrimaryButton>
         </div>
       </div>
 

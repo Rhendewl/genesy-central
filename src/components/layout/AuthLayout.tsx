@@ -44,7 +44,7 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <>
-      <main className={isAuthenticated ? "min-h-dvh pb-28" : "min-h-dvh"}>
+      <main className={isAuthenticated ? "min-h-dvh pb-28 lg:pb-0 lg:pl-[80px]" : "min-h-dvh"}>
         {children}
       </main>
 
