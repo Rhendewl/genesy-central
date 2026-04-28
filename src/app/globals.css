@@ -291,6 +291,22 @@
       inset 0 1px 0 rgba(255, 255, 255, 0.08);
   }
 
+  /* ── Portal card — glass real, background 7% preto ── */
+  .lc-portal-card {
+    background: rgba(0, 0, 0, 0.07);
+    backdrop-filter: blur(28px) saturate(180%);
+    -webkit-backdrop-filter: blur(28px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow:
+      0 4px 24px rgba(0, 0, 0, 0.25),
+      inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    transition: border-color 0.25s ease, background 0.25s ease;
+  }
+  .lc-portal-card:hover {
+    background: rgba(0, 0, 0, 0.12);
+    border-color: rgba(255, 255, 255, 0.13);
+  }
+
   /* ── Shadcn Card override ── */
   .lc-card-base {
     background: rgba(0, 0, 0, 0.52);

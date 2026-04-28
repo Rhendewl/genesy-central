@@ -8,14 +8,14 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
 } from "recharts";
 import {
-  Globe, Download, ChevronDown, Filter, TrendingUp, Users,
+  Download, ChevronDown, Filter, TrendingUp, Users,
   DollarSign, Eye, MousePointer, BarChart2, Loader2, AlertTriangle,
   CalendarDays, Check,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format, startOfMonth, endOfMonth, subDays, subMonths } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import type { PortalPublicData } from "@/types";
+import type { PortalPublicData, PortalCampaignSummary } from "@/types";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -99,7 +99,7 @@ function KpiCard({
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className="lc-card rounded-2xl p-4"
+      className="lc-portal-card rounded-2xl p-4"
       style={{ cursor: "default" }}
     >
       <div className="flex items-start justify-between mb-3">
@@ -145,13 +145,13 @@ function FilterSelect({
       <AnimatePresence>
         {open && (
           <>
-            <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
+            <div className="fixed inset-0 z-[9998]" onClick={() => setOpen(false)} />
             <motion.div
               initial={{ opacity: 0, y: -4 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -4 }}
               transition={{ duration: 0.12 }}
-              className="absolute left-0 right-0 top-full mt-1.5 z-20 rounded-xl overflow-hidden shadow-2xl"
+              className="absolute left-0 right-0 top-full mt-1.5 z-[9999] rounded-xl overflow-hidden shadow-2xl"
               style={{ background: "rgba(8,10,18,0.97)", border: "1px solid rgba(255,255,255,0.10)" }}
             >
               <div className="py-1 max-h-56 overflow-y-auto">
@@ -246,7 +246,7 @@ export function PortalPublicDashboard({ slug }: Props) {
 
   if (!loading && error) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: "#000" }}>
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: "#060606" }}>
         <div className="text-center">
           <div
             className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-6"
@@ -283,46 +283,61 @@ export function PortalPublicDashboard({ slug }: Props) {
   return (
     <div
       className="min-h-screen"
-      style={{ background: "linear-gradient(135deg, #000000 0%, #060810 50%, #000000 100%)" }}
+      style={{ backgroundColor: "#060606" }}
     >
-      {/* Bg texture */}
+      {/* Background exato do portal */}
       <div
         className="fixed inset-0 pointer-events-none"
         style={{
-          backgroundImage: "radial-gradient(ellipse 80% 60% at 50% 0%, rgba(39,163,255,0.06) 0%, transparent 60%)",
+          backgroundImage: "url('/bg-portal.webp')",
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          backgroundRepeat: "no-repeat",
+          opacity: 0.5,
           zIndex: 0,
         }}
       />
 
       {/* ── Header ────────────────────────────────────────────────────── */}
       <header
-        className="relative z-10 sticky top-0"
+        className="relative z-50 sticky top-0"
         style={{
-          background: "rgba(0,0,0,0.72)",
-          backdropFilter: "blur(24px) saturate(160%)",
-          borderBottom: "1px solid rgba(255,255,255,0.07)",
+          background: "rgba(0,0,0,0.12)",
+          backdropFilter: "blur(32px) saturate(200%)",
+          WebkitBackdropFilter: "blur(32px) saturate(200%)",
+          borderBottom: "1px solid rgba(255,255,255,0.09)",
+          boxShadow: "0 1px 0 rgba(255,255,255,0.04), 0 4px 24px rgba(0,0,0,0.2)",
         }}
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div
-              className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
-              style={{ background: "rgba(39,163,255,0.12)", border: "1px solid rgba(39,163,255,0.22)" }}
-            >
-              <Globe size={17} style={{ color: "#27a3ff" }} strokeWidth={1.8} />
-            </div>
-            <div>
-              {loading ? (
-                <div className="h-4 w-40 rounded-lg bg-white/[0.06] animate-pulse" />
-              ) : (
-                <h1 className="text-white font-semibold text-sm leading-tight">
-                  {data?.portal.name ?? "Dashboard"}
-                </h1>
-              )}
-              {data?.portal.client_name && (
-                <p className="text-white/40 text-xs mt-0.5">{data.portal.client_name}</p>
-              )}
-            </div>
+          <div className="flex items-center gap-4 min-w-0">
+            {/* Logomarca */}
+            <img
+              src="/genesy-logoname.svg"
+              alt="Genesy"
+              className="h-5 sm:h-6 w-auto shrink-0"
+              style={{ filter: "brightness(0) invert(1)" }}
+            />
+
+            {/* Separador + cliente */}
+            {!loading && (
+              <>
+                <div className="w-px h-5 shrink-0" style={{ background: "rgba(255,255,255,0.18)" }} />
+                {loading ? (
+                  <div className="h-4 w-28 rounded-lg bg-white/[0.06] animate-pulse" />
+                ) : (
+                  <span
+                    className="text-white/65 text-xs sm:text-sm font-light tracking-[0.18em] uppercase truncate"
+                  >
+                    {data?.portal.client_name ?? data?.portal.name ?? ""}
+                  </span>
+                )}
+              </>
+            )}
+
+            {loading && (
+              <div className="h-4 w-28 rounded-lg bg-white/[0.06] animate-pulse" />
+            )}
           </div>
 
           <button
@@ -424,7 +439,7 @@ export function PortalPublicDashboard({ slug }: Props) {
             {/* ── Chart Row 1: Performance + Funil ─────────────────── */}
             <section className="grid grid-cols-1 lg:grid-cols-3 gap-4">
               {/* Performance no tempo */}
-              <div className="lg:col-span-2 lc-card rounded-2xl p-5">
+              <div className="lg:col-span-2 lc-portal-card rounded-2xl p-5">
                 <h3 className="text-white font-semibold text-sm mb-4">Performance no tempo</h3>
                 {data?.daily && data.daily.length > 0 ? (
                   <ResponsiveContainer width="100%" height={240}>
@@ -450,7 +465,7 @@ export function PortalPublicDashboard({ slug }: Props) {
               </div>
 
               {/* Funil */}
-              <div className="lc-card rounded-2xl p-5">
+              <div className="lc-portal-card rounded-2xl p-5">
                 <h3 className="text-white font-semibold text-sm mb-4">Funil</h3>
                 <div className="space-y-2">
                   {funnelData.map((item, i) => {
@@ -481,9 +496,17 @@ export function PortalPublicDashboard({ slug }: Props) {
               </div>
             </section>
 
+            {/* ── Distribuição de leads por campanha ───────────────── */}
+            {campaigns.length > 0 && (
+              <section className="lc-portal-card rounded-2xl p-5">
+                <h3 className="text-white font-semibold text-sm mb-5">Distribuição por campanha</h3>
+                <DonutCampaignChart campaigns={campaigns} />
+              </section>
+            )}
+
             {/* ── Chart Row 2: Campanhas ranking ────────────────────── */}
             {topCampaigns.length > 0 && (
-              <section className="lc-card rounded-2xl p-5">
+              <section className="lc-portal-card rounded-2xl p-5">
                 <h3 className="text-white font-semibold text-sm mb-4">Ranking de campanhas</h3>
                 <ResponsiveContainer width="100%" height={Math.max(180, topCampaigns.length * 38)}>
                   <BarChart
@@ -514,11 +537,11 @@ export function PortalPublicDashboard({ slug }: Props) {
             <section>
               <h3 className="text-white font-semibold text-sm mb-3">Detalhamento de campanhas</h3>
               {campaigns.length === 0 ? (
-                <div className="lc-card rounded-2xl p-8 text-center">
+                <div className="lc-portal-card rounded-2xl p-8 text-center">
                   <p className="text-white/40 text-sm">Nenhuma campanha encontrada no período.</p>
                 </div>
               ) : (
-                <div className="lc-card rounded-2xl overflow-hidden" style={{ padding: 0 }}>
+                <div className="lc-portal-card rounded-2xl overflow-hidden" style={{ padding: 0 }}>
                   <div className="overflow-x-auto">
                     <table className="w-full">
                       <thead>
@@ -584,7 +607,7 @@ export function PortalPublicDashboard({ slug }: Props) {
       <style jsx global>{`
         @media print {
           body { background: #fff !important; color: #111 !important; }
-          .lc-card, .lc-modal-panel {
+          .lc-portal-card, .lc-modal-panel {
             background: #f8f8f8 !important;
             border: 1px solid #e5e7eb !important;
             box-shadow: none !important;
@@ -596,6 +619,82 @@ export function PortalPublicDashboard({ slug }: Props) {
           .text-white\\/40, .text-white\\/50, .text-white\\/60, .text-white\\/30 { color: #555 !important; }
         }
       `}</style>
+    </div>
+  );
+}
+
+const DONUT_COLORS = ["#27a3ff", "#22c55e", "#f59e0b", "#a78bfa", "#fb923c", "#38bdf8", "#6b7280"];
+
+function DonutCampaignChart({ campaigns }: { campaigns: PortalCampaignSummary[] }) {
+  const metric = (c: PortalCampaignSummary) => c.leads || c.cliques || c.impressoes || 0;
+  const sorted = [...campaigns].sort((a, b) => metric(b) - metric(a));
+  const total = sorted.reduce((sum, c) => sum + metric(c), 0);
+
+  if (total === 0) return <EmptyChart label="Sem dados para distribuição" />;
+
+  const top = sorted.slice(0, 5);
+  const othersTotal = sorted.slice(5).reduce((sum, c) => sum + metric(c), 0);
+
+  const chartData: { name: string; value: number }[] = top.map(c => ({
+    name: c.nome.length > 26 ? c.nome.slice(0, 26) + "…" : c.nome,
+    value: metric(c),
+  }));
+  if (othersTotal > 0) chartData.push({ name: "Outras campanhas", value: othersTotal });
+
+  const metricLabel = sorted[0]?.leads > 0 ? "leads" : sorted[0]?.cliques > 0 ? "cliques" : "impressões";
+
+  return (
+    <div className="flex flex-col sm:flex-row items-center gap-6">
+      <div className="shrink-0">
+        <ResponsiveContainer width={180} height={180}>
+          <PieChart>
+            <Pie
+              data={chartData}
+              cx="50%"
+              cy="50%"
+              innerRadius={54}
+              outerRadius={82}
+              paddingAngle={2}
+              dataKey="value"
+            >
+              {chartData.map((_, i) => (
+                <Cell key={i} fill={DONUT_COLORS[i % DONUT_COLORS.length]} />
+              ))}
+            </Pie>
+            <Tooltip
+              formatter={(value) => [fmtNum(Number(value)), metricLabel]}
+              contentStyle={{
+                background: "rgba(0,0,0,0.85)",
+                border: "1px solid rgba(255,255,255,0.09)",
+                borderRadius: 10,
+                fontSize: 12,
+              }}
+              labelStyle={{ color: "rgba(255,255,255,0.5)" }}
+              itemStyle={{ color: "#fff" }}
+            />
+          </PieChart>
+        </ResponsiveContainer>
+      </div>
+
+      <div className="flex-1 space-y-2.5 min-w-0">
+        {chartData.map((entry, i) => {
+          const pct = ((entry.value / total) * 100).toFixed(1);
+          return (
+            <div key={i} className="flex items-center gap-2.5">
+              <div
+                className="w-2.5 h-2.5 rounded-full shrink-0"
+                style={{ background: DONUT_COLORS[i % DONUT_COLORS.length] }}
+              />
+              <span className="text-white/55 text-xs flex-1 min-w-0 truncate">{entry.name}</span>
+              <span className="text-white/35 text-xs shrink-0 tabular-nums">{fmtNum(entry.value)}</span>
+              <span className="text-white text-xs font-semibold shrink-0 w-10 text-right tabular-nums">
+                {pct}%
+              </span>
+            </div>
+          );
+        })}
+        <p className="text-white/20 text-xs pt-1">Distribuição por {metricLabel}</p>
+      </div>
     </div>
   );
 }
