@@ -51,7 +51,7 @@ function emptyForm() {
   return {
     name: "",
     contact: "",
-    kanban_column: "abordados" as KanbanColumn,
+    kanban_column: "novo_lead" as KanbanColumn,
     tags: [] as string[],
     notes: "",
     entered_at: TODAY,

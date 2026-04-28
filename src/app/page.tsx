@@ -38,18 +38,19 @@ const SERIES = [
 // ─────────────────────────────────────────────────────────────────────────────
 
 const FUNNEL_STEPS = [
-  { label: "Abordados", key: "abordados"  },
+  { label: "Novo Lead",  key: "novo_lead"  },
+  { label: "Abordados",  key: "abordados"  },
   { label: "Aplicações", key: "aplicacoes" },
   { label: "Reuniões",   key: "reunioes"   },
   { label: "Vendas",     key: "vendas"     },
 ] as const;
 
-const FUNNEL_WIDTHS = ["100%", "81%", "63%", "45%"];
+const FUNNEL_WIDTHS = ["100%", "86%", "72%", "58%", "44%"];
 
-type FunnelCounts = Record<"abordados" | "aplicacoes" | "reunioes" | "vendas", number | null>;
+type FunnelCounts = Record<"novo_lead" | "abordados" | "aplicacoes" | "reunioes" | "vendas", number | null>;
 
 function CRMFunnel({ counts }: { counts: FunnelCounts }) {
-  const base = counts.abordados ?? 0;
+  const base = counts.novo_lead ?? 0;
 
   return (
     <div className="flex flex-col gap-2">
@@ -391,8 +392,9 @@ export default function DashboardPage() {
   const currentMRR = finData?.mrr ?? 0;
 
   const funnelCounts: FunnelCounts = leadsLoading
-    ? { abordados: null, aplicacoes: null, reunioes: null, vendas: null }
+    ? { novo_lead: null, abordados: null, aplicacoes: null, reunioes: null, vendas: null }
     : {
+        novo_lead:  leadsByColumn.novo_lead.length,
         abordados:  leadsByColumn.abordados.length,
         aplicacoes: leadsByColumn.formulario_aplicado.length,
         reunioes:   leadsByColumn.reuniao_realizada.length,

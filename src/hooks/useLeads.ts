@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { getSupabaseClient } from "@/lib/supabase";
 import type {
@@ -9,6 +9,7 @@ import type {
   NewLead,
   UpdateLead,
 } from "@/types";
+import type { DateFilter } from "@/components/crm/PeriodFilter";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // useLeads
@@ -24,19 +25,20 @@ import type {
 export type LeadsByColumn = Record<KanbanColumn, Lead[]>;
 
 const EMPTY_BOARD: LeadsByColumn = {
-  abordados: [],
-  em_andamento: [],
+  novo_lead:           [],
+  abordados:           [],
+  em_andamento:        [],
   formulario_aplicado: [],
-  reuniao_agendada: [],
-  reuniao_realizada: [],
-  no_show: [],
-  venda_realizada: [],
+  reuniao_agendada:    [],
+  reuniao_realizada:   [],
+  no_show:             [],
+  venda_realizada:     [],
 };
 
-export function useLeads() {
+export function useLeads(dateFilter?: DateFilter | null) {
   const supabase = getSupabaseClient();
 
-  const [leads, setLeads] = useState<Lead[]>([]);
+  const [leads, setLeads] = useState<Lead[]>([]);   // full unfiltered list
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -110,18 +112,26 @@ export function useLeads() {
     };
   }, [fetchLeads, supabase]);
 
-  // ── Derived: leads agrupados por coluna ───────────────────────────────────
+  // ── Derived: apply date filter client-side (instant, preserves real-time) ──
 
-  const leadsByColumn: LeadsByColumn = leads.reduce<LeadsByColumn>(
-    (acc, lead) => {
-      const col = lead.kanban_column;
-      if (acc[col]) {
-        acc[col] = [...acc[col], lead];
-      }
-      return acc;
-    },
-    structuredClone(EMPTY_BOARD)
-  );
+  const filteredLeads = useMemo(() => {
+    if (!dateFilter) return leads;
+    return leads.filter(l => {
+      const d = new Date(l[dateFilter.field]);
+      return d >= dateFilter.from && d <= dateFilter.to;
+    });
+  }, [leads, dateFilter]);
+
+  const leadsByColumn: LeadsByColumn = useMemo(() =>
+    filteredLeads.reduce<LeadsByColumn>(
+      (acc, lead) => {
+        const col = lead.kanban_column;
+        if (acc[col]) acc[col] = [...acc[col], lead];
+        return acc;
+      },
+      structuredClone(EMPTY_BOARD),
+    ),
+  [filteredLeads]);
 
   // ── Create ─────────────────────────────────────────────────────────────────
 
@@ -233,7 +243,8 @@ export function useLeads() {
   }
 
   return {
-    leads,
+    leads:        filteredLeads,   // filtered — what the board renders
+    totalLeads:   leads.length,    // unfiltered total (for "X leads no funil" label)
     leadsByColumn,
     isLoading,
     error,

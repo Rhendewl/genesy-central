@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
       email:         email  || null,
       source:        "external_webhook",
       notes:         notes || (extSrc ? `Origem: ${extSrc}` : null),
-      kanban_column: "abordados",
+      kanban_column: "novo_lead",
       tags:          [],
       deal_value:    0,
       entered_at:    new Date().toISOString().split("T")[0],

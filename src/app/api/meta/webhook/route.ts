@@ -403,7 +403,7 @@ async function processLead({
       form_name:     form_name ?? null,
       campaign_name: leadData.campaign_name ?? null,
       ad_name:       leadData.ad_name       ?? null,
-      kanban_column: "abordados",
+      kanban_column: "novo_lead",
       tags:          [],
       notes,
       deal_value:    0,
@@ -449,6 +449,6 @@ async function processLead({
   }
 
   console.log(
-    `[webhook] ✓ Lead "${leadData.full_name}" saved — column=abordados leadgen=${leadgen_id} form=${form_id ?? "—"} duplicate=${is_duplicate}`
+    `[webhook] ✓ Lead "${leadData.full_name}" saved — column=novo_lead leadgen=${leadgen_id} form=${form_id ?? "—"} duplicate=${is_duplicate}`
   );
 }

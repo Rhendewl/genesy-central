@@ -22,6 +22,7 @@ import { KANBAN_COLUMNS, type KanbanColumn as KanbanColumnType, type Lead } from
 import { KanbanColumn } from "./KanbanColumn";
 import { LeadCard } from "./LeadCard";
 import { LeadModal } from "./LeadModal";
+import { PeriodFilter, type DateFilter } from "./PeriodFilter";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // KanbanBoard
@@ -33,11 +34,15 @@ import { LeadModal } from "./LeadModal";
 //    outro lead — nesse caso busca a coluna do lead alvo) e chama moveLead
 //  - Scroll horizontal com snap por coluna no mobile
 //  - Botão "Novo Lead" → abre LeadModal em modo criação
+//  - PeriodFilter → filtra leads por data de criação (client-side, instantâneo)
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function KanbanBoard() {
+  const [dateFilter, setDateFilter] = useState<DateFilter | null>(null);
+
   const {
     leads,
+    totalLeads,
     leadsByColumn,
     isLoading,
     error,
@@ -46,11 +51,10 @@ export function KanbanBoard() {
     updateLead,
     deleteLead,
     getLeadById,
-  } = useLeads();
+  } = useLeads(dateFilter);
 
   const [activeId, setActiveId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  // Guarda o objeto Lead completo para o modal de edição (evita 2ª subscription)
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
 
   // ── dnd-kit sensors ────────────────────────────────────────────────────────
@@ -121,7 +125,9 @@ export function KanbanBoard() {
 
   // ── Derived ────────────────────────────────────────────────────────────────
 
-  const activeLead = activeId ? getLeadById(activeId) : null;
+  const activeLead      = activeId ? getLeadById(activeId) : null;
+  const isFiltered      = dateFilter !== null;
+  const filteredCount   = leads.length;
 
   // ── Loading skeleton ───────────────────────────────────────────────────────
 
@@ -159,15 +165,29 @@ export function KanbanBoard() {
   return (
     <>
       {/* Toolbar */}
-      <div className="mb-4 flex items-center justify-between px-4 sm:px-6">
+      <div className="mb-4 flex items-center justify-between gap-3 flex-wrap px-4 sm:px-6">
+        {/* Lead count — shows filtered vs total when filter is active */}
         <p className="text-sm text-[var(--text-body)]">
-          <span className="font-semibold text-[var(--text-title)]">
-            {leads.length}
-          </span>{" "}
-          {leads.length === 1 ? "lead" : "leads"} no funil
+          {isFiltered ? (
+            <>
+              <span className="font-semibold text-[var(--text-title)]">{filteredCount}</span>
+              <span className="text-[#5a5a5a]"> / {totalLeads}</span>
+              {" "}
+              {filteredCount === 1 ? "lead" : "leads"} no período
+            </>
+          ) : (
+            <>
+              <span className="font-semibold text-[var(--text-title)]">{totalLeads}</span>
+              {" "}
+              {totalLeads === 1 ? "lead" : "leads"} no funil
+            </>
+          )}
         </p>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Period filter */}
+          <PeriodFilter onChange={setDateFilter} />
+
           <Link
             href="/crm/integracoes"
             className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all hover:scale-[1.02] active:scale-95"

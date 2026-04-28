@@ -25,6 +25,7 @@ export type NewTag = Pick<Tag, "name" | "color">;
 // ── CRM / Leads ───────────────────────────────────────────────────────────────
 
 export type KanbanColumn =
+  | "novo_lead"
   | "abordados"
   | "em_andamento"
   | "formulario_aplicado"
@@ -38,13 +39,14 @@ export const KANBAN_COLUMNS: {
   label: string;
   color: string;
 }[] = [
-  { id: "abordados", label: "Abordados", color: "#7d99ad" },
-  { id: "em_andamento", label: "Em Andamento", color: "#5b87a0" },
+  { id: "novo_lead",           label: "Novo Lead",          color: "#6366f1" },
+  { id: "abordados",           label: "Abordados",          color: "#7d99ad" },
+  { id: "em_andamento",        label: "Em Andamento",       color: "#5b87a0" },
   { id: "formulario_aplicado", label: "Formulário Aplicado", color: "#4a7a95" },
-  { id: "reuniao_agendada", label: "Reunião Agendada", color: "#3d6d88" },
-  { id: "reuniao_realizada", label: "Reunião Realizada", color: "#22c55e" },
-  { id: "no_show", label: "No-Show", color: "#f59e0b" },
-  { id: "venda_realizada", label: "Venda Realizada", color: "#10b981" },
+  { id: "reuniao_agendada",    label: "Reunião Agendada",   color: "#3d6d88" },
+  { id: "reuniao_realizada",   label: "Reunião Realizada",  color: "#22c55e" },
+  { id: "no_show",             label: "No-Show",            color: "#f59e0b" },
+  { id: "venda_realizada",     label: "Venda Realizada",    color: "#10b981" },
 ];
 
 export interface Lead {
@@ -749,3 +751,90 @@ export interface NpsRecord {
 
 export type NewNpsRecord = Omit<NpsRecord, "id" | "user_id" | "created_at" | "updated_at" | "client">;
 export type UpdateNpsRecord = Partial<NewNpsRecord>;
+
+// ── Portais ────────────────────────────────────────────────────────────────────
+
+export type PortalStatus = "ativo" | "pausado";
+
+export interface Portal {
+  id: string;
+  user_id: string;
+  client_id: string | null;
+  name: string;
+  slug: string;
+  status: PortalStatus;
+  created_at: string;
+  updated_at: string;
+  client?: AgencyClient;
+  portal_accounts?: PortalAccount[];
+}
+
+export interface PortalAccount {
+  id: string;
+  portal_id: string;
+  ad_account_id: string; // Meta account_id like "act_xxx"
+  created_at: string;
+}
+
+export interface NewPortal {
+  client_id: string | null;
+  name: string;
+  slug: string;
+  status: PortalStatus;
+  ad_account_ids: string[];
+}
+
+export interface UpdatePortal {
+  client_id?: string | null;
+  name?: string;
+  slug?: string;
+  status?: PortalStatus;
+  ad_account_ids?: string[];
+}
+
+export interface PortalKPIs {
+  investimento: number;
+  leads: number;
+  cpl: number;
+  alcance: number;
+  cliques: number;
+  ctr: number;
+  impressoes: number;
+}
+
+export interface PortalDailyMetric {
+  data: string;
+  investimento: number;
+  leads: number;
+  cpl: number;
+}
+
+export interface PortalCampaignSummary {
+  id: string;
+  nome: string;
+  status: string;
+  investimento: number;
+  leads: number;
+  cpl: number;
+  ctr: number;
+  impressoes: number;
+  cliques: number;
+}
+
+export interface PortalAvailableAccount {
+  id: string;   // Meta account_id "act_xxx"
+  name: string;
+}
+
+export interface PortalPublicData {
+  portal: {
+    name: string;
+    client_name: string | null;
+    status: PortalStatus;
+  };
+  kpis: PortalKPIs;
+  daily: PortalDailyMetric[];
+  campaigns: PortalCampaignSummary[];
+  available_accounts: PortalAvailableAccount[];
+  available_campaigns: { id: string; name: string; status: string }[];
+}

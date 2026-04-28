@@ -8,7 +8,7 @@ import { NextResponse, type NextRequest } from "next/server";
 // ─────────────────────────────────────────────────────────────────────────────
 
 // Accessible without login
-const PUBLIC_ROUTES = ["/auth", "/data-deletion", "/privacy-policy"];
+const PUBLIC_ROUTES = ["/auth", "/data-deletion", "/privacy-policy", "/portal/", "/api/portal/"];
 // Redirect authenticated users away from these (login page only)
 const AUTH_REDIRECT_ROUTES = ["/auth"];
 
