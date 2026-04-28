@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  LineChart, Line, BarChart, Bar, FunnelChart, Funnel, LabelList,
+  ComposedChart, Line, Area,
   PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
 } from "recharts";
@@ -15,7 +15,7 @@ import {
 import { cn } from "@/lib/utils";
 import { format, startOfMonth, endOfMonth, subDays, subMonths } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import type { PortalPublicData, PortalCampaignSummary } from "@/types";
+import type { PortalPublicData, PortalCampaignSummary, PortalGeoMetric } from "@/types";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -277,8 +277,6 @@ export function PortalPublicDashboard({ slug }: Props) {
     { name: "Leads",   value: kpis?.leads   ?? 0, fill: "#22c55e" },
   ];
 
-  // Top campaigns chart
-  const topCampaigns = [...campaigns].sort((a, b) => b.leads - a.leads).slice(0, 10);
 
   return (
     <div
@@ -309,60 +307,89 @@ export function PortalPublicDashboard({ slug }: Props) {
           boxShadow: "0 1px 0 rgba(255,255,255,0.04), 0 4px 24px rgba(0,0,0,0.2)",
         }}
       >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-4 min-w-0">
-            {/* Logomarca */}
+        {/* ── Linha 1: branding + botão PDF ────────────────────────── */}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 sm:gap-4 min-w-0">
             <img
               src="/genesy-logoname.svg"
               alt="Genesy"
               className="h-5 sm:h-6 w-auto shrink-0"
               style={{ filter: "brightness(0) invert(1)" }}
             />
-
-            {/* Separador + cliente */}
             {!loading && (
               <>
                 <div className="w-px h-5 shrink-0" style={{ background: "rgba(255,255,255,0.18)" }} />
-                {loading ? (
-                  <div className="h-4 w-28 rounded-lg bg-white/[0.06] animate-pulse" />
-                ) : (
-                  <span
-                    className="text-white/65 text-xs sm:text-sm font-light tracking-[0.18em] uppercase truncate"
-                  >
-                    {data?.portal.client_name ?? data?.portal.name ?? ""}
-                  </span>
-                )}
+                <span className="text-white/65 text-[11px] sm:text-sm font-light tracking-[0.18em] uppercase truncate">
+                  {data?.portal.client_name ?? data?.portal.name ?? ""}
+                </span>
               </>
             )}
-
-            {loading && (
-              <div className="h-4 w-28 rounded-lg bg-white/[0.06] animate-pulse" />
-            )}
+            {loading && <div className="h-4 w-28 rounded-lg bg-white/[0.06] animate-pulse" />}
           </div>
 
           <button
             onClick={handlePrint}
-            className="lc-btn flex items-center gap-2 px-4 py-2 text-xs rounded-xl shrink-0 print:hidden"
+            className="lc-btn flex items-center gap-2 px-4 text-xs rounded-xl shrink-0 print:hidden"
+            style={{ minHeight: "44px" }}
           >
-            <Download size={13} />
-            <span className="hidden sm:inline">Baixar PDF</span>
+            <Download size={14} />
+            <span>PDF</span>
           </button>
         </div>
 
-        {/* ── Filters ───────────────────────────────────────────────── */}
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 pb-4 print:hidden">
-          <div className="flex items-center gap-2 flex-wrap">
-            <Filter size={13} className="text-white/30 shrink-0" />
+        {/* ── Filtros ───────────────────────────────────────────────── */}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 pb-3 sm:pb-4 print:hidden">
 
-            {/* Period */}
+          {/* Mobile: layout em linhas ───────────────────────────── */}
+          <div className="sm:hidden space-y-2">
+            {/* Período — largura total */}
+            <FilterSelect
+              value={period}
+              onChange={p => { setPeriod(p); setCampaignId("all"); }}
+              options={PERIOD_OPTIONS}
+              className="w-full"
+            />
+
+            {/* Conta — largura total, condicional */}
+            {accountOptions.length > 2 && (
+              <FilterSelect
+                value={accountId}
+                onChange={setAccountId}
+                options={accountOptions}
+                className="w-full"
+              />
+            )}
+
+            {/* Campanhas | Status — grid 2 colunas */}
+            <div className={cn("grid gap-2", campaignOptions.length > 2 ? "grid-cols-2" : "grid-cols-1")}>
+              {campaignOptions.length > 2 && (
+                <FilterSelect
+                  value={campaignId}
+                  onChange={setCampaignId}
+                  options={campaignOptions}
+                />
+              )}
+              <FilterSelect
+                value={statusFilter}
+                onChange={setStatusFilter}
+                options={[
+                  { label: "Todos os status", value: "all" },
+                  { label: "Ativas", value: "ativa" },
+                  { label: "Pausadas", value: "pausada" },
+                ]}
+              />
+            </div>
+          </div>
+
+          {/* Desktop: layout em linha ───────────────────────────── */}
+          <div className="hidden sm:flex items-center gap-2 flex-wrap">
+            <Filter size={13} className="text-white/30 shrink-0" />
             <FilterSelect
               value={period}
               onChange={p => { setPeriod(p); setCampaignId("all"); }}
               options={PERIOD_OPTIONS}
               className="min-w-[160px]"
             />
-
-            {/* Account */}
             {accountOptions.length > 2 && (
               <FilterSelect
                 value={accountId}
@@ -371,8 +398,6 @@ export function PortalPublicDashboard({ slug }: Props) {
                 className="min-w-[180px]"
               />
             )}
-
-            {/* Campaign */}
             {campaignOptions.length > 2 && (
               <FilterSelect
                 value={campaignId}
@@ -381,8 +406,6 @@ export function PortalPublicDashboard({ slug }: Props) {
                 className="min-w-[200px]"
               />
             )}
-
-            {/* Status */}
             <FilterSelect
               value={statusFilter}
               onChange={setStatusFilter}
@@ -393,9 +416,7 @@ export function PortalPublicDashboard({ slug }: Props) {
               ]}
               className="min-w-[160px]"
             />
-
-            {/* Period badge */}
-            <span className="ml-auto text-xs text-white/30 hidden sm:block">
+            <span className="ml-auto text-xs text-white/30">
               <CalendarDays size={12} className="inline mr-1" />
               {format(new Date(since), "dd/MM/yyyy")} – {format(new Date(until), "dd/MM/yyyy")}
             </span>
@@ -504,34 +525,11 @@ export function PortalPublicDashboard({ slug }: Props) {
               </section>
             )}
 
-            {/* ── Chart Row 2: Campanhas ranking ────────────────────── */}
-            {topCampaigns.length > 0 && (
-              <section className="lc-portal-card rounded-2xl p-5">
-                <h3 className="text-white font-semibold text-sm mb-4">Ranking de campanhas</h3>
-                <ResponsiveContainer width="100%" height={Math.max(180, topCampaigns.length * 38)}>
-                  <BarChart
-                    data={topCampaigns}
-                    layout="vertical"
-                    margin={{ top: 0, right: 60, bottom: 0, left: 0 }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="rgba(255,255,255,0.04)" />
-                    <XAxis type="number" tick={{ fill: "rgba(255,255,255,0.30)", fontSize: 11 }} axisLine={false} tickLine={false} />
-                    <YAxis
-                      dataKey="nome"
-                      type="category"
-                      tick={{ fill: "rgba(255,255,255,0.50)", fontSize: 11 }}
-                      axisLine={false} tickLine={false}
-                      width={160}
-                      tickFormatter={v => v.length > 22 ? v.slice(0, 22) + "…" : v}
-                    />
-                    <Tooltip content={<ChartTooltip />} />
-                    <Legend wrapperStyle={{ fontSize: 11, color: "rgba(255,255,255,0.5)" }} />
-                    <Bar dataKey="leads" name="Leads" fill="#22c55e" radius={[0, 4, 4, 0]} />
-                    <Bar dataKey="investimento" name="Invest." fill="#27a3ff" radius={[0, 4, 4, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </section>
-            )}
+            {/* ── Regiões com melhor resultado ─────────────────────── */}
+            <section className="lc-portal-card rounded-2xl p-5">
+              <h3 className="text-white font-semibold text-sm mb-5">Regiões com melhor resultado</h3>
+              <GeoChart geo={data?.geo ?? []} />
+            </section>
 
             {/* ── Campaign table ────────────────────────────────────── */}
             <section>
@@ -624,6 +622,72 @@ export function PortalPublicDashboard({ slug }: Props) {
 }
 
 const DONUT_COLORS = ["#27a3ff", "#22c55e", "#f59e0b", "#a78bfa", "#fb923c", "#38bdf8", "#6b7280"];
+const GEO_COLORS  = ["#27a3ff", "#38bdf8", "#22c55e", "#a78bfa", "#f59e0b", "#fb923c", "#e879f9", "#34d399", "#fbbf24", "#60a5fa"];
+
+function GeoChart({ geo }: { geo: PortalGeoMetric[] }) {
+  if (geo.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-10 gap-3">
+        <div
+          className="w-10 h-10 rounded-xl flex items-center justify-center"
+          style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}
+        >
+          <Eye size={18} className="text-white/25" strokeWidth={1.5} />
+        </div>
+        <p className="text-white/30 text-sm text-center">
+          Sem dados de localização neste período
+        </p>
+        <p className="text-white/20 text-xs text-center max-w-xs">
+          Os dados geográficos são sincronizados a cada novo ciclo de sync Meta Ads.
+        </p>
+      </div>
+    );
+  }
+
+  const metricFn = (g: PortalGeoMetric) => g.leads || g.clicks || g.reach || 0;
+  const metricLabel = geo.some(g => g.leads > 0) ? "leads"
+    : geo.some(g => g.clicks > 0) ? "cliques" : "alcance";
+  const total = geo.reduce((sum, g) => sum + metricFn(g), 0);
+  const maxVal = metricFn(geo[0]) || 1;
+
+  return (
+    <div className="space-y-3">
+      {geo.map((g, i) => {
+        const val = metricFn(g);
+        const pct = total > 0 ? (val / total) * 100 : 0;
+        const barPct = (val / maxVal) * 100;
+        const color = GEO_COLORS[i % GEO_COLORS.length];
+
+        return (
+          <div key={g.region}>
+            <div className="flex items-center justify-between mb-1.5 gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="w-2 h-2 rounded-full shrink-0" style={{ background: color }} />
+                <span className="text-white/70 text-xs font-medium truncate">{g.region}</span>
+              </div>
+              <div className="flex items-center gap-3 shrink-0">
+                <span className="text-white/40 text-xs tabular-nums">{fmtNum(val)}</span>
+                <span className="text-white text-xs font-semibold tabular-nums w-10 text-right">
+                  {pct.toFixed(1)}%
+                </span>
+              </div>
+            </div>
+            <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.05)" }}>
+              <motion.div
+                initial={{ width: 0 }}
+                animate={{ width: `${barPct}%` }}
+                transition={{ duration: 0.6, delay: i * 0.06 }}
+                className="h-full rounded-full"
+                style={{ background: color }}
+              />
+            </div>
+          </div>
+        );
+      })}
+      <p className="text-white/20 text-xs pt-1">Distribuição por {metricLabel}</p>
+    </div>
+  );
+}
 
 function DonutCampaignChart({ campaigns }: { campaigns: PortalCampaignSummary[] }) {
   const metric = (c: PortalCampaignSummary) => c.leads || c.cliques || c.impressoes || 0;

@@ -243,7 +243,39 @@ export async function GET(
 
   campaignSummaries.sort((a, b) => b.leads - a.leads);
 
-  // 11. Available accounts for filter
+  // 11. Geographic metrics aggregation
+  const geoMap = new Map<string, { spend: number; leads: number; clicks: number; impressions: number; reach: number }>();
+
+  if (campaignIds.length > 0) {
+    const { data: geoMetrics } = await admin
+      .from("campaign_geo_metrics")
+      .select("region, spend, leads, clicks, link_clicks, impressions, reach")
+      .in("campaign_id", campaignIds)
+      .gte("date", since)
+      .lte("date", until)
+      .not("region", "is", null)
+      .neq("region", "");
+
+    for (const g of geoMetrics ?? []) {
+      const key = (g.region as string).trim();
+      if (!key) continue;
+      const existing = geoMap.get(key) ?? { spend: 0, leads: 0, clicks: 0, impressions: 0, reach: 0 };
+      geoMap.set(key, {
+        spend:       existing.spend       + (g.spend       || 0),
+        leads:       existing.leads       + (g.leads       || 0),
+        clicks:      existing.clicks      + (g.link_clicks || g.clicks || 0),
+        impressions: existing.impressions + (g.impressions || 0),
+        reach:       existing.reach       + (g.reach       || 0),
+      });
+    }
+  }
+
+  const geoData = Array.from(geoMap.entries())
+    .map(([region, stats]) => ({ region, ...stats }))
+    .sort((a, b) => b.leads - a.leads || b.clicks - a.clicks || b.reach - a.reach)
+    .slice(0, 10);
+
+  // 12. Available accounts for filter
   const availableAccounts = (platformAccounts ?? []).map(
     (pa: { id: string; account_id: string; account_name: string }) => ({
       id: pa.account_id,
@@ -268,6 +300,7 @@ export async function GET(
     },
     daily,
     campaigns: campaignSummaries,
+    geo: geoData,
     available_accounts: availableAccounts,
     available_campaigns: (allCampaigns ?? []).map(
       (c: { id: string; name: string; status: string }) => ({
@@ -289,6 +322,7 @@ function buildEmptyResponse(name: string, clientName: string | null, status: str
     kpis: { investimento: 0, leads: 0, cpl: 0, alcance: 0, cliques: 0, ctr: 0, impressoes: 0 },
     daily: [],
     campaigns: [],
+    geo: [],
     available_accounts: [],
     available_campaigns: [],
   };

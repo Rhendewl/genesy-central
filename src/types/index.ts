@@ -826,6 +826,15 @@ export interface PortalAvailableAccount {
   name: string;
 }
 
+export interface PortalGeoMetric {
+  region: string;
+  leads: number;
+  clicks: number;
+  impressions: number;
+  reach: number;
+  spend: number;
+}
+
 export interface PortalPublicData {
   portal: {
     name: string;
@@ -835,6 +844,7 @@ export interface PortalPublicData {
   kpis: PortalKPIs;
   daily: PortalDailyMetric[];
   campaigns: PortalCampaignSummary[];
+  geo: PortalGeoMetric[];
   available_accounts: PortalAvailableAccount[];
   available_campaigns: { id: string; name: string; status: string }[];
 }

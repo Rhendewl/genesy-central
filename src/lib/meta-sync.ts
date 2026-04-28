@@ -8,6 +8,7 @@ import { format, startOfMonth, endOfToday } from "date-fns";
 import {
   getCampaigns,
   getInsights,
+  getInsightsGeo,
   extractLeads,
   extractPrimaryResults,
   mapCampaignStatus,
@@ -337,6 +338,47 @@ export async function syncMetaAccount(params: SyncParams): Promise<SyncResult> {
       if (tcErr) {
         console.error("[meta-sync] traffic_cost upsert error:", tcErr.message);
       }
+    }
+
+    // ── Sync geographic metrics (best-effort, non-fatal) ─────────────────────
+
+    try {
+      const geoRows = await getInsightsGeo(adAccountId, accessToken, since, until);
+      console.log(`[meta-sync] geo: ${geoRows.length} linhas com breakdown de região`);
+
+      for (const row of geoRows) {
+        if (!row.date_start || !row.region?.trim()) continue;
+
+        const internalId = campMap.get(row.campaign_id);
+        if (!internalId) continue;
+
+        const { error: geoErr } = await supabase
+          .from("campaign_geo_metrics")
+          .upsert(
+            {
+              user_id:             userId,
+              campaign_id:         internalId,
+              client_id:           clientId,
+              platform_account_id: platformAccountId,
+              date:                row.date_start,
+              region:              row.region.trim(),
+              spend:               parseFloat(row.spend ?? "0"),
+              leads:               extractLeads(row.actions),
+              clicks:              parseInt(row.clicks ?? "0", 10),
+              link_clicks:         parseInt(row.inline_link_clicks ?? "0", 10),
+              impressions:         parseInt(row.impressions ?? "0", 10),
+              reach:               parseInt(row.reach ?? "0", 10),
+            },
+            { onConflict: "campaign_id,date,region" }
+          );
+
+        if (geoErr) {
+          console.warn("[meta-sync] geo upsert error:", geoErr.message);
+        }
+      }
+    } catch (geoErr) {
+      console.warn("[meta-sync] geo sync falhou (não-fatal):", geoErr);
+      warnings.push("Dados geográficos não disponíveis para este período");
     }
 
     // ── Mark account as synced ────────────────────────────────────────────────

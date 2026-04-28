@@ -185,6 +185,54 @@ export async function getLeadGenForms(pageId: string, pageToken: string): Promis
   return data.data ?? [];
 }
 
+// ── Insights with geographic breakdown (region) ───────────────────────────────
+
+export interface MetaGeoInsightRow {
+  campaign_id: string;
+  date_start: string;
+  region: string;
+  spend: string;
+  impressions: string;
+  reach: string;
+  clicks: string;
+  inline_link_clicks?: string;
+  actions?: MetaInsightAction[];
+}
+
+export async function getInsightsGeo(
+  adAccountId: string,
+  token: string,
+  since: string,
+  until: string
+): Promise<MetaGeoInsightRow[]> {
+  const cleanId = adAccountId.replace(/^act_/, "");
+  const fields = [
+    "date_start", "campaign_id",
+    "impressions", "reach", "spend", "clicks", "inline_link_clicks", "actions",
+  ].join(",");
+
+  const timeRange = encodeURIComponent(JSON.stringify({ since, until }));
+
+  const first = await metaGet<{ data: MetaGeoInsightRow[]; paging?: { next?: string } }>(
+    `/act_${cleanId}/insights?fields=${fields}&time_range=${timeRange}&time_increment=1&level=campaign&breakdowns=region&limit=500`,
+    token
+  );
+
+  const rows: MetaGeoInsightRow[] = [...(first.data ?? [])];
+
+  let nextUrl = first.paging?.next;
+  while (nextUrl) {
+    const page = await fetch(nextUrl).then(r => r.json()) as {
+      data: MetaGeoInsightRow[];
+      paging?: { next?: string };
+    };
+    rows.push(...(page.data ?? []));
+    nextUrl = page.paging?.next;
+  }
+
+  return rows;
+}
+
 // ── Page webhook subscription ─────────────────────────────────────────────────
 
 /**
