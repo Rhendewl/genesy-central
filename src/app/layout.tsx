@@ -12,7 +12,7 @@ const jakarta = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "Lancaster — Operação",
+  title: "Genesy | Dashboard",
   description: "Plataforma operacional integrada: CRM, Financeiro e Tráfego Pago",
 };
 
