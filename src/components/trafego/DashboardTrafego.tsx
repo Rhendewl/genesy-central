@@ -257,7 +257,7 @@ const CustomTooltip = ({
 function HeroChart({
   data, period, onPeriodChange,
 }: {
-  data: { data: string; valor: number; leads: number; cpl: number }[];
+  data: { data: string; valor: number; leads: number }[];
   period: PeriodKey;
   onPeriodChange: (p: PeriodKey) => void;
 }) {
@@ -277,7 +277,7 @@ function HeroChart({
         </div>
         <div className="flex items-center gap-4">
           {/* Legend */}
-          <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex items-center gap-3">
             <div className="flex items-center gap-1.5">
               <div className="w-3 h-0.5 rounded-full bg-emerald-400" />
               <span className="text-[11px]" style={{ color: "#7a7a8a" }}>Investimento</span>
@@ -285,10 +285,6 @@ function HeroChart({
             <div className="flex items-center gap-1.5">
               <div className="w-3 h-0.5 rounded-full bg-[#4a8fd4]" />
               <span className="text-[11px]" style={{ color: "#7a7a8a" }}>Leads</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <div className="w-3 h-0.5 rounded-full" style={{ background: "#a78bfa" }} />
-              <span className="text-[11px]" style={{ color: "#7a7a8a" }}>CPL</span>
             </div>
           </div>
           <PeriodSelector value={period} onChange={onPeriodChange} size="xs" />
@@ -331,16 +327,10 @@ function HeroChart({
               allowDecimals={false}
               width={30}
             />
-            <YAxis yAxisId="cpl" orientation="right"
-              tick={false}
-              axisLine={false}
-              tickLine={false}
-              width={0}
-            />
             <Tooltip
               content={
                 <CustomTooltip
-                  formatters={{ "Investimento": fmtBRL, "Leads": v => `${fmtNum(v)} leads`, "CPL": fmtBRL }}
+                  formatters={{ "Investimento": fmtBRL, "Leads": v => `${fmtNum(v)} leads` }}
                 />
               }
             />
@@ -353,12 +343,6 @@ function HeroChart({
               stroke="#4a8fd4" strokeWidth={2}
               dot={false}
               activeDot={{ r: 4, fill: "#4a8fd4", strokeWidth: 2, stroke: "#0e151b" }}
-            />
-            <Line yAxisId="cpl" type="monotone" dataKey="cpl" name="CPL"
-              stroke="#a78bfa" strokeWidth={2}
-              strokeDasharray="5 3"
-              dot={false}
-              activeDot={{ r: 4, fill: "#a78bfa", strokeWidth: 2, stroke: "#0e151b" }}
             />
           </ComposedChart>
         </ResponsiveContainer>
@@ -1139,19 +1123,14 @@ export function DashboardTrafego({ year, month, platformAccountId, onNavigateToC
   // Merged daily data for hero chart
   const heroChartData = useMemo(() => {
     if (!heroData) return [];
-    const map = new Map<string, { data: string; valor: number; leads: number; cpl: number }>();
+    const map = new Map<string, { data: string; valor: number; leads: number }>();
     heroData.investimento_diario.forEach(d =>
-      map.set(d.data, { data: d.data, valor: d.valor, leads: 0, cpl: 0 })
+      map.set(d.data, { data: d.data, valor: d.valor, leads: 0 })
     );
     heroData.leads_diario.forEach(d => {
       const e = map.get(d.data);
       if (e) e.leads = d.leads;
-      else map.set(d.data, { data: d.data, valor: 0, leads: d.leads, cpl: 0 });
-    });
-    heroData.cpl_diario.forEach(d => {
-      const e = map.get(d.data);
-      if (e) e.cpl = d.cpl;
-      else map.set(d.data, { data: d.data, valor: 0, leads: 0, cpl: d.cpl });
+      else map.set(d.data, { data: d.data, valor: 0, leads: d.leads });
     });
     return Array.from(map.values());
   }, [heroData]);

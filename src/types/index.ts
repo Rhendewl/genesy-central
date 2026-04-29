@@ -844,7 +844,6 @@ export interface PortalPublicData {
   kpis: PortalKPIs;
   daily: PortalDailyMetric[];
   campaigns: PortalCampaignSummary[];
-  geo: PortalGeoMetric[];
   available_accounts: PortalAvailableAccount[];
   available_campaigns: { id: string; name: string; status: string }[];
 }

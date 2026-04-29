@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  ComposedChart, LineChart, Line, Area,
+  ComposedChart, Line, Area,
   PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
 } from "recharts";
@@ -15,7 +15,7 @@ import {
 import { cn } from "@/lib/utils";
 import { format, startOfMonth, endOfMonth, subDays, subMonths } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import type { PortalPublicData, PortalCampaignSummary, PortalGeoMetric } from "@/types";
+import type { PortalPublicData, PortalCampaignSummary } from "@/types";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -464,7 +464,13 @@ export function PortalPublicDashboard({ slug }: Props) {
                 <h3 className="text-white font-semibold text-sm mb-4">Performance no tempo</h3>
                 {data?.daily && data.daily.length > 0 ? (
                   <ResponsiveContainer width="100%" height={240}>
-                    <LineChart data={data.daily} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
+                    <ComposedChart data={data.daily} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
+                      <defs>
+                        <linearGradient id="gCPLPortal" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#f97316" stopOpacity={0.22} />
+                          <stop offset="100%" stopColor="#f97316" stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
                       <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
                       <XAxis
                         dataKey="data"
@@ -474,11 +480,23 @@ export function PortalPublicDashboard({ slug }: Props) {
                       />
                       <YAxis yAxisId="left" tick={{ fill: "rgba(255,255,255,0.35)", fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={v => fmtBRL(v)} width={70} />
                       <YAxis yAxisId="right" orientation="right" tick={{ fill: "rgba(255,255,255,0.35)", fontSize: 11 }} axisLine={false} tickLine={false} width={36} />
+                      <YAxis yAxisId="cpl" orientation="right" tick={false} axisLine={false} tickLine={false} width={0} />
                       <Tooltip content={<ChartTooltip />} />
                       <Legend wrapperStyle={{ fontSize: 11, color: "rgba(255,255,255,0.5)" }} />
                       <Line yAxisId="left"  type="monotone" dataKey="investimento" name="Investimento" stroke="#27a3ff" strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
                       <Line yAxisId="right" type="monotone" dataKey="leads"        name="Leads"        stroke="#22c55e" strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
-                    </LineChart>
+                      <Area
+                        yAxisId="cpl"
+                        type="monotone"
+                        dataKey="cpl"
+                        name="CPL"
+                        stroke="#f97316"
+                        strokeWidth={2}
+                        fill="url(#gCPLPortal)"
+                        dot={false}
+                        activeDot={{ r: 4, fill: "#f97316", strokeWidth: 2, stroke: "rgba(0,0,0,0.6)" }}
+                      />
+                    </ComposedChart>
                   </ResponsiveContainer>
                 ) : (
                   <EmptyChart label="Nenhum dado no período" />
@@ -524,12 +542,6 @@ export function PortalPublicDashboard({ slug }: Props) {
                 <DonutCampaignChart campaigns={campaigns} />
               </section>
             )}
-
-            {/* ── Regiões com melhor resultado ─────────────────────── */}
-            <section className="lc-portal-card rounded-2xl p-5">
-              <h3 className="text-white font-semibold text-sm mb-5">Regiões com melhor resultado</h3>
-              <GeoChart geo={data?.geo ?? []} />
-            </section>
 
             {/* ── Campaign table ────────────────────────────────────── */}
             <section>
@@ -622,72 +634,6 @@ export function PortalPublicDashboard({ slug }: Props) {
 }
 
 const DONUT_COLORS = ["#27a3ff", "#22c55e", "#f59e0b", "#a78bfa", "#fb923c", "#38bdf8", "#6b7280"];
-const GEO_COLORS  = ["#27a3ff", "#38bdf8", "#22c55e", "#a78bfa", "#f59e0b", "#fb923c", "#e879f9", "#34d399", "#fbbf24", "#60a5fa"];
-
-function GeoChart({ geo }: { geo: PortalGeoMetric[] }) {
-  if (geo.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center py-10 gap-3">
-        <div
-          className="w-10 h-10 rounded-xl flex items-center justify-center"
-          style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}
-        >
-          <Eye size={18} className="text-white/25" strokeWidth={1.5} />
-        </div>
-        <p className="text-white/30 text-sm text-center">
-          Sem dados de localização neste período
-        </p>
-        <p className="text-white/20 text-xs text-center max-w-xs">
-          Os dados geográficos são sincronizados a cada novo ciclo de sync Meta Ads.
-        </p>
-      </div>
-    );
-  }
-
-  const metricFn = (g: PortalGeoMetric) => g.leads || g.clicks || g.reach || 0;
-  const metricLabel = geo.some(g => g.leads > 0) ? "leads"
-    : geo.some(g => g.clicks > 0) ? "cliques" : "alcance";
-  const total = geo.reduce((sum, g) => sum + metricFn(g), 0);
-  const maxVal = metricFn(geo[0]) || 1;
-
-  return (
-    <div className="space-y-3">
-      {geo.map((g, i) => {
-        const val = metricFn(g);
-        const pct = total > 0 ? (val / total) * 100 : 0;
-        const barPct = (val / maxVal) * 100;
-        const color = GEO_COLORS[i % GEO_COLORS.length];
-
-        return (
-          <div key={g.region}>
-            <div className="flex items-center justify-between mb-1.5 gap-2">
-              <div className="flex items-center gap-2 min-w-0">
-                <div className="w-2 h-2 rounded-full shrink-0" style={{ background: color }} />
-                <span className="text-white/70 text-xs font-medium truncate">{g.region}</span>
-              </div>
-              <div className="flex items-center gap-3 shrink-0">
-                <span className="text-white/40 text-xs tabular-nums">{fmtNum(val)}</span>
-                <span className="text-white text-xs font-semibold tabular-nums w-10 text-right">
-                  {pct.toFixed(1)}%
-                </span>
-              </div>
-            </div>
-            <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.05)" }}>
-              <motion.div
-                initial={{ width: 0 }}
-                animate={{ width: `${barPct}%` }}
-                transition={{ duration: 0.6, delay: i * 0.06 }}
-                className="h-full rounded-full"
-                style={{ background: color }}
-              />
-            </div>
-          </div>
-        );
-      })}
-      <p className="text-white/20 text-xs pt-1">Distribuição por {metricLabel}</p>
-    </div>
-  );
-}
 
 function DonutCampaignChart({ campaigns }: { campaigns: PortalCampaignSummary[] }) {
   const metric = (c: PortalCampaignSummary) => c.leads || c.cliques || c.impressoes || 0;
