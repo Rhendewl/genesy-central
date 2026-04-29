@@ -187,6 +187,7 @@ export function PortalPublicDashboard({ slug }: Props) {
   const [data, setData] = useState<PortalPublicData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
 
   // Filters
   const [period, setPeriod]           = useState("month");
@@ -222,7 +223,25 @@ export function PortalPublicDashboard({ slug }: Props) {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  const handlePrint = () => window.print();
+  const handleExportPDF = async () => {
+    if (exporting || !data) return;
+    setExporting(true);
+    try {
+      const { generatePortalPDF } = await import("@/lib/portal-pdf");
+      generatePortalPDF({
+        portalName:  data.portal.name,
+        clientName:  data.portal.client_name,
+        periodLabel,
+        since,
+        until,
+        kpis:        data.kpis,
+        daily:       data.daily,
+        campaigns:   data.campaigns,
+      });
+    } finally {
+      setExporting(false);
+    }
+  };
 
   // Derived filter options
   const accountOptions = useMemo(() => {
@@ -328,12 +347,15 @@ export function PortalPublicDashboard({ slug }: Props) {
           </div>
 
           <button
-            onClick={handlePrint}
-            className="lc-btn flex items-center gap-2 px-4 text-xs rounded-xl shrink-0 print:hidden"
+            onClick={handleExportPDF}
+            disabled={exporting || loading || !data}
+            className="lc-btn flex items-center gap-2 px-4 text-xs rounded-xl shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
             style={{ minHeight: "44px" }}
           >
-            <Download size={14} />
-            <span>PDF</span>
+            {exporting
+              ? <Loader2 size={14} className="animate-spin" />
+              : <Download size={14} />}
+            <span>{exporting ? "Gerando…" : "PDF"}</span>
           </button>
         </div>
 
@@ -613,22 +635,6 @@ export function PortalPublicDashboard({ slug }: Props) {
         )}
       </main>
 
-      {/* Print styles */}
-      <style jsx global>{`
-        @media print {
-          body { background: #fff !important; color: #111 !important; }
-          .lc-portal-card, .lc-modal-panel {
-            background: #f8f8f8 !important;
-            border: 1px solid #e5e7eb !important;
-            box-shadow: none !important;
-          }
-          header { position: static !important; background: #fff !important; border-bottom: 1px solid #e5e7eb !important; }
-          .print\\:hidden { display: none !important; }
-          .print\\:block { display: block !important; }
-          * { color: #111 !important; }
-          .text-white\\/40, .text-white\\/50, .text-white\\/60, .text-white\\/30 { color: #555 !important; }
-        }
-      `}</style>
     </div>
   );
 }
