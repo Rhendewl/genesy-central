@@ -1,6 +1,11 @@
 import { Resend } from "resend";
 
-export const resend = new Resend(process.env.RESEND_API_KEY!);
+// Lazy: o cliente só é criado quando a função é chamada (nunca no build)
+export function getResendClient(): Resend {
+  const key = process.env.RESEND_API_KEY;
+  if (!key) throw new Error("RESEND_API_KEY não configurada");
+  return new Resend(key);
+}
 
 export function buildInviteEmail({
   recipientName,

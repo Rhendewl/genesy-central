@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { createAdminSupabaseClient } from "@/lib/supabase-admin";
-import { resend, buildInviteEmail } from "@/lib/resend";
+import { getResendClient, buildInviteEmail } from "@/lib/resend";
 import { ROLE_LABELS } from "@/hooks/useUsers";
 
 export async function POST(req: Request) {
@@ -42,7 +42,7 @@ export async function POST(req: Request) {
   const recipientName = profile?.full_name ?? invite.email.split("@")[0];
   const roleName = ROLE_LABELS[invite.role as keyof typeof ROLE_LABELS] ?? invite.role;
 
-  const { error: emailErr } = await resend.emails.send({
+  const { error: emailErr } = await getResendClient().emails.send({
     from: process.env.RESEND_FROM_EMAIL ?? "onboarding@resend.dev",
     to: invite.email,
     subject: "Você foi convidado para o Lancaster",
