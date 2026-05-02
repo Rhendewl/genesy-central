@@ -185,7 +185,9 @@ export function LeadModal({
             transition={{ duration: 0.22 }}
             className="fixed inset-0 z-40"
             style={{
-              background: "transparent",
+              background: "rgba(0, 0, 0, 0.03)",
+              backdropFilter: "blur(12px) saturate(140%)",
+              WebkitBackdropFilter: "blur(12px) saturate(140%)",
             }}
             onClick={onClose}
           />
@@ -199,9 +201,11 @@ export function LeadModal({
               transition={{ type: "spring", stiffness: 420, damping: 34 }}
               className="pointer-events-auto w-full max-w-md rounded-3xl"
               style={{
-                background: "rgba(0, 0, 0, 0.10)",
-                border: "none",
-                boxShadow: "none",
+                background: "rgba(8, 8, 12, 0.92)",
+                backdropFilter: "blur(24px) saturate(160%)",
+                WebkitBackdropFilter: "blur(24px) saturate(160%)",
+                border: "1px solid rgba(255,255,255,0.07)",
+                boxShadow: "0 24px 64px rgba(0,0,0,0.6), 0 1px 0 rgba(255,255,255,0.06) inset",
               }}
               onClick={(e) => e.stopPropagation()}
             >

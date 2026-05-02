@@ -11,13 +11,12 @@ import {
   DollarSign, Users, TrendingDown, Target,
   Eye, MousePointer2, Megaphone, Radio,
   Activity, ChevronDown, TrendingUp, AlertTriangle,
-  Zap, ArrowRight, MapPin,
+  Zap, ArrowRight,
 } from "lucide-react";
 import { subDays, format } from "date-fns";
 import { useTrafegoMetrics } from "@/hooks/useTrafegoMetrics";
 import { useTrafegoGeo } from "@/hooks/useTrafegoGeo";
 import { cn } from "@/lib/utils";
-import type { PortalGeoMetric } from "@/types";
 
 // ── Formatters ────────────────────────────────────────────────────────────────
 
@@ -972,101 +971,6 @@ function SecondaryMetrics({ data }: {
   );
 }
 
-// ── Gráfico Regiões ───────────────────────────────────────────────────────────
-
-const GEO_COLORS = ["#a78bfa", "#4a8fd4", "#10b981", "#f59e0b", "#06b6d4", "#fb923c", "#e879f9", "#34d399", "#fbbf24", "#60a5fa"];
-
-function GraficoRegioes({
-  geo,
-  isLoading,
-}: {
-  geo: PortalGeoMetric[];
-  isLoading: boolean;
-}) {
-  const metricFn = (g: PortalGeoMetric) => g.leads || g.clicks || g.reach || 0;
-  const metricLabel = geo.some(g => g.leads > 0) ? "leads"
-    : geo.some(g => g.clicks > 0) ? "cliques" : "alcance";
-  const total = geo.reduce((sum, g) => sum + metricFn(g), 0);
-  const maxVal = geo.length > 0 ? (metricFn(geo[0]) || 1) : 1;
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: 0.55 }}
-      className="lc-card p-6"
-    >
-      <div className="flex items-center gap-2 mb-5">
-        <div className="w-7 h-7 rounded-lg flex items-center justify-center"
-          style={{ background: "rgba(167,139,250,0.15)" }}>
-          <MapPin size={13} style={{ color: "#a78bfa" }} />
-        </div>
-        <div>
-          <h3 className="text-base font-semibold text-white leading-none">Regiões com Melhor Resultado</h3>
-          <p className="text-[11px] mt-0.5" style={{ color: "#7a7a8a" }}>Distribuição geográfica das métricas</p>
-        </div>
-      </div>
-
-      {isLoading ? (
-        <div className="flex flex-col gap-3 animate-pulse">
-          {[100, 78, 62, 48, 35].map((w, i) => (
-            <div key={i} className="h-8 rounded-lg bg-white/[0.03]" style={{ width: `${w}%` }} />
-          ))}
-        </div>
-      ) : geo.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-8 gap-2">
-          <div className="w-10 h-10 rounded-xl flex items-center justify-center"
-            style={{ background: "rgba(255,255,255,0.04)" }}>
-            <MapPin size={18} style={{ color: "#3a3a4a" }} />
-          </div>
-          <p className="text-sm" style={{ color: "#5a5a6a" }}>Sem dados de localização no período</p>
-          <p className="text-[11px]" style={{ color: "#3a3a4a" }}>
-            Sincronize campanhas com dados geográficos para visualizar
-          </p>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {geo.map((g, i) => {
-            const val = metricFn(g);
-            const pct = total > 0 ? (val / total) * 100 : 0;
-            const barPct = (val / maxVal) * 100;
-            const color = GEO_COLORS[i % GEO_COLORS.length];
-
-            return (
-              <div key={g.region}>
-                <div className="flex items-center justify-between mb-1.5 gap-2">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <div className="w-2 h-2 rounded-full shrink-0" style={{ background: color }} />
-                    <span className="text-[12px] font-medium text-white truncate">{g.region}</span>
-                  </div>
-                  <div className="flex items-center gap-3 shrink-0">
-                    <span className="text-[11px] tabular-nums" style={{ color: "#7a7a8a" }}>{fmtNum(val)}</span>
-                    <span className="text-[12px] font-semibold tabular-nums w-10 text-right" style={{ color }}>
-                      {pct.toFixed(1)}%
-                    </span>
-                  </div>
-                </div>
-                <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.06)" }}>
-                  <motion.div
-                    initial={{ width: 0 }}
-                    animate={{ width: `${barPct}%` }}
-                    transition={{ duration: 0.65, delay: i * 0.06, ease: [0.22, 1, 0.36, 1] }}
-                    className="h-full rounded-full"
-                    style={{ background: color }}
-                  />
-                </div>
-              </div>
-            );
-          })}
-          <p className="text-[11px] pt-1" style={{ color: "#5a5a6a" }}>
-            Distribuição por {metricLabel}
-          </p>
-        </div>
-      )}
-    </motion.div>
-  );
-}
-
 // ── Skeleton ──────────────────────────────────────────────────────────────────
 
 function DashboardSkeleton() {
@@ -1222,10 +1126,7 @@ export function DashboardTrafego({ year, month, platformAccountId, onNavigateToC
       {/* ── Row 4: Insights ─────────────────────────────────────────────── */}
       <InsightsBlock data={data} />
 
-      {/* ── Row 5: Regiões ──────────────────────────────────────────────── */}
-      <GraficoRegioes geo={geo} isLoading={geoLoading} />
-
-      {/* ── Row 6: Secondary metrics (collapsible) ──────────────────────── */}
+      {/* ── Row 5: Secondary metrics (collapsible) ──────────────────────── */}
       <SecondaryMetrics data={data} />
     </div>
   );

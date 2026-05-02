@@ -4,15 +4,11 @@ import { useEffect } from "react";
 import { Toaster } from "sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useGlobalStore } from "@/store";
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Providers — wraps the entire app with all necessary context providers
-// ─────────────────────────────────────────────────────────────────────────────
+import { CurrentMemberProvider } from "@/context/CurrentMemberContext";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const theme = useGlobalStore((s) => s.theme);
 
-  // Apply theme class to <html> on mount and on change
   useEffect(() => {
     document.documentElement.classList.remove("dark", "light");
     document.documentElement.classList.add(theme);
@@ -20,7 +16,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
   return (
     <TooltipProvider delay={300}>
-      {children}
+      <CurrentMemberProvider>
+        {children}
+      </CurrentMemberProvider>
       <Toaster
         position="bottom-center"
         toastOptions={{

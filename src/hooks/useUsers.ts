@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { getSupabaseClient } from "@/lib/supabase";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Types
+// Tipos e constantes
 // ─────────────────────────────────────────────────────────────────────────────
 
 export type UserRole =
@@ -33,6 +33,26 @@ export const ROLE_COLORS: Record<UserRole, string> = {
   viewer:      "rgba(255,255,255,0.35)",
 };
 
+// Permissões padrão sugeridas por perfil (owner pode sobrescrever)
+export const ROLE_DEFAULT_PERMISSIONS: Record<UserRole, string[]> = {
+  admin:       ["dashboard", "crm", "clientes", "financeiro", "trafego", "portais", "configuracoes"],
+  comercial:   ["dashboard", "crm", "clientes"],
+  trafego:     ["dashboard", "trafego"],
+  financeiro:  ["dashboard", "financeiro", "clientes"],
+  operacional: ["dashboard", "crm", "clientes", "financeiro", "trafego", "portais"],
+  viewer:      ["dashboard", "crm"],
+};
+
+export const ALL_MODULES = [
+  { key: "dashboard",     label: "Dashboard" },
+  { key: "crm",           label: "CRM" },
+  { key: "clientes",      label: "Clientes" },
+  { key: "financeiro",    label: "Financeiro" },
+  { key: "trafego",       label: "Tráfego" },
+  { key: "portais",       label: "Portais" },
+  { key: "configuracoes", label: "Configurações" },
+];
+
 export interface UserProfile {
   id: string;
   owner_id: string;
@@ -44,6 +64,7 @@ export interface UserProfile {
   is_active: boolean;
   avatar_url: string | null;
   last_seen_at: string | null;
+  permissions: string[];
   created_at: string;
   updated_at: string;
 }
@@ -66,6 +87,7 @@ export interface CreateUserPayload {
   job_title: string;
   is_active: boolean;
   send_invite: boolean;
+  permissions: string[];
 }
 
 export interface UpdateUserPayload {
@@ -73,6 +95,7 @@ export interface UpdateUserPayload {
   role: UserRole;
   job_title: string;
   is_active: boolean;
+  permissions: string[];
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -110,7 +133,12 @@ export function useUsers() {
       if (profilesRes.error) throw profilesRes.error;
       if (invitesRes.error)  throw invitesRes.error;
 
-      setProfiles(profilesRes.data ?? []);
+      setProfiles(
+        (profilesRes.data ?? []).map((p) => ({
+          ...p,
+          permissions: Array.isArray(p.permissions) ? p.permissions : [],
+        }))
+      );
       setInvites(invitesRes.data ?? []);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Erro ao carregar usuários");
@@ -130,28 +158,47 @@ export function useUsers() {
       const { data, error: err } = await supabase
         .from("user_profiles")
         .insert({
-          owner_id:  user.id,
-          full_name: payload.full_name,
-          email:     payload.email,
-          role:      payload.role,
-          job_title: payload.job_title || null,
-          is_active: payload.is_active,
+          owner_id:    user.id,
+          full_name:   payload.full_name,
+          email:       payload.email,
+          role:        payload.role,
+          job_title:   payload.job_title || null,
+          is_active:   payload.is_active,
+          permissions: payload.permissions,
         })
         .select()
         .single();
 
       if (err) throw err;
-      setProfiles(prev => [data, ...prev]);
+      setProfiles(prev => [{ ...data, permissions: Array.isArray(data.permissions) ? data.permissions : [] }, ...prev]);
 
       if (payload.send_invite) {
-        const { error: invErr } = await supabase.from("user_invites").insert({
-          owner_id:   user.id,
-          email:      payload.email,
-          role:       payload.role,
-          invited_by: user.id,
-        });
-        if (invErr) console.warn("Convite não registrado:", invErr.message);
-        else await fetchAll();
+        const { data: inviteData, error: invErr } = await supabase
+          .from("user_invites")
+          .insert({
+            owner_id:   user.id,
+            email:      payload.email,
+            role:       payload.role,
+            invited_by: user.id,
+          })
+          .select()
+          .single();
+
+        if (invErr) {
+          console.warn("Convite não registrado:", invErr.message);
+        } else {
+          // Envia e-mail via API route
+          const res = await fetch("/api/invite/send", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ invite_id: inviteData.id }),
+          });
+          if (!res.ok) {
+            const body = await res.json().catch(() => ({}));
+            console.warn("E-mail de convite não enviado:", body.error);
+          }
+          await fetchAll();
+        }
       }
 
       return { error: null };
@@ -166,17 +213,21 @@ export function useUsers() {
       const { data, error: err } = await supabase
         .from("user_profiles")
         .update({
-          full_name: payload.full_name,
-          role:      payload.role,
-          job_title: payload.job_title || null,
-          is_active: payload.is_active,
+          full_name:   payload.full_name,
+          role:        payload.role,
+          job_title:   payload.job_title || null,
+          is_active:   payload.is_active,
+          permissions: payload.permissions,
         })
         .eq("id", id)
         .select()
         .single();
 
       if (err) throw err;
-      setProfiles(prev => prev.map(p => (p.id === id ? data : p)));
+      setProfiles(prev => prev.map(p => (p.id === id
+        ? { ...data, permissions: Array.isArray(data.permissions) ? data.permissions : [] }
+        : p
+      )));
       return { error: null };
     } catch (e: unknown) {
       return { error: e instanceof Error ? e.message : "Erro ao atualizar usuário" };
@@ -194,7 +245,10 @@ export function useUsers() {
         .single();
 
       if (err) throw err;
-      setProfiles(prev => prev.map(p => (p.id === id ? data : p)));
+      setProfiles(prev => prev.map(p => (p.id === id
+        ? { ...data, permissions: Array.isArray(data.permissions) ? data.permissions : [] }
+        : p
+      )));
       return { error: null };
     } catch (e: unknown) {
       return { error: e instanceof Error ? e.message : "Erro ao alterar status" };
@@ -239,12 +293,11 @@ export function useUsers() {
     }
   }, []);
 
-  // Derived stats
   const stats = {
-    total:    profiles.length,
-    active:   profiles.filter(p => p.is_active).length,
-    pending:  invites.length,
-    admins:   profiles.filter(p => p.role === "admin").length,
+    total:   profiles.length,
+    active:  profiles.filter(p => p.is_active).length,
+    pending: invites.length,
+    admins:  profiles.filter(p => p.role === "admin").length,
   };
 
   return {

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   LayoutDashboard,
   Users,
@@ -18,15 +18,17 @@ import {
 import { cn } from "@/lib/utils";
 import { useGlobalStore } from "@/store";
 import { getSupabaseClient } from "@/lib/supabase";
+import { useCurrentMember } from "@/context/CurrentMemberContext";
 
+// Cada item tem uma permKey que referencia os módulos em user_profiles.permissions
 const NAV_ITEMS = [
-  { href: "/",          label: "Dashboard", icon: LayoutDashboard, exactMatch: true },
-  { href: "/crm",       label: "CRM",       icon: Users,           exactMatch: false },
-  { href: "/clientes",  label: "Clientes",  icon: Contact,         exactMatch: false },
-  { href: "/financeiro",label: "Financeiro",icon: Wallet,          exactMatch: false },
-  { href: "/trafego",   label: "Tráfego",   icon: TrendingUp,      exactMatch: false },
-  { href: "/portais",   label: "Portais",   icon: Globe,           exactMatch: false },
-  { href: "/configuracoes", label: "Config",icon: Settings,        exactMatch: false },
+  { href: "/",              label: "Dashboard", icon: LayoutDashboard, exactMatch: true,  permKey: "dashboard" },
+  { href: "/crm",           label: "CRM",       icon: Users,           exactMatch: false, permKey: "crm" },
+  { href: "/clientes",      label: "Clientes",  icon: Contact,         exactMatch: false, permKey: "clientes" },
+  { href: "/financeiro",    label: "Financeiro",icon: Wallet,          exactMatch: false, permKey: "financeiro" },
+  { href: "/trafego",       label: "Tráfego",   icon: TrendingUp,      exactMatch: false, permKey: "trafego" },
+  { href: "/portais",       label: "Portais",   icon: Globe,           exactMatch: false, permKey: "portais" },
+  { href: "/configuracoes", label: "Config",    icon: Settings,        exactMatch: false, permKey: "configuracoes" },
 ];
 
 // ─── Tooltip flutuante ────────────────────────────────────────────────────────
@@ -189,6 +191,16 @@ export function Dock() {
   const isModalOpen = useGlobalStore((s) => s.modalCount > 0);
   const [isSigningOut, setIsSigningOut] = useState(false);
 
+  const { member, isOwner } = useCurrentMember();
+
+  // Filtra itens visíveis: owners veem tudo; membros veem apenas seus módulos
+  const visibleItems = useMemo(() => {
+    if (isOwner === null || isOwner === true) return NAV_ITEMS;
+    if (!member || !member.is_active) return NAV_ITEMS.filter((i) => i.permKey === "dashboard");
+    const perms = member.permissions;
+    return NAV_ITEMS.filter((i) => perms.includes(i.permKey));
+  }, [member, isOwner]);
+
   async function handleSignOut() {
     setIsSigningOut(true);
     const supabase = getSupabaseClient();
@@ -197,7 +209,6 @@ export function Dock() {
     router.refresh();
   }
 
-  // Mobile bottom dock — mantido igual ao original
   const mobileTransition = {
     duration: isModalOpen ? 0.28 : 0.46,
     ease: isModalOpen
@@ -225,7 +236,6 @@ export function Dock() {
             "0 8px 48px rgba(0, 0, 0, 0.28), 0 2px 8px rgba(0, 0, 0, 0.18), inset 0 1px 0 rgba(255,255,255,0.06)",
         }}
       >
-        {/* Logo — limpa, sem card */}
         <div className="flex items-center justify-center pt-5 pb-4 shrink-0">
           <img
             src="/g-cinza.svg"
@@ -235,20 +245,16 @@ export function Dock() {
           />
         </div>
 
-        {/* Divisor */}
         <div style={{ width: 28, height: 1, background: "rgba(255,255,255,0.07)", flexShrink: 0 }} />
 
-        {/* Nav items */}
         <nav className="flex flex-1 flex-col items-center justify-center gap-1.5 py-4">
-          {NAV_ITEMS.map((item) => (
+          {visibleItems.map((item) => (
             <DockNavItem key={item.href} {...item} pathname={pathname} />
           ))}
         </nav>
 
-        {/* Divisor */}
         <div style={{ width: 28, height: 1, background: "rgba(255,255,255,0.07)", flexShrink: 0 }} />
 
-        {/* Logout */}
         <div className="flex items-center justify-center pt-4 pb-5 shrink-0">
           <DockLogoutItem onSignOut={handleSignOut} isSigningOut={isSigningOut} />
         </div>
@@ -275,7 +281,7 @@ export function Dock() {
               boxShadow: "0 8px 32px rgba(0, 0, 0, 0.45), 0 1px 0 rgba(255,255,255,0.04) inset",
             }}
           >
-            {NAV_ITEMS.map((item) => {
+            {visibleItems.map((item) => {
               const active = item.exactMatch
                 ? pathname === item.href
                 : pathname.startsWith(item.href);

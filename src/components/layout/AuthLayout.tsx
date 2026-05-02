@@ -43,8 +43,9 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
   }, []);
 
   const isAuthenticated = !isChecking && !!session;
-  const isPortalPage = pathname?.startsWith("/portal/") ?? false;
-  const showDock = isAuthenticated && !isPortalPage;
+  const isPortalPage  = pathname?.startsWith("/portal/")  ?? false;
+  const isConvitePage = pathname?.startsWith("/convite/")  ?? false;
+  const showDock = isAuthenticated && !isPortalPage && !isConvitePage;
 
   return (
     <>

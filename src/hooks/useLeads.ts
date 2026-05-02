@@ -142,12 +142,16 @@ export function useLeads(dateFilter?: DateFilter | null) {
 
     if (!user) return { error: "Usuário não autenticado." };
 
-    const { error: err } = await supabase.from("leads").insert({
-      ...data,
-      user_id: user.id,
-    });
+    const { data: created, error: err } = await supabase
+      .from("leads")
+      .insert({ ...data, user_id: user.id })
+      .select()
+      .single();
 
     if (err) return { error: err.message };
+
+    // Optimistic: adiciona ao estado local imediatamente sem esperar real-time
+    setLeads((prev) => [{ ...created, deal_value: created.deal_value ?? 0 }, ...prev]);
     return { error: null };
   }
 
@@ -169,12 +173,20 @@ export function useLeads(dateFilter?: DateFilter | null) {
   // ── Delete ─────────────────────────────────────────────────────────────────
 
   async function deleteLead(id: string): Promise<{ error: string | null }> {
+    // Optimistic: remove do estado local imediatamente
+    const previous = leads.find((l) => l.id === id);
+    setLeads((prev) => prev.filter((l) => l.id !== id));
+
     const { error: err } = await supabase
       .from("leads")
       .delete()
       .eq("id", id);
 
-    if (err) return { error: err.message };
+    if (err) {
+      // Reverte se o servidor retornar erro
+      if (previous) setLeads((prev) => [...prev, previous]);
+      return { error: err.message };
+    }
     return { error: null };
   }
 
