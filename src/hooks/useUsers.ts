@@ -141,7 +141,7 @@ export function useUsers() {
       );
       setInvites(invitesRes.data ?? []);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Erro ao carregar usuários");
+      setError((e as { message?: string })?.message ?? "Erro ao carregar usuários");
     } finally {
       setIsLoading(false);
     }
@@ -169,7 +169,7 @@ export function useUsers() {
         .select()
         .single();
 
-      if (err) throw err;
+      if (err) return { error: err.message };
       setProfiles(prev => [{ ...data, permissions: Array.isArray(data.permissions) ? data.permissions : [] }, ...prev]);
 
       if (payload.send_invite) {
@@ -187,7 +187,6 @@ export function useUsers() {
         if (invErr) {
           console.warn("Convite não registrado:", invErr.message);
         } else {
-          // Envia e-mail via API route
           const res = await fetch("/api/invite/send", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -203,7 +202,7 @@ export function useUsers() {
 
       return { error: null };
     } catch (e: unknown) {
-      return { error: e instanceof Error ? e.message : "Erro ao criar usuário" };
+      return { error: (e as { message?: string })?.message ?? "Erro ao criar usuário" };
     }
   }, [fetchAll]);
 
@@ -230,7 +229,7 @@ export function useUsers() {
       )));
       return { error: null };
     } catch (e: unknown) {
-      return { error: e instanceof Error ? e.message : "Erro ao atualizar usuário" };
+      return { error: (e as { message?: string })?.message ?? "Erro ao atualizar usuário" };
     }
   }, []);
 
@@ -251,7 +250,7 @@ export function useUsers() {
       )));
       return { error: null };
     } catch (e: unknown) {
-      return { error: e instanceof Error ? e.message : "Erro ao alterar status" };
+      return { error: (e as { message?: string })?.message ?? "Erro ao alterar status" };
     }
   }, []);
 
@@ -263,7 +262,7 @@ export function useUsers() {
       setProfiles(prev => prev.filter(p => p.id !== id));
       return { error: null };
     } catch (e: unknown) {
-      return { error: e instanceof Error ? e.message : "Erro ao remover usuário" };
+      return { error: (e as { message?: string })?.message ?? "Erro ao remover usuário" };
     }
   }, []);
 
@@ -278,7 +277,7 @@ export function useUsers() {
       setInvites(prev => prev.filter(i => i.id !== id));
       return { error: null };
     } catch (e: unknown) {
-      return { error: e instanceof Error ? e.message : "Erro ao revogar convite" };
+      return { error: (e as { message?: string })?.message ?? "Erro ao revogar convite" };
     }
   }, []);
 
@@ -289,7 +288,7 @@ export function useUsers() {
       if (err) throw err;
       return { error: null };
     } catch (e: unknown) {
-      return { error: e instanceof Error ? e.message : "Erro ao enviar reset" };
+      return { error: (e as { message?: string })?.message ?? "Erro ao enviar reset" };
     }
   }, []);
 
