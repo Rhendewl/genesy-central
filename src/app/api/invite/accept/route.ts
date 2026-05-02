@@ -30,16 +30,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Convite expirado" }, { status: 410 });
   }
 
-  // Verifica se já existe um auth user com esse e-mail
-  const { data: existingUsers } = await admin.auth.admin.listUsers();
-  const alreadyExists = existingUsers?.users.some((u) => u.email === invite.email);
-  if (alreadyExists) {
-    return NextResponse.json(
-      { error: "Já existe uma conta com este e-mail. Faça login normalmente." },
-      { status: 409 }
-    );
-  }
-
   // Cria usuário no Supabase Auth
   const { data: authData, error: authErr } = await admin.auth.admin.createUser({
     email: invite.email,
@@ -48,6 +38,16 @@ export async function POST(req: Request) {
   });
 
   if (authErr || !authData.user) {
+    const isDuplicate =
+      authErr?.status === 422 ||
+      authErr?.message?.toLowerCase().includes("already") ||
+      authErr?.message?.toLowerCase().includes("registered");
+    if (isDuplicate) {
+      return NextResponse.json(
+        { error: "Já existe uma conta com este e-mail. Faça login normalmente." },
+        { status: 409 }
+      );
+    }
     return NextResponse.json(
       { error: authErr?.message ?? "Erro ao criar conta" },
       { status: 500 }
