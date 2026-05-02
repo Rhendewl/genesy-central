@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { createAdminSupabaseClient } from "@/lib/supabase-admin";
 import { getResendClient, buildInviteEmail } from "@/lib/resend";
-import { ROLE_LABELS } from "@/hooks/useUsers";
+import { ROLE_LABELS } from "@/lib/roles";
 
 export async function POST(req: Request) {
   try {

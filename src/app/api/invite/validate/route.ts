@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminSupabaseClient } from "@/lib/supabase-admin";
-import { ROLE_LABELS } from "@/hooks/useUsers";
+import { ROLE_LABELS } from "@/lib/roles";
 
 // Rota pública — valida token de convite antes do usuário criar a senha.
 export async function GET(req: Request) {
