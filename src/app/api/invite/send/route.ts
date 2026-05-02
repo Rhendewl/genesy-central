@@ -37,7 +37,10 @@ export async function POST(req: Request) {
     .eq("email", invite.email)
     .single();
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+  // Em produção usa NEXT_PUBLIC_APP_URL; fallback para VERCEL_URL automático da Vercel
+  const appUrl =
+    process.env.NEXT_PUBLIC_APP_URL ??
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
   const inviteLink = `${appUrl}/convite/${invite.token}`;
   const recipientName = profile?.full_name ?? invite.email.split("@")[0];
   const roleName = ROLE_LABELS[invite.role as keyof typeof ROLE_LABELS] ?? invite.role;
@@ -50,8 +53,9 @@ export async function POST(req: Request) {
   });
 
   if (emailErr) {
-    console.error("[invite/send] resend error:", emailErr);
-    return NextResponse.json({ error: "Falha ao enviar e-mail" }, { status: 500 });
+    const detail = (emailErr as { message?: string })?.message ?? JSON.stringify(emailErr);
+    console.error("[invite/send] resend error:", detail);
+    return NextResponse.json({ error: `Resend: ${detail}` }, { status: 500 });
   }
 
   return NextResponse.json({ ok: true });

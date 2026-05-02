@@ -185,19 +185,22 @@ export function useUsers() {
           .single();
 
         if (invErr) {
-          console.warn("Convite não registrado:", invErr.message);
-        } else {
-          const res = await fetch("/api/invite/send", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ invite_id: inviteData.id }),
-          });
-          if (!res.ok) {
-            const body = await res.json().catch(() => ({}));
-            console.warn("E-mail de convite não enviado:", body.error);
-          }
-          await fetchAll();
+          return { error: `Convite não registrado: ${invErr.message}` };
         }
+
+        const res = await fetch("/api/invite/send", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ invite_id: inviteData.id }),
+        });
+
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          // Usuário foi criado com sucesso mas o e-mail falhou — retorna aviso distinto
+          return { error: `Usuário criado, mas o e-mail de convite falhou: ${body.error ?? "erro desconhecido"}` };
+        }
+
+        await fetchAll();
       }
 
       return { error: null };
