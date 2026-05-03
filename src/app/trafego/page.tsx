@@ -76,19 +76,23 @@ function AccountSelector({ accounts, selectedAccountId, onChange }: AccountSelec
             {/* Backdrop */}
             <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
 
+            {/* Wrapper anima sem transform no elemento com backdrop-filter */}
             <motion.div
               initial={{ opacity: 0, y: -4, scale: 0.98 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -4, scale: 0.98 }}
               transition={{ duration: 0.12 }}
-              className="absolute left-0 top-full mt-1.5 z-50 min-w-[220px] rounded-xl shadow-2xl"
-              style={{
-                background: "rgba(0,0,0,0.10)",
-                border: "1px solid rgba(255,255,255,0.10)",
-                backdropFilter: "blur(20px)",
-                WebkitBackdropFilter: "blur(20px)",
-              }}
+              className="absolute left-0 top-full mt-1.5 z-50 min-w-[220px]"
             >
+              <div
+                className="rounded-xl shadow-2xl overflow-hidden"
+                style={{
+                  background: "rgba(0,0,0,0.10)",
+                  border: "1px solid rgba(255,255,255,0.10)",
+                  backdropFilter: "blur(24px)",
+                  WebkitBackdropFilter: "blur(24px)",
+                }}
+              >
               {/* "All accounts" option */}
               <button
                 onClick={() => { onChange(null); setOpen(false); }}
@@ -140,6 +144,7 @@ function AccountSelector({ accounts, selectedAccountId, onChange }: AccountSelec
                   )}
                 </button>
               ))}
+              </div>
             </motion.div>
           </>
         )}
