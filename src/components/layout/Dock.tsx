@@ -13,7 +13,6 @@ import {
   LogOut,
   User,
   Contact,
-  Globe,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useGlobalStore } from "@/store";
@@ -27,7 +26,6 @@ const NAV_ITEMS = [
   { href: "/clientes",      label: "Clientes",  icon: Contact,         exactMatch: false, permKey: "clientes" },
   { href: "/financeiro",    label: "Financeiro",icon: Wallet,          exactMatch: false, permKey: "financeiro" },
   { href: "/trafego",       label: "Tráfego",   icon: TrendingUp,      exactMatch: false, permKey: "trafego" },
-  { href: "/portais",       label: "Portais",   icon: Globe,           exactMatch: false, permKey: "portais" },
   { href: "/configuracoes", label: "Config",    icon: Settings,        exactMatch: false, permKey: "configuracoes" },
 ];
 

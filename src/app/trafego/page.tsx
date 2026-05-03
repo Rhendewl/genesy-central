@@ -6,21 +6,23 @@ import { useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   LayoutDashboard, Megaphone,
-  ChevronLeft, ChevronRight, Plug, ChevronDown,
+  ChevronLeft, ChevronRight, Plug, ChevronDown, Globe,
 } from "lucide-react";
 import { Header } from "@/components/layout/Header";
 import { DashboardTrafego } from "@/components/trafego/DashboardTrafego";
 import { GestaoCampanhas } from "@/components/trafego/GestaoCampanhas";
 import { IntegracoesTab } from "@/components/trafego/IntegracoesTab";
+import { PortaisList } from "@/components/portais/PortaisList";
 import { useMetaIntegrations } from "@/hooks/useMetaIntegrations";
 import { cn } from "@/lib/utils";
 import type { AdPlatformAccount } from "@/types";
 
-type TabId = "dashboard" | "campanhas" | "integracoes";
+type TabId = "dashboard" | "campanhas" | "portais" | "integracoes";
 
 const TABS: { id: TabId; label: string; icon: React.ReactNode; shortLabel?: string }[] = [
   { id: "dashboard",   label: "Dashboard",   icon: <LayoutDashboard size={15} /> },
   { id: "campanhas",   label: "Campanhas",   icon: <Megaphone size={15} /> },
+  { id: "portais",     label: "Portais",     icon: <Globe size={15} /> },
   { id: "integracoes", label: "Integrações", icon: <Plug size={15} />, shortLabel: "APIs" },
 ];
 
@@ -167,11 +169,13 @@ function AccountSelector({ accounts, selectedAccountId, onChange }: AccountSelec
 function TrafegoPageInner() {
   const searchParams = useSearchParams();
 
-  const initialTab: TabId = (
-    searchParams.get("tab") === "integracoes" ||
-    searchParams.get("meta_pending") ||
-    searchParams.get("meta_error")
-  ) ? "integracoes" : "dashboard";
+  const initialTab: TabId = (() => {
+    const tab = searchParams.get("tab");
+    if (tab === "integracoes" || searchParams.get("meta_pending") || searchParams.get("meta_error")) return "integracoes";
+    if (tab === "portais") return "portais";
+    if (tab === "campanhas") return "campanhas";
+    return "dashboard";
+  })();
 
   const now = new Date();
   const [activeTab, setActiveTab]               = useState<TabId>(initialTab);
@@ -201,12 +205,13 @@ function TrafegoPageInner() {
   const isCurrentMonth = year === now.getFullYear() && month === now.getMonth() + 1;
 
   const tabSubtitle = useMemo(() => {
-    const tab = TABS.find(t => t.id === activeTab);
     if (activeTab === "integracoes") return "Integração com plataformas de mídia";
+    if (activeTab === "portais") return "Dashboards públicos para clientes";
+    const tab = TABS.find(t => t.id === activeTab);
     return `${tab?.label} · ${MONTH_NAMES[month - 1]} ${year}`;
   }, [activeTab, month, year]);
 
-  const showPeriodNav = activeTab !== "integracoes";
+  const showPeriodNav = activeTab !== "integracoes" && activeTab !== "portais";
 
   return (
     <div className="mx-auto max-w-7xl px-4 sm:px-6">
@@ -307,6 +312,7 @@ function TrafegoPageInner() {
         >
           {activeTab === "dashboard"   && <DashboardTrafego year={year} month={month} platformAccountId={selectedAccountId} onNavigateToCampanhas={() => setActiveTab("campanhas")} />}
           {activeTab === "campanhas"   && <GestaoCampanhas  year={year} month={month} platformAccountId={selectedAccountId} />}
+          {activeTab === "portais"     && <PortaisList />}
           {activeTab === "integracoes" && <IntegracoesTab />}
         </motion.div>
       </AnimatePresence>
