@@ -50,7 +50,7 @@ function AccountSelector({ accounts, selectedAccountId, onChange }: AccountSelec
         onClick={() => setOpen(o => !o)}
         className={cn(
           "lc-card flex items-center gap-2 px-3.5 py-2 text-sm transition-all",
-          open && "ring-1 ring-[#4a8fd4]/30"
+          open && "ring-1 ring-white/20"
         )}
       >
         {/* Status dot */}
@@ -81,10 +81,12 @@ function AccountSelector({ accounts, selectedAccountId, onChange }: AccountSelec
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -4, scale: 0.98 }}
               transition={{ duration: 0.12 }}
-              className="absolute left-0 top-full mt-1.5 z-50 min-w-[220px] rounded-xl overflow-hidden shadow-2xl"
+              className="absolute left-0 top-full mt-1.5 z-50 min-w-[220px] rounded-xl shadow-2xl"
               style={{
-                background: "rgba(16,20,28,0.95)",
+                background: "rgba(0,0,0,0.10)",
                 border: "1px solid rgba(255,255,255,0.10)",
+                backdropFilter: "blur(20px)",
+                WebkitBackdropFilter: "blur(20px)",
               }}
             >
               {/* "All accounts" option */}
@@ -93,14 +95,14 @@ function AccountSelector({ accounts, selectedAccountId, onChange }: AccountSelec
                 className={cn(
                   "w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm transition-colors text-left",
                   !selectedAccountId
-                    ? "bg-[#4a8fd4]/10 text-white"
+                    ? "bg-white/10 text-white"
                     : "text-[#b4b4b4] hover:bg-white/5 hover:text-white"
                 )}
               >
                 <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
                 <span className="font-medium">Todas as contas</span>
                 {!selectedAccountId && (
-                  <span className="ml-auto text-[#4a8fd4] text-xs">✓</span>
+                  <span className="ml-auto text-white/70 text-xs">✓</span>
                 )}
               </button>
 
@@ -115,7 +117,7 @@ function AccountSelector({ accounts, selectedAccountId, onChange }: AccountSelec
                   className={cn(
                     "w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm transition-colors text-left",
                     selectedAccountId === acc.id
-                      ? "bg-[#4a8fd4]/10 text-white"
+                      ? "bg-white/10 text-white"
                       : "text-[#b4b4b4] hover:bg-white/5 hover:text-white"
                   )}
                 >
@@ -134,7 +136,7 @@ function AccountSelector({ accounts, selectedAccountId, onChange }: AccountSelec
                     )}
                   </div>
                   {selectedAccountId === acc.id && (
-                    <span className="ml-auto text-[#4a8fd4] text-xs shrink-0">✓</span>
+                    <span className="ml-auto text-white/70 text-xs shrink-0">✓</span>
                   )}
                 </button>
               ))}
