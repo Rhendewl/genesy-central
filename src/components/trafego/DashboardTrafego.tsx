@@ -334,6 +334,7 @@ function HeroChart({
                   formatters={{ "Investimento": fmtBRL, "Leads": v => `${fmtNum(v)} leads` }}
                 />
               }
+              wrapperStyle={{ overflow: "visible" }}
             />
             <Line yAxisId="left" type="monotone" dataKey="valor" name="Investimento"
               stroke="#10b981" strokeWidth={2}
