@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, Suspense, useRef, useEffect } from "react";
+import { useState, useMemo, Suspense, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
@@ -42,12 +42,13 @@ function AccountSelector({ accounts, selectedAccountId, onChange }: AccountSelec
   const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0 });
   const btnRef = useRef<HTMLButtonElement>(null);
 
-  useEffect(() => {
-    if (open && btnRef.current) {
+  const handleToggle = () => {
+    if (!open && btnRef.current) {
       const r = btnRef.current.getBoundingClientRect();
       setDropdownPos({ top: r.bottom + 6, left: r.left });
     }
-  }, [open]);
+    setOpen(o => !o);
+  };
 
   if (accounts.length === 0) return null;
 
@@ -133,7 +134,7 @@ function AccountSelector({ accounts, selectedAccountId, onChange }: AccountSelec
     <div className="relative">
       <button
         ref={btnRef}
-        onClick={() => setOpen(o => !o)}
+        onClick={handleToggle}
         className={cn(
           "lc-card flex items-center gap-2 px-3.5 py-2 text-sm transition-all",
           open && "ring-1 ring-white/20"
