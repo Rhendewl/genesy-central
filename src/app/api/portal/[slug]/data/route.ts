@@ -3,8 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { createAdminSupabaseClient } from "@/lib/supabase-admin";
 import { startOfMonth, format } from "date-fns";
 
-// Anon client — reads public tables (portals, portal_accounts have SELECT USING true)
-// Does NOT require SUPABASE_SERVICE_ROLE_KEY
+// Anon client — fallback for dev environments without service role key
 function createAnonClient() {
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -23,12 +22,20 @@ export async function GET(
   const { slug } = await params;
   const sp = req.nextUrl.searchParams;
 
-  // Use anon client for public tables — portals & portal_accounts have SELECT USING(true)
-  // This never requires SUPABASE_SERVICE_ROLE_KEY
-  const anon = createAnonClient();
+  // Use admin client to bypass RLS — portal slug lookup is public by design.
+  // Falls back to anon in dev environments without SUPABASE_SERVICE_ROLE_KEY.
+  let admin;
+  let db: ReturnType<typeof createAnonClient>;
+  try {
+    admin = createAdminSupabaseClient();
+    db = admin;
+  } catch {
+    console.warn("[portal/data] service role key not configured — using anon client");
+    db = createAnonClient();
+  }
 
   // 1. Load portal by slug
-  const { data: rawPortal, error: portalErr } = await anon
+  const { data: rawPortal, error: portalErr } = await db
     .from("portals")
     .select("id, user_id, name, status, client_id")
     .eq("slug", slug)
@@ -46,10 +53,10 @@ export async function GET(
     return NextResponse.json({ error: "Portal pausado" }, { status: 403 });
   }
 
-  // Load client name (also public via agency_clients — owner's data, but safe since name only)
+  // Load client name
   let clientName: string | null = null;
   if (rawPortal.client_id) {
-    const { data: clientData } = await anon
+    const { data: clientData } = await db
       .from("agency_clients")
       .select("name")
       .eq("id", rawPortal.client_id)
@@ -57,8 +64,8 @@ export async function GET(
     clientName = clientData?.name ?? null;
   }
 
-  // 2. Load allowed ad_account_ids — portal_accounts has SELECT USING(true)
-  const { data: portalAccounts } = await anon
+  // 2. Load allowed ad_account_ids
+  const { data: portalAccounts } = await db
     .from("portal_accounts")
     .select("ad_account_id")
     .eq("portal_id", rawPortal.id);
@@ -71,12 +78,8 @@ export async function GET(
     return NextResponse.json(buildEmptyResponse(rawPortal.name, clientName, rawPortal.status));
   }
 
-  // 3. Campaign data requires service role — graceful fallback if key not configured
-  let admin;
-  try {
-    admin = createAdminSupabaseClient();
-  } catch {
-    // SUPABASE_SERVICE_ROLE_KEY not set — return portal info with empty metrics
+  // 3. Campaign data requires service role
+  if (!admin) {
     console.warn("[portal/data] service role key not configured — returning empty metrics");
     return NextResponse.json(buildEmptyResponse(rawPortal.name, clientName, rawPortal.status));
   }
