@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useMemo, Suspense } from "react";
+import { useState, useMemo, Suspense, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -38,22 +39,106 @@ interface AccountSelectorProps {
 
 function AccountSelector({ accounts, selectedAccountId, onChange }: AccountSelectorProps) {
   const [open, setOpen] = useState(false);
+  const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0 });
+  const btnRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (open && btnRef.current) {
+      const r = btnRef.current.getBoundingClientRect();
+      setDropdownPos({ top: r.bottom + 6, left: r.left });
+    }
+  }, [open]);
 
   if (accounts.length === 0) return null;
 
   const selected = accounts.find(a => a.id === selectedAccountId);
   const label = selected ? selected.account_name : "Todas as contas";
 
+  const dropdownContent = (
+    <>
+      <div className="fixed inset-0 z-[9998]" onClick={() => setOpen(false)} />
+      <motion.div
+        initial={{ opacity: 0, y: -4, scale: 0.98 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: -4, scale: 0.98 }}
+        transition={{ duration: 0.12 }}
+        style={{ position: "fixed", top: dropdownPos.top, left: dropdownPos.left, zIndex: 9999, minWidth: 220 }}
+      >
+        <div
+          className="rounded-xl shadow-2xl"
+          style={{
+            background: "rgba(0,0,0,0.10)",
+            border: "1px solid rgba(255,255,255,0.10)",
+            backdropFilter: "blur(24px)",
+            WebkitBackdropFilter: "blur(24px)",
+          }}
+        >
+          {/* "All accounts" option */}
+          <button
+            onClick={() => { onChange(null); setOpen(false); }}
+            className={cn(
+              "w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm transition-colors text-left",
+              !selectedAccountId
+                ? "bg-white/10 text-white"
+                : "text-[#b4b4b4] hover:bg-white/5 hover:text-white"
+            )}
+          >
+            <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
+            <span className="font-medium">Todas as contas</span>
+            {!selectedAccountId && (
+              <span className="ml-auto text-white/70 text-xs">✓</span>
+            )}
+          </button>
+
+          {/* Divider */}
+          <div className="mx-3 border-t" style={{ borderColor: "rgba(255,255,255,0.07)" }} />
+
+          {/* Individual accounts */}
+          {accounts.map(acc => (
+            <button
+              key={acc.id}
+              onClick={() => { onChange(acc.id); setOpen(false); }}
+              className={cn(
+                "w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm transition-colors text-left",
+                selectedAccountId === acc.id
+                  ? "bg-white/10 text-white"
+                  : "text-[#b4b4b4] hover:bg-white/5 hover:text-white"
+              )}
+            >
+              <div
+                className="w-1.5 h-1.5 rounded-full shrink-0"
+                style={{
+                  background: acc.status === "connected" ? "#4a8fd4"
+                    : acc.status === "error" ? "#ef4444"
+                    : "#5a5a5a",
+                }}
+              />
+              <div className="flex-1 min-w-0">
+                <p className="font-medium truncate leading-tight">{acc.account_name}</p>
+                {acc.client && (
+                  <p className="text-[10px] text-[#5a5a5a] truncate">{acc.client.name}</p>
+                )}
+              </div>
+              {selectedAccountId === acc.id && (
+                <span className="ml-auto text-white/70 text-xs shrink-0">✓</span>
+              )}
+            </button>
+          ))}
+        </div>
+      </motion.div>
+    </>
+  );
+
   return (
     <div className="relative">
       <button
+        ref={btnRef}
         onClick={() => setOpen(o => !o)}
         className={cn(
           "lc-card flex items-center gap-2 px-3.5 py-2 text-sm transition-all",
           open && "ring-1 ring-white/20"
         )}
       >
-        {/* Status dot */}
         <div
           className="w-1.5 h-1.5 rounded-full shrink-0"
           style={{ background: selectedAccountId ? "#4a8fd4" : "#22c55e" }}
@@ -71,83 +156,7 @@ function AccountSelector({ accounts, selectedAccountId, onChange }: AccountSelec
       </button>
 
       <AnimatePresence>
-        {open && (
-          <>
-            {/* Backdrop */}
-            <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-
-            {/* Wrapper anima sem transform no elemento com backdrop-filter */}
-            <motion.div
-              initial={{ opacity: 0, y: -4, scale: 0.98 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -4, scale: 0.98 }}
-              transition={{ duration: 0.12 }}
-              className="absolute left-0 top-full mt-1.5 z-50 min-w-[220px]"
-            >
-              <div
-                className="rounded-xl shadow-2xl overflow-hidden"
-                style={{
-                  background: "rgba(0,0,0,0.10)",
-                  border: "1px solid rgba(255,255,255,0.10)",
-                  backdropFilter: "blur(24px)",
-                  WebkitBackdropFilter: "blur(24px)",
-                }}
-              >
-              {/* "All accounts" option */}
-              <button
-                onClick={() => { onChange(null); setOpen(false); }}
-                className={cn(
-                  "w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm transition-colors text-left",
-                  !selectedAccountId
-                    ? "bg-white/10 text-white"
-                    : "text-[#b4b4b4] hover:bg-white/5 hover:text-white"
-                )}
-              >
-                <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
-                <span className="font-medium">Todas as contas</span>
-                {!selectedAccountId && (
-                  <span className="ml-auto text-white/70 text-xs">✓</span>
-                )}
-              </button>
-
-              {/* Divider */}
-              <div className="mx-3 border-t" style={{ borderColor: "rgba(255,255,255,0.07)" }} />
-
-              {/* Individual accounts */}
-              {accounts.map(acc => (
-                <button
-                  key={acc.id}
-                  onClick={() => { onChange(acc.id); setOpen(false); }}
-                  className={cn(
-                    "w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm transition-colors text-left",
-                    selectedAccountId === acc.id
-                      ? "bg-white/10 text-white"
-                      : "text-[#b4b4b4] hover:bg-white/5 hover:text-white"
-                  )}
-                >
-                  <div
-                    className="w-1.5 h-1.5 rounded-full shrink-0"
-                    style={{
-                      background: acc.status === "connected" ? "#4a8fd4"
-                        : acc.status === "error" ? "#ef4444"
-                        : "#5a5a5a",
-                    }}
-                  />
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium truncate leading-tight">{acc.account_name}</p>
-                    {acc.client && (
-                      <p className="text-[10px] text-[#5a5a5a] truncate">{acc.client.name}</p>
-                    )}
-                  </div>
-                  {selectedAccountId === acc.id && (
-                    <span className="ml-auto text-white/70 text-xs shrink-0">✓</span>
-                  )}
-                </button>
-              ))}
-              </div>
-            </motion.div>
-          </>
-        )}
+        {open && typeof window !== "undefined" && createPortal(dropdownContent, document.body)}
       </AnimatePresence>
     </div>
   );
