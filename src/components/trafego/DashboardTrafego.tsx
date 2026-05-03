@@ -231,10 +231,12 @@ const CustomTooltip = ({
 }) => {
   if (!active || !payload?.length) return null;
   return (
-    <div className="rounded-xl px-4 py-3 text-sm shadow-2xl"
+    <div className="rounded-xl px-4 py-3 text-sm"
       style={{
-        background: "rgba(10,12,22,0.92)",
-        border: "1px solid rgba(255,255,255,0.08)",
+        background: "rgba(0,0,0,0.10)",
+        border: "1px solid rgba(255,255,255,0.10)",
+        backdropFilter: "blur(20px)",
+        WebkitBackdropFilter: "blur(20px)",
       }}>
       <p className="text-[#7a7a8a] text-[11px] mb-2 font-medium">{label}</p>
       {payload.map(p => {
