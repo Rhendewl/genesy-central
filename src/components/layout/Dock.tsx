@@ -276,9 +276,11 @@ export function Dock() {
           <div
             className="flex items-center gap-0.5 rounded-full px-2 py-1.5"
             style={{
-              background: "rgba(0, 0, 0, 0.22)",
+              background: "rgba(0, 0, 0, 0.10)",
               border: "none",
-              boxShadow: "0 8px 32px rgba(0, 0, 0, 0.45), 0 1px 0 rgba(255,255,255,0.04) inset",
+              backdropFilter: "blur(20px)",
+              WebkitBackdropFilter: "blur(20px)",
+              boxShadow: "0 8px 32px rgba(0, 0, 0, 0.30)",
             }}
           >
             {visibleItems.map((item) => {
