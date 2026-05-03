@@ -68,7 +68,6 @@ export function useCompanyProfile() {
       const { data, error: err } = await supabase
         .from("company_profile")
         .select("*")
-        .eq("user_id", user.id)
         .maybeSingle();
 
       if (err) throw err;

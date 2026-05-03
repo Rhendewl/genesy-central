@@ -20,12 +20,11 @@ export async function PUT(
     ad_account_ids?: string[];
   };
 
-  // Verify ownership
+  // Verify access
   const { data: portal } = await supabase
     .from("portals")
     .select("id")
     .eq("id", id)
-    .eq("user_id", user.id)
     .maybeSingle();
 
   if (!portal) return NextResponse.json({ error: "Portal não encontrado" }, { status: 404 });
@@ -81,8 +80,7 @@ export async function DELETE(
   const { error } = await supabase
     .from("portals")
     .delete()
-    .eq("id", id)
-    .eq("user_id", user.id);
+    .eq("id", id);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ ok: true });
@@ -103,8 +101,7 @@ export async function PATCH(
   const { error } = await supabase
     .from("portals")
     .update({ status })
-    .eq("id", id)
-    .eq("user_id", user.id);
+    .eq("id", id);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ ok: true });

@@ -127,8 +127,7 @@ export function useInadimplencia(): UseInadimplenciaReturn {
       // Check existing collections to avoid duplicates
       const { data: existing } = await supabase
         .from("collections")
-        .select("revenue_id")
-        .eq("user_id", user.id);
+        .select("revenue_id");
 
       const existingIds = new Set((existing ?? []).map((e: { revenue_id: string }) => e.revenue_id));
 

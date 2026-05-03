@@ -115,7 +115,6 @@ export function useSecurity() {
       const { data: settingsData, error: settingsErr } = await supabase
         .from("security_settings")
         .select("*")
-        .eq("user_id", user.id)
         .maybeSingle();
 
       if (settingsErr) throw settingsErr;
@@ -143,7 +142,6 @@ export function useSecurity() {
       const { data: logsData, error: logsErr } = await supabase
         .from("security_logs")
         .select("*")
-        .eq("user_id", user.id)
         .order("created_at", { ascending: false })
         .limit(25);
 
@@ -190,7 +188,6 @@ export function useSecurity() {
       const { data: logsData } = await supabase
         .from("security_logs")
         .select("*")
-        .eq("user_id", user.id)
         .order("created_at", { ascending: false })
         .limit(25);
       setLogs(logsData ?? []);
@@ -214,7 +211,6 @@ export function useSecurity() {
       const { data, error } = await supabase
         .from("security_settings")
         .update(patch)
-        .eq("user_id", user.id)
         .select()
         .single();
 
@@ -230,7 +226,6 @@ export function useSecurity() {
       const { data: logsData } = await supabase
         .from("security_logs")
         .select("*")
-        .eq("user_id", user.id)
         .order("created_at", { ascending: false })
         .limit(25);
       setLogs(logsData ?? []);
@@ -261,7 +256,6 @@ export function useSecurity() {
         const { data: logsData } = await supabase
           .from("security_logs")
           .select("*")
-          .eq("user_id", user.id)
           .order("created_at", { ascending: false })
           .limit(25);
         setLogs(logsData ?? []);
