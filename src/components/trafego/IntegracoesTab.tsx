@@ -522,7 +522,12 @@ function MetaAdsSection({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.25 }}
       className="rounded-2xl p-5 space-y-4"
-      style={{ background: "rgba(14,22,34,0.7)", border: "none" }}
+      style={{
+        background: "rgba(0,0,0,0.10)",
+        border: "1px solid rgba(255,255,255,0.10)",
+        backdropFilter: "blur(20px)",
+        WebkitBackdropFilter: "blur(20px)",
+      }}
     >
       {/* Section header */}
       <div className="flex items-center justify-between gap-3">
@@ -600,7 +605,12 @@ function SyncHistory({ logs }: { logs: MetaSyncLog[] }) {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3, delay: 0.2 }}
       className="rounded-2xl p-5"
-      style={{ background: "rgba(14,22,34,0.7)", border: "none" }}
+      style={{
+        background: "rgba(0,0,0,0.10)",
+        border: "1px solid rgba(255,255,255,0.10)",
+        backdropFilter: "blur(20px)",
+        WebkitBackdropFilter: "blur(20px)",
+      }}
     >
       <h3 className="text-white font-semibold text-sm mb-4 flex items-center gap-2">
         <Clock size={14} className="text-[#4a8fd4]" />

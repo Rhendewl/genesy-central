@@ -201,7 +201,7 @@ export function PeriodFilter({ onChange }: PeriodFilterProps) {
       <button
         onClick={() => setOpen(o => !o)}
         className={cn(
-          "flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-all hover:scale-[1.02] active:scale-95 select-none",
+          "flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-all hover:scale-[1.02] active:scale-95 select-none backdrop-blur-md",
           isActive
             ? "text-white"
             : "text-[#b4b4b4] hover:text-white",

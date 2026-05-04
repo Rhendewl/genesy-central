@@ -92,7 +92,7 @@ function StatsCard({ icon: Icon, label, value, accent, delay }: {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35, delay, ease: "easeOut" }}
       className="flex items-center gap-4 rounded-2xl p-4"
-      style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.06)" }}
+      style={{ background: "rgba(0,0,0,0.10)", border: "1px solid rgba(255,255,255,0.10)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)" }}
     >
       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl" style={{ background: `${accent}18` }}>
         <Icon size={18} style={{ color: accent }} strokeWidth={1.75} />
@@ -174,7 +174,7 @@ function FilterSelect({ value, onChange, children }: { value: string; onChange: 
         value={value}
         onChange={e => onChange(e.target.value)}
         className="h-9 appearance-none rounded-xl pl-3.5 pr-8 text-[13px] outline-none transition-all cursor-pointer"
-        style={{ background: "rgba(255,255,255,0.09)", border: "1px solid rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.7)" }}
+        style={{ background: "rgba(0,0,0,0.10)", border: "1px solid rgba(255,255,255,0.10)", color: "rgba(255,255,255,0.7)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)" }}
       >
         {children}
       </select>
@@ -316,9 +316,11 @@ function UserModal({
 
   const isCreate = mode === "create";
   const inputStyle = {
-    background: "rgba(255,255,255,0.09)",
-    border: "1px solid rgba(255,255,255,0.1)",
+    background: "rgba(0,0,0,0.10)",
+    border: "1px solid rgba(255,255,255,0.10)",
     color: "#ffffff",
+    backdropFilter: "blur(20px)",
+    WebkitBackdropFilter: "blur(20px)",
   };
 
   function setField<K extends keyof FormState>(key: K, value: FormState[K]) {
@@ -356,8 +358,10 @@ function UserModal({
         transition={{ duration: 0.22, ease: [0.4, 0, 0.2, 1] }}
         className="relative w-full max-w-lg rounded-2xl"
         style={{
-          background: "rgba(10,10,10,0.97)",
-          border: "1px solid rgba(255,255,255,0.1)",
+          background: "rgba(0,0,0,0.10)",
+          border: "1px solid rgba(255,255,255,0.10)",
+          backdropFilter: "blur(20px)",
+          WebkitBackdropFilter: "blur(20px)",
           boxShadow: "0 24px 64px rgba(0,0,0,0.7)",
           maxHeight: "90dvh",
           overflowY: "auto",
@@ -481,7 +485,7 @@ function UserModal({
             </div>
 
             {/* Toggles */}
-            <div className="flex flex-col gap-3 rounded-xl p-4" style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.06)" }}>
+            <div className="flex flex-col gap-3 rounded-xl p-4" style={{ background: "rgba(0,0,0,0.10)", border: "1px solid rgba(255,255,255,0.10)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)" }}>
               <Toggle
                 label="Usuário ativo"
                 description="Permite acesso imediato à plataforma"
@@ -745,9 +749,9 @@ export default function UsuariosPage() {
             onChange={e => setSearch(e.target.value)}
             placeholder="Buscar por nome ou e-mail…"
             className="h-9 w-full rounded-xl pl-9 pr-3.5 text-[13px] outline-none transition-all"
-            style={{ background: "rgba(255,255,255,0.09)", border: "1px solid rgba(255,255,255,0.08)", color: "#ffffff" }}
+            style={{ background: "rgba(0,0,0,0.10)", border: "1px solid rgba(255,255,255,0.10)", color: "#ffffff", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)" }}
             onFocus={e => (e.currentTarget.style.borderColor = "rgba(39,163,255,0.35)")}
-            onBlur={e => (e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)")}
+            onBlur={e => (e.currentTarget.style.borderColor = "rgba(255,255,255,0.10)")}
           />
         </div>
         <FilterSelect value={filterStatus} onChange={setFilterStatus}>
@@ -765,7 +769,7 @@ export default function UsuariosPage() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.35, delay: 0.25 }}
         className="rounded-2xl"
-        style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)" }}
+        style={{ background: "rgba(0,0,0,0.10)", border: "1px solid rgba(255,255,255,0.10)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)" }}
       >
         <div
           className="hidden grid-cols-[auto_1fr_1fr_120px_100px_80px_32px] items-center gap-4 px-5 py-3 md:grid"
@@ -855,7 +859,7 @@ export default function UsuariosPage() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 8 }}
             className="rounded-2xl overflow-hidden"
-            style={{ background: "rgba(250,204,21,0.04)", border: "1px solid rgba(250,204,21,0.15)" }}
+            style={{ background: "rgba(0,0,0,0.10)", border: "1px solid rgba(255,255,255,0.10)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)" }}
           >
             <div className="flex items-center gap-2 px-5 py-3.5" style={{ borderBottom: "1px solid rgba(250,204,21,0.1)" }}>
               <Mail size={14} style={{ color: "#facc15" }} />
@@ -881,12 +885,12 @@ export default function UsuariosPage() {
                     <RoleBadge role={invite.role} />
                     <button
                       onClick={() => handleRevokeInvite(invite.id)}
-                      className="text-[12px] transition-colors"
-                      style={{ color: "rgba(255,255,255,0.3)" }}
-                      onMouseEnter={e => (e.currentTarget.style.color = "#f87171")}
-                      onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,255,255,0.3)")}
+                      title="Excluir convite"
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all hover:scale-[1.02] active:scale-95"
+                      style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", color: "#f87171" }}
                     >
-                      Revogar
+                      <Trash2 size={12} />
+                      Excluir
                     </button>
                   </div>
                 </div>

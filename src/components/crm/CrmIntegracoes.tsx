@@ -78,16 +78,19 @@ interface MetaCardProps {
 }
 
 function MetaAdsCard({ connections, pages, lastLead, onConnect, onDisconnect }: MetaCardProps) {
-  const [disconnecting, setDisconnecting] = useState<Record<string, boolean>>({});
+  const [disconnecting, setDisconnecting] = useState(false);
 
   const connected = connections.filter(c => c.status === "connected");
   const isConnected = connected.length > 0;
 
-  const handleDisconnect = async (id: string) => {
-    setDisconnecting(p => ({ ...p, [id]: true }));
-    const { error } = await onDisconnect(id);
-    if (error) toast.error(error);
-    setDisconnecting(p => ({ ...p, [id]: false }));
+  const handleDisconnect = async () => {
+    setDisconnecting(true);
+    for (const acc of connected) {
+      const { error } = await onDisconnect(acc.id);
+      if (error) { toast.error(error); setDisconnecting(false); return; }
+    }
+    toast.success("Integração com o Meta desconectada");
+    setDisconnecting(false);
   };
 
   return (
@@ -97,20 +100,17 @@ function MetaAdsCard({ connections, pages, lastLead, onConnect, onDisconnect }: 
       transition={{ duration: 0.35, delay: 0.1 }}
       className="rounded-3xl overflow-hidden"
       style={{
-        background: "linear-gradient(135deg, rgba(14,22,34,0.9) 0%, rgba(10,16,26,0.95) 100%)",
-        border: "1px solid rgba(74,143,212,0.2)",
-        boxShadow: isConnected
-          ? "0 0 40px rgba(74,143,212,0.08), 0 4px 24px rgba(0,0,0,0.3)"
-          : "0 4px 24px rgba(0,0,0,0.25)",
+        background: "rgba(0,0,0,0.10)",
+        border: "1px solid rgba(255,255,255,0.10)",
+        backdropFilter: "blur(20px)",
+        WebkitBackdropFilter: "blur(20px)",
       }}
     >
       {/* Glow strip */}
       <div
         className="h-0.5 w-full"
         style={{
-          background: isConnected
-            ? "linear-gradient(90deg, transparent, #4a8fd4, transparent)"
-            : "linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent)",
+          background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent)",
         }}
       />
 
@@ -240,29 +240,27 @@ function MetaAdsCard({ connections, pages, lastLead, onConnect, onDisconnect }: 
                 Gerenciar
               </a>
 
-              {connected.map(acc => (
-                <button
-                  key={acc.id}
-                  onClick={() => handleDisconnect(acc.id)}
-                  disabled={disconnecting[acc.id]}
-                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-50"
-                  style={{
-                    background: "rgba(239,68,68,0.08)",
-                    border: "1px solid rgba(239,68,68,0.2)",
-                    color: "#f87171",
-                  }}
-                >
-                  {disconnecting[acc.id]
-                    ? <Loader2 size={13} className="animate-spin" />
-                    : <XCircle size={13} />}
-                  Desconectar
-                </button>
-              ))}
+              <button
+                onClick={handleDisconnect}
+                disabled={disconnecting}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-50"
+                style={{
+                  background: "rgba(239,68,68,0.08)",
+                  border: "1px solid rgba(239,68,68,0.2)",
+                  color: "#f87171",
+                }}
+              >
+                {disconnecting
+                  ? <Loader2 size={13} className="animate-spin" />
+                  : <XCircle size={13} />}
+                Desconectar Integração
+              </button>
             </>
           )}
         </div>
       </div>
     </motion.div>
+
   );
 }
 
@@ -520,18 +518,17 @@ function WebhookCard({ userId, count, lastLead }: WebhookCardProps) {
         transition={{ duration: 0.35, delay: 0.2 }}
         className="rounded-3xl overflow-hidden"
         style={{
-          background: "linear-gradient(135deg, rgba(14,22,34,0.9) 0%, rgba(10,16,26,0.95) 100%)",
-          border: "1px solid rgba(74,143,212,0.15)",
-          boxShadow: "0 4px 24px rgba(0,0,0,0.25)",
+          background: "rgba(0,0,0,0.10)",
+          border: "1px solid rgba(255,255,255,0.10)",
+          backdropFilter: "blur(20px)",
+          WebkitBackdropFilter: "blur(20px)",
         }}
       >
         {/* Glow strip */}
         <div
           className="h-0.5 w-full"
           style={{
-            background: count > 0
-              ? "linear-gradient(90deg, transparent, #10b981, transparent)"
-              : "linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent)",
+            background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent)",
           }}
         />
 

@@ -321,10 +321,11 @@ interface MetricCardProps {
   loading?: boolean;
   delay?: number;
   href?: string;
+  style?: React.CSSProperties;
 }
 
 function MetricCard({
-  icon: Icon, label, value, secondary, accent, loading = false, delay = 0, href,
+  icon: Icon, label, value, secondary, accent, loading = false, delay = 0, href, style,
 }: MetricCardProps) {
   const Tag = href ? motion.a : motion.div;
 
@@ -332,6 +333,7 @@ function MetricCard({
     <Tag
       {...(href ? { href } : {})}
       className={`lc-card p-5 flex flex-col justify-between${href ? " cursor-pointer group" : ""}`}
+      style={style}
       initial={{ opacity: 0, y: 14 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.38, delay, ease: "easeOut" }}
@@ -422,6 +424,7 @@ export default function DashboardPage() {
               loading={leadsLoading}
               delay={0}
               href="/crm"
+              style={{ background: "rgba(0,0,0,0.31)" }}
             />
             <MetricCard
               icon={Wallet}
@@ -431,6 +434,7 @@ export default function DashboardPage() {
               accent="#27f2e6"
               delay={0.07}
               href="/financeiro"
+              style={{ background: "rgba(0,0,0,0.31)" }}
             />
             <MetricCard
               icon={TrendingUp}
@@ -439,6 +443,7 @@ export default function DashboardPage() {
               accent="#27a3ff"
               delay={0.14}
               href="/trafego"
+              style={{ background: "rgba(0,0,0,0.31)" }}
             />
             <MetricCard
               icon={BarChart3}
@@ -447,6 +452,7 @@ export default function DashboardPage() {
               accent="#fe7b4a"
               delay={0.21}
               href="/trafego"
+              style={{ background: "rgba(0,0,0,0.31)" }}
             />
           </div>
         </section>
@@ -462,6 +468,7 @@ export default function DashboardPage() {
             <motion.a
               href="/crm"
               className="lc-card group block cursor-pointer p-6"
+              style={{ background: "rgba(0,0,0,0.31)" }}
               initial={{ opacity: 0, y: 18 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.4, delay: 0.28, ease: "easeOut" }}
@@ -492,6 +499,7 @@ export default function DashboardPage() {
             <motion.a
               href="/financeiro"
               className="lc-card group block cursor-pointer p-6 lg:col-span-2"
+              style={{ background: "rgba(0,0,0,0.31)" }}
               initial={{ opacity: 0, y: 18 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.4, delay: 0.34, ease: "easeOut" }}

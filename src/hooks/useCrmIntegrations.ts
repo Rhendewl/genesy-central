@@ -28,6 +28,7 @@ export interface CrmIntegrationsData {
   error:             string | null;
   refetch:           () => Promise<void>;
   disconnectMeta:    (platformAccountId: string) => Promise<{ error: string | null }>;
+  disconnectPage:    (pageId: string) => Promise<{ error: string | null }>;
   initiateMetaOAuth: () => void;
 }
 
@@ -116,6 +117,20 @@ export function useCrmIntegrations(): CrmIntegrationsData {
     }
   }, [fetch]);
 
+  const disconnectPage = useCallback(async (pageId: string) => {
+    try {
+      const { error: err } = await supabase
+        .from("meta_page_subscriptions")
+        .update({ is_active: false })
+        .eq("page_id", pageId);
+      if (err) return { error: err.message };
+      await fetch();
+      return { error: null };
+    } catch (e: unknown) {
+      return { error: e instanceof Error ? e.message : "Erro ao desconectar formulário" };
+    }
+  }, [supabase, fetch]);
+
   const initiateMetaOAuth = useCallback(() => {
     window.location.href = "/api/meta/auth?return_to=/crm/integracoes";
   }, []);
@@ -131,6 +146,7 @@ export function useCrmIntegrations(): CrmIntegrationsData {
     error,
     refetch:         fetch,
     disconnectMeta,
+    disconnectPage,
     initiateMetaOAuth,
   };
 }

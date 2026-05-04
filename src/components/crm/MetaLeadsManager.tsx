@@ -104,8 +104,10 @@ function PagesPanel({
     <div
       className="rounded-3xl overflow-hidden flex flex-col"
       style={{
-        background: "linear-gradient(135deg, rgba(14,22,34,0.9) 0%, rgba(10,16,26,0.95) 100%)",
-        border: "1px solid rgba(74,143,212,0.15)",
+        background: "rgba(0,0,0,0.10)",
+        border: "1px solid rgba(255,255,255,0.10)",
+        backdropFilter: "blur(20px)",
+        WebkitBackdropFilter: "blur(20px)",
       }}
     >
       <div
@@ -220,7 +222,12 @@ function FormsPanel({
     return (
       <div
         className="rounded-3xl flex flex-col items-center justify-center py-16 text-center"
-        style={{ background: "rgba(10,16,26,0.6)", border: "1px dashed rgba(74,143,212,0.2)" }}
+        style={{
+          background: "rgba(0,0,0,0.10)",
+          border: "1px dashed rgba(255,255,255,0.10)",
+          backdropFilter: "blur(20px)",
+          WebkitBackdropFilter: "blur(20px)",
+        }}
       >
         <div
           className="w-14 h-14 rounded-2xl flex items-center justify-center mb-4"
@@ -240,8 +247,10 @@ function FormsPanel({
     <div
       className="rounded-3xl overflow-hidden flex flex-col"
       style={{
-        background: "linear-gradient(135deg, rgba(14,22,34,0.9) 0%, rgba(10,16,26,0.95) 100%)",
-        border: "1px solid rgba(74,143,212,0.15)",
+        background: "rgba(0,0,0,0.10)",
+        border: "1px solid rgba(255,255,255,0.10)",
+        backdropFilter: "blur(20px)",
+        WebkitBackdropFilter: "blur(20px)",
       }}
     >
       <div className="px-5 py-4 border-b" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
@@ -347,8 +356,10 @@ function RecentLeads({ leads }: { leads: Lead[] }) {
       transition={{ delay: 0.2 }}
       className="rounded-3xl overflow-hidden mb-5"
       style={{
-        background: "linear-gradient(135deg, rgba(14,22,34,0.9) 0%, rgba(10,16,26,0.95) 100%)",
-        border: "1px solid rgba(74,143,212,0.12)",
+        background: "rgba(0,0,0,0.10)",
+        border: "1px solid rgba(255,255,255,0.10)",
+        backdropFilter: "blur(20px)",
+        WebkitBackdropFilter: "blur(20px)",
       }}
     >
       <div
@@ -435,8 +446,10 @@ function WebhookLogs({
       transition={{ delay: 0.3 }}
       className="rounded-3xl overflow-hidden"
       style={{
-        background: "linear-gradient(135deg, rgba(14,22,34,0.9) 0%, rgba(10,16,26,0.95) 100%)",
-        border: "1px solid rgba(74,143,212,0.12)",
+        background: "rgba(0,0,0,0.10)",
+        border: "1px solid rgba(255,255,255,0.10)",
+        backdropFilter: "blur(20px)",
+        WebkitBackdropFilter: "blur(20px)",
       }}
     >
       {/* Header */}
@@ -631,7 +644,12 @@ export function MetaLeadsManager() {
       {/* How it works strip */}
       <div
         className="flex items-center gap-0 mb-8 rounded-2xl overflow-hidden text-xs"
-        style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)" }}
+        style={{
+          background: "rgba(0,0,0,0.10)",
+          border: "1px solid rgba(255,255,255,0.10)",
+          backdropFilter: "blur(20px)",
+          WebkitBackdropFilter: "blur(20px)",
+        }}
       >
         {[
           { icon: <CheckCircle2 size={12} className="text-emerald-400" />, label: "1. Conta Meta conectada" },

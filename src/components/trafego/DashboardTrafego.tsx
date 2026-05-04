@@ -122,7 +122,12 @@ function PeriodSelector({
 }) {
   return (
     <div className="flex items-center gap-0.5 p-0.5 rounded-lg"
-      style={{ background: "rgba(255,255,255,0.09)", border: "1px solid rgba(255,255,255,0.07)" }}>
+      style={{
+        background: "rgba(0,0,0,0.10)",
+        border: "1px solid rgba(255,255,255,0.10)",
+        backdropFilter: "blur(20px)",
+        WebkitBackdropFilter: "blur(20px)",
+      }}>
       {PERIODS.map(p => (
         <button key={p.key} onClick={() => onChange(p.key)}
           className={cn(

@@ -17,7 +17,7 @@ import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import {
-  useNps, classifyNps, npsScoreColor, npsScoreLabel,
+  useNps, classifyNps, avgScoreColor, avgScoreLabel,
   type ClientNpsSummary, type NpsInsight,
 } from "@/hooks/useNps";
 import { PrimaryButton } from "@/components/ui/PrimaryButton";
@@ -151,8 +151,8 @@ function NpsModal({ clients, record, defaultMonth, onClose, onSave, onDelete }: 
   const scoreValue = form.score ?? 8;
   const cls = classifyNps(scoreValue);
 
-  const inputCls = "w-full rounded-xl bg-white/5 text-white text-sm px-3 py-2.5 outline-none placeholder:text-[#b4b4b4]/50 focus:bg-white/[0.07] transition-colors border-none";
-  const selectCls = "w-full rounded-xl bg-white/5 text-white text-sm px-3 py-2.5 outline-none focus:bg-white/[0.07] transition-colors border-none";
+  const inputCls = "w-full rounded-xl bg-white/15 text-white text-sm px-3 py-2.5 outline-none placeholder:text-[#b4b4b4]/50 focus:bg-white/20 transition-colors border-none";
+  const selectCls = "w-full rounded-xl bg-white/15 text-white text-sm px-3 py-2.5 outline-none focus:bg-white/20 transition-colors border-none";
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
@@ -162,7 +162,7 @@ function NpsModal({ clients, record, defaultMonth, onClose, onSave, onDelete }: 
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.95 }}
         className="relative w-full max-w-lg rounded-2xl shadow-2xl p-6 max-h-[90vh] overflow-y-auto"
-        style={{ background: "rgba(10,14,20,0.97)", border: "1px solid rgba(255,255,255,0.08)" }}
+        style={{ background: "rgba(0,0,0,0.10)", border: "1px solid rgba(255,255,255,0.08)" }}
         onClick={e => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-5">
@@ -351,7 +351,7 @@ export function NpsModule({ year, month }: Props) {
     cs.client.name.toLowerCase().includes(search.toLowerCase())
   );
 
-  const npsColor = npsScoreColor(metrics.npsScore);
+  const npsColor = avgScoreColor(metrics.avgScore);
 
   if (isLoading) {
     return (
@@ -381,13 +381,13 @@ export function NpsModule({ year, month }: Props) {
             style={{ background: `${npsColor}18`, border: `2px solid ${npsColor}44` }}
           >
             <p className="text-3xl font-black leading-none" style={{ color: npsColor }}>
-              {metrics.npsScore.toFixed(0)}
+              {metrics.avgScore.toFixed(1)}
             </p>
-            <p className="text-[10px] font-medium mt-0.5" style={{ color: npsColor }}>NPS</p>
+            <p className="text-[10px] font-medium mt-0.5" style={{ color: npsColor }}>/ 10</p>
           </div>
           <div>
             <p className="text-xs text-[#b4b4b4] mb-0.5">NPS Geral</p>
-            <p className="text-xl font-bold text-white">{metrics.npsLabel}</p>
+            <p className="text-xl font-bold text-white">{avgScoreLabel(metrics.avgScore)}</p>
             <p className="text-xs text-[#5a5a5a] mt-1">
               {metrics.respondedCount} de {metrics.respondedCount + metrics.notRespondedCount} clientes responderam
             </p>

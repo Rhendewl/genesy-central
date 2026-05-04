@@ -234,13 +234,13 @@ export function useUsers() {
       const supabase = getSupabaseClient();
       const { error: err } = await supabase
         .from("user_invites")
-        .update({ status: "revoked" })
+        .delete()
         .eq("id", id);
       if (err) throw err;
       setInvites(prev => prev.filter(i => i.id !== id));
       return { error: null };
     } catch (e: unknown) {
-      return { error: (e as { message?: string })?.message ?? "Erro ao revogar convite" };
+      return { error: (e as { message?: string })?.message ?? "Erro ao excluir convite" };
     }
   }, []);
 

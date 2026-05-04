@@ -190,7 +190,7 @@ export function KanbanBoard() {
 
           <Link
             href="/crm/integracoes"
-            className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all hover:scale-[1.02] active:scale-95"
+            className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all hover:scale-[1.02] active:scale-95 backdrop-blur-md"
             style={{
               background: "rgba(74,143,212,0.08)",
               border: "1px solid rgba(74,143,212,0.2)",

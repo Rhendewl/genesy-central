@@ -32,6 +32,20 @@ export function npsScoreColor(nps: number): string {
   return "#ef4444";
 }
 
+export function avgScoreLabel(avg: number): string {
+  if (avg >= 9) return "Excelente";
+  if (avg >= 7) return "Muito Bom";
+  if (avg >= 5) return "Bom";
+  return "Crítico";
+}
+
+export function avgScoreColor(avg: number): string {
+  if (avg >= 9) return "#10b981";
+  if (avg >= 7) return "#4a8fd4";
+  if (avg >= 5) return "#f59e0b";
+  return "#ef4444";
+}
+
 // ── Per-client aggregated view ────────────────────────────────────────────────
 
 export interface ClientNpsSummary {
@@ -63,6 +77,7 @@ export interface NpsInsight {
 export interface NpsMetrics {
   npsScore: number;
   npsLabel: string;
+  avgScore: number;
   pctPromoters: number;
   pctNeutrals: number;
   pctDetractors: number;
@@ -143,6 +158,7 @@ export function useNps(year: number, month: number): UseNpsReturn {
     const pctNeutrals   = total > 0 ? (neutrals / total) * 100 : 0;
     const pctDetractors = total > 0 ? (detractors / total) * 100 : 0;
     const npsScore      = total > 0 ? pctPromoters - pctDetractors : 0;
+    const avgScore      = total > 0 ? periodRecords.reduce((s, r) => s + r.score, 0) / total : 0;
 
     // Active clients with no response this month
     const activeClients = clients.filter(c => c.status === "ativo");
@@ -288,6 +304,7 @@ export function useNps(year: number, month: number): UseNpsReturn {
 
     return {
       npsScore, npsLabel: npsScoreLabel(npsScore),
+      avgScore,
       pctPromoters, pctNeutrals, pctDetractors,
       respondedCount, notRespondedCount,
       biggestRise, biggestFall,
