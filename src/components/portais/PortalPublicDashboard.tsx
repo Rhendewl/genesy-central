@@ -346,17 +346,7 @@ export function PortalPublicDashboard({ slug }: Props) {
             {loading && <div className="h-4 w-28 rounded-lg bg-white/[0.06] animate-pulse" />}
           </div>
 
-          <button
-            onClick={handleExportPDF}
-            disabled={exporting || loading || !data}
-            className="lc-btn flex items-center gap-2 px-4 text-xs rounded-xl shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
-            style={{ minHeight: "44px" }}
-          >
-            {exporting
-              ? <Loader2 size={14} className="animate-spin" />
-              : <Download size={14} />}
-            <span>{exporting ? "Gerando…" : "PDF"}</span>
-          </button>
+          {/* PDF button hidden temporarily */}
         </div>
 
         {/* ── Filtros ───────────────────────────────────────────────── */}
