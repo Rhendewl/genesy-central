@@ -3,7 +3,7 @@ export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { verifyOAuthState, encryptToken } from "@/lib/crypto";
-import { exchangeCodeForToken, getAdAccounts } from "@/lib/meta-api";
+import { exchangeCodeForToken, exchangeForLongLivedToken, getAdAccounts } from "@/lib/meta-api";
 
 type OAuthState = Record<string, unknown> & {
   tokenId:  string;
@@ -33,12 +33,24 @@ export async function GET(req: NextRequest) {
     const safeReturn = (returnTo && /^\/[a-zA-Z]/.test(returnTo)) ? returnTo : "/trafego";
     const redirectUri = `${origin}/api/meta/callback`;
 
-    const { access_token, expires_in } = await exchangeCodeForToken(code, redirectUri);
-    const adAccounts = await getAdAccounts(access_token);
-    const encrypted  = encryptToken(access_token);
-    const expiresAt  = expires_in
-      ? new Date(Date.now() + expires_in * 1000).toISOString()
-      : null;
+    const { access_token: shortToken } = await exchangeCodeForToken(code, redirectUri);
+
+    // Exchange short-lived token (~2h) for long-lived token (~60 days)
+    let finalToken = shortToken;
+    let expiresAt: string | null = null;
+    try {
+      const longLived = await exchangeForLongLivedToken(shortToken);
+      finalToken = longLived.access_token;
+      expiresAt  = longLived.expires_in
+        ? new Date(Date.now() + longLived.expires_in * 1000).toISOString()
+        : null;
+      console.log("[meta/callback] long-lived token obtained, expires:", expiresAt);
+    } catch (err) {
+      console.warn("[meta/callback] long-lived exchange failed, using short-lived token:", err);
+    }
+
+    const adAccounts = await getAdAccounts(finalToken);
+    const encrypted  = encryptToken(finalToken);
 
     const supabase = await createServerSupabaseClient();
     const { error } = await supabase
@@ -46,7 +58,7 @@ export async function GET(req: NextRequest) {
       .update({
         encrypted_token:  encrypted,
         token_expires_at: expiresAt,
-        ad_accounts:      adAccounts,
+        ad_accounts:      adAccounts as unknown as Record<string, unknown>[],
       })
       .eq("id", tokenId);
 

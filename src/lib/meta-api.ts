@@ -293,6 +293,30 @@ export async function exchangeCodeForToken(
   return res.json() as Promise<{ access_token: string; expires_in?: number }>;
 }
 
+// Exchange a short-lived user token for a long-lived token (~60 days).
+// Must be called server-side; requires META_APP_SECRET.
+export async function exchangeForLongLivedToken(
+  shortLivedToken: string,
+): Promise<{ access_token: string; token_type: string; expires_in: number }> {
+  const appId = process.env.META_APP_ID;
+  const appSecret = process.env.META_APP_SECRET;
+  if (!appId || !appSecret) throw new Error("META_APP_ID / META_APP_SECRET not configured");
+
+  const params = new URLSearchParams({
+    grant_type:          "fb_exchange_token",
+    client_id:           appId,
+    client_secret:       appSecret,
+    fb_exchange_token:   shortLivedToken,
+  });
+
+  const res = await fetch(`${GRAPH}/oauth/access_token?${params}`);
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({})) as { error?: { message?: string } };
+    throw new Error(body?.error?.message ?? "Long-lived token exchange failed");
+  }
+  return res.json() as Promise<{ access_token: string; token_type: string; expires_in: number }>;
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 export function getActionCount(actions: MetaInsightAction[] | undefined, ...types: string[]): number {
