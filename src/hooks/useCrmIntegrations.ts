@@ -17,32 +17,39 @@ export interface CrmLeadSnippet {
   created_at: string;
 }
 
+export interface WebhookIntegration {
+  id:              string;
+  api_key:         string;
+  leads_count:     number;
+  last_received_at: string | null;
+  is_active:       boolean;
+}
+
 export interface CrmIntegrationsData {
-  userId:            string | null;
-  metaConnections:   AdPlatformAccount[];
-  metaPages:         MetaPageSub[];
-  lastMetaLead:      CrmLeadSnippet | null;
-  webhookLeadCount:  number;
-  lastWebhookLead:   CrmLeadSnippet | null;
-  isLoading:         boolean;
-  error:             string | null;
-  refetch:           () => Promise<void>;
-  disconnectMeta:    (platformAccountId: string) => Promise<{ error: string | null }>;
-  disconnectPage:    (pageId: string) => Promise<{ error: string | null }>;
-  initiateMetaOAuth: () => void;
+  userId:              string | null;
+  metaConnections:     AdPlatformAccount[];
+  metaPages:           MetaPageSub[];
+  lastMetaLead:        CrmLeadSnippet | null;
+  webhookIntegration:  WebhookIntegration | null;
+  isLoading:           boolean;
+  error:               string | null;
+  refetch:             () => Promise<void>;
+  regenerateApiKey:    () => Promise<{ error: string | null }>;
+  disconnectMeta:      (platformAccountId: string) => Promise<{ error: string | null }>;
+  disconnectPage:      (pageId: string) => Promise<{ error: string | null }>;
+  initiateMetaOAuth:   () => void;
 }
 
 export function useCrmIntegrations(): CrmIntegrationsData {
   const supabase = getSupabaseClient();
 
-  const [userId,           setUserId]           = useState<string | null>(null);
-  const [metaConnections,  setMetaConnections]  = useState<AdPlatformAccount[]>([]);
-  const [metaPages,        setMetaPages]        = useState<MetaPageSub[]>([]);
-  const [lastMetaLead,     setLastMetaLead]     = useState<CrmLeadSnippet | null>(null);
-  const [webhookLeadCount, setWebhookLeadCount] = useState(0);
-  const [lastWebhookLead,  setLastWebhookLead]  = useState<CrmLeadSnippet | null>(null);
-  const [isLoading,        setIsLoading]        = useState(true);
-  const [error,            setError]            = useState<string | null>(null);
+  const [userId,              setUserId]              = useState<string | null>(null);
+  const [metaConnections,     setMetaConnections]     = useState<AdPlatformAccount[]>([]);
+  const [metaPages,           setMetaPages]           = useState<MetaPageSub[]>([]);
+  const [lastMetaLead,        setLastMetaLead]        = useState<CrmLeadSnippet | null>(null);
+  const [webhookIntegration,  setWebhookIntegration]  = useState<WebhookIntegration | null>(null);
+  const [isLoading,           setIsLoading]           = useState(true);
+  const [error,               setError]               = useState<string | null>(null);
 
   const fetch = useCallback(async () => {
     setIsLoading(true);
@@ -55,7 +62,7 @@ export function useCrmIntegrations(): CrmIntegrationsData {
         { data: connections },
         { data: pages },
         { data: metaLeads },
-        { data: webhookLeads },
+        webhookRes,
       ] = await Promise.all([
         supabase
           .from("ad_platform_accounts")
@@ -77,21 +84,17 @@ export function useCrmIntegrations(): CrmIntegrationsData {
           .order("created_at", { ascending: false })
           .limit(1),
 
-        supabase
-          .from("leads")
-          .select("name, created_at")
-          .eq("source", "external_webhook")
-          .order("created_at", { ascending: false })
-          .limit(50),
+        globalThis.fetch("/api/webhooks"),
       ]);
 
       setMetaConnections((connections ?? []) as AdPlatformAccount[]);
       setMetaPages((pages ?? []) as MetaPageSub[]);
       setLastMetaLead(metaLeads?.[0] ?? null);
 
-      const wh = webhookLeads ?? [];
-      setWebhookLeadCount(wh.length);
-      setLastWebhookLead(wh[0] ?? null);
+      if (webhookRes.ok) {
+        const json = await webhookRes.json() as { integration?: WebhookIntegration };
+        setWebhookIntegration(json.integration ?? null);
+      }
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Erro ao carregar integrações");
     } finally {
@@ -100,6 +103,18 @@ export function useCrmIntegrations(): CrmIntegrationsData {
   }, [supabase]);
 
   useEffect(() => { fetch(); }, [fetch]);
+
+  const regenerateApiKey = useCallback(async (): Promise<{ error: string | null }> => {
+    try {
+      const res  = await globalThis.fetch("/api/webhooks/regenerate", { method: "POST" });
+      const json = await res.json() as { api_key?: string; error?: string };
+      if (!res.ok || json.error) return { error: json.error ?? "Erro ao regenerar" };
+      setWebhookIntegration(prev => prev ? { ...prev, api_key: json.api_key! } : prev);
+      return { error: null };
+    } catch (e: unknown) {
+      return { error: e instanceof Error ? e.message : "Erro ao regenerar" };
+    }
+  }, []);
 
   const disconnectMeta = useCallback(async (platformAccountId: string) => {
     try {
@@ -140,11 +155,11 @@ export function useCrmIntegrations(): CrmIntegrationsData {
     metaConnections,
     metaPages,
     lastMetaLead,
-    webhookLeadCount,
-    lastWebhookLead,
+    webhookIntegration,
     isLoading,
     error,
-    refetch:         fetch,
+    refetch:           fetch,
+    regenerateApiKey,
     disconnectMeta,
     disconnectPage,
     initiateMetaOAuth,

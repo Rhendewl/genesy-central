@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -11,7 +11,7 @@ import {
 import { toast } from "sonner";
 import { useCrmIntegrations } from "@/hooks/useCrmIntegrations";
 import type { AdPlatformAccount } from "@/types";
-import type { MetaPageSub, CrmLeadSnippet } from "@/hooks/useCrmIntegrations";
+import type { MetaPageSub, CrmLeadSnippet, WebhookIntegration } from "@/hooks/useCrmIntegrations";
 
 // ── Formatters ────────────────────────────────────────────────────────────────
 
@@ -266,15 +266,42 @@ function MetaAdsCard({ connections, pages, lastLead, onConnect, onDisconnect }: 
 
 // ── Webhook Logs Modal ────────────────────────────────────────────────────────
 
-function WebhookLogsModal({
-  lastLead,
-  count,
-  onClose,
-}: {
-  lastLead: CrmLeadSnippet | null;
-  count: number;
-  onClose: () => void;
-}) {
+interface WebhookLog {
+  id:            string;
+  received_at:   string;
+  status:        "processed" | "duplicate" | "error" | "invalid_key";
+  lead_id:       string | null;
+  error_message: string | null;
+  payload:       Record<string, unknown> | null;
+}
+
+const statusLabel: Record<WebhookLog["status"], { label: string; color: string }> = {
+  processed:   { label: "Processado",  color: "#10b981" },
+  duplicate:   { label: "Duplicado",   color: "#f59e0b" },
+  error:       { label: "Erro",        color: "#f87171" },
+  invalid_key: { label: "Chave inv.",  color: "#f87171" },
+};
+
+function WebhookLogsModal({ onClose }: { onClose: () => void }) {
+  const [logs,    setLogs]    = useState<WebhookLog[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [err,     setErr]     = useState<string | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res  = await globalThis.fetch("/api/webhooks/logs?limit=20");
+        const json = await res.json() as { logs?: WebhookLog[]; error?: string };
+        if (!res.ok || json.error) { setErr(json.error ?? "Erro ao carregar logs"); return; }
+        setLogs(json.logs ?? []);
+      } catch (e) {
+        setErr(e instanceof Error ? e.message : "Erro de conexão");
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
@@ -283,7 +310,7 @@ function WebhookLogsModal({
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.97, y: 8 }}
         transition={{ duration: 0.18 }}
-        className="relative w-full max-w-md z-10 rounded-2xl p-6"
+        className="relative w-full max-w-lg z-10 rounded-2xl p-6"
         style={{
           background: "rgba(10,16,26,0.97)",
           border: "1px solid rgba(255,255,255,0.1)",
@@ -300,29 +327,40 @@ function WebhookLogsModal({
           </button>
         </div>
 
-        <div
-          className="rounded-2xl p-4 mb-4"
-          style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.06)" }}
-        >
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-[#6b8fa8] text-sm">Total recebido</span>
-            <span className="text-white font-bold text-lg">{count}</span>
+        {loading ? (
+          <div className="flex items-center justify-center py-10">
+            <Loader2 size={22} className="animate-spin text-[#4a8fd4]" />
           </div>
-          {lastLead && (
-            <div className="flex items-center justify-between">
-              <span className="text-[#6b8fa8] text-sm">Último</span>
-              <div className="text-right">
-                <p className="text-white text-sm font-medium">{lastLead.name}</p>
-                <p className="text-[#6b8fa8] text-xs">{fmtDateTime(lastLead.created_at)}</p>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {count === 0 && (
-          <p className="text-[#6b8fa8] text-sm text-center py-4">
-            Nenhum lead recebido via webhook ainda.
+        ) : err ? (
+          <p className="text-red-400 text-sm text-center py-4">{err}</p>
+        ) : logs.length === 0 ? (
+          <p className="text-[#6b8fa8] text-sm text-center py-6">
+            Nenhum log encontrado ainda.
           </p>
+        ) : (
+          <div className="space-y-2 max-h-80 overflow-y-auto pr-1 mb-4">
+            {logs.map(log => {
+              const s = statusLabel[log.status];
+              const lead = log.payload as { nome?: string; name?: string } | null;
+              const leadName = lead?.nome ?? lead?.name ?? "—";
+              return (
+                <div
+                  key={log.id}
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs"
+                  style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)" }}
+                >
+                  <span className="font-medium shrink-0" style={{ color: s.color }}>{s.label}</span>
+                  <span className="text-[#c7e5ff] truncate flex-1">{leadName}</span>
+                  <span className="text-[#6b8fa8] shrink-0">{fmtDateTime(log.received_at)}</span>
+                  {log.error_message && (
+                    <span className="text-red-400 truncate max-w-[120px]" title={log.error_message}>
+                      {log.error_message}
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         )}
 
         <button
@@ -347,9 +385,11 @@ function TestWebhookModal({ apiKey, onClose }: { apiKey: string; onClose: () => 
   -H "Content-Type: application/json" \\
   -H "X-Api-Key: ${apiKey}" \\
   -d '{
-    "name": "João Silva",
-    "phone": "11999999999",
-    "email": "joao@email.com"
+    "nome": "João Silva",
+    "telefone": "11999999999",
+    "email": "joao@email.com",
+    "campanha": "Black Friday",
+    "origem": "landing_page"
   }'`;
 
   const [testing, setTesting] = useState(false);
@@ -362,7 +402,7 @@ function TestWebhookModal({ apiKey, onClose }: { apiKey: string; onClose: () => 
       const res = await fetch(endpoint, {
         method:  "POST",
         headers: { "Content-Type": "application/json", "X-Api-Key": apiKey },
-        body: JSON.stringify({ name: "Lead Teste", phone: "00000000000", source: "teste_webhook" }),
+        body: JSON.stringify({ nome: "Lead Teste", telefone: "00000000000", origem: "teste_webhook" }),
       });
       setResult(res.ok ? "success" : "error");
       if (res.ok) toast.success("Lead de teste salvo no CRM!");
@@ -401,7 +441,7 @@ function TestWebhookModal({ apiKey, onClose }: { apiKey: string; onClose: () => 
         </div>
 
         <p className="text-[#8ba5bb] text-sm mb-4">
-          Use o comando abaixo para enviar um lead de qualquer sistema externo:
+          Use o endpoint abaixo para enviar leads de Make.com, Zapier ou qualquer sistema:
         </p>
 
         {/* Code block */}
@@ -424,15 +464,18 @@ function TestWebhookModal({ apiKey, onClose }: { apiKey: string; onClose: () => 
         >
           <p className="text-[#6b8fa8] font-medium uppercase tracking-wider text-[10px] mb-3">Campos aceitos</p>
           {[
-            ["name",   "string", "obrigatório", "Nome completo do lead"],
-            ["phone",  "string", "phone ou email obrigatório", "Telefone"],
-            ["email",  "string", "phone ou email obrigatório", "E-mail"],
-            ["source", "string", "opcional", "Origem (ex: landing_page)"],
-            ["notes",  "string", "opcional", "Observações"],
+            ["nome / name",              "string", "obrigatório",             "Nome completo do lead"],
+            ["telefone / phone",         "string", "telefone ou email obrigatório", "Telefone"],
+            ["email",                    "string", "telefone ou email obrigatório", "E-mail"],
+            ["campanha / campaign_name", "string", "opcional",                "Nome da campanha"],
+            ["formulario / form_name",   "string", "opcional",                "Nome do formulário"],
+            ["origem / source",          "string", "opcional",                "Origem (landing_page…)"],
+            ["mensagem / notes",         "string", "opcional",                "Observações livres"],
+            ["utm_source / utm_medium",  "string", "opcional",                "Parâmetros UTM"],
           ].map(([field, type, req, desc]) => (
             <div key={field} className="flex items-start gap-3">
-              <code className="text-[#4a8fd4] w-16 shrink-0">{field}</code>
-              <span className="text-[#6b8fa8] w-12 shrink-0">{type}</span>
+              <code className="text-[#4a8fd4] w-40 shrink-0 text-[10px]">{field}</code>
+              <span className="text-[#6b8fa8] w-10 shrink-0">{type}</span>
               <span
                 className={`shrink-0 text-[10px] px-1.5 py-0.5 rounded-full ${
                   req === "obrigatório"
@@ -496,19 +539,30 @@ function TestWebhookModal({ apiKey, onClose }: { apiKey: string; onClose: () => 
 // ── Webhooks Card ─────────────────────────────────────────────────────────────
 
 interface WebhookCardProps {
-  userId:    string | null;
-  count:     number;
-  lastLead:  CrmLeadSnippet | null;
+  webhookIntegration: WebhookIntegration | null;
+  onRegenerateKey:    () => Promise<{ error: string | null }>;
 }
 
-function WebhookCard({ userId, count, lastLead }: WebhookCardProps) {
-  const [showLogs, setShowLogs]   = useState(false);
-  const [showTest, setShowTest]   = useState(false);
-  const [keyVisible, setKeyVisible] = useState(false);
+function WebhookCard({ webhookIntegration, onRegenerateKey }: WebhookCardProps) {
+  const [showLogs,    setShowLogs]    = useState(false);
+  const [showTest,    setShowTest]    = useState(false);
+  const [keyVisible,  setKeyVisible]  = useState(false);
+  const [regenerating, setRegenerating] = useState(false);
 
   const appUrl   = typeof window !== "undefined" ? window.location.origin : "https://seuapp.com";
   const endpoint = `${appUrl}/api/leads`;
-  const apiKey   = userId ?? "—";
+  const apiKey   = webhookIntegration?.api_key ?? "—";
+  const count    = webhookIntegration?.leads_count ?? 0;
+  const lastAt   = webhookIntegration?.last_received_at ?? null;
+
+  const handleRegenerate = async () => {
+    if (!confirm("Regenerar a API Key irá invalidar a chave atual. Continuar?")) return;
+    setRegenerating(true);
+    const { error } = await onRegenerateKey();
+    setRegenerating(false);
+    if (error) toast.error(error);
+    else { toast.success("API Key regenerada com sucesso"); setKeyVisible(true); }
+  };
 
   return (
     <>
@@ -547,7 +601,7 @@ function WebhookCard({ userId, count, lastLead }: WebhookCardProps) {
               </div>
               <div>
                 <h3 className="text-white font-semibold text-base leading-tight">Webhooks</h3>
-                <p className="text-[#6b8fa8] text-xs mt-0.5">Endpoint HTTP · JSON</p>
+                <p className="text-[#6b8fa8] text-xs mt-0.5">Make.com · Zapier · HTTP POST</p>
               </div>
             </div>
             <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border text-[#4a8fd4] bg-[#4a8fd4]/10 border-[#4a8fd4]/25">
@@ -558,7 +612,7 @@ function WebhookCard({ userId, count, lastLead }: WebhookCardProps) {
 
           {/* Description */}
           <p className="text-[#8ba5bb] text-sm mb-5 leading-relaxed">
-            Receba leads de landing pages, formulários externos e qualquer sistema via HTTP.
+            Receba leads de landing pages, Make.com, Zapier e qualquer sistema via HTTP POST com autenticação por API Key.
           </p>
 
           {/* Endpoint display */}
@@ -587,10 +641,22 @@ function WebhookCard({ userId, count, lastLead }: WebhookCardProps) {
             className="rounded-2xl p-4 mb-5"
             style={{ background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.07)" }}
           >
-            <p className="text-[10px] text-[#6b8fa8] uppercase tracking-wider font-medium mb-3 flex items-center gap-1.5">
-              <Key size={10} />
-              API Key  <span className="normal-case text-[#6b8fa8] font-normal">(header: X-Api-Key)</span>
-            </p>
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-[10px] text-[#6b8fa8] uppercase tracking-wider font-medium flex items-center gap-1.5">
+                <Key size={10} />
+                API Key  <span className="normal-case text-[#6b8fa8] font-normal">(header: X-Api-Key)</span>
+              </p>
+              <button
+                onClick={handleRegenerate}
+                disabled={regenerating}
+                className="inline-flex items-center gap-1 text-[10px] text-[#6b8fa8] hover:text-amber-400 transition-colors disabled:opacity-50"
+              >
+                {regenerating
+                  ? <Loader2 size={10} className="animate-spin" />
+                  : <RefreshCw size={10} />}
+                Regenerar
+              </button>
+            </div>
             <div className="flex items-center gap-2">
               <code className="text-[#c7e5ff] text-xs font-mono flex-1 break-all">
                 {keyVisible ? apiKey : apiKey !== "—" ? "••••••••••••••••••••••••••••••••" : "—"}
@@ -602,7 +668,7 @@ function WebhookCard({ userId, count, lastLead }: WebhookCardProps) {
               >
                 {keyVisible ? "Ocultar" : "Mostrar"}
               </button>
-              {userId && <CopyButton text={apiKey} />}
+              {webhookIntegration && <CopyButton text={apiKey} />}
             </div>
           </div>
 
@@ -617,7 +683,7 @@ function WebhookCard({ userId, count, lastLead }: WebhookCardProps) {
             </div>
             <div className="border-l pl-3" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
               <p className="text-sm font-semibold text-[#c7e5ff]">
-                {lastLead ? fmtRelative(lastLead.created_at) : "—"}
+                {lastAt ? fmtRelative(lastAt) : "—"}
               </p>
               <p className="text-[10px] text-[#6b8fa8] mt-0.5">Último envio</p>
             </div>
@@ -657,15 +723,11 @@ function WebhookCard({ userId, count, lastLead }: WebhookCardProps) {
 
       <AnimatePresence>
         {showLogs && (
-          <WebhookLogsModal
-            lastLead={lastLead}
-            count={count}
-            onClose={() => setShowLogs(false)}
-          />
+          <WebhookLogsModal onClose={() => setShowLogs(false)} />
         )}
-        {showTest && userId && (
+        {showTest && webhookIntegration && (
           <TestWebhookModal
-            apiKey={userId}
+            apiKey={webhookIntegration.api_key}
             onClose={() => setShowTest(false)}
           />
         )}
@@ -720,9 +782,10 @@ export function CrmIntegracoes() {
   const [dismissedPending, setDismissedPending] = useState(false);
 
   const {
-    userId, metaConnections, metaPages,
-    lastMetaLead, webhookLeadCount, lastWebhookLead,
-    isLoading, error, refetch, disconnectMeta, initiateMetaOAuth,
+    metaConnections, metaPages, lastMetaLead,
+    webhookIntegration,
+    isLoading, error, refetch,
+    regenerateApiKey, disconnectMeta, initiateMetaOAuth,
   } = useCrmIntegrations();
 
   return (
@@ -808,9 +871,8 @@ export function CrmIntegracoes() {
             onDisconnect={disconnectMeta}
           />
           <WebhookCard
-            userId={userId}
-            count={webhookLeadCount}
-            lastLead={lastWebhookLead}
+            webhookIntegration={webhookIntegration}
+            onRegenerateKey={regenerateApiKey}
           />
         </div>
       )}
