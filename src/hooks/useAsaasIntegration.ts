@@ -15,14 +15,25 @@ export interface AsaasIntegrationState {
   createdAt:   string | null;
 }
 
+export interface AsaasSyncResult {
+  total:   number;
+  added:   number;
+  updated: number;
+  skipped: number;
+}
+
 interface UseAsaasIntegrationReturn {
-  integration: AsaasIntegrationState;
-  isLoading:   boolean;
-  isConnecting: boolean;
+  integration:     AsaasIntegrationState;
+  isLoading:       boolean;
+  isConnecting:    boolean;
   isDisconnecting: boolean;
+  isSyncing:       boolean;
   connectError:    string | null;
+  syncError:       string | null;
+  syncResult:      AsaasSyncResult | null;
   connect:     (apiKey: string, env: AsaasEnv) => Promise<{ error: string | null }>;
   disconnect:  () => Promise<void>;
+  sync:        () => Promise<{ error: string | null }>;
   refetch:     () => Promise<void>;
 }
 
@@ -37,11 +48,14 @@ const EMPTY: AsaasIntegrationState = {
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
 export function useAsaasIntegration(): UseAsaasIntegrationReturn {
-  const [integration, setIntegration]   = useState<AsaasIntegrationState>(EMPTY);
-  const [isLoading, setIsLoading]       = useState(true);
-  const [isConnecting, setIsConnecting] = useState(false);
+  const [integration, setIntegration]         = useState<AsaasIntegrationState>(EMPTY);
+  const [isLoading, setIsLoading]             = useState(true);
+  const [isConnecting, setIsConnecting]       = useState(false);
   const [isDisconnecting, setIsDisconnecting] = useState(false);
-  const [connectError, setConnectError] = useState<string | null>(null);
+  const [isSyncing, setIsSyncing]             = useState(false);
+  const [connectError, setConnectError]       = useState<string | null>(null);
+  const [syncError, setSyncError]             = useState<string | null>(null);
+  const [syncResult, setSyncResult]           = useState<AsaasSyncResult | null>(null);
 
   const fetchStatus = useCallback(async () => {
     try {
@@ -132,19 +146,62 @@ export function useAsaasIntegration(): UseAsaasIntegrationReturn {
     try {
       await fetch("/api/integrations/asaas/disconnect", { method: "DELETE" });
       setIntegration(EMPTY);
+      setSyncResult(null);
     } finally {
       setIsDisconnecting(false);
     }
   }, []);
+
+  const sync = useCallback(async (): Promise<{ error: string | null }> => {
+    setIsSyncing(true);
+    setSyncError(null);
+    setSyncResult(null);
+    try {
+      const res  = await fetch("/api/integrations/asaas/sync", { method: "POST" });
+      const data = await res.json() as {
+        success?: boolean;
+        total?:   number;
+        added?:   number;
+        updated?: number;
+        skipped?: number;
+        error?:   string;
+      };
+
+      if (!res.ok || data.error) {
+        const msg = data.error ?? "Erro na sincronização. Tente novamente.";
+        setSyncError(msg);
+        return { error: msg };
+      }
+
+      setSyncResult({
+        total:   data.total   ?? 0,
+        added:   data.added   ?? 0,
+        updated: data.updated ?? 0,
+        skipped: data.skipped ?? 0,
+      });
+      fetchStatus().catch(() => null);
+      return { error: null };
+    } catch {
+      const msg = "Erro de rede durante sincronização.";
+      setSyncError(msg);
+      return { error: msg };
+    } finally {
+      setIsSyncing(false);
+    }
+  }, [fetchStatus]);
 
   return {
     integration,
     isLoading,
     isConnecting,
     isDisconnecting,
+    isSyncing,
     connectError,
+    syncError,
+    syncResult,
     connect,
     disconnect,
+    sync,
     refetch: fetchStatus,
   };
 }

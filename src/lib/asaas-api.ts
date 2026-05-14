@@ -107,3 +107,92 @@ export async function validateAsaasKey(
   console.log(`[asaas-api] ✓ validated account name="${body.name}" cpfCnpj="${body.cpfCnpj}"`);
   return { valid: true, account: body as unknown as AsaasAccount };
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Asaas sync helpers
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface AsaasPayment {
+  id:               string;
+  customer:         string;
+  value:            number;
+  netValue:         number;
+  billingType:      string;
+  status:           string;
+  dueDate:          string;
+  paymentDate:      string | null;
+  confirmedDate:    string | null;
+  dateCreated:      string;
+  description:      string | null;
+  externalReference: string | null;
+  deleted:          boolean;
+}
+
+export interface AsaasCustomer {
+  id:       string;
+  name:     string;
+  email:    string;
+  cpfCnpj?: string;
+}
+
+interface AsaasListResponse<T> {
+  hasMore:    boolean;
+  totalCount: number;
+  limit:      number;
+  offset:     number;
+  data:       T[];
+}
+
+async function asaasGet<T>(
+  apiKey: string,
+  env: AsaasEnv,
+  path: string,
+  params: Record<string, string> = {},
+): Promise<AsaasListResponse<T>> {
+  const url = new URL(`${BASE_URL[env]}${path}`);
+  for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
+
+  const res = await fetch(url.toString(), {
+    headers: {
+      "access_token": apiKey,
+      "Content-Type":  "application/json",
+      "User-Agent":    "lancaster-saas/1.0",
+    },
+    signal: AbortSignal.timeout(30_000),
+  });
+
+  if (!res.ok) throw new Error(`Asaas ${path} error: ${res.status}`);
+  return res.json() as Promise<AsaasListResponse<T>>;
+}
+
+export async function fetchAsaasPayments(
+  apiKey: string,
+  env: AsaasEnv,
+  params: { offset?: number; limit?: number } = {},
+): Promise<AsaasListResponse<AsaasPayment>> {
+  return asaasGet<AsaasPayment>(apiKey, env, "/payments", {
+    offset: String(params.offset ?? 0),
+    limit:  String(params.limit  ?? 100),
+  });
+}
+
+export async function fetchAsaasCustomers(
+  apiKey: string,
+  env: AsaasEnv,
+): Promise<AsaasCustomer[]> {
+  const all: AsaasCustomer[] = [];
+  let offset = 0;
+  const limit = 100;
+
+  while (all.length < 1000) {
+    const page = await asaasGet<AsaasCustomer>(apiKey, env, "/customers", {
+      offset: String(offset),
+      limit:  String(limit),
+    });
+    all.push(...page.data);
+    if (!page.hasMore) break;
+    offset += limit;
+  }
+
+  return all;
+}

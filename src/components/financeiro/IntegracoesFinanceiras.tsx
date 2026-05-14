@@ -6,6 +6,7 @@ import {
   Plug2, Unplug, CheckCircle2, XCircle, Clock,
   AlertTriangle, X, Loader2, ShieldCheck, Settings,
   Building2, CreditCard, BarChart3, Users, Landmark,
+  RefreshCw,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PrimaryButton } from "@/components/ui/PrimaryButton";
@@ -250,9 +251,13 @@ export function IntegracoesFinanceiras() {
     isLoading,
     isConnecting,
     isDisconnecting,
+    isSyncing,
     connectError,
+    syncError,
+    syncResult,
     connect,
     disconnect,
+    sync,
   } = useAsaasIntegration();
 
   const [showModal, setShowModal]         = useState(false);
@@ -393,10 +398,61 @@ export function IntegracoesFinanceiras() {
                       value={fmtDate(integration.createdAt)}
                     />
                     <StatCard
-                      label="Última verificação"
+                      label="Última sincronização"
                       value={fmtDate(integration.lastSyncAt)}
                     />
                   </div>
+
+                  {/* ── Sync area ─────────────────────────────────────── */}
+                  <div
+                    className="mt-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl"
+                    style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}
+                  >
+                    <div>
+                      <p className="text-white text-sm font-medium">Sincronizar cobranças</p>
+                      <p className="text-[#5a5a5a] text-xs mt-0.5">
+                        Importa pagamentos do Asaas para o módulo financeiro
+                      </p>
+                    </div>
+                    <button
+                      onClick={sync}
+                      disabled={isSyncing}
+                      className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-[#4a8fd4] hover:bg-[#4a8fd4]/10 transition-all disabled:opacity-50 shrink-0"
+                      style={{ border: "1px solid rgba(74,143,212,0.30)" }}
+                    >
+                      <RefreshCw size={13} className={isSyncing ? "animate-spin" : ""} />
+                      {isSyncing ? "Sincronizando…" : "Sincronizar agora"}
+                    </button>
+                  </div>
+
+                  {/* Sync result */}
+                  {syncResult && !isSyncing && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="flex items-center gap-2 px-4 py-3 rounded-xl text-sm"
+                      style={{ background: "rgba(52,211,153,0.08)", border: "1px solid rgba(52,211,153,0.20)" }}
+                    >
+                      <CheckCircle2 size={14} className="text-emerald-400 shrink-0" />
+                      <span className="text-emerald-300">
+                        Sincronização concluída — {syncResult.added} adicionadas, {syncResult.updated} atualizadas
+                        {syncResult.skipped > 0 ? `, ${syncResult.skipped} ignoradas` : ""}
+                      </span>
+                    </motion.div>
+                  )}
+
+                  {/* Sync error */}
+                  {syncError && !isSyncing && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="flex items-start gap-2 px-4 py-3 rounded-xl text-sm text-red-400"
+                      style={{ background: "rgba(248,113,113,0.08)", border: "1px solid rgba(248,113,113,0.20)" }}
+                    >
+                      <AlertTriangle size={14} className="shrink-0 mt-0.5" />
+                      {syncError}
+                    </motion.div>
+                  )}
                 </div>
               </motion.div>
             )}
