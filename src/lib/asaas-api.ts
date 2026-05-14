@@ -98,8 +98,9 @@ export async function validateAsaasKey(
   }
 
   if (!body?.id) {
-    console.error("[asaas-api] response missing id field:", JSON.stringify(body).slice(0, 400));
-    return { valid: false, message: "Resposta do Asaas não contém dados de conta. Verifique se a API Key e o ambiente (sandbox/produção) estão corretos." };
+    const keys = Object.keys(body ?? {}).join(", ") || "(vazio)";
+    console.error("[asaas-api] response missing id field. keys:", keys, "body:", JSON.stringify(body).slice(0, 400));
+    return { valid: false, message: `Resposta do Asaas não contém 'id'. Campos recebidos: [${keys}]. Verifique se a API Key e o ambiente (sandbox/produção) estão corretos.` };
   }
 
   console.log(`[asaas-api] ✓ validated account id=${body.id} name="${body.name}"`);
