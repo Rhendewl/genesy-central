@@ -8,7 +8,7 @@ import { NextResponse, type NextRequest } from "next/server";
 // ─────────────────────────────────────────────────────────────────────────────
 
 // Accessible without login
-const PUBLIC_ROUTES = ["/auth", "/data-deletion", "/privacy-policy", "/portal/", "/api/portal/", "/convite/", "/api/invite/"];
+const PUBLIC_ROUTES = ["/auth", "/data-deletion", "/privacy-policy", "/portal/", "/api/portal/", "/convite/", "/api/invite/", "/api/leads"];
 // Redirect authenticated users away from these (login page only)
 const AUTH_REDIRECT_ROUTES = ["/auth"];
 
@@ -73,6 +73,6 @@ export const config = {
      * - public assets
      * - api/meta/webhook (Meta crawler has no auth cookies — must bypass auth middleware)
      */
-    "/((?!_next/static|_next/image|favicon.ico|api/meta/webhook|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|api/meta/webhook|api/leads|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };
