@@ -14,7 +14,7 @@ const BASE_URL: Record<AsaasEnv, string> = {
 };
 
 export interface AsaasAccount {
-  id:          string;
+  id?:         string;
   name:        string;
   email:       string;
   loginEmail?: string;
@@ -97,12 +97,13 @@ export async function validateAsaasKey(
     return { valid: false, message: msg };
   }
 
-  if (!body?.id) {
+  // /myAccount does not return an 'id' field — validate by name presence instead
+  if (!body?.name) {
     const keys = Object.keys(body ?? {}).join(", ") || "(vazio)";
-    console.error("[asaas-api] response missing id field. keys:", keys, "body:", JSON.stringify(body).slice(0, 400));
-    return { valid: false, message: `Resposta do Asaas não contém 'id'. Campos recebidos: [${keys}]. Verifique se a API Key e o ambiente (sandbox/produção) estão corretos.` };
+    console.error("[asaas-api] response missing name field. keys:", keys);
+    return { valid: false, message: "API Key inválida ou sem permissão de acesso." };
   }
 
-  console.log(`[asaas-api] ✓ validated account id=${body.id} name="${body.name}"`);
+  console.log(`[asaas-api] ✓ validated account name="${body.name}" cpfCnpj="${body.cpfCnpj}"`);
   return { valid: true, account: body as unknown as AsaasAccount };
 }

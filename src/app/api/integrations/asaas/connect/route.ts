@@ -35,9 +35,9 @@ export async function POST(req: NextRequest) {
       console.warn(`[asaas/connect] validation failed: ${validation.message}`);
       return NextResponse.json({ error: validation.message }, { status: 422 });
     }
-    console.log(`[asaas/connect] key valid — accountId=${validation.account.id}`);
-
     const { account } = validation;
+    const accountId = account.id ?? account.cpfCnpj ?? account.email;
+    console.log(`[asaas/connect] key valid — accountId=${accountId} name="${account.name}"`);
 
     // ── Persist (upsert) to integrations table ────────────────────────────────
     const { error: dbErr } = await supabase
@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
           status:            "connected",
           last_sync_at:      new Date().toISOString(),
           metadata: {
-            accountId:   account.id,
+            accountId:   accountId,
             accountName: account.name,
             email:       account.loginEmail ?? account.email,
             walletId:    account.walletId ?? null,
@@ -69,7 +69,7 @@ export async function POST(req: NextRequest) {
       success:     true,
       environment: env,
       accountName: account.name,
-      accountId:   account.id,
+      accountId:   accountId,
     });
   } catch (err) {
     console.error("[asaas/connect]", err);
