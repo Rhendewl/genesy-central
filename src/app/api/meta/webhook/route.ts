@@ -1,4 +1,5 @@
-export const dynamic = 'force-dynamic'
+export const dynamic    = 'force-dynamic';
+export const maxDuration = 60; // keep function alive while async processing runs
 // ── /api/meta/webhook ─────────────────────────────────────────────────────────
 // GET  — Meta webhook verification (hub.challenge)
 // POST — Receive leadgen events and save leads to CRM
@@ -67,15 +68,16 @@ interface WebhookEntry {
   id:      string;
   changes: WebhookChange[];
 }
+interface WebhookChangeValue {
+  leadgen_id:    string;
+  page_id:       string;
+  form_id?:      string;
+  ad_id?:        string;
+  created_time?: number;
+}
 interface WebhookChange {
   field: string;
-  value: {
-    leadgen_id:    string;
-    page_id:       string;
-    form_id?:      string;
-    ad_id?:        string;
-    created_time?: number;
-  };
+  value: WebhookChangeValue;
 }
 
 type AdminClient = ReturnType<typeof createAdminSupabaseClient>;
@@ -100,9 +102,9 @@ async function processEntries(entries: WebhookEntry[]) {
     for (const change of entry.changes) {
       if (change.field !== "leadgen") continue;
 
-      const { page_id, leadgen_id, form_id } = change.value;
+      const { page_id, leadgen_id, form_id, ad_id, created_time } = change.value;
 
-      console.log(`[webhook] Processing leadgen=${leadgen_id} page=${page_id} form=${form_id ?? "—"}`);
+      console.log(`[webhook] Processing leadgen=${leadgen_id} page=${page_id} form=${form_id ?? "—"} ad=${ad_id ?? "—"}`);
 
       // Resolve user_id early so the log is visible to the user even on failure.
       let earlyUserId: string | undefined;
@@ -137,7 +139,7 @@ async function processEntries(entries: WebhookEntry[]) {
       }
 
       try {
-        await processLead({ supabase, page_id, leadgen_id, form_id, logId });
+        await processLead({ supabase, page_id, leadgen_id, form_id, ad_id, created_time, logId });
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         console.error(`[webhook] leadgen=${leadgen_id} failed: ${msg}`);
@@ -158,13 +160,17 @@ async function processLead({
   page_id,
   leadgen_id,
   form_id,
+  ad_id,
+  created_time,
   logId,
 }: {
-  supabase:   AdminClient;
-  page_id:    string;
-  leadgen_id: string;
-  form_id?:   string;
-  logId?:     string;
+  supabase:      AdminClient;
+  page_id:       string;
+  leadgen_id:    string;
+  form_id?:      string;
+  ad_id?:        string;
+  created_time?: number;
+  logId?:        string;
 }) {
   // ── Step 1: Resolve page subscription ────────────────────────────────────
 
@@ -384,10 +390,15 @@ async function processLead({
 
   const notes = sections.length > 0 ? sections.join("\n\n") : null;
 
-  // ── Step 9: Insert lead → Abordados ──────────────────────────────────────
+  // ── Step 9: Insert lead → Novo Lead ──────────────────────────────────────
 
   await updateLog(supabase, logId, { step: "inserting_lead" });
   console.log(`[webhook] step=inserting_lead user=${user_id}`);
+
+  // Use the lead creation timestamp from the webhook if available
+  const enteredAt = created_time
+    ? new Date(created_time * 1000).toISOString().split("T")[0]
+    : new Date().toISOString().split("T")[0];
 
   const { data: newLead, error: insertErr } = await supabase
     .from("leads")
@@ -407,7 +418,7 @@ async function processLead({
       tags:          [],
       notes,
       deal_value:    0,
-      entered_at:    new Date().toISOString().split("T")[0],
+      entered_at:    enteredAt,
       is_duplicate,
     })
     .select("id")
