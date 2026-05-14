@@ -1,5 +1,8 @@
 export const dynamic = "force-dynamic";
 
+// ── GET /api/leads ─────────────────────────────────────────────────────────────
+// Health-check / debug endpoint.
+
 // ── POST /api/leads ────────────────────────────────────────────────────────────
 // Generic webhook endpoint for receiving leads from external systems (Make, Zapier, etc.)
 // Authentication: X-Api-Key header containing the integration's api_key.
@@ -33,8 +36,31 @@ async function writeLog(
   });
 }
 
+// ── GET ────────────────────────────────────────────────────────────────────────
+
+export async function GET() {
+  return NextResponse.json(
+    { status: "online", message: "Webhook endpoint online", timestamp: new Date().toISOString() },
+    { status: 200 },
+  );
+}
+
+// ── POST ───────────────────────────────────────────────────────────────────────
+
 export async function POST(req: NextRequest) {
-  const admin = createAdminSupabaseClient();
+  // ── Guard: env vars ─────────────────────────────────────────────────────────
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    console.error("[api/leads] Missing Supabase env vars");
+    return NextResponse.json({ success: false, error: "server_misconfigured" }, { status: 500 });
+  }
+
+  let admin: AdminClient;
+  try {
+    admin = createAdminSupabaseClient();
+  } catch (e) {
+    console.error("[api/leads] Failed to create admin client:", e);
+    return NextResponse.json({ success: false, error: "server_misconfigured" }, { status: 500 });
+  }
 
   // ── Auth ────────────────────────────────────────────────────────────────────
   const apiKey = req.headers.get("x-api-key") ?? req.headers.get("X-Api-Key");
@@ -76,9 +102,9 @@ export async function POST(req: NextRequest) {
   const campaignName = str(body.campanha)   || str(body.campaign_name) || str(body.campaign) || null;
   const formName     = str(body.formulario) || str(body.form_name)     || str(body.form)     || null;
   const message      = str(body.mensagem)   || str(body.notes)         || str(body.message)  || null;
-  const utmSource    = str(body.utm_source)    || null;
-  const utmMedium    = str(body.utm_medium)    || null;
-  const utmCampaign  = str(body.utm_campaign)  || null;
+  const utmSource    = str(body.utm_source)   || null;
+  const utmMedium    = str(body.utm_medium)   || null;
+  const utmCampaign  = str(body.utm_campaign) || null;
 
   // ── Validation ──────────────────────────────────────────────────────────────
   if (!name) {
@@ -93,8 +119,8 @@ export async function POST(req: NextRequest) {
 
   // ── Build notes ─────────────────────────────────────────────────────────────
   const noteLines: string[] = [];
-  if (origin)      noteLines.push(`Origem: ${origin}`);
-  if (message)     noteLines.push(`Mensagem: ${message}`);
+  if (origin)  noteLines.push(`Origem: ${origin}`);
+  if (message) noteLines.push(`Mensagem: ${message}`);
 
   const utms = [
     utmSource   && `utm_source=${utmSource}`,
@@ -120,7 +146,7 @@ export async function POST(req: NextRequest) {
       .maybeSingle();
     if (dupe) {
       is_duplicate = true;
-      console.log(`[api/leads] soft-duplicate detected for user=${userId} phone=${phone} email=${email}`);
+      console.log(`[api/leads] soft-duplicate user=${userId} phone=${phone} email=${email}`);
     }
   }
 
@@ -131,10 +157,10 @@ export async function POST(req: NextRequest) {
       user_id:       userId,
       name,
       contact:       phone || email || "",
-      email:         email         || null,
+      email:         email        || null,
       source:        "external_webhook",
-      campaign_name: campaignName  || null,
-      form_name:     formName      || null,
+      campaign_name: campaignName || null,
+      form_name:     formName     || null,
       notes,
       kanban_column: "novo_lead",
       tags:          [],
@@ -159,7 +185,6 @@ export async function POST(req: NextRequest) {
     leadId, null,
   );
 
-  // Atomic counter increment via RPC (avoids race condition)
   await admin.rpc("increment_webhook_leads_count", { p_integration_id: integrationId });
 
   console.log(
