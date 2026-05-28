@@ -89,7 +89,8 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
           ...connection,
           id: `edge-${Date.now()}`,
           animated: true,
-          style: { stroke: "rgba(139,92,246,0.4)", strokeWidth: 1.5 },
+          type: "smoothstep",
+          style: { stroke: "rgba(139,92,246,0.65)", strokeWidth: 1.5 },
         },
         s.edges
       ) as WorkflowEdge[],

@@ -100,19 +100,11 @@ function CanvasInner({
         >
           <Background
             variant={BackgroundVariant.Dots}
-            gap={28}
-            size={1}
-            color="rgba(255,255,255,0.04)"
+            gap={36}
+            size={0.9}
+            color="rgba(255,255,255,0.045)"
           />
-          <Controls
-            showInteractive={false}
-            style={{
-              background: "rgba(10,10,12,0.9)",
-              border: "1px solid rgba(255,255,255,0.07)",
-              borderRadius: 10,
-              boxShadow: "none",
-            }}
-          />
+          <Controls showInteractive={false} />
         </ReactFlow>
 
         {/* Floating bottom bar */}
@@ -249,7 +241,16 @@ export function CreativeCanvas({
   useEffect(() => { if (runTrigger > 0) handleRun(); }, [runTrigger]);
 
   return (
-    <div className="w-full h-full" style={{ background: "#060608" }}>
+    <div
+      className="w-full h-full"
+      style={{
+        background:
+          "radial-gradient(ellipse at 20% 35%, rgba(59,130,246,0.035) 0%, transparent 65%), " +
+          "radial-gradient(ellipse at 78% 65%, rgba(139,92,246,0.04) 0%, transparent 60%), " +
+          "radial-gradient(ellipse at 50% 100%, rgba(16,185,129,0.02) 0%, transparent 50%), " +
+          "#020204",
+      }}
+    >
       <CanvasInner onSave={handleSave} onRun={handleRun} />
     </div>
   );

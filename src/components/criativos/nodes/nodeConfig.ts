@@ -34,14 +34,16 @@ export const STARTER_WORKFLOW = {
       source: "s-text",
       target: "s-engine",
       animated: true,
-      style: { stroke: "rgba(139,92,246,0.4)", strokeWidth: 1.5 },
+      type: "smoothstep",
+      style: { stroke: "rgba(139,92,246,0.65)", strokeWidth: 1.5 },
     },
     {
       id: "s-e2",
       source: "s-engine",
       target: "s-result",
       animated: true,
-      style: { stroke: "rgba(139,92,246,0.4)", strokeWidth: 1.5 },
+      type: "smoothstep",
+      style: { stroke: "rgba(139,92,246,0.65)", strokeWidth: 1.5 },
     },
   ],
 };

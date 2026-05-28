@@ -531,3 +531,84 @@
     animation: glowPulse 2s ease-in-out infinite;
   }
 }
+
+/* ═══════════════════════════════════════════════════
+   AI CANVAS — React Flow Premium Visual System
+   ═══════════════════════════════════════════════════ */
+
+/* Edge paths — glow futurista */
+.react-flow__edge-path {
+  filter: drop-shadow(0 0 3px rgba(139, 92, 246, 0.55));
+  transition: filter 0.25s ease;
+}
+.react-flow__edge:hover .react-flow__edge-path {
+  filter: drop-shadow(0 0 7px rgba(139, 92, 246, 0.9));
+}
+
+/* Connection line while dragging */
+.react-flow__connection-path {
+  stroke: rgba(139, 92, 246, 0.6) !important;
+  stroke-width: 1.5 !important;
+  filter: drop-shadow(0 0 4px rgba(139, 92, 246, 0.5));
+}
+
+/* Controls — glass premium */
+.react-flow__controls {
+  background: rgba(6, 6, 10, 0.88) !important;
+  border: 1px solid rgba(255, 255, 255, 0.07) !important;
+  backdrop-filter: blur(24px) saturate(1.8) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(1.8) !important;
+  border-radius: 14px !important;
+  overflow: hidden !important;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.03),
+    0 8px 32px rgba(0, 0, 0, 0.65),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
+}
+.react-flow__controls-button {
+  background: transparent !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
+  color: rgba(255, 255, 255, 0.4) !important;
+  transition: all 0.15s ease !important;
+}
+.react-flow__controls-button:last-child {
+  border-bottom: none !important;
+}
+.react-flow__controls-button:hover {
+  background: rgba(255, 255, 255, 0.05) !important;
+  color: rgba(255, 255, 255, 0.85) !important;
+}
+.react-flow__controls-button svg {
+  fill: currentColor !important;
+  stroke: none !important;
+}
+
+/* Handle hover glow */
+.react-flow__handle {
+  transition: box-shadow 0.2s ease, transform 0.15s ease !important;
+}
+.react-flow__handle:hover {
+  transform: scale(1.35) !important;
+}
+
+/* Node selection — remove default blue outline */
+.react-flow__node.selected > div,
+.react-flow__node:focus > div {
+  outline: none !important;
+}
+.react-flow__node.selected {
+  outline: none !important;
+}
+
+/* Attribution hide */
+.react-flow__attribution {
+  display: none !important;
+}
+
+/* Node drag — cursor */
+.react-flow__node {
+  cursor: grab;
+}
+.react-flow__node:active {
+  cursor: grabbing;
+}
