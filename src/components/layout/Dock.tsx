@@ -13,6 +13,7 @@ import {
   LogOut,
   User,
   Contact,
+  Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useGlobalStore } from "@/store";
@@ -26,6 +27,7 @@ const NAV_ITEMS = [
   { href: "/clientes",      label: "Clientes",  icon: Contact,         exactMatch: false, permKey: "clientes" },
   { href: "/financeiro",    label: "Financeiro",icon: Wallet,          exactMatch: false, permKey: "financeiro" },
   { href: "/trafego",       label: "Tráfego",   icon: TrendingUp,      exactMatch: false, permKey: "trafego" },
+  { href: "/criativos",     label: "Criativos", icon: Sparkles,        exactMatch: false, permKey: "criativos" },
   { href: "/configuracoes", label: "Config",    icon: Settings,        exactMatch: false, permKey: "configuracoes" },
 ];
 
@@ -190,14 +192,18 @@ export function Dock() {
   const [isSigningOut, setIsSigningOut] = useState(false);
 
   const { member, isOwner } = useCurrentMember();
+  const canvasMode = useGlobalStore((s) => s.canvasMode);
 
-  // Filtra itens visíveis: owners veem tudo; membros veem apenas seus módulos
+  // useMemo deve ficar ANTES de qualquer early return para não violar a regra dos hooks
   const visibleItems = useMemo(() => {
     if (isOwner === null || isOwner === true) return NAV_ITEMS;
     if (!member || !member.is_active) return NAV_ITEMS.filter((i) => i.permKey === "dashboard");
     const perms = member.permissions;
     return NAV_ITEMS.filter((i) => perms.includes(i.permKey));
   }, [member, isOwner]);
+
+  // Não renderiza nada no modo canvas (editor full-screen)
+  if (canvasMode) return null;
 
   async function handleSignOut() {
     setIsSigningOut(true);

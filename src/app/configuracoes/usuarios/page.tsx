@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft, Plus, Search, Users, UserCheck, Mail, ShieldCheck,
@@ -30,9 +30,10 @@ import { PrimaryButton } from "@/components/ui/PrimaryButton";
 const ROLES: UserRole[] = ["admin", "comercial", "trafego", "financeiro", "operacional", "viewer"];
 
 const STATUS_OPTIONS = [
-  { value: "",      label: "Todos os status" },
-  { value: "true",  label: "Ativo" },
-  { value: "false", label: "Inativo" },
+  { value: "",        label: "Todos os status" },
+  { value: "true",    label: "Ativo" },
+  { value: "false",   label: "Inativo" },
+  { value: "pending", label: "Aguardando convite" },
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -113,6 +114,17 @@ function RowActions({ profile, onEdit, onToggle, onReset, onDelete }: {
   profile: UserProfile; onEdit: () => void; onToggle: () => void; onReset: () => void; onDelete: () => void;
 }) {
   const [open, setOpen] = useState(false);
+  const [openUp, setOpenUp] = useState(false);
+  const btnRef = useRef<HTMLButtonElement>(null);
+
+  function handleToggleOpen() {
+    if (!open && btnRef.current) {
+      const rect = btnRef.current.getBoundingClientRect();
+      setOpenUp(window.innerHeight - rect.bottom < 180);
+    }
+    setOpen(v => !v);
+  }
+
   const actions = [
     { icon: Pencil,   label: "Editar / Permissões", action: onEdit,   color: "rgba(255,255,255,0.8)" },
     { icon: Power,    label: profile.is_active ? "Desativar" : "Ativar", action: onToggle, color: profile.is_active ? "#f87171" : "#34d399" },
@@ -122,7 +134,8 @@ function RowActions({ profile, onEdit, onToggle, onReset, onDelete }: {
   return (
     <div className="relative">
       <button
-        onClick={() => setOpen(v => !v)}
+        ref={btnRef}
+        onClick={handleToggleOpen}
         className="flex h-7 w-7 items-center justify-center rounded-lg transition-colors"
         style={{ color: "rgba(255,255,255,0.35)" }}
         onMouseEnter={e => (e.currentTarget.style.color = "#ffffff")}
@@ -135,11 +148,11 @@ function RowActions({ profile, onEdit, onToggle, onReset, onDelete }: {
           <>
             <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
             <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: -4 }}
+              initial={{ opacity: 0, scale: 0.95, y: openUp ? 4 : -4 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: -4 }}
+              exit={{ opacity: 0, scale: 0.95, y: openUp ? 4 : -4 }}
               transition={{ duration: 0.15 }}
-              className="absolute right-0 top-8 z-20 min-w-[180px] rounded-xl py-1.5 shadow-2xl"
+              className={`absolute right-0 z-20 min-w-[180px] rounded-xl py-1.5 shadow-2xl ${openUp ? "bottom-8" : "top-8"}`}
               style={{ background: "rgba(18,18,18,0.97)", border: "1px solid rgba(255,255,255,0.1)" }}
             >
               {actions.map(({ icon: ActionIcon, label, action, color }) => (
@@ -629,7 +642,12 @@ export default function UsuariosPage() {
     return profiles.filter(p => {
       const q = search.toLowerCase();
       if (q && !p.full_name.toLowerCase().includes(q) && !p.email.toLowerCase().includes(q)) return false;
-      if (filterStatus !== "" && String(p.is_active) !== filterStatus) return false;
+      if (filterStatus === "pending") {
+        if (p.auth_user_id != null) return false;
+      } else if (filterStatus !== "") {
+        if (p.auth_user_id == null) return false;
+        if (String(p.is_active) !== filterStatus) return false;
+      }
       if (filterRole && p.role !== filterRole) return false;
       return true;
     });
@@ -834,7 +852,14 @@ export default function UsuariosPage() {
                   )}
                 </div>
                 <RoleBadge role={profile.role} />
-                <StatusDot active={profile.is_active} />
+                {profile.auth_user_id == null ? (
+                  <span className="inline-flex items-center gap-1.5 text-[12px]" style={{ color: "#facc15" }}>
+                    <Mail size={12} style={{ color: "#facc15" }} />
+                    Convite enviado
+                  </span>
+                ) : (
+                  <StatusDot active={profile.is_active} />
+                )}
                 <span className="text-[12px]" style={{ color: "rgba(255,255,255,0.3)" }}>
                   {new Date(profile.created_at).toLocaleDateString("pt-BR")}
                 </span>

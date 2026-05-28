@@ -255,11 +255,12 @@ export function useUsers() {
     }
   }, []);
 
+  const confirmedProfiles = profiles.filter(p => p.auth_user_id != null);
   const stats = {
-    total:   profiles.length,
-    active:  profiles.filter(p => p.is_active).length,
+    total:   confirmedProfiles.length,
+    active:  confirmedProfiles.filter(p => p.is_active).length,
     pending: invites.length,
-    admins:  profiles.filter(p => p.role === "admin").length,
+    admins:  confirmedProfiles.filter(p => p.role === "admin").length,
   };
 
   return {

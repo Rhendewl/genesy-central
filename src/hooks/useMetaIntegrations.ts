@@ -30,8 +30,9 @@ export interface UseMetaIntegrationsReturn {
     adAccountName: string;
     clientId?:     string | null;
   }) => Promise<{ error: string | null }>;
-  syncAccount:   (platformAccountId: string, since?: string, until?: string) => Promise<{ error: string | null }>;
-  disconnect:    (platformAccountId: string) => Promise<{ error: string | null }>;
+  syncAccount:      (platformAccountId: string, since?: string, until?: string) => Promise<{ error: string | null }>;
+  disconnect:       (platformAccountId: string) => Promise<{ error: string | null }>;
+  deleteAccount:    (platformAccountId: string) => Promise<{ error: string | null }>;
   fetchPendingAccounts: (pendingId: string) => Promise<MetaAdAccount[]>;
 }
 
@@ -167,10 +168,28 @@ export function useMetaIntegrations(): UseMetaIntegrationsReturn {
     }
   }, [fetch]);
 
+  // ── Delete account (permanently removes disconnected account) ─────────────
+
+  const deleteAccount = useCallback(async (platformAccountId: string): Promise<{ error: string | null }> => {
+    try {
+      const res = await globalThis.fetch("/api/meta/account", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ platformAccountId }),
+      });
+      const json = await res.json() as { error?: string };
+      if (!res.ok) return { error: json.error ?? "Erro ao excluir conta" };
+      await fetch();
+      return { error: null };
+    } catch (e: unknown) {
+      return { error: e instanceof Error ? e.message : "Erro ao excluir conta" };
+    }
+  }, [fetch]);
+
   return {
     connections, syncLogs, isLoading, syncing, error,
     refetch: fetch,
-    initiateOAuth, connectAccount, syncAccount, disconnect,
+    initiateOAuth, connectAccount, syncAccount, disconnect, deleteAccount,
     fetchPendingAccounts,
   };
 }

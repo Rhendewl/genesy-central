@@ -8,6 +8,10 @@ import type { Theme, PeriodFilter } from "@/types";
 // ─────────────────────────────────────────────────────────────────────────────
 
 interface GlobalStore {
+  // Canvas mode — esconde o Dock quando o editor de canvas está aberto
+  canvasMode: boolean;
+  setCanvasMode: (v: boolean) => void;
+
   // Theme
   theme: Theme;
   setTheme: (theme: Theme) => void;
@@ -32,6 +36,10 @@ interface GlobalStore {
 }
 
 export const useGlobalStore = create<GlobalStore>((set) => ({
+  // ── Canvas mode ──
+  canvasMode: false,
+  setCanvasMode: (v) => set({ canvasMode: v }),
+
   // ── Theme ──
   theme: "dark",
   setTheme: (theme) => {

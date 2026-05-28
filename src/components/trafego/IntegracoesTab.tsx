@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Plug, RefreshCw, Unplug, CheckCircle2, XCircle, Clock,
   AlertTriangle, ChevronDown, X, Loader2, Zap, ShieldCheck,
-  BarChart2, Users,
+  BarChart2, Users, Trash2,
 } from "lucide-react";
 import { useMetaIntegrations } from "@/hooks/useMetaIntegrations";
 import { useAgencyClients } from "@/hooks/useAgencyClients";
@@ -376,21 +376,32 @@ function AccountPickerModal({
 // ── Single Meta account row ────────────────────────────────────────────────────
 
 interface MetaAccountRowProps {
-  account:      AdPlatformAccount;
-  lastLog:      MetaSyncLog | null;
-  isSyncing:    boolean;
+  account:         AdPlatformAccount;
+  lastLog:         MetaSyncLog | null;
+  isSyncing:       boolean;
   isDisconnecting: boolean;
-  onSync:       () => void;
-  onReconnect:  () => void;
-  onDisconnect: () => void;
-  index:        number;
+  isDeleting:      boolean;
+  onSync:          () => void;
+  onReconnect:     () => void;
+  onDisconnect:    () => void;
+  onDelete:        () => void;
+  index:           number;
 }
 
 function MetaAccountRow({
-  account, lastLog, isSyncing, isDisconnecting, onSync, onReconnect, onDisconnect, index,
+  account, lastLog, isSyncing, isDisconnecting, isDeleting,
+  onSync, onReconnect, onDisconnect, onDelete, index,
 }: MetaAccountRowProps) {
-  const isConnected = account.status === "connected";
-  const hasError    = account.status === "error";
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const isConnected    = account.status === "connected";
+  const hasError       = account.status === "error";
+  const isDisconnected = account.status === "disconnected";
+
+  const handleDeleteClick = () => {
+    if (!confirmDelete) { setConfirmDelete(true); return; }
+    setConfirmDelete(false);
+    onDelete();
+  };
 
   return (
     <motion.div
@@ -485,14 +496,44 @@ function MetaAccountRow({
               <Plug size={13} />
             </button>
           )}
-          <button
-            onClick={onDisconnect}
-            disabled={isDisconnecting}
-            title="Desconectar conta"
-            className="p-1.5 rounded-lg text-[#b4b4b4] hover:text-red-400 hover:bg-red-400/10 transition-colors disabled:opacity-40"
-          >
-            {isDisconnecting ? <Loader2 size={13} className="animate-spin" /> : <Unplug size={13} />}
-          </button>
+          {!isDisconnected && (
+            <button
+              onClick={onDisconnect}
+              disabled={isDisconnecting}
+              title="Desconectar conta"
+              className="p-1.5 rounded-lg text-[#b4b4b4] hover:text-red-400 hover:bg-red-400/10 transition-colors disabled:opacity-40"
+            >
+              {isDisconnecting ? <Loader2 size={13} className="animate-spin" /> : <Unplug size={13} />}
+            </button>
+          )}
+          {isDisconnected && (
+            confirmDelete ? (
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => setConfirmDelete(false)}
+                  className="px-2 py-1 rounded-lg text-[10px] text-[#b4b4b4] hover:text-white hover:bg-white/8 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleDeleteClick}
+                  disabled={isDeleting}
+                  className="px-2 py-1 rounded-lg text-[10px] font-medium text-red-400 bg-red-400/10 hover:bg-red-400/20 transition-colors disabled:opacity-40"
+                >
+                  {isDeleting ? <Loader2 size={10} className="animate-spin inline" /> : "Confirmar"}
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={handleDeleteClick}
+                disabled={isDeleting}
+                title="Excluir conta"
+                className="p-1.5 rounded-lg text-[#b4b4b4] hover:text-red-400 hover:bg-red-400/10 transition-colors disabled:opacity-40"
+              >
+                <Trash2 size={13} />
+              </button>
+            )
+          )}
         </div>
       </div>
     </motion.div>
@@ -506,15 +547,17 @@ interface MetaSectionProps {
   syncLogs:         MetaSyncLog[];
   syncing:          Record<string, boolean>;
   disconnecting:    Record<string, boolean>;
+  deleting:         Record<string, boolean>;
   onAddAccount:     () => void;
   onSync:           (id: string) => void;
   onReconnect:      () => void;
   onDisconnect:     (id: string) => void;
+  onDelete:         (id: string) => void;
 }
 
 function MetaAdsSection({
-  accounts, syncLogs, syncing, disconnecting,
-  onAddAccount, onSync, onReconnect, onDisconnect,
+  accounts, syncLogs, syncing, disconnecting, deleting,
+  onAddAccount, onSync, onReconnect, onDisconnect, onDelete,
 }: MetaSectionProps) {
   return (
     <motion.div
@@ -572,9 +615,11 @@ function MetaAdsSection({
                   lastLog={lastLog}
                   isSyncing={syncing[acc.id] ?? false}
                   isDisconnecting={disconnecting[acc.id] ?? false}
+                  isDeleting={deleting[acc.id] ?? false}
                   onSync={() => onSync(acc.id)}
                   onReconnect={onReconnect}
                   onDisconnect={() => onDisconnect(acc.id)}
+                  onDelete={() => onDelete(acc.id)}
                   index={i}
                 />
               );
@@ -648,7 +693,7 @@ export function IntegracoesTab() {
 
   const {
     connections, syncLogs, isLoading, syncing, error,
-    initiateOAuth, connectAccount, syncAccount, disconnect, fetchPendingAccounts,
+    initiateOAuth, connectAccount, syncAccount, disconnect, deleteAccount, fetchPendingAccounts,
   } = useMetaIntegrations();
 
   const { clients } = useAgencyClients();
@@ -660,6 +705,7 @@ export function IntegracoesTab() {
 
   const [showPicker, setShowPicker]         = useState(!!pendingId);
   const [disconnecting, setDisconnecting]   = useState<Record<string, boolean>>({});
+  const [deleting, setDeleting]             = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     if (pendingId) setShowPicker(true);
@@ -679,6 +725,12 @@ export function IntegracoesTab() {
     await disconnect(id);
     setDisconnecting(prev => ({ ...prev, [id]: false }));
   }, [disconnect]);
+
+  const handleDelete = useCallback(async (id: string) => {
+    setDeleting(prev => ({ ...prev, [id]: true }));
+    await deleteAccount(id);
+    setDeleting(prev => ({ ...prev, [id]: false }));
+  }, [deleteAccount]);
 
   // All connected Meta accounts
   const metaAccounts = connections.filter(c => c.platform === "meta");
@@ -730,10 +782,12 @@ export function IntegracoesTab() {
                   syncLogs={syncLogs}
                   syncing={syncing}
                   disconnecting={disconnecting}
+                  deleting={deleting}
                   onAddAccount={() => initiateOAuth(defaultClient)}
                   onSync={(id) => syncAccount(id)}
                   onReconnect={() => initiateOAuth(defaultClient)}
                   onDisconnect={handleDisconnect}
+                  onDelete={handleDelete}
                 />
               </div>
 

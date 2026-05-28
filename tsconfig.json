@@ -22,5 +22,15 @@
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
-  "exclude": ["node_modules"]
+  "exclude": [
+    "node_modules",
+    "src/components/criativos/nodes/ai",
+    "src/components/criativos/nodes/input",
+    "src/components/criativos/nodes/output",
+    "src/components/criativos/nodes/processing",
+    "src/components/criativos/nodes/BaseNode.tsx",
+    "src/components/criativos/nodes/nodeRegistry.ts",
+    "src/components/criativos/canvas/NodeSidebar.tsx",
+    "src/components/criativos/canvas/NodePropertiesPanel.tsx"
+  ]
 }

@@ -847,3 +847,136 @@ export interface PortalPublicData {
   available_accounts: PortalAvailableAccount[];
   available_campaigns: { id: string; name: string; status: string }[];
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Módulo: Gerador de Criativos IA
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type CriativoTom =
+  | "urgente"
+  | "sofisticado"
+  | "amigavel"
+  | "profissional"
+  | "emocional"
+  | "direto";
+
+export type CriativoEstiloVisual =
+  | "minimalista"
+  | "bold"
+  | "luxury"
+  | "moderno"
+  | "colorido"
+  | "escuro";
+
+export type CriativoSegmento =
+  | "imobiliario"
+  | "varejo"
+  | "servicos"
+  | "saude"
+  | "educacao"
+  | "outro";
+
+export type CriativoProjetoStatus = "rascunho" | "ativo" | "arquivado";
+
+export type CriativoJobStatus = "pendente" | "processando" | "concluido" | "erro";
+
+export type CriativoAssetTipo = "logo" | "imagem" | "fundo" | "icone";
+
+export type CriativoFormato = "1080x1080" | "1080x1920" | "1920x1080" | "1200x628";
+
+// ── Projeto ───────────────────────────────────────────────────────────────────
+
+export interface CriativoProjeto {
+  id: string;
+  user_id: string;
+  client_id: string | null;
+  nome: string;
+  objetivo: string;
+  publico: string;
+  oferta: string;
+  tom: CriativoTom;
+  estilo_visual: CriativoEstiloVisual;
+  segmento: CriativoSegmento;
+  status: CriativoProjetoStatus;
+  created_at: string;
+  updated_at: string;
+  // relações opcionais (join)
+  agency_clients?: { name: string } | null;
+}
+
+export interface NewCriativoProjeto {
+  nome: string;
+  objetivo?: string | null;
+  publico?: string | null;
+  oferta?: string | null;
+  tom?: CriativoTom | null;
+  estilo_visual?: CriativoEstiloVisual | null;
+  segmento?: CriativoSegmento | null;
+  client_id?: string | null;
+}
+
+export interface UpdateCriativoProjeto {
+  nome?: string;
+  objetivo?: string;
+  publico?: string;
+  oferta?: string;
+  tom?: CriativoTom;
+  estilo_visual?: CriativoEstiloVisual;
+  segmento?: CriativoSegmento;
+  status?: CriativoProjetoStatus;
+  client_id?: string | null;
+}
+
+// ── Asset ─────────────────────────────────────────────────────────────────────
+
+export interface CriativoAsset {
+  id: string;
+  projeto_id: string;
+  user_id: string;
+  tipo: CriativoAssetTipo;
+  nome_arquivo: string;
+  storage_path: string;
+  url: string;
+  tamanho_bytes: number | null;
+  largura_px: number | null;
+  altura_px: number | null;
+  created_at: string;
+}
+
+// ── Job ───────────────────────────────────────────────────────────────────────
+
+export interface CriativoJob {
+  id: string;
+  projeto_id: string;
+  user_id: string;
+  status: CriativoJobStatus;
+  quantidade: number;
+  progresso: number;
+  tokens_usados: number;
+  erro_mensagem: string | null;
+  iniciado_em: string | null;
+  concluido_em: string | null;
+  created_at: string;
+}
+
+// ── Resultado ─────────────────────────────────────────────────────────────────
+
+export interface CriativoResultado {
+  id: string;
+  job_id: string;
+  projeto_id: string;
+  user_id: string;
+  variacao: number;
+  headline: string | null;
+  copy: string | null;
+  cta: string | null;
+  prompt_imagem: string | null;
+  imagem_url: string | null;
+  storage_path: string | null;
+  formato: CriativoFormato;
+  estilo_aplicado: string | null;
+  favorito: boolean;
+  avaliacao: number | null;
+  created_at: string;
+  updated_at: string;
+}
