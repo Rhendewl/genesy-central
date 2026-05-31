@@ -373,8 +373,14 @@ export interface MetaAdInsightRow {
 
 type AdStorySpec = {
   link_data?: { picture?: string; image_url?: string; };
-  video_data?: { image_url?: string; };
+  video_data?: { image_url?: string; thumbnail_url?: string; };
   photo_data?: { images?: Array<{ url?: string }>; };
+  template_data?: { link_data?: { picture?: string; image_url?: string; }; };
+};
+
+type AssetFeedSpec = {
+  images?: Array<{ hash?: string; url?: string; }>;
+  videos?: Array<{ thumbnail_url?: string; video_id?: string; }>;
 };
 
 export interface MetaAdWithCreative {
@@ -391,6 +397,8 @@ export interface MetaAdWithCreative {
     // effective_object_story_spec has fully-resolved image URLs (preferred over object_story_spec)
     effective_object_story_spec?: AdStorySpec;
     object_story_spec?: AdStorySpec;
+    // asset_feed_spec used by Dynamic/Advantage+ Ads and some Lead Ads
+    asset_feed_spec?: AssetFeedSpec;
   };
 }
 
@@ -432,7 +440,8 @@ export async function getAdsWithCreatives(
 ): Promise<MetaAdWithCreative[]> {
   const cleanId = adAccountId.replace(/^act_/, "");
   // effective_object_story_spec returns fully-resolved image URLs (better than object_story_spec)
-  const fields = "id,name,status,campaign_id,creative{id,thumbnail_url,image_url,effective_object_story_spec,object_story_spec}";
+  // asset_feed_spec covers Dynamic/Advantage+ Ads and Lead Ads that skip object_story_spec
+  const fields = "id,name,status,campaign_id,creative{id,thumbnail_url,image_url,effective_object_story_spec,object_story_spec,asset_feed_spec{images,videos}}";
   // Include all effective statuses so archived/deleted ads from the insight period are captured
   const filtering = encodeURIComponent(JSON.stringify([
     { field: "effective_status", operator: "IN", value: ["ACTIVE", "PAUSED", "DELETED", "ARCHIVED", "IN_PROCESS", "WITH_ISSUES"] },

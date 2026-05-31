@@ -15,22 +15,33 @@ function createAnonClient() {
   );
 }
 
-// Priority: link_data.picture → video thumbnail → image_url → thumbnail_url
-// object_story_spec.link_data.picture returns stable CDN URLs (no auth needed)
-function pickBestAdImage(creative: MetaAdWithCreative["creative"]): string | null {
+function pickBestAdImage(creative: MetaAdWithCreative["creative"], logLabel?: string): string | null {
   if (!creative) return null;
+
   const eff = creative.effective_object_story_spec;
-  if (eff?.link_data?.picture)     return eff.link_data.picture;
-  if (eff?.link_data?.image_url)   return eff.link_data.image_url;
-  if (eff?.video_data?.image_url)  return eff.video_data.image_url;
-  if (eff?.photo_data?.images?.[0]?.url) return eff.photo_data.images[0].url;
+  if (eff?.link_data?.picture)         { if (logLabel) console.log(`[${logLabel}] img via eff.link_data.picture`);         return eff.link_data.picture; }
+  if (eff?.link_data?.image_url)       { if (logLabel) console.log(`[${logLabel}] img via eff.link_data.image_url`);       return eff.link_data.image_url; }
+  if (eff?.video_data?.image_url)      { if (logLabel) console.log(`[${logLabel}] img via eff.video_data.image_url`);      return eff.video_data.image_url; }
+  if (eff?.video_data?.thumbnail_url)  { if (logLabel) console.log(`[${logLabel}] img via eff.video_data.thumbnail_url`);  return eff.video_data.thumbnail_url; }
+  if (eff?.photo_data?.images?.[0]?.url) { if (logLabel) console.log(`[${logLabel}] img via eff.photo_data`);             return eff.photo_data!.images![0].url!; }
+  if (eff?.template_data?.link_data?.picture) { if (logLabel) console.log(`[${logLabel}] img via eff.template_data`);     return eff.template_data!.link_data!.picture!; }
+
   const spec = creative.object_story_spec;
-  if (spec?.link_data?.picture)    return spec.link_data.picture;
-  if (spec?.link_data?.image_url)  return spec.link_data.image_url;
-  if (spec?.video_data?.image_url) return spec.video_data.image_url;
-  if (spec?.photo_data?.images?.[0]?.url) return spec.photo_data.images[0].url;
-  if (creative.image_url)          return creative.image_url;
-  if (creative.thumbnail_url)      return creative.thumbnail_url;
+  if (spec?.link_data?.picture)        { if (logLabel) console.log(`[${logLabel}] img via spec.link_data.picture`);        return spec.link_data.picture; }
+  if (spec?.link_data?.image_url)      { if (logLabel) console.log(`[${logLabel}] img via spec.link_data.image_url`);      return spec.link_data.image_url; }
+  if (spec?.video_data?.image_url)     { if (logLabel) console.log(`[${logLabel}] img via spec.video_data.image_url`);     return spec.video_data.image_url; }
+  if (spec?.video_data?.thumbnail_url) { if (logLabel) console.log(`[${logLabel}] img via spec.video_data.thumbnail_url`); return spec.video_data.thumbnail_url; }
+  if (spec?.photo_data?.images?.[0]?.url) { if (logLabel) console.log(`[${logLabel}] img via spec.photo_data`);           return spec.photo_data!.images![0].url!; }
+
+  // asset_feed_spec — Dynamic/Advantage+ and Lead Ads that skip object_story_spec
+  const feed = creative.asset_feed_spec;
+  if (feed?.images?.[0]?.url)          { if (logLabel) console.log(`[${logLabel}] img via asset_feed_spec.images`);        return feed.images[0].url!; }
+  if (feed?.videos?.[0]?.thumbnail_url){ if (logLabel) console.log(`[${logLabel}] img via asset_feed_spec.videos`);        return feed.videos[0].thumbnail_url!; }
+
+  if (creative.image_url)              { if (logLabel) console.log(`[${logLabel}] img via creative.image_url`);            return creative.image_url; }
+  if (creative.thumbnail_url)          { if (logLabel) console.log(`[${logLabel}] img via creative.thumbnail_url`);        return creative.thumbnail_url; }
+
+  if (logLabel) console.log(`[${logLabel}] no image found. creative keys: ${Object.keys(creative).join(",")}`);
   return null;
 }
 
@@ -209,9 +220,15 @@ export async function GET(
 
           console.log(`[portal/creatives] Meta API: ${ads.length} ads for ${pa.account_id}`);
 
+          // Log first 3 ads raw creative payload for diagnosis
+          ads.slice(0, 3).forEach((ad, i) => {
+            console.log(`[portal/creatives] ad[${i}] id=${ad.id} campaign=${ad.campaign_id} creative=${JSON.stringify(ad.creative)}`);
+          });
+
           for (const ad of ads) {
             if (!ad.campaign_id || metaCampThumb.has(ad.campaign_id)) continue;
-            const img = pickBestAdImage(ad.creative);
+            const label = `portal/creatives ad=${ad.id}`;
+            const img = pickBestAdImage(ad.creative, label);
             if (img) metaCampThumb.set(ad.campaign_id, img);
           }
         }
