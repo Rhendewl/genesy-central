@@ -15,6 +15,7 @@ function createAnonClient() {
   );
 }
 
+// Priority: high-resolution sources first — thumbnail_url is last (compressed, low quality)
 function pickBestAdImage(
   creative: MetaCreativeExtended | null | undefined,
   logLabel?: string
@@ -22,35 +23,45 @@ function pickBestAdImage(
   if (!creative) return null;
 
   function emit(field: string) {
-    if (logLabel) console.log(`[${logLabel}] img via ${field}`);
+    if (logLabel) console.log(`[portal/creatives] ${logLabel} img via ${field}`);
   }
 
-  if (creative.thumbnail_url)     { emit("thumbnail_url");     return creative.thumbnail_url; }
+  // 1. image_url — original upload resolution
   if (creative.image_url)         { emit("image_url");         return creative.image_url; }
 
+  // 2–5. object_story_spec — CDN URLs at ad delivery resolution (high quality)
   const spec = creative.object_story_spec;
   if (spec?.link_data?.picture)   { emit("spec.link_data.picture");   return spec.link_data.picture; }
   if (spec?.link_data?.image_url) { emit("spec.link_data.image_url"); return spec.link_data.image_url; }
+  if (spec?.photo_data?.images?.[0]?.url) { emit("spec.photo_data"); return spec.photo_data!.images![0].url!; }
   // Carousel — first child attachment
   const att = spec?.link_data?.child_attachments?.[0];
   if (att?.picture)               { emit("child_attachments[0].picture");   return att.picture; }
   if (att?.image_url)             { emit("child_attachments[0].image_url"); return att.image_url; }
-  if (spec?.video_data?.image_url)     { emit("spec.video_data.image_url");     return spec.video_data.image_url; }
-  if (spec?.video_data?.thumbnail_url) { emit("spec.video_data.thumbnail_url"); return spec.video_data.thumbnail_url; }
-  if (spec?.photo_data?.images?.[0]?.url) { emit("spec.photo_data"); return spec.photo_data!.images![0].url!; }
+
+  // 6. asset_feed_spec — Dynamic/Advantage+/Lead Ads original asset URLs
+  const feed = creative.asset_feed_spec;
+  if (feed?.images?.[0]?.url)     { emit("asset_feed_spec.images[0].url");  return feed.images[0].url!; }
+
+  // 7. Video frame — image_url from video_data
+  if (spec?.video_data?.image_url)        { emit("spec.video_data.image_url");     return spec.video_data.image_url; }
   if (spec?.template_data?.link_data?.picture) { emit("spec.template_data"); return spec.template_data!.link_data!.picture!; }
 
-  // asset_feed_spec — Dynamic/Advantage+, Lead Ads, and multi-asset creatives
-  const feed = creative.asset_feed_spec;
-  if (feed?.images?.[0]?.url)           { emit("asset_feed_spec.images[0].url");   return feed.images[0].url!; }
-  if (feed?.videos?.[0]?.thumbnail_url) { emit("asset_feed_spec.videos[0].thumb"); return feed.videos[0].thumbnail_url!; }
+  // 8. Video thumbnail from asset_feed_spec
+  if (feed?.videos?.[0]?.thumbnail_url)   { emit("asset_feed_spec.videos[0].thumb"); return feed.videos[0].thumbnail_url!; }
+
+  // 9. video_data.thumbnail_url (before the final fallback)
+  if (spec?.video_data?.thumbnail_url)    { emit("spec.video_data.thumbnail_url"); return spec.video_data.thumbnail_url; }
+
+  // 10. thumbnail_url — LAST RESORT (compressed/small, Meta generated)
+  if (creative.thumbnail_url)     { emit("thumbnail_url [low-res]"); return creative.thumbnail_url; }
 
   if (logLabel) {
     const specKeys = spec ? Object.keys(spec).join(",") : "none";
     const feedKeys = feed ? Object.keys(feed).join(",") : "none";
-    console.log(`[${logLabel}] NO IMAGE — creative keys: ${Object.keys(creative).join(",")}, spec keys: ${specKeys}, feed keys: ${feedKeys}`);
-    if (spec?.link_data) console.log(`[${logLabel}] link_data keys: ${Object.keys(spec.link_data).join(",")}`);
-    if (feed?.images?.length) console.log(`[${logLabel}] feed.images[0] keys: ${Object.keys(feed.images[0]).join(",")}`);
+    console.log(`[portal/creatives] ${logLabel} NO IMAGE — creative keys: ${Object.keys(creative).join(",")}, spec: ${specKeys}, feed: ${feedKeys}`);
+    if (spec?.link_data) console.log(`[portal/creatives] ${logLabel} link_data keys: ${Object.keys(spec.link_data).join(",")}`);
+    if (feed?.images?.length) console.log(`[portal/creatives] ${logLabel} feed.images[0] keys: ${Object.keys(feed.images[0]).join(",")}`);
   }
   return null;
 }
@@ -251,20 +262,22 @@ export async function GET(
           }
           console.log(`[portal/creatives] P1 done: ${metaCampThumb.size} resolved, ${stuckAds.length} stuck`);
 
-          // ── Phase 2: batch resolve image_hash → CDN URL ───────────────────
-          const hashEntries = stuckAds
-            .filter(ad => ad.creative?.image_hash && !metaCampThumb.has(ad.campaign_id))
+          // ── Phase 2: image_hash → original-resolution CDN URL ────────────
+          // Runs for ALL needed ads with image_hash, not just stuck ones —
+          // so it can upgrade a thumbnail_url (low-res) to original quality.
+          const hashEntries = ads
+            .filter(ad => ad.creative?.image_hash && neededMetaIds.has(ad.campaign_id))
             .map(ad => ({ ad, hash: ad.creative!.image_hash! }));
 
           if (hashEntries.length > 0) {
             const uniqueHashes = Array.from(new Set(hashEntries.map(e => e.hash)));
             const hashToUrl = await getAdImageUrls(pa.account_id, uniqueHashes, accessToken);
             for (const { ad, hash } of hashEntries) {
-              if (metaCampThumb.has(ad.campaign_id)) continue;
               const url = hashToUrl.get(hash);
               if (url) {
-                console.log(`[portal/creatives] P2 ad=${ad.id} resolved via image_hash`);
-                metaCampThumb.set(ad.campaign_id, url);
+                const upgraded = metaCampThumb.has(ad.campaign_id);
+                console.log(`[portal/creatives] P2 ad=${ad.id} image_hash→original (upgrade=${upgraded})`);
+                metaCampThumb.set(ad.campaign_id, url); // always override — original > thumbnail
               }
             }
           }

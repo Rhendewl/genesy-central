@@ -102,9 +102,16 @@ function SkeletonCard() {
 
 // ── Creative card ─────────────────────────────────────────────────────────────
 
+// Minimum width (px) to consider an image "high enough quality" for display.
+// Meta thumbnail_url is typically 100-200px; real creative images are 1000px+.
+const MIN_IMG_WIDTH = 280;
+
 function CreativeCard({ creative, index }: { creative: PortalCreative; index: number }) {
   const [imgError, setImgError] = useState(false);
+  const [imgTooSmall, setImgTooSmall] = useState(false);
   const rankStyle = getRankStyle(creative.ranking);
+
+  const showImage = creative.image_url && !imgError && !imgTooSmall;
 
   return (
     <motion.div
@@ -133,19 +140,26 @@ function CreativeCard({ creative, index }: { creative: PortalCreative; index: nu
     >
       {/* ── Thumbnail ──────────────────────────────────────────────────── */}
       <div className="relative overflow-hidden" style={{ aspectRatio: "16/9" }}>
-        {creative.image_url && !imgError ? (
+        {showImage ? (
           <img
-            src={creative.image_url}
+            src={creative.image_url!}
             alt={creative.creative_name}
-            className="w-full h-full object-cover"
+            className="w-full h-full"
+            style={{ objectFit: "cover", objectPosition: "center", display: "block" }}
             onError={() => setImgError(true)}
+            onLoad={(e) => {
+              const img = e.currentTarget;
+              if (img.naturalWidth > 0 && img.naturalWidth < MIN_IMG_WIDTH) {
+                setImgTooSmall(true);
+              }
+            }}
             loading="lazy"
           />
         ) : (
           <div
             className="w-full h-full flex items-end px-3 pb-3"
             style={{
-              background: "linear-gradient(145deg,rgba(20,20,28,1) 0%,rgba(12,12,18,1) 100%)",
+              background: "linear-gradient(145deg,rgba(20,20,28,1) 0%,rgba(14,14,22,1) 100%)",
             }}
           >
             <span

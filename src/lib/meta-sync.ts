@@ -20,21 +20,22 @@ import type { MetaAdWithCreative } from "@/lib/meta-api";
 
 function pickBestAdImage(creative: MetaAdWithCreative["creative"]): string | null {
   if (!creative) return null;
-  if (creative.thumbnail_url) return creative.thumbnail_url;
+  // High-res sources first — thumbnail_url last (compressed)
   if (creative.image_url)     return creative.image_url;
   const spec = creative.object_story_spec;
   if (spec?.link_data?.picture)   return spec.link_data.picture;
   if (spec?.link_data?.image_url) return spec.link_data.image_url;
+  if (spec?.photo_data?.images?.[0]?.url) return spec.photo_data.images[0].url;
   const att = spec?.link_data?.child_attachments?.[0];
   if (att?.picture)               return att.picture;
   if (att?.image_url)             return att.image_url;
-  if (spec?.video_data?.image_url)     return spec.video_data.image_url;
-  if (spec?.video_data?.thumbnail_url) return spec.video_data.thumbnail_url;
-  if (spec?.photo_data?.images?.[0]?.url) return spec.photo_data.images[0].url;
-  if (spec?.template_data?.link_data?.picture) return spec.template_data.link_data.picture;
   const feed = creative.asset_feed_spec;
-  if (feed?.images?.[0]?.url)           return feed.images[0].url!;
-  if (feed?.videos?.[0]?.thumbnail_url) return feed.videos[0].thumbnail_url!;
+  if (feed?.images?.[0]?.url)     return feed.images[0].url!;
+  if (spec?.video_data?.image_url)         return spec.video_data.image_url;
+  if (spec?.template_data?.link_data?.picture) return spec.template_data.link_data.picture;
+  if (feed?.videos?.[0]?.thumbnail_url)    return feed.videos[0].thumbnail_url!;
+  if (spec?.video_data?.thumbnail_url)     return spec.video_data.thumbnail_url;
+  if (creative.thumbnail_url)     return creative.thumbnail_url; // last resort
   return null;
 }
 
