@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { createAdminSupabaseClient } from "@/lib/supabase-admin";
+import { decryptToken } from "@/lib/crypto";
+import { getAdsWithCreatives } from "@/lib/meta-api";
+import type { MetaAdWithCreative } from "@/lib/meta-api";
 import { startOfMonth, format } from "date-fns";
 import type { PortalCreative } from "@/types";
 
@@ -12,8 +15,27 @@ function createAnonClient() {
   );
 }
 
+// Priority: link_data.picture → video thumbnail → image_url → thumbnail_url
+// object_story_spec.link_data.picture returns stable CDN URLs (no auth needed)
+function pickBestAdImage(creative: MetaAdWithCreative["creative"]): string | null {
+  if (!creative) return null;
+  const eff = creative.effective_object_story_spec;
+  if (eff?.link_data?.picture)     return eff.link_data.picture;
+  if (eff?.link_data?.image_url)   return eff.link_data.image_url;
+  if (eff?.video_data?.image_url)  return eff.video_data.image_url;
+  if (eff?.photo_data?.images?.[0]?.url) return eff.photo_data.images[0].url;
+  const spec = creative.object_story_spec;
+  if (spec?.link_data?.picture)    return spec.link_data.picture;
+  if (spec?.link_data?.image_url)  return spec.link_data.image_url;
+  if (spec?.video_data?.image_url) return spec.video_data.image_url;
+  if (spec?.photo_data?.images?.[0]?.url) return spec.photo_data.images[0].url;
+  if (creative.image_url)          return creative.image_url;
+  if (creative.thumbnail_url)      return creative.thumbnail_url;
+  return null;
+}
+
 // GET /api/portal/[slug]/creatives — public endpoint, no auth required
-// Reads from Supabase (campaign_metrics). Thumbnails are stored during meta-sync.
+// Metrics from Supabase (always). Thumbnails: Supabase first, Meta API fallback.
 // Query params: since, until (YYYY-MM-DD)
 export async function GET(
   req: NextRequest,
@@ -29,11 +51,10 @@ export async function GET(
       admin = createAdminSupabaseClient();
       db = admin;
     } catch {
-      console.warn("[portal/creatives] service role key not configured");
       db = createAnonClient();
     }
 
-    // 1. Load portal
+    // 1. Portal
     const { data: rawPortal } = await db
       .from("portals")
       .select("id, user_id, status")
@@ -43,9 +64,7 @@ export async function GET(
     if (!rawPortal || rawPortal.status === "pausado") {
       return NextResponse.json({ creatives: [] });
     }
-
     if (!admin) {
-      console.error("[portal/creatives] service role key missing");
       return NextResponse.json({ creatives: [] });
     }
 
@@ -54,9 +73,7 @@ export async function GET(
     const since = sp.get("since") || format(startOfMonth(now), "yyyy-MM-dd");
     const until = sp.get("until") || format(now, "yyyy-MM-dd");
 
-    console.log(`[portal/creatives] slug="${slug}" range=${since}→${until}`);
-
-    // 3. Allowed ad account IDs for this portal
+    // 3. Linked accounts
     const { data: portalAccounts } = await admin
       .from("portal_accounts")
       .select("ad_account_id")
@@ -65,61 +82,50 @@ export async function GET(
     const allowedAccountIds = (portalAccounts ?? []).map(
       (pa: { ad_account_id: string }) => pa.ad_account_id
     );
+    if (!allowedAccountIds.length) return NextResponse.json({ creatives: [] });
 
-    if (allowedAccountIds.length === 0) {
-      console.log(`[portal/creatives] no accounts linked to portal "${slug}"`);
-      return NextResponse.json({ creatives: [] });
-    }
-
-    // 4. Platform accounts for this portal owner
+    // 4. Platform accounts — include account_id for Meta API fallback
     const { data: platformAccounts } = await admin
       .from("ad_platform_accounts")
-      .select("id")
+      .select("id, account_id")
       .eq("user_id", rawPortal.user_id)
       .in("account_id", allowedAccountIds);
 
-    if (!platformAccounts?.length) {
-      console.log("[portal/creatives] no platform accounts matched:", allowedAccountIds);
-      return NextResponse.json({ creatives: [] });
-    }
+    if (!platformAccounts?.length) return NextResponse.json({ creatives: [] });
 
     const platformAccountIds = platformAccounts.map((pa: { id: string }) => pa.id);
 
-    // 5. Campaigns — base query WITHOUT thumbnail_url so it works even before migration
+    // 5. Campaigns — base query with columns that always exist
     const { data: campaignsRaw } = await admin
       .from("campaigns")
-      .select("id, name, status")
+      .select("id, name, status, external_id")
       .in("platform_account_id", platformAccountIds);
 
-    if (!campaignsRaw?.length) {
-      console.log("[portal/creatives] no campaigns for this portal");
-      return NextResponse.json({ creatives: [] });
-    }
+    if (!campaignsRaw?.length) return NextResponse.json({ creatives: [] });
 
-    type CampaignRow = { id: string; name: string; status: string };
+    type CampaignRow = { id: string; name: string; status: string; external_id: string | null };
     const campaignMap = new Map<string, CampaignRow>();
     campaignsRaw.forEach((c: CampaignRow) => campaignMap.set(c.id, c));
     const campaignIds = Array.from(campaignMap.keys());
 
-    // 6. Thumbnails — optional separate query; silently skipped if column doesn't exist yet
+    // 6. Thumbnail map — try to load from Supabase (populated after migration + sync)
+    //    Silently skipped if the thumbnail_url column doesn't exist yet.
     const thumbnailMap = new Map<string, string>();
-    const { data: thumbData, error: thumbErr } = await admin
+    const { data: thumbRows, error: thumbColErr } = await admin
       .from("campaigns")
       .select("id, thumbnail_url")
       .in("id", campaignIds)
       .not("thumbnail_url", "is", null);
 
-    if (!thumbErr) {
-      for (const t of thumbData ?? []) {
+    if (!thumbColErr) {
+      for (const t of thumbRows ?? []) {
         if (t.thumbnail_url) thumbnailMap.set(t.id, t.thumbnail_url as string);
       }
-    } else {
-      console.warn("[portal/creatives] thumbnail_url column not ready yet (run migration):", thumbErr.message);
     }
 
-    console.log(`[portal/creatives] ${thumbnailMap.size} thumbnails available`);
+    console.log(`[portal/creatives] ${thumbnailMap.size}/${campaignIds.length} thumbs from Supabase`);
 
-    // 7. Aggregate campaign_metrics for the date range
+    // 7. Aggregate metrics
     const { data: metricsRaw } = await admin
       .from("campaign_metrics")
       .select("campaign_id, spend, leads, clicks, reach, impressions")
@@ -129,7 +135,6 @@ export async function GET(
 
     type Agg = { spend: number; leads: number; clicks: number; reach: number; impressions: number };
     const agg = new Map<string, Agg>();
-
     for (const m of metricsRaw ?? []) {
       const ex = agg.get(m.campaign_id);
       agg.set(m.campaign_id, {
@@ -141,37 +146,24 @@ export async function GET(
       });
     }
 
-    console.log(`[portal/creatives] ${campaignMap.size} campaigns, ${agg.size} with metrics`);
-
-    // 8. Build creative entries
+    // 8. Build initial list (top 8 ranked)
     const creatives: PortalCreative[] = [];
-
     for (const [campaignId, totals] of Array.from(agg)) {
       if (totals.spend < 0.01 && totals.clicks === 0 && totals.leads === 0) continue;
-
       const campaign = campaignMap.get(campaignId);
       const ctr = totals.impressions > 0 ? (totals.clicks / totals.impressions) * 100 : 0;
       const cpc = totals.clicks > 0 ? totals.spend / totals.clicks : 0;
       const cpl = totals.leads  > 0 ? totals.spend / totals.leads  : 0;
-
       creatives.push({
         ad_id:         campaignId,
         creative_name: campaign?.name ?? campaignId,
         campaign_name: campaign?.name ?? "",
         image_url:     thumbnailMap.get(campaignId) ?? null,
         status:        campaign?.status === "ativa" ? "ativa" : "pausada",
-        leads:         totals.leads,
-        cpl,
-        spend:         totals.spend,
-        reach:         totals.reach,
-        clicks:        totals.clicks,
-        ctr,
-        cpc,
-        ranking:       0,
+        leads: totals.leads, cpl, spend: totals.spend,
+        reach: totals.reach, clicks: totals.clicks, ctr, cpc, ranking: 0,
       });
     }
-
-    // 9. Rank: leads desc → spend desc → CPL asc → CTR desc
     creatives.sort((a, b) => {
       if (b.leads !== a.leads) return b.leads - a.leads;
       if (b.spend !== a.spend) return b.spend - a.spend;
@@ -179,9 +171,65 @@ export async function GET(
       return b.ctr - a.ctr;
     });
     creatives.forEach((c, i) => { c.ranking = i + 1; });
-
     const top8 = creatives.slice(0, 8);
-    console.log(`[portal/creatives] returning ${top8.length} creatives, ${top8.filter(c => c.image_url).length} with thumbnail`);
+
+    // 9. Real-time thumbnail enrichment via Meta API (when Supabase has none)
+    //    Builds: Meta campaign_id → image_url, then maps to Supabase UUID via external_id
+    const needsThumb = top8.filter(c => !c.image_url);
+    if (needsThumb.length > 0) {
+      try {
+        // external_id → Supabase UUID (for matching Meta campaign_id)
+        const extIdToUUID = new Map<string, string>();
+        for (const [uuid, camp] of Array.from(campaignMap)) {
+          if (camp.external_id) extIdToUUID.set(camp.external_id, uuid);
+        }
+
+        const { data: tokens } = await admin
+          .from("meta_tokens")
+          .select("platform_account_id, encrypted_token")
+          .in("platform_account_id", platformAccountIds);
+
+        const metaCampThumb = new Map<string, string>(); // Meta campaign_id → img
+
+        for (const t of tokens ?? []) {
+          let accessToken: string;
+          try { accessToken = decryptToken(t.encrypted_token); } catch { continue; }
+
+          const pa = (platformAccounts as { id: string; account_id: string }[])
+            .find(p => p.id === t.platform_account_id);
+          if (!pa) continue;
+
+          let ads: Awaited<ReturnType<typeof getAdsWithCreatives>> = [];
+          try {
+            ads = await getAdsWithCreatives(pa.account_id, accessToken);
+          } catch (err) {
+            console.warn(`[portal/creatives] Meta API failed for ${pa.account_id}:`, err);
+            continue;
+          }
+
+          console.log(`[portal/creatives] Meta API: ${ads.length} ads for ${pa.account_id}`);
+
+          for (const ad of ads) {
+            if (!ad.campaign_id || metaCampThumb.has(ad.campaign_id)) continue;
+            const img = pickBestAdImage(ad.creative);
+            if (img) metaCampThumb.set(ad.campaign_id, img);
+          }
+        }
+
+        // Map Meta campaign_id → Supabase UUID → apply to top8
+        for (const [metaId, imgUrl] of Array.from(metaCampThumb)) {
+          const uuid = extIdToUUID.get(metaId);
+          if (!uuid) continue;
+          const entry = top8.find(c => c.ad_id === uuid);
+          if (entry && !entry.image_url) entry.image_url = imgUrl;
+        }
+
+        const enriched = top8.filter(c => c.image_url).length;
+        console.log(`[portal/creatives] after Meta API: ${enriched}/${top8.length} with thumbnail`);
+      } catch (err) {
+        console.warn("[portal/creatives] thumbnail enrichment non-fatal error:", err);
+      }
+    }
 
     return NextResponse.json({ creatives: top8 });
 
