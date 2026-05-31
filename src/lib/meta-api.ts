@@ -371,35 +371,40 @@ export interface MetaAdInsightRow {
   actions?: MetaInsightAction[];
 }
 
-type AdStorySpec = {
-  link_data?: { picture?: string; image_url?: string; };
-  video_data?: { image_url?: string; thumbnail_url?: string; };
-  photo_data?: { images?: Array<{ url?: string }>; };
-  template_data?: { link_data?: { picture?: string; image_url?: string; }; };
+export type AdStorySpec = {
+  link_data?: {
+    picture?: string;
+    image_url?: string;
+    child_attachments?: Array<{ picture?: string; image_url?: string; video_id?: string }>;
+  };
+  video_data?: { image_url?: string; thumbnail_url?: string; video_id?: string };
+  photo_data?: { images?: Array<{ url?: string }> };
+  template_data?: { link_data?: { picture?: string; image_url?: string } };
 };
 
-type AssetFeedSpec = {
-  images?: Array<{ hash?: string; url?: string; }>;
-  videos?: Array<{ thumbnail_url?: string; video_id?: string; }>;
+export type AssetFeedSpec = {
+  images?: Array<{ hash?: string; url?: string }>;
+  videos?: Array<{ thumbnail_url?: string; video_id?: string }>;
 };
+
+// Shared creative shape — used for nested creative in /ads AND standalone /{creative_id}
+export interface MetaCreativeExtended {
+  id?: string;
+  thumbnail_url?: string;
+  image_url?: string;
+  image_hash?: string;
+  object_type?: string;
+  object_story_spec?: AdStorySpec;
+  asset_feed_spec?: AssetFeedSpec;
+  effective_object_story_id?: string;
+}
 
 export interface MetaAdWithCreative {
   id: string;
   name: string;
   status: string; // "ACTIVE" | "PAUSED" | "DELETED" | "ARCHIVED"
   campaign_id: string;
-  creative?: {
-    id?: string;
-    thumbnail_url?: string;
-    image_url?: string;
-    title?: string;
-    body?: string;
-    // effective_object_story_spec has fully-resolved image URLs (preferred over object_story_spec)
-    effective_object_story_spec?: AdStorySpec;
-    object_story_spec?: AdStorySpec;
-    // asset_feed_spec used by Dynamic/Advantage+ Ads and some Lead Ads
-    asset_feed_spec?: AssetFeedSpec;
-  };
+  creative?: MetaCreativeExtended;
 }
 
 export async function getAdInsights(
@@ -439,9 +444,9 @@ export async function getAdsWithCreatives(
   token: string
 ): Promise<MetaAdWithCreative[]> {
   const cleanId = adAccountId.replace(/^act_/, "");
-  // effective_object_story_spec cannot be fetched as a nested field in /ads — causes #100 error.
-  // Use object_story_spec (works nested) + asset_feed_spec for Dynamic/Advantage+/Lead Ads.
-  const fields = "id,name,status,campaign_id,creative{id,thumbnail_url,image_url,object_story_spec,asset_feed_spec{images,videos}}";
+  // effective_object_story_spec cannot be fetched as a nested field in /ads — causes #100.
+  // image_hash + object_type allow secondary enrichment (hash→URL lookup, video thumbnail).
+  const fields = "id,name,status,campaign_id,creative{id,thumbnail_url,image_url,image_hash,object_story_spec,asset_feed_spec{images,videos},object_type}";
   // Include all effective statuses so archived/deleted ads from the insight period are captured
   const filtering = encodeURIComponent(JSON.stringify([
     { field: "effective_status", operator: "IN", value: ["ACTIVE", "PAUSED", "DELETED", "ARCHIVED", "IN_PROCESS", "WITH_ISSUES"] },
@@ -460,6 +465,63 @@ export async function getAdsWithCreatives(
     nextUrl = page.paging?.next;
   }
   return ads;
+}
+
+// Fetch a single creative by ID — more fields available than when nested in /ads
+export async function getCreativeById(
+  creativeId: string,
+  token: string
+): Promise<MetaCreativeExtended | null> {
+  const fields = [
+    "id", "thumbnail_url", "image_url", "image_hash",
+    "object_story_spec", "asset_feed_spec",
+    "effective_object_story_id", "object_type",
+  ].join(",");
+  try {
+    return await metaGet<MetaCreativeExtended>(`/${creativeId}?fields=${fields}`, token);
+  } catch (err) {
+    console.warn(`[meta-api] getCreativeById(${creativeId}) failed:`, err);
+    return null;
+  }
+}
+
+// Batch-resolve image hashes to CDN URLs (one request, multiple hashes)
+export async function getAdImageUrls(
+  adAccountId: string,
+  hashes: string[],
+  token: string
+): Promise<Map<string, string>> {
+  if (hashes.length === 0) return new Map();
+  const cleanId = adAccountId.replace(/^act_/, "");
+  const hashParam = encodeURIComponent(JSON.stringify(hashes));
+  try {
+    const data = await metaGet<{ data: Array<{ hash: string; url: string }> }>(
+      `/act_${cleanId}/adimages?hashes=${hashParam}&fields=hash,url`,
+      token
+    );
+    const map = new Map<string, string>();
+    for (const img of data.data ?? []) {
+      if (img.hash && img.url) map.set(img.hash, img.url);
+    }
+    return map;
+  } catch (err) {
+    console.warn("[meta-api] getAdImageUrls failed:", err);
+    return new Map();
+  }
+}
+
+// Fetch preferred thumbnail URI for a Meta video
+export async function getVideoThumbnail(videoId: string, token: string): Promise<string | null> {
+  try {
+    const data = await metaGet<{ data: Array<{ uri: string; is_preferred?: boolean }> }>(
+      `/${videoId}/thumbnails?fields=uri,is_preferred`,
+      token
+    );
+    const thumbs = data.data ?? [];
+    return thumbs.find(t => t.is_preferred)?.uri ?? thumbs[0]?.uri ?? null;
+  } catch {
+    return null;
+  }
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

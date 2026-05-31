@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { createAdminSupabaseClient } from "@/lib/supabase-admin";
 import { decryptToken } from "@/lib/crypto";
-import { getAdsWithCreatives } from "@/lib/meta-api";
-import type { MetaAdWithCreative } from "@/lib/meta-api";
+import { getAdsWithCreatives, getCreativeById, getAdImageUrls, getVideoThumbnail } from "@/lib/meta-api";
+import type { MetaCreativeExtended } from "@/lib/meta-api";
 import { startOfMonth, format } from "date-fns";
 import type { PortalCreative } from "@/types";
 
@@ -15,33 +15,43 @@ function createAnonClient() {
   );
 }
 
-function pickBestAdImage(creative: MetaAdWithCreative["creative"], logLabel?: string): string | null {
+function pickBestAdImage(
+  creative: MetaCreativeExtended | null | undefined,
+  logLabel?: string
+): string | null {
   if (!creative) return null;
 
-  const eff = creative.effective_object_story_spec;
-  if (eff?.link_data?.picture)         { if (logLabel) console.log(`[${logLabel}] img via eff.link_data.picture`);         return eff.link_data.picture; }
-  if (eff?.link_data?.image_url)       { if (logLabel) console.log(`[${logLabel}] img via eff.link_data.image_url`);       return eff.link_data.image_url; }
-  if (eff?.video_data?.image_url)      { if (logLabel) console.log(`[${logLabel}] img via eff.video_data.image_url`);      return eff.video_data.image_url; }
-  if (eff?.video_data?.thumbnail_url)  { if (logLabel) console.log(`[${logLabel}] img via eff.video_data.thumbnail_url`);  return eff.video_data.thumbnail_url; }
-  if (eff?.photo_data?.images?.[0]?.url) { if (logLabel) console.log(`[${logLabel}] img via eff.photo_data`);             return eff.photo_data!.images![0].url!; }
-  if (eff?.template_data?.link_data?.picture) { if (logLabel) console.log(`[${logLabel}] img via eff.template_data`);     return eff.template_data!.link_data!.picture!; }
+  function emit(field: string) {
+    if (logLabel) console.log(`[${logLabel}] img via ${field}`);
+  }
+
+  if (creative.thumbnail_url)     { emit("thumbnail_url");     return creative.thumbnail_url; }
+  if (creative.image_url)         { emit("image_url");         return creative.image_url; }
 
   const spec = creative.object_story_spec;
-  if (spec?.link_data?.picture)        { if (logLabel) console.log(`[${logLabel}] img via spec.link_data.picture`);        return spec.link_data.picture; }
-  if (spec?.link_data?.image_url)      { if (logLabel) console.log(`[${logLabel}] img via spec.link_data.image_url`);      return spec.link_data.image_url; }
-  if (spec?.video_data?.image_url)     { if (logLabel) console.log(`[${logLabel}] img via spec.video_data.image_url`);     return spec.video_data.image_url; }
-  if (spec?.video_data?.thumbnail_url) { if (logLabel) console.log(`[${logLabel}] img via spec.video_data.thumbnail_url`); return spec.video_data.thumbnail_url; }
-  if (spec?.photo_data?.images?.[0]?.url) { if (logLabel) console.log(`[${logLabel}] img via spec.photo_data`);           return spec.photo_data!.images![0].url!; }
+  if (spec?.link_data?.picture)   { emit("spec.link_data.picture");   return spec.link_data.picture; }
+  if (spec?.link_data?.image_url) { emit("spec.link_data.image_url"); return spec.link_data.image_url; }
+  // Carousel — first child attachment
+  const att = spec?.link_data?.child_attachments?.[0];
+  if (att?.picture)               { emit("child_attachments[0].picture");   return att.picture; }
+  if (att?.image_url)             { emit("child_attachments[0].image_url"); return att.image_url; }
+  if (spec?.video_data?.image_url)     { emit("spec.video_data.image_url");     return spec.video_data.image_url; }
+  if (spec?.video_data?.thumbnail_url) { emit("spec.video_data.thumbnail_url"); return spec.video_data.thumbnail_url; }
+  if (spec?.photo_data?.images?.[0]?.url) { emit("spec.photo_data"); return spec.photo_data!.images![0].url!; }
+  if (spec?.template_data?.link_data?.picture) { emit("spec.template_data"); return spec.template_data!.link_data!.picture!; }
 
-  // asset_feed_spec — Dynamic/Advantage+ and Lead Ads that skip object_story_spec
+  // asset_feed_spec — Dynamic/Advantage+, Lead Ads, and multi-asset creatives
   const feed = creative.asset_feed_spec;
-  if (feed?.images?.[0]?.url)          { if (logLabel) console.log(`[${logLabel}] img via asset_feed_spec.images`);        return feed.images[0].url!; }
-  if (feed?.videos?.[0]?.thumbnail_url){ if (logLabel) console.log(`[${logLabel}] img via asset_feed_spec.videos`);        return feed.videos[0].thumbnail_url!; }
+  if (feed?.images?.[0]?.url)           { emit("asset_feed_spec.images[0].url");   return feed.images[0].url!; }
+  if (feed?.videos?.[0]?.thumbnail_url) { emit("asset_feed_spec.videos[0].thumb"); return feed.videos[0].thumbnail_url!; }
 
-  if (creative.image_url)              { if (logLabel) console.log(`[${logLabel}] img via creative.image_url`);            return creative.image_url; }
-  if (creative.thumbnail_url)          { if (logLabel) console.log(`[${logLabel}] img via creative.thumbnail_url`);        return creative.thumbnail_url; }
-
-  if (logLabel) console.log(`[${logLabel}] no image found. creative keys: ${Object.keys(creative).join(",")}`);
+  if (logLabel) {
+    const specKeys = spec ? Object.keys(spec).join(",") : "none";
+    const feedKeys = feed ? Object.keys(feed).join(",") : "none";
+    console.log(`[${logLabel}] NO IMAGE — creative keys: ${Object.keys(creative).join(",")}, spec keys: ${specKeys}, feed keys: ${feedKeys}`);
+    if (spec?.link_data) console.log(`[${logLabel}] link_data keys: ${Object.keys(spec.link_data).join(",")}`);
+    if (feed?.images?.length) console.log(`[${logLabel}] feed.images[0] keys: ${Object.keys(feed.images[0]).join(",")}`);
+  }
   return null;
 }
 
@@ -184,23 +194,28 @@ export async function GET(
     creatives.forEach((c, i) => { c.ranking = i + 1; });
     const top8 = creatives.slice(0, 8);
 
-    // 9. Real-time thumbnail enrichment via Meta API (when Supabase has none)
-    //    Builds: Meta campaign_id → image_url, then maps to Supabase UUID via external_id
+    // 9. Real-time thumbnail enrichment — 4 phases, all non-fatal
     const needsThumb = top8.filter(c => !c.image_url);
     if (needsThumb.length > 0) {
       try {
-        // external_id → Supabase UUID (for matching Meta campaign_id)
         const extIdToUUID = new Map<string, string>();
         for (const [uuid, camp] of Array.from(campaignMap)) {
           if (camp.external_id) extIdToUUID.set(camp.external_id, uuid);
         }
+
+        // Meta campaign IDs we actually need thumbnails for
+        const neededMetaIds = new Set(
+          needsThumb
+            .map(c => campaignMap.get(c.ad_id)?.external_id)
+            .filter((x): x is string => Boolean(x))
+        );
 
         const { data: tokens } = await admin
           .from("meta_tokens")
           .select("platform_account_id, encrypted_token")
           .in("platform_account_id", platformAccountIds);
 
-        const metaCampThumb = new Map<string, string>(); // Meta campaign_id → img
+        const metaCampThumb = new Map<string, string>();
 
         for (const t of tokens ?? []) {
           let accessToken: string;
@@ -218,22 +233,79 @@ export async function GET(
             continue;
           }
 
-          console.log(`[portal/creatives] Meta API: ${ads.length} ads for ${pa.account_id}`);
+          console.log(`[portal/creatives] ${ads.length} ads for ${pa.account_id}`);
 
-          // Log first 3 ads raw creative payload for diagnosis
-          ads.slice(0, 3).forEach((ad, i) => {
-            console.log(`[portal/creatives] ad[${i}] id=${ad.id} campaign=${ad.campaign_id} creative=${JSON.stringify(ad.creative)}`);
-          });
-
+          // ── Phase 1: pickBestAdImage from nested creative fields ──────────
+          const stuckAds: typeof ads = [];
           for (const ad of ads) {
-            if (!ad.campaign_id || metaCampThumb.has(ad.campaign_id)) continue;
-            const label = `portal/creatives ad=${ad.id}`;
-            const img = pickBestAdImage(ad.creative, label);
-            if (img) metaCampThumb.set(ad.campaign_id, img);
+            if (!ad.campaign_id) continue;
+            if (metaCampThumb.has(ad.campaign_id)) continue;
+            const img = pickBestAdImage(ad.creative, `P1 ad=${ad.id}`);
+            if (img) {
+              metaCampThumb.set(ad.campaign_id, img);
+            } else if (neededMetaIds.has(ad.campaign_id)) {
+              stuckAds.push(ad);
+              // Full creative payload for stuck ads
+              console.log(`[portal/creatives] P1-stuck ad=${ad.id} campaign=${ad.campaign_id} creative=${JSON.stringify(ad.creative)}`);
+            }
+          }
+          console.log(`[portal/creatives] P1 done: ${metaCampThumb.size} resolved, ${stuckAds.length} stuck`);
+
+          // ── Phase 2: batch resolve image_hash → CDN URL ───────────────────
+          const hashEntries = stuckAds
+            .filter(ad => ad.creative?.image_hash && !metaCampThumb.has(ad.campaign_id))
+            .map(ad => ({ ad, hash: ad.creative!.image_hash! }));
+
+          if (hashEntries.length > 0) {
+            const uniqueHashes = Array.from(new Set(hashEntries.map(e => e.hash)));
+            const hashToUrl = await getAdImageUrls(pa.account_id, uniqueHashes, accessToken);
+            for (const { ad, hash } of hashEntries) {
+              if (metaCampThumb.has(ad.campaign_id)) continue;
+              const url = hashToUrl.get(hash);
+              if (url) {
+                console.log(`[portal/creatives] P2 ad=${ad.id} resolved via image_hash`);
+                metaCampThumb.set(ad.campaign_id, url);
+              }
+            }
+          }
+
+          // ── Phase 3: secondary creative fetch via /{creative_id} ──────────
+          const phase3Ads = stuckAds.filter(
+            ad => !metaCampThumb.has(ad.campaign_id) && ad.creative?.id
+          );
+          const phase3Results = await Promise.all(
+            phase3Ads.map(ad =>
+              getCreativeById(ad.creative!.id!, accessToken).then(ext => ({ ad, ext }))
+            )
+          );
+          for (const { ad, ext } of phase3Results) {
+            if (!ext || metaCampThumb.has(ad.campaign_id)) continue;
+            console.log(`[portal/creatives] P3 ad=${ad.id} extended creative=${JSON.stringify(ext)}`);
+            const img = pickBestAdImage(ext, `P3 ad=${ad.id}`);
+            if (img) {
+              metaCampThumb.set(ad.campaign_id, img);
+              continue;
+            }
+
+            // ── Phase 4: video thumbnail via /{video_id}/thumbnails ─────────
+            const videoId =
+              ext.object_story_spec?.video_data?.video_id ??
+              ext.asset_feed_spec?.videos?.[0]?.video_id;
+            if (videoId) {
+              const thumb = await getVideoThumbnail(videoId, accessToken);
+              if (thumb) {
+                console.log(`[portal/creatives] P4 ad=${ad.id} resolved via video thumbnail`);
+                metaCampThumb.set(ad.campaign_id, thumb);
+              } else {
+                console.log(`[portal/creatives] P4 ad=${ad.id} video thumbnail also empty (videoId=${videoId})`);
+              }
+            } else {
+              console.log(`[portal/creatives] P4 ad=${ad.id} no video_id — all phases exhausted`);
+            }
           }
         }
 
-        // Map Meta campaign_id → Supabase UUID → apply to top8
+        // Apply results to top8
         for (const [metaId, imgUrl] of Array.from(metaCampThumb)) {
           const uuid = extIdToUUID.get(metaId);
           if (!uuid) continue;
@@ -242,7 +314,7 @@ export async function GET(
         }
 
         const enriched = top8.filter(c => c.image_url).length;
-        console.log(`[portal/creatives] after Meta API: ${enriched}/${top8.length} with thumbnail`);
+        console.log(`[portal/creatives] final: ${enriched}/${top8.length} with thumbnail`);
       } catch (err) {
         console.warn("[portal/creatives] thumbnail enrichment non-fatal error:", err);
       }
