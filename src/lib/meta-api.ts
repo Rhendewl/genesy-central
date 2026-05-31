@@ -439,9 +439,9 @@ export async function getAdsWithCreatives(
   token: string
 ): Promise<MetaAdWithCreative[]> {
   const cleanId = adAccountId.replace(/^act_/, "");
-  // effective_object_story_spec returns fully-resolved image URLs (better than object_story_spec)
-  // asset_feed_spec covers Dynamic/Advantage+ Ads and Lead Ads that skip object_story_spec
-  const fields = "id,name,status,campaign_id,creative{id,thumbnail_url,image_url,effective_object_story_spec,object_story_spec,asset_feed_spec{images,videos}}";
+  // effective_object_story_spec cannot be fetched as a nested field in /ads — causes #100 error.
+  // Use object_story_spec (works nested) + asset_feed_spec for Dynamic/Advantage+/Lead Ads.
+  const fields = "id,name,status,campaign_id,creative{id,thumbnail_url,image_url,object_story_spec,asset_feed_spec{images,videos}}";
   // Include all effective statuses so archived/deleted ads from the insight period are captured
   const filtering = encodeURIComponent(JSON.stringify([
     { field: "effective_status", operator: "IN", value: ["ACTIVE", "PAUSED", "DELETED", "ARCHIVED", "IN_PROCESS", "WITH_ISSUES"] },
