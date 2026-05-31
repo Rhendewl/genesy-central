@@ -180,7 +180,7 @@ export const EngineNode = memo(function EngineNode({ id, data, selected }: NodeP
           >
             <div style={{ width: 4, height: 4, borderRadius: "50%", background: "#FCD34D", marginTop: 3, flexShrink: 0, boxShadow: "0 0 4px #FCD34D" }} />
             <p style={{ color: "rgba(252,211,77,0.75)", fontSize: 9, lineHeight: 1.55, letterSpacing: "0.02em" }}>
-              Imagens via DALL-E 3 — requer chave OpenAI.
+              Imagens via gpt-image-1 — requer chave OpenAI.
             </p>
           </div>
         )}
@@ -202,26 +202,14 @@ export const EngineNode = memo(function EngineNode({ id, data, selected }: NodeP
       <Handle
         type="target"
         position={Position.Left}
-        style={{
-          width: 9, height: 9,
-          background: C,
-          border: "2px solid rgba(8,5,18,0.9)",
-          borderRadius: "50%",
-          boxShadow: `0 0 10px ${C}, 0 0 4px ${C}`,
-          left: -4.5,
-        }}
+        className="nh-purple"
+        style={{ left: -12 }}
       />
       <Handle
         type="source"
         position={Position.Right}
-        style={{
-          width: 9, height: 9,
-          background: C,
-          border: "2px solid rgba(8,5,18,0.9)",
-          borderRadius: "50%",
-          boxShadow: `0 0 10px ${C}, 0 0 4px ${C}`,
-          right: -4.5,
-        }}
+        className="nh-purple"
+        style={{ right: -12 }}
       />
     </div>
   );

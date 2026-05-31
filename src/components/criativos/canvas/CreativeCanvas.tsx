@@ -79,6 +79,11 @@ function CanvasInner({
     <div className="flex flex-col w-full h-full">
       <CanvasToolbar onSave={onSave} onRun={onRun} />
       <div className="flex-1 relative overflow-hidden">
+        {/* Premium ambient background layers — pointer-events none so they don't block canvas */}
+        <div className="canvas-ambient-top"    aria-hidden />
+        <div className="canvas-ambient-horizon" aria-hidden />
+        <div className="canvas-vignette"       aria-hidden />
+
         <ReactFlow
           nodes={nodes}
           edges={edges}
@@ -98,11 +103,12 @@ function CanvasInner({
           proOptions={{ hideAttribution: true }}
           style={{ background: "transparent" }}
         >
+          {/* Premium dot grid — white, subtle, follows pan/zoom */}
           <Background
             variant={BackgroundVariant.Dots}
-            gap={36}
-            size={0.9}
-            color="rgba(255,255,255,0.045)"
+            gap={28}
+            size={1.4}
+            color="rgba(255,255,255,0.28)"
           />
           <Controls showInteractive={false} />
         </ReactFlow>
@@ -134,7 +140,7 @@ export function CreativeCanvas({
     isDirty, setIsSaving, markClean, reset,
     executionState, setExecutionState,
     setNodeExecutionStatus, resetExecutionStatus,
-    runTrigger,
+    runTrigger, runTargetResultId,
   } = useWorkflowStore();
 
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -172,15 +178,28 @@ export function CreativeCanvas({
   const handleRun = async () => {
     if (executionState === "running") return;
 
+    // Captura o alvo antes de salvar (evita race condition com re-render)
+    const targetResultId = runTargetResultId;
+
     await handleSave();
     setExecutionState("running");
-    resetExecutionStatus();
+
+    if (targetResultId) {
+      // Execução isolada: mantém estados dos outros nodes intactos
+      setNodeExecutionStatus(targetResultId, "idle");
+    } else {
+      // Execução completa: reseta todos os nodes
+      resetExecutionStatus();
+    }
 
     try {
       const res = await fetch("/api/criativos/executar", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ projeto_id: projectId }),
+        body: JSON.stringify({
+          projeto_id:     projectId,
+          result_node_id: targetResultId ?? undefined,
+        }),
       });
 
       if (!res.ok || !res.body) {
@@ -216,12 +235,21 @@ export function CreativeCanvas({
                 break;
               case "node_error":
                 setNodeExecutionStatus(event.nodeId, "error", undefined, event.error);
-                toast.error(`Erro: ${event.error}`);
+                toast.error(`Erro ao gerar: ${event.error}`);
                 break;
-              case "workflow_complete":
+              case "workflow_complete": {
                 setExecutionState("completed");
-                toast.success("Criativo gerado!");
+                // Verifica se há conteúdo real antes de mostrar sucesso
+                const outputs = Object.values(event.outputs);
+                const hasImage = outputs.some(o => !!(o.generated_image_url as string | undefined)?.trim());
+                const hasText  = outputs.some(o => !!(o.generated_text  as string | undefined)?.trim());
+                if (hasImage || hasText) {
+                  toast.success(hasImage ? "Imagem gerada com sucesso!" : "Copy gerado com sucesso!");
+                } else {
+                  toast.warning("Workflow concluído, mas nenhum conteúdo foi gerado.");
+                }
                 break;
+              }
               case "workflow_error":
                 setExecutionState("error");
                 toast.error(event.error);
@@ -244,11 +272,7 @@ export function CreativeCanvas({
     <div
       className="w-full h-full"
       style={{
-        background:
-          "radial-gradient(ellipse at 20% 35%, rgba(59,130,246,0.035) 0%, transparent 65%), " +
-          "radial-gradient(ellipse at 78% 65%, rgba(139,92,246,0.04) 0%, transparent 60%), " +
-          "radial-gradient(ellipse at 50% 100%, rgba(16,185,129,0.02) 0%, transparent 50%), " +
-          "#020204",
+        background: "#050505",
       }}
     >
       <CanvasInner onSave={handleSave} onRun={handleRun} />

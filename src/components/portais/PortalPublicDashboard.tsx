@@ -16,6 +16,8 @@ import { cn } from "@/lib/utils";
 import { format, startOfMonth, endOfMonth, subDays, subMonths } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import type { PortalPublicData, PortalCampaignSummary } from "@/types";
+import { MelhoresCreativos } from "@/components/portais/MelhoresCreativos";
+import { SaldoContaMeta } from "@/components/portais/SaldoContaMeta";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -547,6 +549,9 @@ export function PortalPublicDashboard({ slug }: Props) {
               </div>
             </section>
 
+            {/* ── Melhores Criativos ────────────────────────────────── */}
+            <MelhoresCreativos slug={slug} since={since} until={until} />
+
             {/* ── Distribuição de leads por campanha ───────────────── */}
             {campaigns.length > 0 && (
               <section className="lc-portal-card rounded-2xl p-5">
@@ -616,6 +621,9 @@ export function PortalPublicDashboard({ slug }: Props) {
                 </div>
               )}
             </section>
+
+            {/* ── Saldo da Conta Meta ────────────────────────────── */}
+            <SaldoContaMeta slug={slug} />
 
             {/* Footer */}
             <footer className="text-center py-4 text-white/20 text-xs print:hidden">

@@ -848,6 +848,39 @@ export interface PortalPublicData {
   available_campaigns: { id: string; name: string; status: string }[];
 }
 
+// Taxa de impostos Meta Brasil (IOF + taxa plataforma) — usada para cálculo de saldo líquido
+export const META_BR_TAX_RATE = 0.1215;
+
+export interface PortalAccountBalance {
+  account_id: string;
+  account_name: string;
+  account_status: number;   // 1=ativa, 2=desativada, 3=pendente …
+  currency: string;
+  balance_gross: number;    // saldo bruto (da API Meta, em unidade principal)
+  balance_net: number;      // saldo líquido = bruto * (1 - META_BR_TAX_RATE)
+  amount_spent: number;     // total gasto (em unidade principal)
+  funding_type: string;     // "PREPAY" | "POSTPAY_AUTOPAY" | etc.
+  funding_display: string | null;
+  is_prepay: boolean;
+  fetched_at: string;       // ISO timestamp da consulta
+}
+
+export interface PortalCreative {
+  ad_id: string;
+  creative_name: string;
+  campaign_name: string;
+  image_url: string | null;
+  status: "ativa" | "pausada";
+  leads: number;
+  cpl: number;
+  spend: number;
+  reach: number;
+  clicks: number;
+  ctr: number;
+  cpc: number;
+  ranking: number;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Módulo: Gerador de Criativos IA
 // ─────────────────────────────────────────────────────────────────────────────

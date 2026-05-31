@@ -533,6 +533,128 @@
 }
 
 /* ═══════════════════════════════════════════════════
+   WORKFLOW NODE — Custom Scrollbars & Handles
+   ═══════════════════════════════════════════════════ */
+
+/* Blue-tinted scrollbar — Text Node textarea */
+.node-scroll-blue::-webkit-scrollbar {
+  width: 3px;
+}
+.node-scroll-blue::-webkit-scrollbar-track {
+  background: transparent;
+}
+.node-scroll-blue::-webkit-scrollbar-thumb {
+  background: rgba(59, 130, 246, 0.22);
+  border-radius: 9999px;
+  transition: background 0.2s ease;
+}
+.node-scroll-blue::-webkit-scrollbar-thumb:hover {
+  background: rgba(59, 130, 246, 0.45);
+  box-shadow: 0 0 6px rgba(59, 130, 246, 0.35);
+}
+
+/* ── Canvas Premium Background layers ───────────────────────────────────────── */
+
+/* Ambient top glow — white/gray diffuse light, OLED premium */
+.canvas-ambient-top {
+  position: absolute;
+  top: -80px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 70%;
+  max-width: 900px;
+  height: 380px;
+  background: radial-gradient(
+    ellipse 60% 100% at 50% 0%,
+    rgba(255, 255, 255, 0.11) 0%,
+    rgba(200, 200, 200, 0.04) 50%,
+    transparent               100%
+  );
+  filter: blur(32px);
+  pointer-events: none;
+  animation: canvasBreathe 14s ease-in-out infinite;
+}
+
+/* Micro horizon line — white hairline at the very top edge */
+.canvas-ambient-horizon {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent                0%,
+    rgba(255, 255, 255, 0.18) 25%,
+    rgba(255, 255, 255, 0.28) 50%,
+    rgba(255, 255, 255, 0.18) 75%,
+    transparent               100%
+  );
+  pointer-events: none;
+  animation: canvasBreathe 14s ease-in-out infinite;
+}
+
+/* Vignette — darkens edges for cinematic depth */
+.canvas-vignette {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    ellipse 110% 110% at 50% 50%,
+    transparent          45%,
+    rgba(0, 0, 0, 0.35)  75%,
+    rgba(0, 0, 0, 0.60) 100%
+  );
+  pointer-events: none;
+}
+
+@keyframes canvasBreathe {
+  0%, 100% { opacity: 0.55; }
+  50%      { opacity: 1;    }
+}
+
+/* ── Node handles — 24px transparent hit area, visual dot via ::after ── */
+.nh-blue,
+.nh-purple,
+.nh-amber,
+.nh-green {
+  width:      24px !important;
+  height:     24px !important;
+  background: transparent !important;
+  border:     none !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+}
+
+.nh-blue::after,
+.nh-purple::after,
+.nh-amber::after,
+.nh-green::after {
+  content: "";
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  width: 9px; height: 9px;
+  border-radius: 50%;
+  border: 2px solid rgba(7, 9, 20, 0.9);
+  pointer-events: none;
+  transition: box-shadow 0.2s ease;
+}
+
+/* Blue — Text Node */
+.nh-blue::after  { background: #3B82F6; box-shadow: 0 0 10px #3B82F6, 0 0 4px #3B82F6; }
+.nh-blue:hover::after  { box-shadow: 0 0 16px #3B82F6, 0 0 7px #3B82F6; }
+
+/* Purple — Engine Node */
+.nh-purple::after  { background: #8B5CF6; box-shadow: 0 0 10px #8B5CF6, 0 0 4px #8B5CF6; }
+.nh-purple:hover::after  { box-shadow: 0 0 16px #8B5CF6, 0 0 7px #8B5CF6; }
+
+/* Amber — Media Node */
+.nh-amber::after  { background: #F59E0B; box-shadow: 0 0 10px #F59E0B, 0 0 4px #F59E0B; }
+.nh-amber:hover::after  { box-shadow: 0 0 16px #F59E0B, 0 0 7px #F59E0B; }
+
+/* Green — Result Node */
+.nh-green::after  { background: #10B981; box-shadow: 0 0 10px #10B981, 0 0 4px #10B981; }
+.nh-green:hover::after  { box-shadow: 0 0 16px #10B981, 0 0 7px #10B981; }
+
+/* ═══════════════════════════════════════════════════
    AI CANVAS — React Flow Premium Visual System
    ═══════════════════════════════════════════════════ */
 

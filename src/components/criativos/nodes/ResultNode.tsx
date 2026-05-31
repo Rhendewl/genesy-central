@@ -7,16 +7,93 @@ import { X, Copy, Download, Loader2, RefreshCw, Sparkles } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useWorkflowStore } from "@/store/workflow";
 import type { ResultNodeData, NodeExecutionStatus } from "@/lib/workflow/types";
+import { ASPECT_RATIO_FORMATS } from "@/lib/workflow/types";
+import type { AspectRatio } from "@/lib/workflow/types";
 import { toast } from "sonner";
 
 const C   = "#10B981";
 const DIM = "rgba(16,185,129,0.6)";
 
+// ── Aspect ratio selector ──────────────────────────────────────────────────────
+
+function FormatSelector({
+  selected,
+  onChange,
+}: {
+  selected: AspectRatio;
+  onChange: (r: AspectRatio) => void;
+}) {
+  return (
+    <div className="px-3 pb-2">
+      {/* Label */}
+      <p style={{ color: "rgba(255,255,255,0.2)", fontSize: 8, textTransform: "uppercase", letterSpacing: "0.14em", marginBottom: 6 }}>
+        Formato
+      </p>
+
+      {/* Cards row */}
+      <div className="flex gap-1">
+        {ASPECT_RATIO_FORMATS.map((fmt) => {
+          const isActive = selected === fmt.ratio;
+          return (
+            <button
+              key={fmt.ratio}
+              onClick={() => onChange(fmt.ratio)}
+              className="nodrag flex-1 flex flex-col items-center gap-1.5 transition-all"
+              style={{
+                padding: "7px 2px 6px",
+                borderRadius: 9,
+                background: isActive ? `${C}14` : "rgba(255,255,255,0.025)",
+                border: `1px solid ${isActive ? `${C}55` : "rgba(255,255,255,0.055)"}`,
+                boxShadow: isActive ? `0 0 12px ${C}18, inset 0 1px 0 ${C}10` : "none",
+                cursor: "pointer",
+                transition: "all 0.15s ease",
+              }}
+              title={`${fmt.label} — ${fmt.sub}\n${fmt.openaiSize}`}
+            >
+              {/* Mini rectangle preview */}
+              <div style={{ width: 28, height: 20, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <motion.div
+                  animate={isActive ? { boxShadow: `0 0 6px ${C}60` } : { boxShadow: "none" }}
+                  transition={{ duration: 0.2 }}
+                  style={{
+                    width: fmt.vw,
+                    height: fmt.vh,
+                    borderRadius: 2,
+                    background: isActive ? `${C}28` : "rgba(255,255,255,0.05)",
+                    border: `1px solid ${isActive ? `${C}80` : "rgba(255,255,255,0.12)"}`,
+                    transition: "background 0.15s, border-color 0.15s",
+                  }}
+                />
+              </div>
+
+              {/* Ratio */}
+              <span style={{
+                fontSize: 7.5,
+                fontWeight: 600,
+                letterSpacing: "0.03em",
+                color: isActive ? C : "rgba(255,255,255,0.3)",
+                lineHeight: 1,
+                transition: "color 0.15s",
+              }}>
+                {fmt.sub}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ── ResultNode ─────────────────────────────────────────────────────────────────
+
 export const ResultNode = memo(function ResultNode({ id, data, selected }: NodeProps) {
-  const removeNode = useWorkflowStore((s) => s.removeNode);
-  const requestRun = useWorkflowStore((s) => s.requestRun);
+  const removeNode           = useWorkflowStore((s) => s.removeNode);
+  const requestRunForResult  = useWorkflowStore((s) => s.requestRunForResult);
+  const updateNodeData       = useWorkflowStore((s) => s.updateNodeData);
   const d = data as ResultNodeData;
 
+  const aspectRatio: AspectRatio = (d.aspectRatio as AspectRatio | undefined) ?? "1:1";
   const status: NodeExecutionStatus = (d.executionStatus as NodeExecutionStatus) ?? "idle";
   const output   = d.executionOutput as Record<string, unknown> | undefined;
   const text     = (output?.generated_text      as string | undefined) ?? null;
@@ -26,11 +103,16 @@ export const ResultNode = memo(function ResultNode({ id, data, selected }: NodeP
   const hasContent = hasText || hasImage;
   const isRunning  = status === "running";
 
+  // Aspect ratio atual — para exibir a imagem com a proporção correta
+  const currentFormat = ASPECT_RATIO_FORMATS.find(f => f.ratio === aspectRatio) ?? ASPECT_RATIO_FORMATS[0];
+  const [imgW, imgH] = currentFormat.openaiSize.split("x").map(Number);
+  const imgAspect = imgW / imgH;
+
   return (
     <div
       className="relative group"
       style={{
-        minWidth: 250,
+        minWidth: 260,
         background: "rgba(4, 12, 9, 0.58)",
         backdropFilter: "blur(28px) saturate(1.8)",
         WebkitBackdropFilter: "blur(28px) saturate(1.8)",
@@ -93,9 +175,9 @@ export const ResultNode = memo(function ResultNode({ id, data, selected }: NodeP
             </a>
           )}
 
-          {/* Regenerar */}
+          {/* Gerar / Regenerar */}
           <motion.button
-            onClick={() => requestRun()}
+            onClick={() => requestRunForResult(id)}
             disabled={isRunning}
             whileHover={isRunning ? {} : { scale: 1.05 }}
             whileTap={isRunning ? {} : { scale: 0.93 }}
@@ -114,12 +196,20 @@ export const ResultNode = memo(function ResultNode({ id, data, selected }: NodeP
             }}
           >
             <RefreshCw size={8} className={isRunning ? "animate-spin" : ""} />
-            <span>Gerar</span>
+            <span>{hasContent ? "Regerar" : "Gerar"}</span>
           </motion.button>
         </div>
       </div>
 
-      {/* Content */}
+      {/* ── Formato selector ──────────────────────────────────────────── */}
+      <div style={{ borderBottom: "1px solid rgba(16,185,129,0.06)", paddingTop: 10 }}>
+        <FormatSelector
+          selected={aspectRatio}
+          onChange={(r) => updateNodeData(id, { aspectRatio: r })}
+        />
+      </div>
+
+      {/* ── Content ───────────────────────────────────────────────────── */}
       <div className="px-3.5 pb-3.5 pt-2.5">
         <AnimatePresence mode="wait">
           {isRunning ? (
@@ -141,7 +231,7 @@ export const ResultNode = memo(function ResultNode({ id, data, selected }: NodeP
                 }}
               />
               <span style={{ color: "rgba(255,255,255,0.35)", fontSize: 10, letterSpacing: "0.04em" }}>
-                Gerando...
+                Gerando {currentFormat.sub}...
               </span>
             </motion.div>
           ) : !hasContent ? (
@@ -150,22 +240,32 @@ export const ResultNode = memo(function ResultNode({ id, data, selected }: NodeP
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="flex flex-col items-center justify-center py-9 rounded-xl"
+              className="flex flex-col items-center justify-center py-8 rounded-xl"
               style={{ background: "rgba(255,255,255,0.012)", border: "1px dashed rgba(255,255,255,0.055)" }}
             >
-              <div
-                style={{
-                  width: 28, height: 28, borderRadius: "50%",
-                  background: `${C}10`, border: `1px solid ${C}18`,
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  marginBottom: 8,
-                  boxShadow: `0 0 16px ${C}10`,
-                }}
-              >
-                <Sparkles size={12} style={{ color: `${C}70` }} />
+              {/* Mini preview do formato selecionado como placeholder */}
+              <div style={{
+                marginBottom: 10,
+                opacity: 0.3,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                width: 44,
+                height: 44,
+              }}>
+                <div style={{
+                  width: currentFormat.vw * 1.7,
+                  height: currentFormat.vh * 1.7,
+                  borderRadius: 3,
+                  border: `1.5px dashed ${C}`,
+                  background: `${C}08`,
+                }} />
               </div>
               <p style={{ color: "rgba(255,255,255,0.18)", fontSize: 10, letterSpacing: "0.03em" }}>
                 Aguardando geração
+              </p>
+              <p style={{ color: "rgba(255,255,255,0.1)", fontSize: 8.5, marginTop: 3, letterSpacing: "0.02em" }}>
+                {currentFormat.sub}
               </p>
             </motion.div>
           ) : (
@@ -192,7 +292,28 @@ export const ResultNode = memo(function ResultNode({ id, data, selected }: NodeP
                   className="rounded-xl overflow-hidden"
                   style={{ border: `1px solid ${C}18`, boxShadow: `0 0 20px ${C}08` }}
                 >
-                  <img src={imageUrl!} alt="Criativo gerado" className="w-full object-cover" style={{ maxHeight: 190 }} />
+                  <img
+                    src={imageUrl!}
+                    alt="Criativo gerado"
+                    className="w-full object-cover"
+                    style={{
+                      // Respeita o aspect ratio do formato gerado
+                      aspectRatio: `${imgAspect}`,
+                      maxHeight: 200,
+                    }}
+                  />
+                  {/* Badge do formato gerado */}
+                  <div
+                    className="flex items-center justify-between px-2.5 py-1.5"
+                    style={{ background: "rgba(0,0,0,0.4)", borderTop: `1px solid ${C}12` }}
+                  >
+                    <span style={{ color: `${C}99`, fontSize: 8, letterSpacing: "0.08em", textTransform: "uppercase" }}>
+                      {currentFormat.label}
+                    </span>
+                    <span style={{ color: "rgba(255,255,255,0.3)", fontSize: 8 }}>
+                      {currentFormat.openaiSize}
+                    </span>
+                  </div>
                 </div>
               )}
             </motion.div>
@@ -203,14 +324,8 @@ export const ResultNode = memo(function ResultNode({ id, data, selected }: NodeP
       <Handle
         type="target"
         position={Position.Left}
-        style={{
-          width: 9, height: 9,
-          background: C,
-          border: "2px solid rgba(4,12,9,0.9)",
-          borderRadius: "50%",
-          boxShadow: `0 0 10px ${C}, 0 0 4px ${C}`,
-          left: -4.5,
-        }}
+        className="nh-green"
+        style={{ left: -12 }}
       />
     </div>
   );

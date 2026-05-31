@@ -72,7 +72,7 @@ export default function CanvasEditorPage() {
   }
 
   return (
-    <div className="w-screen h-screen overflow-hidden">
+    <div className="w-full h-dvh overflow-hidden">
       <ReactFlowProvider>
         <CreativeCanvas
           projectId={project.id}

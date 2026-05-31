@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import type { Session } from "@supabase/supabase-js";
 import { getSupabaseClient } from "@/lib/supabase";
+import { useGlobalStore } from "@/store";
 import { Dock } from "./Dock";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -19,6 +20,7 @@ import { Dock } from "./Dock";
 
 export function AuthLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const canvasMode = useGlobalStore((s) => s.canvasMode);
   const [session, setSession] = useState<Session | null>(null);
   const [isChecking, setIsChecking] = useState(true);
 
@@ -47,9 +49,15 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
   const isConvitePage = pathname?.startsWith("/convite/")  ?? false;
   const showDock = isAuthenticated && !isPortalPage && !isConvitePage;
 
+  // Em canvas mode o Dock se oculta sozinho, mas o padding do <main> precisa
+  // ser removido explicitamente para o canvas ocupar 100% da viewport.
+  const mainClass = showDock && !canvasMode
+    ? "min-h-dvh pb-28 lg:pb-0 lg:pl-[80px]"
+    : "min-h-dvh";
+
   return (
     <>
-      <main className={showDock ? "min-h-dvh pb-28 lg:pb-0 lg:pl-[80px]" : "min-h-dvh"}>
+      <main className={mainClass}>
         {children}
       </main>
 

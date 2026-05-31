@@ -4,7 +4,7 @@ export const DEFAULT_NODE_DATA: Record<WorkflowNodeType, Record<string, unknown>
   text:   { label: "Texto",  content: "" },
   media:  { label: "Imagem", mediaType: "logo", fileUrl: null },
   engine: { provider: "openai", mode: "image" },
-  result: {},
+  result: { aspectRatio: "1:1" },
 };
 
 export const STARTER_WORKFLOW = {
@@ -25,7 +25,7 @@ export const STARTER_WORKFLOW = {
       id: "s-result",
       type: "result" as WorkflowNodeType,
       position: { x: 680, y: 200 },
-      data: {},
+      data: { aspectRatio: "1:1" },
     },
   ],
   edges: [

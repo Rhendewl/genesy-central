@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useRef, useEffect, useCallback } from "react";
+import { memo } from "react";
 import { Handle, Position } from "@xyflow/react";
 import type { NodeProps } from "@xyflow/react";
 import { X, AlignLeft } from "lucide-react";
@@ -10,27 +10,19 @@ import type { TextNodeData } from "@/lib/workflow/types";
 const C   = "#3B82F6";
 const DIM = "rgba(59,130,246,0.55)";
 
+const NODE_WIDTH   = 340;
+const CONTENT_H    = 148;
+
 export const TextNode = memo(function TextNode({ id, data, selected }: NodeProps) {
   const updateNodeData = useWorkflowStore((s) => s.updateNodeData);
   const removeNode     = useWorkflowStore((s) => s.removeNode);
   const d = data as TextNodeData;
 
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-
-  const resize = useCallback(() => {
-    const el = textareaRef.current;
-    if (!el) return;
-    el.style.height = "auto";
-    el.style.height = `${el.scrollHeight}px`;
-  }, []);
-
-  useEffect(() => { resize(); }, [d.content, resize]);
-
   return (
     <div
       className="relative group"
       style={{
-        minWidth: 250,
+        width: NODE_WIDTH,
         background: "rgba(7, 9, 20, 0.58)",
         backdropFilter: "blur(28px) saturate(1.8)",
         WebkitBackdropFilter: "blur(28px) saturate(1.8)",
@@ -97,32 +89,31 @@ export const TextNode = memo(function TextNode({ id, data, selected }: NodeProps
         />
       </div>
 
-      {/* Textarea */}
+      {/* Textarea — fixed height + internal scroll */}
       <div className="px-3.5 pb-3.5 pt-2.5">
         <textarea
-          ref={textareaRef}
           value={d.content ?? ""}
-          onChange={e => { updateNodeData(id, { content: e.target.value }); resize(); }}
+          onChange={e => updateNodeData(id, { content: e.target.value })}
           placeholder="Escreva aqui o prompt, copy, headline, CTA..."
-          rows={3}
-          className="w-full resize-none outline-none rounded-xl px-3 py-2.5 nodrag overflow-hidden"
+          className="w-full resize-none outline-none rounded-xl px-3 py-2.5 nodrag nowheel node-scroll-blue"
           style={{
+            height: CONTENT_H,
+            overflowY: "auto",
             background: "rgba(59,130,246,0.04)",
             border: "1px solid rgba(59,130,246,0.09)",
             color: "rgba(255,255,255,0.72)",
             fontSize: 11,
             lineHeight: 1.7,
             caretColor: C,
-            minHeight: 64,
             transition: "border-color 0.15s ease, background 0.15s ease",
           }}
           onFocus={e => {
             e.target.style.borderColor = "rgba(59,130,246,0.35)";
-            e.target.style.background = "rgba(59,130,246,0.06)";
+            e.target.style.background  = "rgba(59,130,246,0.06)";
           }}
           onBlur={e => {
             e.target.style.borderColor = "rgba(59,130,246,0.09)";
-            e.target.style.background = "rgba(59,130,246,0.04)";
+            e.target.style.background  = "rgba(59,130,246,0.04)";
           }}
         />
       </div>
@@ -130,14 +121,8 @@ export const TextNode = memo(function TextNode({ id, data, selected }: NodeProps
       <Handle
         type="source"
         position={Position.Right}
-        style={{
-          width: 9, height: 9,
-          background: C,
-          border: "2px solid rgba(7,9,20,0.9)",
-          borderRadius: "50%",
-          boxShadow: `0 0 10px ${C}, 0 0 4px ${C}`,
-          right: -4.5,
-        }}
+        className="nh-blue"
+        style={{ right: -12 }}
       />
     </div>
   );

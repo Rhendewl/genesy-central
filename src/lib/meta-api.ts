@@ -317,6 +317,142 @@ export async function exchangeForLongLivedToken(
   return res.json() as Promise<{ access_token: string; token_type: string; expires_in: number }>;
 }
 
+// ── Ad Account Details (balance, status, funding) ────────────────────────────
+
+export interface MetaAdAccountDetails {
+  id: string;
+  name: string;
+  account_status: number;
+  // balance: NET available balance in minor currency units (centavos for BRL).
+  // For prepaid accounts this IS what Ads Manager shows as "Saldo disponível".
+  // Taxes/fees are deducted by Meta at the time of deposit, NOT at query time.
+  balance: string;
+  amount_spent: string;   // total spent in minor currency units (current billing period)
+  spend_cap: string;      // postpaid account spending cap (0 = unlimited)
+  currency: string;       // e.g. "BRL"
+  funding_source_details?: {
+    // type is returned as a numeric code by the Graph API:
+    // 1=credit_card 2=manual_pay 4=prepay_credit 8=extended_credit 9=tax_exempt 12=agency_credit_line
+    type: number | string;
+    display_string?: string;
+    id?: string;
+  };
+}
+
+export async function getAdAccountDetails(
+  adAccountId: string,
+  token: string
+): Promise<MetaAdAccountDetails> {
+  const cleanId = adAccountId.replace(/^act_/, "");
+  const fields = [
+    "id", "name", "account_status",
+    "balance", "amount_spent", "spend_cap",
+    "currency",
+    "funding_source_details",
+  ].join(",");
+  return metaGet<MetaAdAccountDetails>(`/act_${cleanId}?fields=${fields}`, token);
+}
+
+// ── Ad-level insights ─────────────────────────────────────────────────────────
+
+export interface MetaAdInsightRow {
+  ad_id: string;
+  ad_name: string;
+  campaign_id: string;
+  campaign_name: string;
+  spend: string;
+  impressions: string;
+  reach: string;
+  clicks: string;
+  inline_link_clicks?: string;
+  ctr: string;
+  unique_ctr?: string;
+  cpc: string;
+  actions?: MetaInsightAction[];
+}
+
+type AdStorySpec = {
+  link_data?: { picture?: string; image_url?: string; };
+  video_data?: { image_url?: string; };
+  photo_data?: { images?: Array<{ url?: string }>; };
+};
+
+export interface MetaAdWithCreative {
+  id: string;
+  name: string;
+  status: string; // "ACTIVE" | "PAUSED" | "DELETED" | "ARCHIVED"
+  campaign_id: string;
+  creative?: {
+    id?: string;
+    thumbnail_url?: string;
+    image_url?: string;
+    title?: string;
+    body?: string;
+    // effective_object_story_spec has fully-resolved image URLs (preferred over object_story_spec)
+    effective_object_story_spec?: AdStorySpec;
+    object_story_spec?: AdStorySpec;
+  };
+}
+
+export async function getAdInsights(
+  adAccountId: string,
+  token: string,
+  since: string,
+  until: string
+): Promise<MetaAdInsightRow[]> {
+  const cleanId = adAccountId.replace(/^act_/, "");
+  const fields = [
+    "ad_id", "ad_name",
+    "campaign_id", "campaign_name",
+    "spend", "impressions", "reach",
+    "clicks", "inline_link_clicks",
+    "ctr", "cpc",
+    "actions",
+  ].join(",");
+  const timeRange = encodeURIComponent(JSON.stringify({ since, until }));
+
+  const first = await metaGet<{ data: MetaAdInsightRow[]; paging?: { next?: string } }>(
+    `/act_${cleanId}/insights?fields=${fields}&time_range=${timeRange}&time_increment=all&level=ad&limit=500`,
+    token
+  );
+
+  const rows = [...(first.data ?? [])];
+  let nextUrl = first.paging?.next;
+  while (nextUrl) {
+    const page = await fetch(nextUrl).then(r => r.json()) as { data: MetaAdInsightRow[]; paging?: { next?: string } };
+    rows.push(...(page.data ?? []));
+    nextUrl = page.paging?.next;
+  }
+  return rows;
+}
+
+export async function getAdsWithCreatives(
+  adAccountId: string,
+  token: string
+): Promise<MetaAdWithCreative[]> {
+  const cleanId = adAccountId.replace(/^act_/, "");
+  // effective_object_story_spec returns fully-resolved image URLs (better than object_story_spec)
+  const fields = "id,name,status,campaign_id,creative{id,thumbnail_url,image_url,effective_object_story_spec,object_story_spec}";
+  // Include all effective statuses so archived/deleted ads from the insight period are captured
+  const filtering = encodeURIComponent(JSON.stringify([
+    { field: "effective_status", operator: "IN", value: ["ACTIVE", "PAUSED", "DELETED", "ARCHIVED", "IN_PROCESS", "WITH_ISSUES"] },
+  ]));
+
+  const first = await metaGet<{ data: MetaAdWithCreative[]; paging?: { next?: string } }>(
+    `/act_${cleanId}/ads?fields=${fields}&filtering=${filtering}&limit=200`,
+    token
+  );
+
+  const ads = [...(first.data ?? [])];
+  let nextUrl = first.paging?.next;
+  while (nextUrl) {
+    const page = await fetch(nextUrl).then(r => r.json()) as { data: MetaAdWithCreative[]; paging?: { next?: string } };
+    ads.push(...(page.data ?? []));
+    nextUrl = page.paging?.next;
+  }
+  return ads;
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 export function getActionCount(actions: MetaInsightAction[] | undefined, ...types: string[]): number {

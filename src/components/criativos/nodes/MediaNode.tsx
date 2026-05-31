@@ -1,9 +1,9 @@
 "use client";
 
-import { memo, useRef, useState, useCallback } from "react";
+import { memo, useRef, useState, useCallback, useEffect } from "react";
 import { Handle, Position } from "@xyflow/react";
 import type { NodeProps } from "@xyflow/react";
-import { X, Upload, Loader2, Link2, ImageIcon } from "lucide-react";
+import { X, Upload, Loader2, Link2, ImageIcon, AlertCircle } from "lucide-react";
 import { useWorkflowStore } from "@/store/workflow";
 import type { MediaNodeData } from "@/lib/workflow/types";
 
@@ -11,22 +11,63 @@ const C   = "#F59E0B";
 const DIM = "rgba(245,158,11,0.6)";
 const TYPES: Array<MediaNodeData["mediaType"]> = ["logo", "fachada", "produto", "fundo", "pessoa"];
 
+type UploadStatus = "idle" | "uploading" | "success" | "error";
+
 export const MediaNode = memo(function MediaNode({ id, data, selected }: NodeProps) {
   const updateNodeData = useWorkflowStore((s) => s.updateNodeData);
   const removeNode     = useWorkflowStore((s) => s.removeNode);
   const projectId      = useWorkflowStore((s) => s.projectId);
   const d = data as MediaNodeData;
 
-  const [uploading, setUploading] = useState(false);
-  const [dragging, setDragging]   = useState(false);
-  const [urlMode, setUrlMode]     = useState(false);
+  const [status, setStatus]         = useState<UploadStatus>("idle");
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [dragging, setDragging]     = useState(false);
+  const [urlMode, setUrlMode]       = useState(false);
+  const [localPreview, setLocalPreview] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const localPreviewRef = useRef<string | null>(null);
 
-  const hasImage = !!(d.fileUrl?.trim());
+  // Revoga object URL ao desmontar para evitar memory leak
+  useEffect(() => {
+    return () => {
+      if (localPreviewRef.current) {
+        URL.revokeObjectURL(localPreviewRef.current);
+      }
+    };
+  }, []);
+
+  const hasUploadedImage = !!(d.fileUrl?.trim());
+  // Mostra preview local durante upload ou a URL persistida após sucesso
+  const displayUrl = hasUploadedImage ? d.fileUrl! : localPreview;
+  const hasDisplay = !!displayUrl;
+  const isUploading = status === "uploading";
 
   const uploadFile = useCallback(async (file: File) => {
-    if (!projectId || !file.type.startsWith("image/")) return;
-    setUploading(true);
+    if (!file.type.startsWith("image/")) {
+      setUploadError("Apenas imagens são aceitas.");
+      setStatus("error");
+      return;
+    }
+
+    // Preview local IMEDIATO — antes do upload
+    if (localPreviewRef.current) {
+      URL.revokeObjectURL(localPreviewRef.current);
+    }
+    const objectUrl = URL.createObjectURL(file);
+    localPreviewRef.current = objectUrl;
+    setLocalPreview(objectUrl);
+    setStatus("uploading");
+    setUploadError(null);
+
+    console.log("[UPLOAD] Iniciando upload:", file.name, "| tipo:", d.mediaType, "| projeto:", projectId);
+
+    if (!projectId) {
+      setStatus("error");
+      setUploadError("Projeto não inicializado. Recarregue a página.");
+      console.error("[UPLOAD] projectId é null — upload abortado.");
+      return;
+    }
+
     try {
       const res = await fetch("/api/criativos/assets/upload-url", {
         method: "POST",
@@ -38,12 +79,34 @@ export const MediaNode = memo(function MediaNode({ id, data, selected }: NodePro
           mime_type: file.type,
         }),
       });
-      if (!res.ok) throw new Error();
+
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({ error: "Erro ao gerar URL de upload." }));
+        throw new Error(errBody.error ?? `HTTP ${res.status}`);
+      }
+
       const { signed_url, public_url } = await res.json();
-      await fetch(signed_url, { method: "PUT", body: file, headers: { "Content-Type": file.type } });
+      console.log("[UPLOAD] Signed URL obtida — fazendo PUT para storage...");
+
+      const putRes = await fetch(signed_url, {
+        method: "PUT",
+        body: file,
+        headers: { "Content-Type": file.type },
+      });
+
+      if (!putRes.ok) {
+        throw new Error(`Falha no upload para storage: HTTP ${putRes.status}`);
+      }
+
+      console.log("[UPLOAD] Upload concluído — URL pública:", public_url);
       updateNodeData(id, { fileUrl: public_url });
-    } finally {
-      setUploading(false);
+      setStatus("success");
+      // Mantém localPreview até a imagem remota carregar
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Erro desconhecido no upload.";
+      console.error("[UPLOAD] Erro:", msg);
+      setUploadError(msg);
+      setStatus("error");
     }
   }, [projectId, d.mediaType, id, updateNodeData]);
 
@@ -70,6 +133,17 @@ export const MediaNode = memo(function MediaNode({ id, data, selected }: NodePro
     setDragging(false);
   }, []);
 
+  const clearImage = useCallback(() => {
+    updateNodeData(id, { fileUrl: null });
+    setLocalPreview(null);
+    setStatus("idle");
+    setUploadError(null);
+    if (localPreviewRef.current) {
+      URL.revokeObjectURL(localPreviewRef.current);
+      localPreviewRef.current = null;
+    }
+  }, [id, updateNodeData]);
+
   return (
     <div
       className="relative group"
@@ -78,14 +152,32 @@ export const MediaNode = memo(function MediaNode({ id, data, selected }: NodePro
         background: "rgba(14, 10, 4, 0.58)",
         backdropFilter: "blur(28px) saturate(1.8)",
         WebkitBackdropFilter: "blur(28px) saturate(1.8)",
-        border: `1px solid ${selected ? "rgba(245,158,11,0.55)" : "rgba(245,158,11,0.14)"}`,
+        border: `1px solid ${
+          status === "error"
+            ? "rgba(239,68,68,0.45)"
+            : isUploading
+            ? `${C}55`
+            : selected
+            ? "rgba(245,158,11,0.55)"
+            : "rgba(245,158,11,0.14)"
+        }`,
         borderRadius: 16,
-        boxShadow: selected
+        boxShadow: isUploading
+          ? `0 0 0 1px ${C}22, 0 0 30px ${C}12, 0 20px 60px rgba(0,0,0,0.8)`
+          : selected
           ? `0 0 0 1px rgba(245,158,11,0.18), 0 0 40px rgba(245,158,11,0.1), 0 28px 80px rgba(0,0,0,0.85), inset 0 1px 0 rgba(255,255,255,0.07)`
           : `0 0 0 1px rgba(245,158,11,0.05), 0 0 24px rgba(245,158,11,0.04), 0 20px 60px rgba(0,0,0,0.75), inset 0 1px 0 rgba(255,255,255,0.05)`,
         transition: "border-color 0.2s ease, box-shadow 0.2s ease",
       }}
     >
+      {/* Uploading pulse ring */}
+      {isUploading && (
+        <div
+          className="absolute inset-0 pointer-events-none animate-pulse"
+          style={{ border: `1px solid ${C}40`, borderRadius: 16 }}
+        />
+      )}
+
       {/* Delete */}
       <button
         onClick={e => { e.stopPropagation(); removeNode(id); }}
@@ -114,7 +206,12 @@ export const MediaNode = memo(function MediaNode({ id, data, selected }: NodePro
             boxShadow: `0 0 10px ${C}10`,
           }}
         >
-          <ImageIcon size={10} style={{ color: DIM }} />
+          {isUploading
+            ? <Loader2 size={10} style={{ color: C }} className="animate-spin" />
+            : status === "error"
+            ? <AlertCircle size={10} style={{ color: "#EF4444" }} />
+            : <ImageIcon size={10} style={{ color: DIM }} />
+          }
         </div>
         <input
           value={d.label ?? "Mídia"}
@@ -122,7 +219,12 @@ export const MediaNode = memo(function MediaNode({ id, data, selected }: NodePro
           className="bg-transparent outline-none nodrag flex-1"
           style={{ color: DIM, fontSize: 9, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase" }}
         />
-        <div style={{ width: 5, height: 5, borderRadius: "50%", background: C, boxShadow: `0 0 6px ${C}`, opacity: 0.7 }} />
+        <div style={{
+          width: 5, height: 5, borderRadius: "50%",
+          background: status === "error" ? "#EF4444" : C,
+          boxShadow: `0 0 6px ${status === "error" ? "#EF4444" : C}`,
+          opacity: 0.7,
+        }} />
       </div>
 
       {/* Type pills */}
@@ -153,24 +255,62 @@ export const MediaNode = memo(function MediaNode({ id, data, selected }: NodePro
 
       {/* Image area */}
       <div className="px-3.5 pb-3.5">
-        {hasImage ? (
+        {hasDisplay ? (
           <div className="relative rounded-xl overflow-hidden" style={{ border: `1px solid rgba(245,158,11,0.15)` }}>
-            <img src={d.fileUrl!} alt="" className="w-full object-cover" style={{ maxHeight: 100 }} />
-            <button
-              onClick={() => updateNodeData(id, { fileUrl: null })}
-              className="absolute top-2 right-2 w-5 h-5 rounded-full flex items-center justify-center nodrag"
-              style={{ background: "rgba(0,0,0,0.75)", border: "1px solid rgba(255,255,255,0.1)" }}
-            >
-              <X size={9} className="text-white" />
-            </button>
+            <img
+              src={displayUrl!}
+              alt=""
+              className="w-full object-cover"
+              style={{ maxHeight: 100 }}
+              onLoad={() => {
+                // Imagem remota carregou — pode limpar o preview local
+                if (hasUploadedImage && localPreview) {
+                  URL.revokeObjectURL(localPreview);
+                  setLocalPreview(null);
+                  localPreviewRef.current = null;
+                }
+              }}
+            />
+            {/* Uploading overlay sobre o preview */}
+            {isUploading && (
+              <div
+                className="absolute inset-0 flex flex-col items-center justify-center gap-1.5"
+                style={{ background: "rgba(0,0,0,0.55)" }}
+              >
+                <Loader2 size={16} style={{ color: C }} className="animate-spin" />
+                <span style={{ color: `${C}CC`, fontSize: 9, letterSpacing: "0.04em" }}>Enviando...</span>
+              </div>
+            )}
+            {!isUploading && (
+              <button
+                onClick={clearImage}
+                className="absolute top-2 right-2 w-5 h-5 rounded-full flex items-center justify-center nodrag"
+                style={{ background: "rgba(0,0,0,0.75)", border: "1px solid rgba(255,255,255,0.1)" }}
+              >
+                <X size={9} className="text-white" />
+              </button>
+            )}
           </div>
-        ) : uploading ? (
+        ) : status === "error" ? (
           <div
-            className="flex items-center justify-center gap-2 py-6 rounded-xl"
-            style={{ background: `${C}07`, border: `1px dashed ${C}30` }}
+            className="flex flex-col items-center justify-center gap-2 py-5 rounded-xl"
+            style={{ background: "rgba(239,68,68,0.06)", border: "1px solid rgba(239,68,68,0.2)" }}
           >
-            <Loader2 size={12} style={{ color: C }} className="animate-spin" />
-            <span style={{ color: `${C}90`, fontSize: 10 }}>Enviando...</span>
+            <AlertCircle size={14} style={{ color: "#EF4444" }} />
+            <p style={{ color: "rgba(252,165,165,0.85)", fontSize: 9, textAlign: "center", lineHeight: 1.5, padding: "0 8px" }}>
+              {uploadError ?? "Erro no upload."}
+            </p>
+            <button
+              onClick={() => { setStatus("idle"); setUploadError(null); }}
+              className="nodrag"
+              style={{
+                fontSize: 8.5, color: C, padding: "2px 10px",
+                border: `1px solid ${C}40`, borderRadius: 8,
+                background: `${C}08`, cursor: "pointer",
+              }}
+            >
+              Tentar novamente
+            </button>
           </div>
         ) : (
           <div className="space-y-2">
@@ -228,14 +368,8 @@ export const MediaNode = memo(function MediaNode({ id, data, selected }: NodePro
       <Handle
         type="source"
         position={Position.Right}
-        style={{
-          width: 9, height: 9,
-          background: C,
-          border: "2px solid rgba(14,10,4,0.9)",
-          borderRadius: "50%",
-          boxShadow: `0 0 10px ${C}, 0 0 4px ${C}`,
-          right: -4.5,
-        }}
+        className="nh-amber"
+        style={{ right: -12 }}
       />
     </div>
   );

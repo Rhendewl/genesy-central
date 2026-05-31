@@ -40,7 +40,9 @@ interface WorkflowStore {
   setExecutionState: (state: WorkflowExecutionState) => void;
 
   runTrigger: number;
+  runTargetResultId: string | null;
   requestRun: () => void;
+  requestRunForResult: (nodeId: string) => void;
 
   isDirty: boolean;
   isSaving: boolean;
@@ -171,7 +173,9 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
   setExecutionState: (state) => set({ executionState: state }),
 
   runTrigger: 0,
-  requestRun: () => set((s) => ({ runTrigger: s.runTrigger + 1 })),
+  runTargetResultId: null,
+  requestRun: () => set((s) => ({ runTrigger: s.runTrigger + 1, runTargetResultId: null })),
+  requestRunForResult: (nodeId) => set((s) => ({ runTrigger: s.runTrigger + 1, runTargetResultId: nodeId })),
 
   isDirty: false,
   isSaving: false,
@@ -217,5 +221,6 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
       isDirty: false,
       isSaving: false,
       runTrigger: 0,
+      runTargetResultId: null,
     }),
 }));
