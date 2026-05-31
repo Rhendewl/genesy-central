@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { createAdminSupabaseClient } from "@/lib/supabase-admin";
 import { decryptToken } from "@/lib/crypto";
-import { getAdInsights, getAdsWithCreatives, extractLeads } from "@/lib/meta-api";
+import { getAdsWithCreatives } from "@/lib/meta-api";
 import type { MetaAdWithCreative } from "@/lib/meta-api";
 import { startOfMonth, format } from "date-fns";
 import type { PortalCreative } from "@/types";
@@ -21,13 +21,11 @@ function pickBestImage(creative: MetaAdWithCreative["creative"]): string | null 
   if (!creative) return null;
   if (creative.thumbnail_url) return creative.thumbnail_url;
   if (creative.image_url) return creative.image_url;
-  // effective_object_story_spec has fully-resolved URLs (preferred)
   const eff = creative.effective_object_story_spec;
   if (eff?.link_data?.picture) return eff.link_data.picture;
   if (eff?.link_data?.image_url) return eff.link_data.image_url;
   if (eff?.video_data?.image_url) return eff.video_data.image_url;
   if (eff?.photo_data?.images?.[0]?.url) return eff.photo_data.images[0].url;
-  // Fallback to object_story_spec
   const spec = creative.object_story_spec;
   if (spec?.link_data?.picture) return spec.link_data.picture;
   if (spec?.link_data?.image_url) return spec.link_data.image_url;
@@ -64,16 +62,22 @@ export async function GET(
       .maybeSingle();
 
     if (!rawPortal || rawPortal.status === "pausado") {
-      console.log(`[portal/creatives] portal "${slug}" not found or paused`);
       return NextResponse.json({ creatives: [] });
     }
 
     if (!admin) {
-      console.error("[portal/creatives] admin client unavailable (service role key missing)");
+      console.error("[portal/creatives] service role key missing");
       return NextResponse.json({ creatives: [] });
     }
 
-    // 2. Allowed ad account IDs for this portal
+    // 2. Date range
+    const now = new Date();
+    const since = sp.get("since") || format(startOfMonth(now), "yyyy-MM-dd");
+    const until = sp.get("until") || format(now, "yyyy-MM-dd");
+
+    console.log(`[portal/creatives] slug="${slug}" range=${since}→${until}`);
+
+    // 3. Allowed ad account IDs for this portal
     const { data: portalAccounts } = await admin
       .from("portal_accounts")
       .select("ad_account_id")
@@ -84,11 +88,11 @@ export async function GET(
     );
 
     if (allowedAccountIds.length === 0) {
-      console.log(`[portal/creatives] no account IDs linked to portal "${slug}"`);
+      console.log(`[portal/creatives] no accounts linked to portal "${slug}"`);
       return NextResponse.json({ creatives: [] });
     }
 
-    // 3. Platform accounts scoped to portal owner
+    // 4. Platform accounts
     const { data: platformAccounts } = await admin
       .from("ad_platform_accounts")
       .select("id, account_id")
@@ -102,188 +106,80 @@ export async function GET(
 
     const platformAccountIds = platformAccounts.map((pa: { id: string }) => pa.id);
 
-    // 4. Meta tokens (encrypted)
-    const { data: tokens } = await admin
-      .from("meta_tokens")
-      .select("platform_account_id, encrypted_token")
+    // ── PRIMARY: Supabase campaign-level data ──────────────────────────────────
+    // This always works even when the Meta token is expired.
+    // We use it as the base; Meta API is only used to enrich with thumbnails.
+
+    const { data: campaignsRaw } = await admin
+      .from("campaigns")
+      .select("id, name, status")
       .in("platform_account_id", platformAccountIds);
 
-    if (!tokens?.length) {
-      console.log("[portal/creatives] no Meta tokens found for platform accounts");
+    const campaignMap = new Map<string, { name: string; status: string }>();
+    (campaignsRaw ?? []).forEach((c: { id: string; name: string; status: string }) => {
+      campaignMap.set(c.id, { name: c.name, status: c.status });
+    });
+
+    const campaignIds = Array.from(campaignMap.keys());
+
+    if (campaignIds.length === 0) {
+      console.log("[portal/creatives] no campaigns in Supabase for this portal");
       return NextResponse.json({ creatives: [] });
     }
 
-    const tokenMap = new Map<string, string>();
-    for (const t of tokens) {
-      try {
-        tokenMap.set(t.platform_account_id, decryptToken(t.encrypted_token));
-      } catch {
-        console.warn(`[portal/creatives] failed to decrypt token for ${t.platform_account_id}`);
-      }
+    // Aggregate metrics per campaign across the date range
+    const { data: metricsRaw } = await admin
+      .from("campaign_metrics")
+      .select("campaign_id, spend, leads, clicks, reach, impressions")
+      .in("campaign_id", campaignIds)
+      .gte("date", since)
+      .lte("date", until);
+
+    type CampAgg = { spend: number; leads: number; clicks: number; reach: number; impressions: number };
+    const campAgg = new Map<string, CampAgg>();
+
+    for (const m of metricsRaw ?? []) {
+      const ex = campAgg.get(m.campaign_id);
+      campAgg.set(m.campaign_id, {
+        spend:       (ex?.spend       ?? 0) + (m.spend       ?? 0),
+        leads:       (ex?.leads       ?? 0) + (m.leads       ?? 0),
+        clicks:      (ex?.clicks      ?? 0) + (m.clicks      ?? 0),
+        reach:       (ex?.reach       ?? 0) + (m.reach       ?? 0),
+        impressions: (ex?.impressions ?? 0) + (m.impressions ?? 0),
+      });
     }
 
-    if (tokenMap.size === 0) {
-      console.log("[portal/creatives] all tokens failed decryption");
-      return NextResponse.json({ creatives: [] });
-    }
+    console.log(`[portal/creatives] Supabase: ${campaignMap.size} campaigns, ${campAgg.size} with metrics`);
 
-    // 5. Parse date range (default: current month to today)
-    const now = new Date();
-    const since = sp.get("since") || format(startOfMonth(now), "yyyy-MM-dd");
-    const until = sp.get("until") || format(now, "yyyy-MM-dd");
-
-    console.log(`[portal/creatives] slug="${slug}" range=${since}→${until} accounts=${platformAccounts.length}`);
-
-    // 6. Fetch ad-level data from Meta API
-    type AdInsightEntry = {
-      leads: number;
-      spend: number;
-      reach: number;
-      clicks: number;
-      ctr: number;
-      cpc: number;
-      campaign_name: string;
-    };
-
-    const adInsightMap = new Map<string, AdInsightEntry>();
-    const adInfoMap = new Map<string, {
-      name: string;
-      image_url: string | null;
-      status: "ativa" | "pausada";
-    }>();
-
-    for (const pa of platformAccounts as { id: string; account_id: string }[]) {
-      const token = tokenMap.get(pa.id);
-      if (!token) continue;
-
-      // ── Fetch insights ──────────────────────────────────────────
-      let insights: Awaited<ReturnType<typeof getAdInsights>> = [];
-      try {
-        insights = await getAdInsights(pa.account_id, token, since, until);
-      } catch (err) {
-        console.error(`[portal/creatives] getAdInsights failed for account ${pa.account_id}:`, err);
-      }
-
-      // ── Fetch ads + creatives ───────────────────────────────────
-      let ads: Awaited<ReturnType<typeof getAdsWithCreatives>> = [];
-      try {
-        ads = await getAdsWithCreatives(pa.account_id, token);
-      } catch (err) {
-        console.error(`[portal/creatives] getAdsWithCreatives failed for account ${pa.account_id}:`, err);
-      }
-
-      // ── DIAGNOSTIC LOGS ──────────────────────────────────────────
-      console.log(`[portal/creatives] account ${pa.account_id}: ${insights.length} insight rows, ${ads.length} ads`);
-
-      if (insights.length > 0) {
-        console.log(`[portal/creatives] insight sample[0]:`, {
-          ad_id:              insights[0].ad_id,
-          ad_name:            insights[0].ad_name,
-          campaign_name:      insights[0].campaign_name,
-          spend:              insights[0].spend,
-          impressions:        insights[0].impressions,
-          reach:              insights[0].reach,
-          clicks:             insights[0].clicks,
-          inline_link_clicks: insights[0].inline_link_clicks,
-          ctr:                insights[0].ctr,
-          cpc:                insights[0].cpc,
-          actions_count:      insights[0].actions?.length ?? 0,
-          actions:            insights[0].actions?.slice(0, 5),
-        });
-      } else {
-        console.log(`[portal/creatives] ⚠ getAdInsights returned 0 rows for ${pa.account_id} (${since}→${until})`);
-      }
-
-      if (ads.length > 0) {
-        console.log(`[portal/creatives] ad sample[0]:`, {
-          id:                          ads[0].id,
-          name:                        ads[0].name,
-          status:                      ads[0].status,
-          creative_id:                 ads[0].creative?.id,
-          thumbnail_url:               ads[0].creative?.thumbnail_url,
-          image_url:                   ads[0].creative?.image_url,
-          has_effective_spec:          !!ads[0].creative?.effective_object_story_spec,
-          has_spec:                    !!ads[0].creative?.object_story_spec,
-          eff_link_picture:            ads[0].creative?.effective_object_story_spec?.link_data?.picture,
-          picked_image:                pickBestImage(ads[0].creative),
-        });
-      }
-      // ── END DIAGNOSTIC LOGS ──────────────────────────────────────
-
-      // Index ad creative / status data
-      for (const ad of ads) {
-        adInfoMap.set(ad.id, {
-          name:      ad.name,
-          image_url: pickBestImage(ad.creative),
-          status:    ad.status === "ACTIVE" ? "ativa" : "pausada",
-        });
-      }
-
-      // Aggregate ad-level insights into adInsightMap
-      for (const row of insights) {
-        if (!row.ad_id) {
-          console.warn("[portal/creatives] insight row missing ad_id — skipping:", {
-            ad_name:      row.ad_name,
-            campaign_name: row.campaign_name,
-            spend:         row.spend,
-          });
-          continue;
-        }
-
-        const leads  = extractLeads(row.actions);
-        const spend  = parseFloat(row.spend  ?? "0");
-        const reach  = parseInt(row.reach    ?? "0", 10);
-        const clicks = parseInt(row.inline_link_clicks ?? row.clicks ?? "0", 10);
-        const ctr    = parseFloat(row.ctr    ?? "0");
-        const cpc    = parseFloat(row.cpc    ?? "0");
-
-        const existing = adInsightMap.get(row.ad_id);
-        adInsightMap.set(row.ad_id, {
-          leads:         (existing?.leads  ?? 0) + leads,
-          spend:         (existing?.spend  ?? 0) + spend,
-          reach:         (existing?.reach  ?? 0) + reach,
-          clicks:        (existing?.clicks ?? 0) + clicks,
-          ctr,
-          cpc,
-          campaign_name: row.campaign_name,
-        });
-      }
-    }
-
-    console.log(`[portal/creatives] adInsightMap=${adInsightMap.size} adInfoMap=${adInfoMap.size}`);
-
-    // 7. Merge insights + creative info → PortalCreative[]
+    // Build initial creatives from campaign data
     const creatives: PortalCreative[] = [];
-    let skippedZero = 0;
 
-    for (const [adId, insight] of Array.from(adInsightMap)) {
-      // Skip only if there is absolutely no engagement (no spend, no clicks, no leads)
-      if (insight.leads === 0 && insight.spend < 0.01 && insight.clicks === 0) {
-        skippedZero++;
-        continue;
-      }
+    for (const [campaignId, agg] of Array.from(campAgg)) {
+      if (agg.spend < 0.01 && agg.clicks === 0 && agg.leads === 0) continue;
 
-      const adInfo = adInfoMap.get(adId);
-      const cpl    = insight.leads > 0 ? insight.spend / insight.leads : 0;
+      const campaign = campaignMap.get(campaignId);
+      const ctr = agg.impressions > 0 ? (agg.clicks / agg.impressions) * 100 : 0;
+      const cpc = agg.clicks > 0 ? agg.spend / agg.clicks : 0;
+      const cpl = agg.leads > 0 ? agg.spend / agg.leads : 0;
 
       creatives.push({
-        ad_id:         adId,
-        creative_name: adInfo?.name ?? `Anúncio ${adId}`,
-        campaign_name: insight.campaign_name,
-        image_url:     adInfo?.image_url ?? null,
-        status:        adInfo?.status ?? "pausada",
-        leads:         insight.leads,
+        ad_id:         campaignId,
+        creative_name: campaign?.name ?? campaignId,
+        campaign_name: campaign?.name ?? "",
+        image_url:     null,
+        status:        campaign?.status === "ativa" ? "ativa" : "pausada",
+        leads:         agg.leads,
         cpl,
-        spend:         insight.spend,
-        reach:         insight.reach,
-        clicks:        insight.clicks,
-        ctr:           insight.ctr,
-        cpc:           insight.cpc,
+        spend:         agg.spend,
+        reach:         agg.reach,
+        clicks:        agg.clicks,
+        ctr,
+        cpc,
         ranking:       0,
       });
     }
 
-    // 8. Rank: leads desc → spend desc → CPL asc
+    // Rank: leads desc → spend desc → CPL asc → CTR desc
     creatives.sort((a, b) => {
       if (b.leads !== a.leads) return b.leads - a.leads;
       if (b.spend !== a.spend) return b.spend - a.spend;
@@ -292,19 +188,79 @@ export async function GET(
     });
     creatives.forEach((c, i) => { c.ranking = i + 1; });
 
-    console.log(`[portal/creatives] result: ${creatives.length} creatives (${skippedZero} skipped zero-engagement), returning top ${Math.min(creatives.length, 8)}`);
+    const top8 = creatives.slice(0, 8);
 
-    if (creatives.length > 0) {
-      console.log(`[portal/creatives] top 3:`, creatives.slice(0, 3).map(c => ({
-        name:   c.creative_name,
-        leads:  c.leads,
-        spend:  c.spend,
-        clicks: c.clicks,
-        has_thumbnail: !!c.image_url,
-      })));
+    // ── OPTIONAL: enrich thumbnails via Meta API ───────────────────────────────
+    // Non-blocking: if Meta token is expired or API fails, we still return data.
+    // We try to get thumbnails for the campaigns that appear in the top 8.
+    try {
+      const { data: tokens } = await admin
+        .from("meta_tokens")
+        .select("platform_account_id, encrypted_token")
+        .in("platform_account_id", platformAccountIds);
+
+      if (tokens?.length) {
+        // Build a map: campaign_id → image_url using the Meta API for ads
+        // We match by campaign_id since the Supabase data is at campaign level
+        const campaignImageMap = new Map<string, string>();
+
+        for (const t of tokens) {
+          let accessToken: string;
+          try {
+            accessToken = decryptToken(t.encrypted_token);
+          } catch {
+            continue;
+          }
+
+          const pa = (platformAccounts as { id: string; account_id: string }[])
+            .find(p => p.id === t.platform_account_id);
+          if (!pa) continue;
+
+          let ads: Awaited<ReturnType<typeof getAdsWithCreatives>> = [];
+          try {
+            ads = await getAdsWithCreatives(pa.account_id, accessToken);
+          } catch (err) {
+            console.warn(`[portal/creatives] getAdsWithCreatives failed for ${pa.account_id}:`, err);
+            continue;
+          }
+
+          console.log(`[portal/creatives] Meta API: ${ads.length} ads for account ${pa.account_id}`);
+
+          for (const ad of ads) {
+            const imageUrl = pickBestImage(ad.creative);
+            if (imageUrl && ad.campaign_id && !campaignImageMap.has(ad.campaign_id)) {
+              campaignImageMap.set(ad.campaign_id, imageUrl);
+            }
+          }
+        }
+
+        // external_id column stores the Meta campaign_id string (saved during sync)
+        if (campaignImageMap.size > 0) {
+          const { data: campaignsWithExtId } = await admin
+            .from("campaigns")
+            .select("id, external_id")
+            .in("id", campaignIds)
+            .not("external_id", "is", null);
+
+          if (campaignsWithExtId?.length) {
+            for (const c of campaignsWithExtId as { id: string; external_id: string }[]) {
+              const img = campaignImageMap.get(c.external_id);
+              if (img) {
+                const entry = top8.find(cr => cr.ad_id === c.id);
+                if (entry) entry.image_url = img;
+              }
+            }
+            const enriched = top8.filter(c => c.image_url).length;
+            console.log(`[portal/creatives] enriched ${enriched}/${top8.length} entries with thumbnails`);
+          }
+        }
+      }
+    } catch (enrichErr) {
+      console.warn("[portal/creatives] thumbnail enrichment failed (non-fatal):", enrichErr);
     }
 
-    return NextResponse.json({ creatives: creatives.slice(0, 8) });
+    console.log(`[portal/creatives] returning ${top8.length} creatives`);
+    return NextResponse.json({ creatives: top8 });
 
   } catch (err) {
     console.error("[portal/creatives] unhandled error:", err);
