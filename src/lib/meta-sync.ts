@@ -9,12 +9,31 @@ import {
   getCampaigns,
   getInsights,
   getInsightsGeo,
+  getAdsWithCreatives,
   extractLeads,
   extractPrimaryResults,
   mapCampaignStatus,
   mapObjective,
 } from "@/lib/meta-api";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { MetaAdWithCreative } from "@/lib/meta-api";
+
+function pickBestAdImage(creative: MetaAdWithCreative["creative"]): string | null {
+  if (!creative) return null;
+  if (creative.thumbnail_url) return creative.thumbnail_url;
+  if (creative.image_url) return creative.image_url;
+  const eff = creative.effective_object_story_spec;
+  if (eff?.link_data?.picture) return eff.link_data.picture;
+  if (eff?.link_data?.image_url) return eff.link_data.image_url;
+  if (eff?.video_data?.image_url) return eff.video_data.image_url;
+  if (eff?.photo_data?.images?.[0]?.url) return eff.photo_data.images[0].url;
+  const spec = creative.object_story_spec;
+  if (spec?.link_data?.picture) return spec.link_data.picture;
+  if (spec?.link_data?.image_url) return spec.link_data.image_url;
+  if (spec?.video_data?.image_url) return spec.video_data.image_url;
+  if (spec?.photo_data?.images?.[0]?.url) return spec.photo_data.images[0].url;
+  return null;
+}
 
 export interface SyncParams {
   supabase: SupabaseClient;
@@ -379,6 +398,36 @@ export async function syncMetaAccount(params: SyncParams): Promise<SyncResult> {
     } catch (geoErr) {
       console.warn("[meta-sync] geo sync falhou (não-fatal):", geoErr);
       warnings.push("Dados geográficos não disponíveis para este período");
+    }
+
+    // ── Sync creative thumbnails (best-effort, non-fatal) ────────────────────
+    // Picks the best thumbnail URL per campaign from the account's active ads
+    // and stores it in campaigns.thumbnail_url for use in the client portal.
+
+    try {
+      const ads = await getAdsWithCreatives(adAccountId, accessToken);
+      console.log(`[meta-sync] thumbnails: ${ads.length} anúncios retornados`);
+
+      // Best image per Meta campaign_id
+      const thumbMap = new Map<string, string>();
+      for (const ad of ads) {
+        if (thumbMap.has(ad.campaign_id)) continue;
+        const url = pickBestAdImage(ad.creative);
+        if (url) thumbMap.set(ad.campaign_id, url);
+      }
+
+      console.log(`[meta-sync] thumbnails: ${thumbMap.size} campanhas com imagem`);
+
+      for (const [metaCampaignId, thumbUrl] of Array.from(thumbMap)) {
+        const internalId = campMap.get(metaCampaignId);
+        if (!internalId) continue;
+        await supabase
+          .from("campaigns")
+          .update({ thumbnail_url: thumbUrl })
+          .eq("id", internalId);
+      }
+    } catch (thumbErr) {
+      console.warn("[meta-sync] sync de thumbnails falhou (não-fatal):", thumbErr);
     }
 
     // ── Mark account as synced ────────────────────────────────────────────────
