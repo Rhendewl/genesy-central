@@ -397,6 +397,8 @@ export interface MetaCreativeExtended {
   object_story_spec?: AdStorySpec;
   asset_feed_spec?: AssetFeedSpec;
   effective_object_story_id?: string;
+  degrees_of_freedom_spec?: Record<string, unknown>;
+  instagram_permalink_url?: string;
 }
 
 export interface MetaAdWithCreative {
@@ -445,8 +447,8 @@ export async function getAdsWithCreatives(
 ): Promise<MetaAdWithCreative[]> {
   const cleanId = adAccountId.replace(/^act_/, "");
   // effective_object_story_spec cannot be fetched as a nested field in /ads — causes #100.
-  // image_hash + object_type allow secondary enrichment (hash→URL lookup, video thumbnail).
-  const fields = "id,name,status,campaign_id,creative{id,thumbnail_url,image_url,image_hash,object_story_spec,asset_feed_spec{images,videos},object_type}";
+  // effective_object_story_id, degrees_of_freedom_spec, instagram_permalink_url added for diagnostic coverage.
+  const fields = "id,name,status,campaign_id,creative{id,thumbnail_url,image_url,image_hash,object_story_spec,asset_feed_spec{images,videos},object_type,effective_object_story_id,degrees_of_freedom_spec,instagram_permalink_url}";
   // Include all effective statuses so archived/deleted ads from the insight period are captured
   const filtering = encodeURIComponent(JSON.stringify([
     { field: "effective_status", operator: "IN", value: ["ACTIVE", "PAUSED", "DELETED", "ARCHIVED", "IN_PROCESS", "WITH_ISSUES"] },
@@ -476,6 +478,7 @@ export async function getCreativeById(
     "id", "thumbnail_url", "image_url", "image_hash",
     "object_story_spec", "asset_feed_spec",
     "effective_object_story_id", "object_type",
+    "degrees_of_freedom_spec", "instagram_permalink_url",
   ].join(",");
   try {
     return await metaGet<MetaCreativeExtended>(`/${creativeId}?fields=${fields}`, token);

@@ -316,6 +316,40 @@ export async function GET(
               console.log(`[portal/creatives] P4 ad=${ad.id} no video_id — all phases exhausted`);
             }
           }
+
+          // ── Diagnostic: structured dump for every ad still without image ──
+          const finalStuck = stuckAds.filter(ad => !metaCampThumb.has(ad.campaign_id));
+          for (const ad of finalStuck) {
+            const extCreative = phase3Results.find(r => r.ad.id === ad.id)?.ext;
+            // prefer extended creative (P3 result) — has more fields than nested creative
+            const cr = extCreative ?? ad.creative;
+            const spec = cr?.object_story_spec;
+            const feed = cr?.asset_feed_spec;
+
+            console.log("=== CREATIVE WITHOUT IMAGE ===");
+            console.log(JSON.stringify({
+              ad_id:                     ad.id,
+              creative_id:               cr?.id ?? null,
+              object_type:               cr?.object_type ?? null,
+              effective_object_story_id: cr?.effective_object_story_id ?? null,
+              object_story_spec:         spec ?? null,
+              asset_feed_spec:           feed ?? null,
+              link_data:                 spec?.link_data ?? null,
+              video_data:                spec?.video_data ?? null,
+              photo_data:                spec?.photo_data ?? null,
+              child_attachments:         spec?.link_data?.child_attachments ?? null,
+              image_hash:                cr?.image_hash ?? null,
+              thumbnail_url:             cr?.thumbnail_url ?? null,
+              image_url:                 cr?.image_url ?? null,
+              asset_keys_available:      cr ? Object.keys(cr) : [],
+              degrees_of_freedom_spec:   cr?.degrees_of_freedom_spec ?? null,
+              instagram_permalink_url:   cr?.instagram_permalink_url ?? null,
+            }, null, 2));
+            console.log("=== END CREATIVE WITHOUT IMAGE ===");
+          }
+          if (finalStuck.length > 0) {
+            console.log(`[portal/creatives] diagnostic: ${finalStuck.length} ad(s) still without image after all phases`);
+          }
         }
 
         // Apply results to top8

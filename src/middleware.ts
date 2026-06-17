@@ -36,11 +36,12 @@ export async function middleware(request: NextRequest) {
     }
   );
 
-  // Refresh session — IMPORTANT: do not run arbitrary logic between
-  // createServerClient and getUser, or auth bugs may occur.
+  // getSession reads the JWT from cookies without a network call — safe for
+  // middleware where latency budget is tight (Edge Runtime ~1.5 s limit).
   const {
-    data: { user },
-  } = await supabase.auth.getUser();
+    data: { session },
+  } = await supabase.auth.getSession();
+  const user = session?.user ?? null;
 
   const pathname = request.nextUrl.pathname;
   const isPublicRoute      = PUBLIC_ROUTES.some((r) => pathname.startsWith(r));
