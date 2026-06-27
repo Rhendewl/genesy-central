@@ -145,5 +145,5 @@ CREATE POLICY "users_own_criativo_resultados"
   WITH CHECK (auth.uid() = user_id);
 
 -- ── 6. Realtime (para progresso em tempo real do job) ─────────────────────────
-ALTER PUBLICATION supabase_realtime ADD TABLE criativo_jobs;
-ALTER PUBLICATION supabase_realtime ADD TABLE criativo_resultados;
+DO $$ BEGIN ALTER PUBLICATION supabase_realtime ADD TABLE criativo_jobs;       EXCEPTION WHEN SQLSTATE '42710' THEN NULL; WHEN OTHERS THEN NULL; END $$;
+DO $$ BEGIN ALTER PUBLICATION supabase_realtime ADD TABLE criativo_resultados; EXCEPTION WHEN SQLSTATE '42710' THEN NULL; WHEN OTHERS THEN NULL; END $$;

@@ -881,6 +881,348 @@ export interface PortalCreative {
   ranking: number;
 }
 
+// =============================================================================
+// Módulo: Formulários Conversacionais
+// =============================================================================
+
+// ── Step types ────────────────────────────────────────────────────────────────
+
+export type FormStepType =
+  | "short_text"
+  | "long_text"
+  | "email"
+  | "phone"
+  | "number"
+  | "multiple_choice"
+  | "single_choice"
+  | "rating"
+  | "date"
+  | "file_upload"
+  | "statement"
+  | "redirect";
+
+export interface FormStep {
+  id: string;
+  type: FormStepType;
+  title: string;
+  description?: string;
+  required: boolean;
+  placeholder?: string;
+  // multiple_choice / single_choice
+  choices?: Array<{ id: string; label: string; value: string }>;
+  // rating
+  maxRating?: number;
+  // file_upload
+  allowedTypes?: string[];
+  maxFileSizeMb?: number;
+  // redirect / statement
+  content?: string;
+}
+
+// ── Logic ─────────────────────────────────────────────────────────────────────
+
+export type LogicOperator =
+  | "equals"
+  | "not_equals"
+  | "contains"
+  | "starts_with"
+  | "ends_with"
+  | "greater_than"
+  | "less_than"
+  | "empty"
+  | "not_empty"
+  | "between"
+  | "in"
+  | "not_in";
+
+export type LogicActionType = "jump" | "end" | "disqualify" | "redirect";
+
+export interface LogicCondition {
+  step: string;
+  operator: LogicOperator;
+  value?: string | number | string[];
+}
+
+export interface LogicAction {
+  type: LogicActionType;
+  target?: string;   // step id ou ending id
+  url?: string;
+}
+
+export interface LogicRule {
+  id: string;
+  condition: LogicCondition;
+  action: LogicAction;
+}
+
+// ── Welcome / Endings ─────────────────────────────────────────────────────────
+
+export interface FormWelcomeScreen {
+  enabled: boolean;
+  title: string;
+  description?: string;
+  buttonText: string;
+  imageUrl?: string;
+}
+
+export interface FormEnding {
+  id: string;
+  title: string;
+  description?: string;
+  imageUrl?: string;
+  redirectDelay?: number;
+  redirectUrl?: string;
+  pixelEvent?: string;
+}
+
+// ── Theme / Settings ──────────────────────────────────────────────────────────
+
+export interface FormTheme {
+  primaryColor?: string;
+  backgroundColor?: string;
+  buttonStyle?: "rounded" | "square" | "pill";
+  buttonSize?: "sm" | "md" | "lg";
+  fontFamily?: string;
+  titleSize?: string;
+  descriptionSize?: string;
+  progressBar?: boolean;
+  textAlign?: "left" | "center" | "right";
+}
+
+export interface FormSettings {
+  redirectUrl?: string;
+  notificationEmails?: string[];
+  savePartial?: boolean;
+  allowBack?: boolean;
+  allowRestart?: boolean;
+  showProgress?: boolean;
+  showQuestionCounter?: boolean;
+}
+
+// ── Integrations ──────────────────────────────────────────────────────────────
+
+export interface FormIntegrations {
+  webhookUrl?: string;
+  pixelId?: string;
+  crmEnabled?: boolean;
+  calendarEnabled?: boolean;
+}
+
+// ── Form ──────────────────────────────────────────────────────────────────────
+
+export type FormStatus = "draft" | "published" | "archived" | "disabled";
+
+export interface Form {
+  id: string;
+  user_id: string;
+  created_by: string | null;
+  updated_by: string | null;
+  name: string;
+  slug: string;
+  description: string | null;
+  status: FormStatus;
+  theme: FormTheme;
+  settings: FormSettings;
+  steps: FormStep[];
+  logic_rules: LogicRule[];
+  welcome_screen: FormWelcomeScreen;
+  endings: FormEnding[];
+  integrations: FormIntegrations;
+  published_at: string | null;
+  deleted_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type NewForm = Pick<Form, "name" | "slug" | "description">;
+
+export type UpdateForm = Partial<
+  Pick<Form, "name" | "slug" | "description" | "status" | "theme" | "settings" | "steps" | "logic_rules" | "welcome_screen" | "endings" | "integrations">
+>;
+
+// ── Session ───────────────────────────────────────────────────────────────────
+
+export interface FormSession {
+  id: string;
+  form_id: string;
+  user_id: string;
+  token: string;
+  device: string | null;
+  browser: string | null;
+  os: string | null;
+  language: string | null;
+  country: string | null;
+  ip: string | null;
+  utm_source: string | null;
+  utm_medium: string | null;
+  utm_campaign: string | null;
+  utm_term: string | null;
+  utm_content: string | null;
+  fbclid: string | null;
+  gclid: string | null;
+  referrer: string | null;
+  is_partial: boolean;
+  started_at: string;
+  finished_at: string | null;
+  abandoned_at: string | null;
+}
+
+export type NewFormSession = Pick<
+  FormSession,
+  "form_id" | "user_id" | "device" | "browser" | "os" | "language" | "country" | "ip" |
+  "utm_source" | "utm_medium" | "utm_campaign" | "utm_term" | "utm_content" |
+  "fbclid" | "gclid" | "referrer"
+>;
+
+// ── Submission ────────────────────────────────────────────────────────────────
+
+export type FormSubmissionStatus = "partial" | "completed" | "spam";
+
+export interface FormSubmission {
+  id: string;
+  form_id: string;
+  user_id: string;
+  session_id: string | null;
+  lead_id: string | null;
+  status: FormSubmissionStatus;
+  answers: Record<string, unknown>;
+  score: number | null;
+  completed_at: string | null;
+  created_at: string;
+}
+
+// ── Events ────────────────────────────────────────────────────────────────────
+
+export type FormEventType =
+  // ── Sessão ──────────────────────────────────────────────────────────────────
+  | "page_loaded"
+  | "session_started"
+  | "session_resumed"
+  | "session_completed"
+  | "session_timeout"
+  // ── Welcome ─────────────────────────────────────────────────────────────────
+  | "welcome_view"
+  | "welcome_started"
+  // ── Navegação ───────────────────────────────────────────────────────────────
+  | "step_view"
+  | "step_completed"
+  | "back_clicked"
+  | "step_skipped"
+  | "validation_error"
+  // ── Respostas ────────────────────────────────────────────────────────────────
+  | "answer_changed"
+  | "answer_cleared"
+  | "answer_restored"
+  // ── Lógica ──────────────────────────────────────────────────────────────────
+  | "rule_matched"
+  | "rule_not_matched"
+  | "jump_executed"
+  | "ending_reached"
+  | "redirect_executed"
+  | "logic_executed"
+  // ── Formulário ──────────────────────────────────────────────────────────────
+  | "submission_started"
+  | "submission_finished"
+  | "abandoned"
+  | "restart"
+  | "form_error"
+  // ── Legado ──────────────────────────────────────────────────────────────────
+  | "booking_started"
+  | "booking_finished";
+
+export interface FormEvent {
+  id: string;
+  form_id: string;
+  user_id: string;
+  session_id: string | null;
+  step_id: string | null;
+  event: FormEventType;
+  duration: number | null;
+  meta: Record<string, unknown> | null;
+  idempotency_key: string | null;
+  created_at: string;
+}
+
+// ── Version ───────────────────────────────────────────────────────────────────
+
+export interface FormVersion {
+  id: string;
+  form_id: string;
+  user_id: string;
+  version: number;
+  snapshot: Partial<Form>;
+  published_at: string;
+}
+
+// ── Template ──────────────────────────────────────────────────────────────────
+
+export type FormTemplateCategory =
+  | "rh"
+  | "imobiliario"
+  | "comercial"
+  | "clinicas"
+  | "pesquisa"
+  | "eventos"
+  | "outro";
+
+export interface FormTemplate {
+  id: string;
+  name: string;
+  description: string | null;
+  category: FormTemplateCategory;
+  thumbnail_url: string | null;
+  steps: FormStep[];
+  welcome_screen: FormWelcomeScreen;
+  endings: FormEnding[];
+  settings: FormSettings;
+  is_public: boolean;
+  created_at: string;
+}
+
+// ── Analytics ─────────────────────────────────────────────────────────────────
+
+/**
+ * FormInsights — returned by GET /api/formularios/:id/insights.
+ * The `insights` field is a full InsightsDomain object from src/lib/analytics/types.ts.
+ * Re-exported here as a legacy alias for backward compatibility with the Insights page.
+ */
+export interface FormInsights {
+  // ── KPIs ────────────────────────────────────────────────────────────────────
+  total_views:           number;
+  total_starts:          number;
+  total_submissions:     number;
+  completion_rate:       number;
+  abandonment_rate:      number;
+  avg_duration_seconds:  number;
+  avg_completion_pct:    number;
+  // ── Drop-off ────────────────────────────────────────────────────────────────
+  drop_off_by_step: Array<{
+    step_id:         string;
+    step_title:      string;
+    views:           number;
+    completions:     number;
+    drop_rate:       number;
+    avg_duration_secs: number;
+  }>;
+  // ── Time series ─────────────────────────────────────────────────────────────
+  submissions_by_day: Array<{ date: string; count: number }>;
+  views_by_day:       Array<{ date: string; count: number }>;
+  starts_by_day:      Array<{ date: string; count: number }>;
+  // ── Devices & sources ───────────────────────────────────────────────────────
+  sessions_by_device:  Array<{ device: string; count: number }>;
+  sessions_by_browser: Array<{ browser: string; count: number }>;
+  sessions_by_os:      Array<{ os: string; count: number }>;
+  utm_sources:         Array<{ source: string; count: number }>;
+  referrers:           Array<{ referrer: string; count: number }>;
+  // ── Question ranking ─────────────────────────────────────────────────────────
+  question_ranking: Array<{
+    step_id:         string;
+    step_title:      string;
+    drop_rate:       number;
+    avg_duration_secs: number;
+  }>;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Módulo: Gerador de Criativos IA
 // ─────────────────────────────────────────────────────────────────────────────
