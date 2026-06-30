@@ -1,30 +1,30 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { LayoutGrid, BarChart2, Plug, Loader2 } from "lucide-react";
+import { LayoutGrid, BarChart2, Settings2 } from "lucide-react";
 import { Header } from "@/components/layout/Header";
 import { KanbanBoard } from "@/components/crm/KanbanBoard";
 import { LeadsAnalytics } from "@/components/crm/LeadsAnalytics";
-import { CrmIntegracoes } from "@/components/crm/CrmIntegracoes";
+import { PipelineAdmin } from "@/components/crm/admin/PipelineAdmin";
 import { cn } from "@/lib/utils";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// CRM Page — Kanban / Leads / Integrações
+// CRM Page — Kanban / Leads / Pipelines
 // ─────────────────────────────────────────────────────────────────────────────
 
-type TabId = "kanban" | "leads" | "integracoes";
+type TabId = "kanban" | "leads" | "pipelines";
 
 const TABS: { id: TabId; label: string; icon: React.ReactNode }[] = [
-  { id: "kanban",      label: "Kanban",       icon: <LayoutGrid size={15} /> },
-  { id: "leads",       label: "Leads",        icon: <BarChart2  size={15} /> },
-  { id: "integracoes", label: "Integrações",  icon: <Plug       size={15} /> },
+  { id: "kanban",    label: "Kanban",    icon: <LayoutGrid size={15} /> },
+  { id: "leads",     label: "Leads",     icon: <BarChart2  size={15} /> },
+  { id: "pipelines", label: "Pipelines", icon: <Settings2  size={15} /> },
 ];
 
 const SUBTITLES: Record<TabId, string> = {
-  kanban:      "Funil comercial de leads",
-  leads:       "Métricas e análise",
-  integracoes: "Integrações do CRM",
+  kanban:    "Funil comercial de leads",
+  leads:     "Métricas e análise",
+  pipelines: "Gerenciar pipelines e etapas",
 };
 
 export default function CrmPage() {
@@ -82,17 +82,9 @@ export default function CrmPage() {
           transition={{ duration: 0.2 }}
           className="pb-8"
         >
-          {activeTab === "kanban"      && <KanbanBoard />}
-          {activeTab === "leads"       && <LeadsAnalytics />}
-          {activeTab === "integracoes" && (
-            <Suspense fallback={
-              <div className="flex items-center justify-center py-24">
-                <Loader2 size={28} className="animate-spin text-[#4a8fd4]" />
-              </div>
-            }>
-              <CrmIntegracoes />
-            </Suspense>
-          )}
+          {activeTab === "kanban"    && <KanbanBoard />}
+          {activeTab === "leads"     && <LeadsAnalytics />}
+          {activeTab === "pipelines" && <PipelineAdmin />}
         </motion.div>
       </AnimatePresence>
     </div>

@@ -379,7 +379,7 @@ function MetricCard({
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function DashboardPage() {
-  const { leads, leadsByColumn, isLoading: leadsLoading } = useLeads();
+  const { leads, isLoading: leadsLoading } = useLeads();
   const now = new Date();
   const { data: finData } = useFinanceiroDashboard(now.getFullYear(), now.getMonth() + 1);
 
@@ -396,11 +396,11 @@ export default function DashboardPage() {
   const funnelCounts: FunnelCounts = leadsLoading
     ? { novo_lead: null, abordados: null, aplicacoes: null, reunioes: null, vendas: null }
     : {
-        novo_lead:  leadsByColumn.novo_lead.length,
-        abordados:  leadsByColumn.abordados.length,
-        aplicacoes: leadsByColumn.formulario_aplicado.length,
-        reunioes:   leadsByColumn.reuniao_realizada.length,
-        vendas:     leadsByColumn.venda_realizada.length,
+        novo_lead:  leads.filter((l) => l.kanban_column === "novo_lead").length,
+        abordados:  leads.filter((l) => l.kanban_column === "abordados").length,
+        aplicacoes: leads.filter((l) => l.kanban_column === "formulario_aplicado").length,
+        reunioes:   leads.filter((l) => l.kanban_column === "reuniao_realizada").length,
+        vendas:     leads.filter((l) => l.kanban_column === "venda_realizada").length,
       };
 
   const totalLeads = leadsLoading ? null : leads.length;

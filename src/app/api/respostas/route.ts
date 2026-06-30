@@ -41,6 +41,8 @@ export async function GET(req: NextRequest) {
   const sort      = (sp.get("sort") ?? "created_at") as SortField;
   const direction = (sp.get("direction") ?? "desc") as SortDirection;
   const asc       = direction === "asc";
+  const since     = sp.get("since") ?? undefined;
+  const until     = sp.get("until") ?? undefined;
   const userId    = user.id;
 
   // ── Build data query (synchronous — no round-trip yet) ────────────────────
@@ -54,6 +56,8 @@ export async function GET(req: NextRequest) {
   if (formId)                dataQuery = dataQuery.eq("form_id", formId);
   if (status)                dataQuery = dataQuery.eq("status", status);
   if (starred !== undefined) dataQuery = dataQuery.eq("starred", starred);
+  if (since)                 dataQuery = dataQuery.gte("created_at", since);
+  if (until)                 dataQuery = dataQuery.lte("created_at", until);
 
   if (q && q.length >= 3) {
     dataQuery = dataQuery.textSearch("answers_tsv", q, { type: "websearch", config: "portuguese" });
@@ -184,4 +188,28 @@ export async function GET(req: NextRequest) {
 
   const response: SubmissionsListResponse = { items, nextCursor, stats };
   return NextResponse.json(response);
+}
+
+// ── DELETE /api/respostas — exclusão em lote ──────────────────────────────────
+
+export async function DELETE(req: NextRequest) {
+  const supabase = await createServerSupabaseClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
+
+  const body = await req.json() as { ids?: unknown };
+  const ids = body.ids;
+
+  if (!Array.isArray(ids) || ids.length === 0 || !ids.every(id => typeof id === "string")) {
+    return NextResponse.json({ error: "IDs inválidos" }, { status: 400 });
+  }
+
+  const { error } = await supabase
+    .from("form_submissions")
+    .delete()
+    .in("id", ids as string[])
+    .eq("user_id", user.id);
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ deleted: ids.length });
 }

@@ -30,15 +30,7 @@ export function EndingEditor({ endings, onChange }: EndingEditorProps) {
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-sm font-semibold" style={{ color: "var(--text-title)" }}>
-            Tela de Encerramento
-          </h3>
-          <p className="text-[10px] mt-0.5" style={{ color: "var(--muted-foreground)" }}>
-            Exibida após o envio
-          </p>
-        </div>
+      <div className="flex justify-end">
         <button
           onClick={addEnding}
           className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg transition-all hover:opacity-90"
@@ -53,8 +45,7 @@ export function EndingEditor({ endings, onChange }: EndingEditorProps) {
       {endings.map((ending, idx) => (
         <div
           key={ending.id}
-          className="flex flex-col gap-3 p-3 rounded-xl border"
-          style={{ borderColor: "var(--border)", background: "var(--card)" }}
+          className="flex flex-col gap-3 p-3 lc-card-base"
         >
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-medium" style={{ color: "var(--muted-foreground)" }}>

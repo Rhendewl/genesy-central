@@ -21,6 +21,8 @@ function buildUrl(base: string, params: RespostasParams): string {
   if (params.direction) sp.set("direction", params.direction);
   if (params.archived !== undefined)  sp.set("archived",  params.archived ? "1" : "0");
   if (params.starred  !== undefined)  sp.set("starred",   params.starred  ? "1" : "0");
+  if (params.since)    sp.set("since", params.since);
+  if (params.until)    sp.set("until", params.until);
   const qs = sp.toString();
   return qs ? `${base}?${qs}` : base;
 }
@@ -41,6 +43,7 @@ export interface UseRespostasReturn {
   markRead:      (id: string) => Promise<boolean>;
   toggleStarred: (id: string, starred: boolean) => Promise<boolean>;
   archive:       (id: string) => Promise<boolean>;
+  deleteMany:    (ids: string[]) => Promise<boolean>;
 }
 
 export function useRespostas(opts: UseRespostasOptions = {}): UseRespostasReturn {
@@ -159,8 +162,25 @@ export function useRespostas(opts: UseRespostasOptions = {}): UseRespostasReturn
     return patch(id, { archived: true }, { archived: true });
   }, [patch]);
 
+  const deleteMany = useCallback(async (ids: string[]): Promise<boolean> => {
+    const prev = [...submissions];
+    setSubmissions(s => s.filter(x => !ids.includes(x.id)));
+    try {
+      const res = await fetch("/api/respostas", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      return true;
+    } catch {
+      setSubmissions(prev);
+      return false;
+    }
+  }, [submissions]);
+
   return {
     submissions, stats, isLoading, isFetching, error,
-    hasMore, loadMore, refresh, markRead, toggleStarred, archive,
+    hasMore, loadMore, refresh, markRead, toggleStarred, archive, deleteMany,
   };
 }

@@ -10,6 +10,7 @@ import type { InsightsDomain, RawInsightsData, FunnelStep, QuestionRankingItem }
 import {
   buildBreakdown,
   buildTimeSeries,
+  buildTimeSeriesGrouped,
   buildSourceBreakdown,
   buildReferrerBreakdown,
   computeAvgDurationSeconds,
@@ -19,11 +20,13 @@ import {
   computeAbandonmentRate,
   computeScoreDistribution,
   computeStepMetrics,
+  type Granularity,
 } from "./metrics";
 
 export function buildInsightsDomain(
   data:        RawInsightsData,
   periodDays = 30,
+  granularity: Granularity = "day",
 ): InsightsDomain {
   const { events, sessions, submissions, steps } = data;
 
@@ -47,11 +50,12 @@ export function buildInsightsDomain(
   const conversionEvents = submissions.filter(s => s.status === "completed");
 
   const series = {
-    views:        buildTimeSeries(viewEvents,       periodDays),
-    starts:       buildTimeSeries(startEvents,      periodDays),
-    conversions:  buildTimeSeries(conversionEvents, periodDays),
-    abandonments: buildTimeSeries(abandonEvents,    periodDays),
+    views:        buildTimeSeriesGrouped(viewEvents,       granularity),
+    starts:       buildTimeSeriesGrouped(startEvents,      granularity),
+    conversions:  buildTimeSeriesGrouped(conversionEvents, granularity),
+    abandonments: buildTimeSeriesGrouped(abandonEvents,    granularity),
   };
+  void buildTimeSeries; // kept in metrics for backward compat
 
   // ── Funnel & question ranking ─────────────────────────────────────────────
   const funnel: FunnelStep[]              = [];

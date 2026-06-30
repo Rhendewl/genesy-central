@@ -2,7 +2,7 @@ import type { ComponentType } from "react";
 import type { FormStep, FormStepType } from "@/types";
 import {
   Type, AlignLeft, Mail, Phone, Hash, Calendar,
-  CheckSquare, List, Star, FileText, ArrowRight, Upload,
+  CheckSquare, List, Star, FileText, ArrowRight, Upload, User,
   LucideProps,
 } from "lucide-react";
 
@@ -54,6 +54,14 @@ export const BLOCK_DEFINITIONS: BlockDefinition[] = [
     icon: Calendar,
     category: "text",
     color: "#66aed6",
+  },
+  {
+    type: "name",
+    label: "Nome",
+    description: "Nome do lead",
+    icon: User,
+    category: "contact",
+    color: "#22c55e",
   },
   {
     type: "email",
@@ -122,8 +130,8 @@ export const BLOCK_DEFINITIONS: BlockDefinition[] = [
 ];
 
 export const BLOCK_CATEGORIES: Array<{ key: BlockDefinition["category"]; label: string }> = [
-  { key: "text",    label: "Texto" },
   { key: "contact", label: "Contato" },
+  { key: "text",    label: "Texto" },
   { key: "choice",  label: "Escolha" },
   { key: "special", label: "Especial" },
 ];
@@ -143,6 +151,7 @@ export function createDefaultStep(type: FormStepType): FormStep {
   };
 
   switch (type) {
+    case "name":
     case "short_text":
     case "long_text":
     case "email":
@@ -172,7 +181,8 @@ export function createDefaultStep(type: FormStepType): FormStep {
 
 function getDefaultTitle(type: FormStepType): string {
   const map: Record<FormStepType, string> = {
-    short_text:      "Qual é o seu nome?",
+    name:            "Qual é o seu nome?",
+    short_text:      "Pergunta de texto",
     long_text:       "Conte-nos mais",
     email:           "Qual é o seu e-mail?",
     phone:           "Qual é o seu telefone?",

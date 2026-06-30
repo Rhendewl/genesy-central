@@ -61,9 +61,9 @@ function SpecialCard({
       aria-label={label}
       className="flex items-center gap-3 w-full px-3 py-3 rounded-xl border transition-all text-left"
       style={{
-        background: isSelected ? `${color}10` : "var(--card)",
-        borderColor: isSelected ? color : "var(--border)",
-        boxShadow: isSelected ? `0 0 0 1px ${color}` : undefined,
+        background: isSelected ? "rgba(255,255,255,0.07)" : "rgba(255,255,255,0.03)",
+        borderColor: isSelected ? "rgba(255,255,255,0.18)" : "rgba(255,255,255,0.07)",
+        boxShadow: isSelected ? "0 0 0 1px rgba(255,255,255,0.08), 0 2px 10px rgba(0,0,0,0.30)" : undefined,
       }}
     >
       <div
@@ -125,7 +125,7 @@ export function EditorCanvas({
           icon={Play}
           label="Tela de Boas-vindas"
           description={welcome.enabled ? welcome.title || "Configurar..." : "Desativada"}
-          color="#22c55e"
+          color="rgba(34,197,94,0.65)"
           isSelected={selectedId === "welcome"}
           onClick={onSelectWelcome}
         />
@@ -195,7 +195,7 @@ export function EditorCanvas({
           icon={Square}
           label="Tela de Encerramento"
           description={endings[0]?.title || "Configurar..."}
-          color="#ef4444"
+          color="rgba(239,68,68,0.65)"
           isSelected={selectedId === "ending"}
           onClick={onSelectEnding}
         />

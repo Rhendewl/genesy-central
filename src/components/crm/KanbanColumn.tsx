@@ -2,24 +2,23 @@
 
 import { useDroppable } from "@dnd-kit/core";
 import { AnimatePresence, motion } from "framer-motion";
-import type { Lead, KANBAN_COLUMNS } from "@/types";
+import type { Lead } from "@/types";
+import type { CrmStage } from "@/types/crm";
 import { LeadCard } from "./LeadCard";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // KanbanColumn
 //
-// - useDroppable: registra a coluna como zona de drop do dnd-kit
+// - useDroppable: registra a coluna como zona de drop do dnd-kit (id = stage.id)
 // - isOver: highlight visual quando um card está sendo arrastado sobre ela
-// - Glassmorphism no header com cor da coluna
+// - Glassmorphism no header com cor da stage
 // - Contador animado de leads
 // - AnimatePresence: entrada/saída suave dos cards
 // - Empty state com dashed border que reage ao isOver
 // ─────────────────────────────────────────────────────────────────────────────
 
-type ColumnDef = (typeof KANBAN_COLUMNS)[number];
-
 interface KanbanColumnProps {
-  column: ColumnDef;
+  stage: CrmStage;
   leads: Lead[];
   totalValue: number;
   onEditLead: (leadId: string) => void;
@@ -30,8 +29,8 @@ function fmtBRL(v: number): string {
   return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
-export function KanbanColumn({ column, leads, totalValue, onEditLead }: KanbanColumnProps) {
-  const { setNodeRef, isOver } = useDroppable({ id: column.id });
+export function KanbanColumn({ stage, leads, totalValue, onEditLead }: KanbanColumnProps) {
+  const { setNodeRef, isOver } = useDroppable({ id: stage.id });
 
   return (
     <div
@@ -54,17 +53,17 @@ export function KanbanColumn({ column, leads, totalValue, onEditLead }: KanbanCo
     >
       {/* ── Header ── */}
       <div className="px-4 pt-4 pb-3">
-        {/* Linha 1: dot + label + badge */}
+        {/* Linha 1: dot colorido + label + badge */}
         <div className="flex items-center gap-2.5">
           <span
             className="h-1.5 w-1.5 flex-shrink-0 rounded-full"
-            style={{ background: "rgba(255,255,255,0.35)" }}
+            style={{ background: stage.color ?? "rgba(255,255,255,0.35)" }}
           />
           <span
             className="flex-1 truncate text-[11px] font-semibold uppercase tracking-widest"
             style={{ color: "rgba(255,255,255,0.55)" }}
           >
-            {column.label}
+            {stage.name}
           </span>
           <motion.span
             key={leads.length}

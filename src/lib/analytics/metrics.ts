@@ -14,6 +14,35 @@ import type {
   ScoreDistribution,
 } from "./types";
 
+export type Granularity = "hour" | "day" | "week" | "month";
+
+function groupKey(iso: string, g: Granularity): string {
+  if (g === "hour")  return iso.slice(0, 13);      // "2024-01-15T14"
+  if (g === "day")   return iso.slice(0, 10);      // "2024-01-15"
+  if (g === "month") return iso.slice(0, 7);       // "2024-01"
+  // week: ISO week key "YYYY-Www"
+  const d   = new Date(iso);
+  const thu = new Date(d); thu.setDate(d.getDate() - ((d.getDay() + 6) % 7) + 3);
+  const y   = thu.getFullYear();
+  const jan4 = new Date(y, 0, 4);
+  const w   = 1 + Math.round((thu.getTime() - jan4.getTime()) / 604_800_000);
+  return `${y}-W${String(w).padStart(2, "0")}`;
+}
+
+export function buildTimeSeriesGrouped(
+  rows: ReadonlyArray<{ created_at: string }>,
+  granularity: Granularity = "day",
+): TimeSeriesPoint[] {
+  const counts: Record<string, number> = {};
+  for (let i = 0; i < rows.length; i++) {
+    const key = groupKey(rows[i].created_at, granularity);
+    counts[key] = (counts[key] ?? 0) + 1;
+  }
+  return Object.entries(counts)
+    .map(([date, value]) => ({ date, value }))
+    .sort((a, b) => a.date.localeCompare(b.date));
+}
+
 // ── Breakdown helpers ─────────────────────────────────────────────────────────
 
 /** Counts occurrences of each key in an array of nullable strings. */
@@ -59,11 +88,15 @@ export function buildTimeSeries(
 
 // ── Session duration ──────────────────────────────────────────────────────────
 
-/** Returns the average duration (ms → seconds) of completed sessions. */
+// Sessions longer than this are excluded — user almost certainly left the tab open.
+const MAX_SESSION_MS = 30 * 60 * 1000; // 30 minutes
+
+/** Returns the average duration (seconds) of completed sessions, excluding outliers > 30 min. */
 export function computeAvgDurationSeconds(sessions: ReadonlyArray<RawSessionRow>): number {
   const durations = sessions
-    .filter(s => s.finished_at !== null)
-    .map(s => new Date(s.finished_at!).getTime() - new Date(s.started_at).getTime());
+    .filter(s => s.finished_at !== null && s.started_at !== null)
+    .map(s => new Date(s.finished_at!).getTime() - new Date(s.started_at).getTime())
+    .filter(ms => ms > 0 && ms <= MAX_SESSION_MS);
 
   if (durations.length === 0) return 0;
   const total = durations.reduce((a, b) => a + b, 0);

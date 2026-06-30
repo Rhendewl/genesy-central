@@ -12,6 +12,9 @@ interface ToggleProps {
 }
 
 export function Toggle({ enabled, onToggle, label }: ToggleProps) {
+  // Track: 36×20px | Thumb: 16×16px | Padding: 2px
+  // ON left: 36 - 16 - 2 = 18px  → right edge = 34px (dentro dos 36px) ✓
+  // OFF left: 2px
   const btn = (
     <button
       type="button"
@@ -19,15 +22,24 @@ export function Toggle({ enabled, onToggle, label }: ToggleProps) {
       aria-checked={enabled}
       aria-label={label}
       onClick={onToggle}
-      className="relative w-8 h-4 rounded-full transition-colors flex-shrink-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+      className="relative flex-shrink-0 rounded-full transition-colors duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
       style={{
-        background: enabled ? "var(--primary)" : "var(--border)",
+        width: 36,
+        height: 20,
+        background: enabled ? "var(--primary)" : "rgba(255,255,255,0.12)",
         outlineColor: "var(--primary)",
       }}
     >
       <span
-        className="absolute top-0.5 w-3 h-3 rounded-full bg-white transition-transform"
-        style={{ transform: enabled ? "translateX(18px)" : "translateX(2px)" }}
+        className="absolute rounded-full bg-white transition-all duration-200"
+        style={{
+          top: 2,
+          left: enabled ? 18 : 2,
+          width: 16,
+          height: 16,
+          boxShadow: "0 1px 3px rgba(0,0,0,0.25)",
+        }}
+        aria-hidden="true"
       />
     </button>
   );

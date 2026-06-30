@@ -80,7 +80,19 @@ export interface FormEventPayloads {
   // ── Submissão ────────────────────────────────────────────────────────────
   "form.submission.started":    { formSlug: string };
   "form.submission.retry":      { formSlug: string; attempt: number };
-  "form.submission.succeeded":  { formSlug: string; submissionId?: string };
+  "form.submission.succeeded":  {
+    formSlug:      string;
+    submissionId?: string;
+    user_data?: {
+      em?:                string[];   // SHA-256 hashed email(s)
+      ph?:                string[];   // SHA-256 hashed phone(s)
+      fn?:                string[];   // SHA-256 hashed first name(s)
+      ln?:                string[];   // SHA-256 hashed last name(s)
+      fbp?:               string;
+      fbc?:               string;
+      client_user_agent?: string;
+    };
+  };
   "form.submission.failed":     { formSlug: string; reason: string };
   // ── Conectividade ────────────────────────────────────────────────────────
   "form.offline":               { formSlug: string };

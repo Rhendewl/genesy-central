@@ -47,16 +47,34 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
   const isAuthenticated = !isChecking && !!session;
   const isPortalPage  = pathname?.startsWith("/portal/")  ?? false;
   const isConvitePage = pathname?.startsWith("/convite/")  ?? false;
-  const showDock = isAuthenticated && !isPortalPage && !isConvitePage;
+  const isFormPage    = pathname?.startsWith("/form/")     ?? false;
+  const showDock = isAuthenticated && !isPortalPage && !isConvitePage && !isFormPage;
 
   // Em canvas mode o Dock se oculta sozinho, mas o padding do <main> precisa
   // ser removido explicitamente para o canvas ocupar 100% da viewport.
   const mainClass = showDock && !canvasMode
-    ? "min-h-dvh pb-28 lg:pb-0 lg:pl-[80px]"
+    ? "min-h-dvh pb-28 md:pb-0 md:pl-[80px]"
     : "min-h-dvh";
 
   return (
     <>
+      {isAuthenticated && (
+        <div
+          aria-hidden="true"
+          style={{
+            position:           "fixed",
+            inset:              0,
+            zIndex:             -1,
+            pointerEvents:      "none",
+            backgroundImage:    "url('/bg-premium.jpg')",
+            backgroundSize:     "cover",
+            backgroundPosition: "center",
+            backgroundRepeat:   "no-repeat",
+            opacity:            0.4,
+          }}
+        />
+      )}
+
       <main className={mainClass}>
         {children}
       </main>

@@ -1,8 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { ArrowLeft, Eye, EyeOff, Send } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { ArrowLeft, Send } from "lucide-react";
 import type { FormStatus } from "@/types";
 import { SaveIndicator } from "./SaveIndicator";
 
@@ -11,10 +10,8 @@ interface EditorToolbarProps {
   formStatus: FormStatus;
   isDirty: boolean;
   isSaving: boolean;
-  previewMode: boolean;
   onBack: () => void;
   onSave: () => void;
-  onTogglePreview: () => void;
   onChangeName: (name: string) => void;
   onPublish: () => void;
 }
@@ -31,10 +28,8 @@ export function EditorToolbar({
   formStatus,
   isDirty,
   isSaving,
-  previewMode,
   onBack,
   onSave,
-  onTogglePreview,
   onChangeName,
   onPublish,
 }: EditorToolbarProps) {
@@ -64,8 +59,10 @@ export function EditorToolbar({
     <div
       className="flex items-center gap-3 px-4 h-12 flex-shrink-0"
       style={{
-        borderBottom: "1px solid var(--border)",
-        background: "var(--background)",
+        borderBottom: "1px solid rgba(255,255,255,0.07)",
+        background: "rgba(0,0,0,0.70)",
+        backdropFilter: "blur(24px) saturate(160%)",
+        WebkitBackdropFilter: "blur(24px) saturate(160%)",
       }}
       role="toolbar"
       aria-label="Barra do editor"
@@ -82,7 +79,7 @@ export function EditorToolbar({
       </button>
 
       {/* Divisor */}
-      <div className="w-px h-4 flex-shrink-0" style={{ background: "var(--border)" }} aria-hidden="true" />
+      <div className="w-px h-4 flex-shrink-0" style={{ background: "rgba(255,255,255,0.10)" }} aria-hidden="true" />
 
       {/* Nome editável */}
       <div className="flex-1 flex items-center gap-2 min-w-0">
@@ -93,7 +90,7 @@ export function EditorToolbar({
             style={{
               color: "var(--text-title)",
               borderColor: "var(--primary)",
-              background: "var(--card)",
+              background: "rgba(0,0,0,0.30)",
               maxWidth: 320,
             }}
             value={nameVal}
@@ -101,7 +98,7 @@ export function EditorToolbar({
             onChange={e => setNameVal(e.target.value)}
             onBlur={commitName}
             onKeyDown={e => {
-              if (e.key === "Enter") commitName();
+              if (e.key === "Enter")  commitName();
               if (e.key === "Escape") { setEditing(false); setNameVal(formName); }
             }}
           />
@@ -131,31 +128,12 @@ export function EditorToolbar({
         <SaveIndicator isDirty={isDirty} isSaving={isSaving} onSave={onSave} />
       </div>
 
-      {/* Preview toggle */}
-      <button
-        onClick={onTogglePreview}
-        className={cn(
-          "flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg transition-all hover:opacity-90 flex-shrink-0",
-        )}
-        style={{
-          background: previewMode ? "var(--primary)" : "var(--card)",
-          color: previewMode ? "#fff" : "var(--muted-foreground)",
-          border: `1px solid ${previewMode ? "var(--primary)" : "var(--border)"}`,
-        }}
-        aria-label={previewMode ? "Voltar ao editor" : "Abrir preview do formulário"}
-        aria-pressed={previewMode}
-        title={previewMode ? "Editar (Ctrl+P)" : "Preview (Ctrl+P)"}
-      >
-        {previewMode ? <EyeOff size={13} aria-hidden="true" /> : <Eye size={13} aria-hidden="true" />}
-        <span className="hidden sm:inline">{previewMode ? "Editar" : "Preview"}</span>
-      </button>
-
       {/* Publicar */}
       {formStatus !== "published" && (
         <button
           onClick={onPublish}
           className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg transition-all hover:opacity-90 flex-shrink-0"
-          style={{ background: "#22c55e18", color: "#22c55e", border: "1px solid #22c55e40" }}
+          style={{ background: "rgba(102,174,214,0.12)", color: "#66aed6", border: "1px solid rgba(102,174,214,0.22)" }}
           aria-label="Publicar formulário"
         >
           <Send size={12} aria-hidden="true" />

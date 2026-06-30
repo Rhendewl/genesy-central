@@ -64,6 +64,8 @@ export interface Lead {
   form_name: string | null;
   is_duplicate: boolean;
   kanban_column: KanbanColumn;
+  pipeline_id: string | null;
+  stage_id: string | null;
   tags: string[]; // array of tag ids
   notes: string | null;
   deal_value: number;
@@ -72,8 +74,11 @@ export interface Lead {
   updated_at: string;
 }
 
-export type NewLead = Pick<Lead, "name" | "contact" | "kanban_column" | "tags" | "notes" | "deal_value" | "entered_at">;
-export type UpdateLead = Partial<NewLead>;
+export type NewLead = Pick<Lead, "name" | "contact" | "kanban_column" | "tags" | "notes" | "deal_value" | "entered_at"> & {
+  stage_id?: string | null;
+  pipeline_id?: string | null;
+};
+export type UpdateLead = Partial<Pick<Lead, "name" | "contact" | "kanban_column" | "tags" | "notes" | "deal_value" | "entered_at">>;
 
 export interface LeadMovement {
   id: string;
@@ -888,6 +893,7 @@ export interface PortalCreative {
 // ── Step types ────────────────────────────────────────────────────────────────
 
 export type FormStepType =
+  | "name"
   | "short_text"
   | "long_text"
   | "email"
@@ -980,6 +986,7 @@ export interface FormEnding {
 export interface FormTheme {
   primaryColor?: string;
   backgroundColor?: string;
+  textColor?: string;
   buttonStyle?: "rounded" | "square" | "pill";
   buttonSize?: "sm" | "md" | "lg";
   fontFamily?: string;
@@ -987,6 +994,7 @@ export interface FormTheme {
   descriptionSize?: string;
   progressBar?: boolean;
   textAlign?: "left" | "center" | "right";
+  borderRadius?: string;
 }
 
 export interface FormSettings {
@@ -997,15 +1005,35 @@ export interface FormSettings {
   allowRestart?: boolean;
   showProgress?: boolean;
   showQuestionCounter?: boolean;
+  antiFraudEnabled?: boolean;
 }
 
 // ── Integrations ──────────────────────────────────────────────────────────────
 
+export type PixelMode = "browser" | "capi" | "both";
+
+export interface FormMetaPixelConfig {
+  enabled:       boolean;
+  pixelId:       string;
+  event:         string;
+  mode:          PixelMode;
+  accessToken:   string;
+  testEventCode: string;
+}
+
+export interface FormWebhookConfig {
+  enabled: boolean;
+  url:     string;
+  secret:  string;
+}
+
 export interface FormIntegrations {
-  webhookUrl?: string;
-  pixelId?: string;
-  crmEnabled?: boolean;
+  webhookUrl?:      string;
+  pixelId?:         string;
+  crmEnabled?:      boolean;
   calendarEnabled?: boolean;
+  metaPixel?:       FormMetaPixelConfig;
+  webhook?:         FormWebhookConfig;
 }
 
 // ── Form ──────────────────────────────────────────────────────────────────────
@@ -1032,6 +1060,7 @@ export interface Form {
   deleted_at: string | null;
   created_at: string;
   updated_at: string;
+  response_count?: number;
 }
 
 export type NewForm = Pick<Form, "name" | "slug" | "description">;

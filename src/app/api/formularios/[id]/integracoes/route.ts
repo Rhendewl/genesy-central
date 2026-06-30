@@ -49,7 +49,8 @@ export async function POST(req: NextRequest, { params }: Params) {
   const { data, error } = await supabase
     .from("form_integrations")
     .insert({
-      form_id: id,
+      form_id:  id,
+      user_id:  user.id,
       adapter,
       enabled,
       settings,

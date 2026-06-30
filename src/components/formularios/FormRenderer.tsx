@@ -173,9 +173,21 @@ export const FormRenderer = React.memo(function FormRenderer({
   useEffect(() => {
     if (!loadedRef.current) {
       loadedRef.current = true;
+      console.log("[FormRenderer] mounted, screen=", screen, "steps=", steps.length, "currentStep=", currentStep?.id ?? null, "theme.bg=", form.theme?.backgroundColor);
       onRendererLoadedRef.current?.();
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // ── Fallback defensivo: screen=welcome mas welcome_screen é null ────────────
+  // O hook nunca deveria chegar aqui nesse estado, mas se chegar, avança para o step.
+  useEffect(() => {
+    if (screen === "welcome" && !form.welcome_screen) {
+      console.warn("[FormRenderer] screen=welcome but form.welcome_screen is null → forcing start");
+      onStartRef.current();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [screen, form.welcome_screen]);
 
   // ── Analytics: eventos de troca de tela ───────────────────────────────────
   useEffect(() => {

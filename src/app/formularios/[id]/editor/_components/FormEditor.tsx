@@ -2,7 +2,7 @@
 
 // ─────────────────────────────────────────────────────────────────────────────
 // FormEditor — orquestrador principal do editor visual
-// Gerencia: seleção de elemento, modo preview, painel ativo, ops de steps.
+// Layout: ContentSidebar | LivePreview | PropertiesPanel
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useState, useEffect, useCallback, useRef } from "react";
@@ -18,12 +18,12 @@ import type {
 } from "@/types";
 
 import { EditorToolbar }  from "./EditorToolbar";
-import { EditorSidebar }  from "./EditorSidebar";
-import { EditorCanvas }   from "./EditorCanvas";
+import { ContentSidebar } from "./ContentSidebar";
+import { LivePreview }    from "./LivePreview";
 import { BlockSettings }  from "./BlockSettings";
 import { WelcomeEditor }  from "./WelcomeEditor";
 import { EndingEditor }   from "./EndingEditor";
-import { PreviewPanel }   from "./PreviewPanel";
+import { ThemeEditor }    from "./ThemeEditor";
 import { createDefaultStep } from "./blocks";
 
 // ── Defaults ──────────────────────────────────────────────────────────────────
@@ -36,8 +36,8 @@ const DEFAULT_WELCOME: FormWelcomeScreen = {
 };
 
 const DEFAULT_THEME: FormTheme = {
-  primaryColor:    "var(--primary)",
-  backgroundColor: "var(--background)",
+  primaryColor:    "#22c55e",
+  backgroundColor: "#ffffff",
   buttonStyle:     "rounded",
   textAlign:       "left",
   progressBar:     true,
@@ -47,7 +47,7 @@ const HISTORY_MAX = 50;
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 
-type SelectedElement = null | "welcome" | "ending" | string;
+type SelectedElement = null | "welcome" | "ending" | "theme" | string;
 
 interface FormEditorProps {
   id: string;
@@ -61,15 +61,11 @@ export function FormEditor({ id }: FormEditorProps) {
   const { publicarFormulario } = useFormularios();
   const { form, isLoading, isSaving, isDirty, save, updateSteps } = editor;
 
-  const [selected,    setSelected]    = useState<SelectedElement>(null);
-  const [previewMode, setPreviewMode] = useState(false);
-  const [activePanel, setActivePanel] = useState<"blocks" | "theme">("blocks");
+  const [selected, setSelected] = useState<SelectedElement>(null);
 
   const historyStack = useRef<FormStep[][]>([]);
 
   // ── Atalhos de teclado ─────────────────────────────────────────────────────
-  // Deps: save e updateSteps são callbacks estáveis — o listener é registrado
-  // uma única vez e não precisa ser removido/adicionado a cada render.
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       const meta = e.metaKey || e.ctrlKey;
@@ -77,11 +73,6 @@ export function FormEditor({ id }: FormEditorProps) {
       if (meta && e.key === "s") {
         e.preventDefault();
         save();
-        return;
-      }
-      if (meta && e.key === "p") {
-        e.preventDefault();
-        setPreviewMode(m => !m);
         return;
       }
       if (meta && e.key === "z") {
@@ -129,7 +120,6 @@ export function FormEditor({ id }: FormEditorProps) {
     const step = createDefaultStep(type);
     editor.updateSteps([...(form.steps ?? []), step]);
     setSelected(step.id);
-    setActivePanel("blocks");
   }, [form, editor]);
 
   const removeStep = useCallback((stepId: string) => {
@@ -206,26 +196,17 @@ export function FormEditor({ id }: FormEditorProps) {
   const theme   = { ...DEFAULT_THEME, ...form.theme };
 
   const selectedStep =
-    selected && selected !== "welcome" && selected !== "ending"
+    selected && selected !== "welcome" && selected !== "ending" && selected !== "theme"
       ? steps.find(s => s.id === selected) ?? null
       : null;
 
-  // ── Painel direito ─────────────────────────────────────────────────────────
+  // ── Painel de propriedades (direito) ───────────────────────────────────────
 
-  function renderRightPanel() {
-    if (!selected) {
+  function renderProperties() {
+    if (selected === "theme") {
       return (
-        <div className="flex flex-col items-center justify-center h-full gap-3 p-8 text-center">
-          <div
-            className="w-10 h-10 rounded-xl flex items-center justify-center"
-            style={{ background: "var(--accent)" }}
-            aria-hidden="true"
-          >
-            <MousePointer2 size={18} style={{ color: "var(--muted-foreground)" }} />
-          </div>
-          <p className="text-xs leading-relaxed" style={{ color: "var(--muted-foreground)" }}>
-            Selecione um elemento no canvas para editar suas propriedades
-          </p>
+        <div className="p-4 overflow-y-auto h-full">
+          <ThemeEditor theme={theme} onChange={editor.updateTheme} />
         </div>
       );
     }
@@ -233,7 +214,7 @@ export function FormEditor({ id }: FormEditorProps) {
     if (selected === "welcome") {
       return (
         <div className="p-4 overflow-y-auto h-full">
-          <WelcomeEditor welcome={welcome} onChange={editor.updateWelcome} />
+          <WelcomeEditor welcome={welcome} onChange={editor.updateWelcome} formId={id} />
         </div>
       );
     }
@@ -257,8 +238,28 @@ export function FormEditor({ id }: FormEditorProps) {
       );
     }
 
-    return null;
+    // Empty state
+    return (
+      <div className="flex flex-col items-center justify-center h-full gap-3 p-8 text-center">
+        <div
+          className="w-10 h-10 rounded-xl flex items-center justify-center"
+          style={{ background: "var(--accent)" }}
+          aria-hidden="true"
+        >
+          <MousePointer2 size={18} style={{ color: "var(--muted-foreground)" }} />
+        </div>
+        <p className="text-xs leading-relaxed" style={{ color: "var(--muted-foreground)" }}>
+          Selecione um elemento na lista para editar suas propriedades
+        </p>
+      </div>
+    );
   }
+
+  const propertyPanelLabel =
+    selected === "welcome" ? "Boas-vindas" :
+    selected === "ending"  ? "Encerramento" :
+    selected === "theme"   ? "Tema" :
+    selectedStep           ? "Propriedades" : "";
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
@@ -272,122 +273,74 @@ export function FormEditor({ id }: FormEditorProps) {
         formStatus={form.status}
         isDirty={isDirty}
         isSaving={isSaving}
-        previewMode={previewMode}
         onSave={save}
-        onBack={() => router.push("/formularios")}
-        onTogglePreview={() => setPreviewMode(m => !m)}
+        onBack={() => router.push(`/formularios/${id}`)}
         onChangeName={name =>
           editor.updateMeta({ name, description: form.description ?? null, slug: form.slug })
         }
         onPublish={handlePublish}
       />
 
-      {previewMode ? (
-        <PreviewPanel form={{ ...form, theme, welcome_screen: welcome }} />
-      ) : (
-        <div className="flex flex-1 overflow-hidden">
-          {/* ── Sidebar esquerda ── */}
-          <div
-            className="w-72 flex-shrink-0 flex flex-col border-r overflow-hidden"
-            style={{ borderColor: "var(--border)" }}
-          >
-            <div className="flex border-b" style={{ borderColor: "var(--border)" }}>
-              {(["blocks", "theme"] as const).map(panel => (
-                <button
-                  key={panel}
-                  onClick={() => setActivePanel(panel)}
-                  aria-pressed={activePanel === panel}
-                  className="flex-1 py-3 text-xs font-medium transition-all"
-                  style={{
-                    color:
-                      activePanel === panel
-                        ? "var(--text-title)"
-                        : "var(--muted-foreground)",
-                    borderBottom:
-                      activePanel === panel
-                        ? "2px solid var(--primary)"
-                        : "2px solid transparent",
-                  }}
-                >
-                  {panel === "blocks" ? "Blocos" : "Tema"}
-                </button>
-              ))}
-            </div>
+      <div className="flex flex-1 overflow-hidden">
 
-            <div className="flex-1 overflow-y-auto">
-              <EditorSidebar
-                activePanel={activePanel}
-                theme={theme}
-                onAddBlock={addStep}
-                onThemeChange={editor.updateTheme}
-              />
-            </div>
-          </div>
+        {/* ── Sidebar esquerda — Conteúdo ── */}
+        <ContentSidebar
+          steps={steps}
+          welcome={welcome}
+          endings={endings}
+          selectedId={selected}
+          onSelectWelcome={() => setSelected(s => s === "welcome" ? null : "welcome")}
+          onSelectStep={id => setSelected(s => s === id ? null : id)}
+          onSelectEnding={() => setSelected(s => s === "ending" ? null : "ending")}
+          onAddStep={addStep}
+          onDeleteStep={removeStep}
+          onDuplicateStep={duplicateStep}
+          onReorderSteps={reorderSteps}
+        />
 
-          {/* ── Canvas central ── */}
-          <div
-            className="flex-1 overflow-y-auto"
-            style={{ background: "var(--muted)" }}
-          >
-            <EditorCanvas
-              welcome={welcome}
-              steps={steps}
-              endings={endings}
-              selectedId={selected}
-              onSelectWelcome={() =>
-                setSelected(s => s === "welcome" ? null : "welcome")
-              }
-              onSelectEnding={() =>
-                setSelected(s => s === "ending" ? null : "ending")
-              }
-              onSelectStep={stepId =>
-                setSelected(s => s === stepId ? null : stepId)
-              }
-              onAddStep={addStep}
-              onDeleteStep={removeStep}
-              onDuplicateStep={duplicateStep}
-              onReorderSteps={reorderSteps}
-              onOpenBlockLibrary={() => setActivePanel("blocks")}
-            />
-          </div>
+        {/* ── Centro — Preview em tempo real ── */}
+        <LivePreview
+          form={{ ...form, theme, welcome_screen: welcome }}
+          selectedId={selected}
+          onSelectTheme={() => setSelected(s => s === "theme" ? null : "theme")}
+        />
 
-          {/* ── Painel direito ── */}
-          <div
-            className="w-80 flex-shrink-0 border-l flex flex-col overflow-hidden"
-            style={{ borderColor: "var(--border)" }}
-          >
-            {selected && (
-              <div
-                className="px-4 py-2.5 border-b flex items-center justify-between"
-                style={{ borderColor: "var(--border)" }}
+        {/* ── Painel direito — Propriedades ── */}
+        <div
+          className="w-80 flex-shrink-0 border-l flex flex-col overflow-hidden"
+          style={{
+            borderColor: "rgba(255,255,255,0.07)",
+            background: "rgba(255,255,255,0.025)",
+          }}
+        >
+          {selected && (
+            <div
+              className="px-4 py-2.5 border-b flex items-center justify-between flex-shrink-0"
+              style={{ borderColor: "rgba(255,255,255,0.07)" }}
+            >
+              <span
+                className="text-[10px] font-semibold uppercase tracking-wider"
+                style={{ color: "var(--muted-foreground)" }}
               >
-                <span
-                  className="text-[10px] font-semibold uppercase tracking-wider"
-                  style={{ color: "var(--muted-foreground)" }}
-                >
-                  {selected === "welcome"
-                    ? "Boas-vindas"
-                    : selected === "ending"
-                      ? "Encerramento"
-                      : "Propriedades"}
-                </span>
-                <button
-                  onClick={() => setSelected(null)}
-                  className="text-xs hover:opacity-60 transition-opacity"
-                  style={{ color: "var(--muted-foreground)" }}
-                  aria-label="Fechar painel de propriedades"
-                >
-                  ✕
-                </button>
-              </div>
-            )}
-
-            <div className="flex-1 overflow-y-auto">
-              {renderRightPanel()}
+                {propertyPanelLabel}
+              </span>
+              <button
+                onClick={() => setSelected(null)}
+                className="text-xs hover:opacity-60 transition-opacity"
+                style={{ color: "var(--muted-foreground)" }}
+                aria-label="Fechar painel de propriedades"
+              >
+                ✕
+              </button>
             </div>
+          )}
+
+          <div className="flex-1 overflow-y-auto">
+            {renderProperties()}
           </div>
         </div>
-      )}
+
+      </div>
     </div>
   );
 }

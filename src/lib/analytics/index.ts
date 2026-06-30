@@ -27,6 +27,7 @@ export { buildInsightsDomain }                               from "./domain";
 export {
   buildBreakdown,
   buildTimeSeries,
+  buildTimeSeriesGrouped,
   computeConversionRate,
   computeAbandonmentRate,
   computeAvgDurationSeconds,
@@ -34,5 +35,6 @@ export {
   computeAvgCompletionPct,
   computeScoreDistribution,
 } from "./metrics";
+export type { Granularity } from "./metrics";
 export { collectDeviceInfo, collectUtmParams, detectBrowser, detectDevice, detectOS } from "./device";
 export type { DeviceInfo, UtmParams } from "./device";

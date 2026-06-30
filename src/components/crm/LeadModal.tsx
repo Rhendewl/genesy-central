@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useModalOpen } from "@/hooks/useModalOpen";
 import { AnimatePresence, motion } from "framer-motion";
 import { X, Loader2, Trash2, Tag as TagIcon } from "lucide-react";
@@ -12,9 +12,10 @@ import { MoneyInput } from "@/components/ui/MoneyInput";
 import { useTags } from "@/hooks/useTags";
 import type { KanbanColumn, Lead, NewLead, UpdateLead } from "@/types";
 import { KANBAN_COLUMNS } from "@/types";
+import type { CrmStage } from "@/types/crm";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Utilitários de máscara monetária (centavos → exibição → centavos)
+// Utilitários
 // ─────────────────────────────────────────────────────────────────────────────
 
 function friendlyError(raw: string): string {
@@ -31,14 +32,17 @@ function friendlyError(raw: string): string {
   return "Ocorreu um erro ao salvar. Tente novamente.";
 }
 
-
 // ─────────────────────────────────────────────────────────────────────────────
 // LeadModal — criar e editar leads
+//
+// Criação: stage selecionável (stages do pipeline ativo)
+// Edição:  stage é exibida como read-only — mover via drag-and-drop no Kanban
 // ─────────────────────────────────────────────────────────────────────────────
 
 interface LeadModalProps {
   isOpen: boolean;
   lead: Lead | null;
+  stages: CrmStage[];   // active stages of the currently selected pipeline
   onClose: () => void;
   onCreate: (data: NewLead) => Promise<{ error: string | null }>;
   onUpdate: (id: string, data: UpdateLead) => Promise<{ error: string | null }>;
@@ -49,11 +53,11 @@ const TODAY = format(new Date(), "yyyy-MM-dd");
 
 function emptyForm() {
   return {
-    name: "",
-    contact: "",
-    kanban_column: "novo_lead" as KanbanColumn,
-    tags: [] as string[],
-    notes: "",
+    name:       "",
+    contact:    "",
+    stage_id:   null as string | null,
+    tags:       [] as string[],
+    notes:      "",
     entered_at: TODAY,
   };
 }
@@ -61,6 +65,7 @@ function emptyForm() {
 export function LeadModal({
   isOpen,
   lead,
+  stages,
   onClose,
   onCreate,
   onUpdate,
@@ -69,12 +74,12 @@ export function LeadModal({
   const { tags } = useTags();
   const firstInputRef = useRef<HTMLInputElement>(null);
 
-  const [form, setForm]               = useState(emptyForm());
-  const [dealValue, setDealValue]     = useState(0);
-  const [isSubmitting, setIsSubmitting]     = useState(false);
-  const [isDeleting, setIsDeleting]         = useState(false);
-  const [confirmDelete, setConfirmDelete]   = useState(false);
-  const [error, setError]                   = useState<string | null>(null);
+  const [form, setForm]             = useState(emptyForm());
+  const [dealValue, setDealValue]   = useState(0);
+  const [isSubmitting, setIsSubmitting]   = useState(false);
+  const [isDeleting, setIsDeleting]       = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [error, setError]                 = useState<string | null>(null);
 
   useModalOpen(isOpen);
   const isEditing = lead !== null;
@@ -87,20 +92,22 @@ export function LeadModal({
       setConfirmDelete(false);
       if (lead) {
         setForm({
-          name: lead.name,
-          contact: lead.contact,
-          kanban_column: lead.kanban_column,
-          tags: lead.tags as string[],
-          notes: lead.notes ?? "",
+          name:       lead.name,
+          contact:    lead.contact,
+          stage_id:   lead.stage_id ?? null,
+          tags:       lead.tags as string[],
+          notes:      lead.notes ?? "",
           entered_at: lead.entered_at,
         });
         setDealValue(lead.deal_value ?? 0);
       } else {
-        setForm(emptyForm());
+        // Usa a primeira stage ativa como padrão ao criar
+        setForm({ ...emptyForm(), stage_id: stages[0]?.id ?? null });
         setDealValue(0);
       }
       setTimeout(() => firstInputRef.current?.focus(), 180);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, lead]);
 
   // ── Escape para fechar ─────────────────────────────────────────────────────
@@ -112,6 +119,18 @@ export function LeadModal({
     if (isOpen) window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
   }, [isOpen, onClose]);
+
+  // ── Derived: nome da stage atual (para exibição em modo edição) ────────────
+
+  const currentStageName = useMemo(() => {
+    if (!lead) return "";
+    if (lead.stage_id) {
+      const s = stages.find((s) => s.id === lead.stage_id);
+      if (s) return s.name;
+    }
+    // Fallback legado: usa label da kanban_column
+    return KANBAN_COLUMNS.find((c) => c.id === lead.kanban_column)?.label ?? lead.kanban_column;
+  }, [lead, stages]);
 
   // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -133,26 +152,41 @@ export function LeadModal({
     setError(null);
     setIsSubmitting(true);
 
-    const payload: NewLead = {
-      name:          form.name.trim(),
-      contact:       form.contact.trim(),
-      kanban_column: form.kanban_column,
-      tags:          form.tags,
-      notes:         form.notes.trim() || null,
-      deal_value:    dealValue,
-      entered_at:    form.entered_at,
-    };
+    if (isEditing) {
+      // Atualização: NÃO inclui stage_id — movimentos passam exclusivamente
+      // pelo LeadService via PATCH /api/crm/leads/[id]/move
+      const updatePayload: UpdateLead = {
+        name:       form.name.trim(),
+        contact:    form.contact.trim(),
+        tags:       form.tags,
+        notes:      form.notes.trim() || null,
+        deal_value: dealValue,
+        entered_at: form.entered_at,
+      };
+      const result = await onUpdate(lead.id, updatePayload);
+      setIsSubmitting(false);
+      if (result.error) { setError(friendlyError(result.error)); return; }
+    } else {
+      // Criação: inclui stage_id + pipeline_id + kanban_column (compat legado)
+      const selectedStage = stages.find((s) => s.id === form.stage_id);
+      const kanban_column = (selectedStage?.legacy_column as KanbanColumn | null) ?? "novo_lead";
 
-    const result = isEditing
-      ? await onUpdate(lead.id, payload)
-      : await onCreate(payload);
-
-    setIsSubmitting(false);
-
-    if (result.error) {
-      setError(friendlyError(result.error));
-      return;
+      const createPayload: NewLead = {
+        name:          form.name.trim(),
+        contact:       form.contact.trim(),
+        kanban_column,
+        stage_id:      form.stage_id,
+        pipeline_id:   selectedStage?.pipeline_id ?? null,
+        tags:          form.tags,
+        notes:         form.notes.trim() || null,
+        deal_value:    dealValue,
+        entered_at:    form.entered_at,
+      };
+      const result = await onCreate(createPayload);
+      setIsSubmitting(false);
+      if (result.error) { setError(friendlyError(result.error)); return; }
     }
+
     onClose();
   }
 
@@ -192,7 +226,7 @@ export function LeadModal({
             onClick={onClose}
           />
 
-          {/* ── Centering wrapper (pointer-events-none para o click passar pro backdrop) ── */}
+          {/* ── Centering wrapper ── */}
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
             <motion.div
               initial={{ opacity: 0, scale: 0.93, y: 14 }}
@@ -294,27 +328,40 @@ export function LeadModal({
                         className="border-[var(--border)] bg-[var(--input)] text-[var(--text-title)] focus-visible:ring-[#b4b4b4]/40"
                       />
                     </div>
+
                     <div className="space-y-1.5">
-                      <Label htmlFor="lead-col" className="text-[11px] font-medium text-[var(--muted-foreground)]">
+                      <Label htmlFor="lead-stage" className="text-[11px] font-medium text-[var(--muted-foreground)]">
                         Etapa
                       </Label>
-                      <select
-                        id="lead-col"
-                        value={form.kanban_column}
-                        onChange={(e) =>
-                          setForm((p) => ({
-                            ...p,
-                            kanban_column: e.target.value as KanbanColumn,
-                          }))
-                        }
-                        className="h-9 w-full rounded-md border border-[var(--border)] bg-[var(--input)] px-3 text-xs text-[var(--text-title)] focus:outline-none focus:ring-1 focus:ring-[#b4b4b4]/40"
-                      >
-                        {KANBAN_COLUMNS.map((col) => (
-                          <option key={col.id} value={col.id} style={{ background: "var(--background)" }}>
-                            {col.label}
-                          </option>
-                        ))}
-                      </select>
+                      {isEditing ? (
+                        /* Edição: exibição somente leitura — mover via drag-and-drop */
+                        <div
+                          className="flex h-9 w-full items-center rounded-md border border-[var(--border)] bg-[var(--input)] px-3 text-xs"
+                          style={{ color: "var(--muted-foreground)" }}
+                          title="Para mover, arraste o card no Kanban"
+                        >
+                          <span className="truncate">{currentStageName || "—"}</span>
+                        </div>
+                      ) : (
+                        /* Criação: seletor de stage do pipeline ativo */
+                        <select
+                          id="lead-stage"
+                          value={form.stage_id ?? ""}
+                          onChange={(e) =>
+                            setForm((p) => ({ ...p, stage_id: e.target.value || null }))
+                          }
+                          className="h-9 w-full rounded-md border border-[var(--border)] bg-[var(--input)] px-3 text-xs text-[var(--text-title)] focus:outline-none focus:ring-1 focus:ring-[#b4b4b4]/40"
+                        >
+                          {stages.length === 0 && (
+                            <option value="">Nenhuma etapa</option>
+                          )}
+                          {stages.map((s) => (
+                            <option key={s.id} value={s.id} style={{ background: "var(--background)" }}>
+                              {s.name}
+                            </option>
+                          ))}
+                        </select>
+                      )}
                     </div>
                   </div>
 

@@ -95,13 +95,15 @@ function DockNavItem({
           transition={{ type: "spring", stiffness: 400, damping: 22 }}
           className="relative flex items-center justify-center"
           style={{
-            width: 38,
-            height: 38,
-            borderRadius: 12,
-            background: active ? "rgba(255,255,255,0.09)" : "transparent",
-            border: active ? "1px solid rgba(255,255,255,0.1)" : "1px solid transparent",
-            boxShadow: active ? "0 0 18px rgba(255,255,255,0.05)" : "none",
-            transition: "background 0.2s, border 0.2s, box-shadow 0.2s",
+            width:                38,
+            height:               38,
+            borderRadius:         12,
+            background:           active ? "rgba(255,255,255,0.10)" : "transparent",
+            backdropFilter:       active ? "blur(12px) saturate(140%)" : "none",
+            WebkitBackdropFilter: active ? "blur(12px) saturate(140%)" : "none",
+            border:               active ? "1px solid rgba(255,255,255,0.12)" : "1px solid transparent",
+            boxShadow:            active ? "0 2px 12px rgba(0,0,0,0.20), inset 0 1px 0 rgba(255,255,255,0.08)" : "none",
+            transition:           "background 0.2s, border 0.2s, box-shadow 0.2s",
           }}
         >
           {active && (
@@ -234,12 +236,13 @@ export function Dock() {
         }
         transition={{ duration: isModalOpen ? 0.24 : 0.4, ease: isModalOpen ? "easeIn" : "easeOut" }}
         aria-label="Navegação principal"
-        className="hidden lg:flex fixed left-3 top-3 bottom-3 z-50 w-[58px] flex-col items-center rounded-[22px]"
+        className="hidden md:flex fixed left-3 top-3 bottom-3 z-50 w-[58px] flex-col items-center rounded-[22px]"
         style={{
-          background: "rgba(0, 0, 0, 0.07)",
-          border: "1px solid rgba(255, 255, 255, 0.07)",
-          boxShadow:
-            "0 8px 48px rgba(0, 0, 0, 0.28), 0 2px 8px rgba(0, 0, 0, 0.18), inset 0 1px 0 rgba(255,255,255,0.06)",
+          background:           "rgba(12, 12, 12, 0.10)",
+          backdropFilter:       "blur(24px) saturate(160%)",
+          WebkitBackdropFilter: "blur(24px) saturate(160%)",
+          border:               "1px solid rgba(255, 255, 255, 0.08)",
+          boxShadow:            "0 8px 32px rgba(0, 0, 0, 0.22), inset 0 1px 0 rgba(255,255,255,0.05)",
         }}
       >
         <div className="flex items-center justify-center pt-5 pb-4 shrink-0">
@@ -267,7 +270,7 @@ export function Dock() {
       </motion.aside>
 
       {/* ── Mobile: dock central no rodapé ───────────────────────── */}
-      <div className="lg:hidden fixed bottom-6 left-0 right-0 z-50 flex justify-center pointer-events-none">
+      <div className="md:hidden fixed bottom-6 left-0 right-0 z-50 flex justify-center pointer-events-none">
         <motion.nav
           initial={{ y: 0, opacity: 1, scale: 1 }}
           animate={
@@ -282,11 +285,11 @@ export function Dock() {
           <div
             className="flex items-center gap-0.5 rounded-full px-2 py-1.5"
             style={{
-              background: "rgba(0, 0, 0, 0.10)",
-              border: "none",
-              backdropFilter: "blur(20px)",
-              WebkitBackdropFilter: "blur(20px)",
-              boxShadow: "0 8px 32px rgba(0, 0, 0, 0.30)",
+              background:           "rgba(12, 12, 12, 0.10)",
+              backdropFilter:       "blur(24px) saturate(160%)",
+              WebkitBackdropFilter: "blur(24px) saturate(160%)",
+              border:               "1px solid rgba(255,255,255,0.08)",
+              boxShadow:            "0 8px 32px rgba(0, 0, 0, 0.22)",
             }}
           >
             {visibleItems.map((item) => {

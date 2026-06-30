@@ -1,36 +1,68 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import type { FormInsights } from "@/types";
+import type { InsightsDomain } from "@/lib/analytics/types";
+import type { Granularity } from "@/lib/analytics/metrics";
 
-interface UseFormularioInsightsReturn {
-  insights: FormInsights | null;
-  isLoading: boolean;
-  error: string | null;
-  refetch: () => Promise<void>;
+interface InsightsParams {
+  since?:  string;
+  until?:  string;
+  device?: string;
 }
 
-export function useFormularioInsights(formId: string): UseFormularioInsightsReturn {
-  const [insights, setInsights] = useState<FormInsights | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+interface UseFormularioInsightsReturn {
+  insights:    InsightsDomain | null;
+  granularity: Granularity;
+  isLoading:   boolean;
+  error:       string | null;
+  refetch:     () => void;
+}
 
-  const refetch = useCallback(async () => {
-    try {
-      setIsLoading(true);
-      setError(null);
-      const res = await fetch(`/api/formularios/${formId}/insights`);
-      if (!res.ok) throw new Error("Erro ao carregar insights");
-      const json = await res.json();
-      setInsights(json.insights);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Erro desconhecido");
-    } finally {
-      setIsLoading(false);
-    }
-  }, [formId]);
+export function useFormularioInsights(
+  formId: string,
+  params: InsightsParams = {},
+): UseFormularioInsightsReturn {
+  const [insights,    setInsights]    = useState<InsightsDomain | null>(null);
+  const [granularity, setGranularity] = useState<Granularity>("month");
+  const [isLoading,   setIsLoading]   = useState(true);
+  const [error,       setError]       = useState<string | null>(null);
+  const [rev,         setRev]         = useState(0);
 
-  useEffect(() => { refetch(); }, [refetch]);
+  const { since, until, device } = params;
 
-  return { insights, isLoading, error, refetch };
+  const refetch = useCallback(() => setRev(r => r + 1), []);
+
+  useEffect(() => {
+    let cancelled = false;
+    setIsLoading(true);
+    setError(null);
+
+    const sp = new URLSearchParams();
+    if (since)  sp.set("since",  since);
+    if (until)  sp.set("until",  until);
+    if (device) sp.set("device", device);
+    const qs  = sp.toString();
+    const url = `/api/formularios/${formId}/insights${qs ? `?${qs}` : ""}`;
+
+    fetch(url)
+      .then(r => {
+        if (!r.ok) throw new Error("Erro ao carregar insights");
+        return r.json() as Promise<{ insights: InsightsDomain; granularity: Granularity }>;
+      })
+      .then(json => {
+        if (cancelled) return;
+        setInsights(json.insights);
+        setGranularity(json.granularity ?? "month");
+      })
+      .catch((e: unknown) => {
+        if (cancelled) return;
+        setError(e instanceof Error ? e.message : "Erro desconhecido");
+      })
+      .finally(() => { if (!cancelled) setIsLoading(false); });
+
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formId, since, until, device, rev]);
+
+  return { insights, granularity, isLoading, error, refetch };
 }

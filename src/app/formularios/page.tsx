@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   FileText, Plus, MoreHorizontal, Trash2, Archive,
-  Globe, Clock, Copy, EyeOff, X, Loader2,
+  Clock, Copy, EyeOff, X, Loader2, MessageSquare,
 } from "lucide-react";
 import { Header } from "@/components/layout/Header";
 import { useFormularios } from "@/hooks/useFormularios";
@@ -13,17 +13,17 @@ import { toast } from "sonner";
 import type { Form } from "@/types";
 
 const STATUS_LABEL: Record<string, string> = {
-  draft:     "Rascunho",
-  published: "Publicado",
+  draft:     "Inativo",
+  published: "Ativo",
   archived:  "Arquivado",
-  disabled:  "Desativado",
+  disabled:  "Inativo",
 };
 
 const STATUS_COLOR: Record<string, string> = {
   draft:     "rgba(255,255,255,0.35)",
   published: "#22c55e",
   archived:  "rgba(255,255,255,0.25)",
-  disabled:  "#ef4444",
+  disabled:  "rgba(255,255,255,0.35)",
 };
 
 // ── Card de formulário ─────────────────────────────────────────────────────────
@@ -43,7 +43,7 @@ function FormCard({
 }) {
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
-  const stepCount = form.steps?.length ?? 0;
+  const responseCount = form.response_count ?? 0;
 
   const formatDate = (d: string) =>
     new Date(d).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" });
@@ -54,9 +54,8 @@ function FormCard({
       animate={{ opacity: 1, y: 0 }}
       whileHover={{ y: -2 }}
       transition={{ duration: 0.2 }}
-      className="relative group rounded-xl border p-4 cursor-pointer transition-all"
-      style={{ background: "var(--card)", borderColor: "var(--border)" }}
-      onClick={() => router.push(`/formularios/${form.id}/editor`)}
+      className="relative group p-4 cursor-pointer lc-card"
+      onClick={() => router.push(`/formularios/${form.id}`)}
     >
       {/* Topo */}
       <div className="flex items-start justify-between gap-2 mb-3">
@@ -138,16 +137,13 @@ function FormCard({
 
       {/* Footer */}
       <div className="flex items-center justify-between pt-3" style={{ borderTop: "1px solid var(--border)" }}>
-        <div className="flex items-center gap-1" style={{ color: "var(--muted-foreground)" }}>
-          <FileText size={10} />
-          <span className="text-xs">{stepCount} pergunta{stepCount !== 1 ? "s" : ""}</span>
+        <div
+          className="flex items-center gap-1 px-2 py-0.5 rounded-full"
+          style={{ background: "rgba(255,255,255,0.06)", color: "var(--muted-foreground)" }}
+        >
+          <MessageSquare size={10} />
+          <span className="text-xs">{responseCount} resposta{responseCount !== 1 ? "s" : ""}</span>
         </div>
-        {form.status === "published" && (
-          <div className="flex items-center gap-1" style={{ color: "#22c55e" }}>
-            <Globe size={10} />
-            <span className="text-xs">Publicado</span>
-          </div>
-        )}
         <div className="flex items-center gap-1" style={{ color: "var(--muted-foreground)" }}>
           <Clock size={10} />
           <span className="text-xs">{formatDate(form.updated_at)}</span>
@@ -216,8 +212,7 @@ function NovoFormularioModal({ open, onClose, onCreate }: {
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
         className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
       <motion.div initial={{ opacity: 0, scale: 0.95, y: 8 }} animate={{ opacity: 1, scale: 1, y: 0 }}
-        className="relative z-10 w-full max-w-sm rounded-2xl border p-6"
-        style={{ background: "var(--card)", borderColor: "var(--border)" }}>
+        className="relative z-10 w-full max-w-sm rounded-2xl p-6 lc-modal-panel">
         <div className="flex items-center justify-between mb-5">
           <div>
             <h3 className="font-semibold text-sm" style={{ color: "var(--text-title)" }}>Novo Formulário</h3>
@@ -277,7 +272,7 @@ export default function FormulariosPage() {
       toast.error("Erro ao criar formulário", { description: error ?? undefined });
     } else {
       setModalOpen(false);
-      router.push(`/formularios/${data.id}/editor`);
+      router.push(`/formularios/${data.id}`);
     }
   };
 
@@ -307,7 +302,7 @@ export default function FormulariosPage() {
     if (error || !data) toast.error("Erro ao duplicar formulário");
     else {
       toast.success("Formulário duplicado");
-      router.push(`/formularios/${data.id}/editor`);
+      router.push(`/formularios/${data.id}`);
     }
   };
 

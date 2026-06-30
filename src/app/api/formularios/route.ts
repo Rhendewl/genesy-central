@@ -16,7 +16,30 @@ export async function GET() {
     .order("created_at", { ascending: false });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ formularios: data });
+
+  const formIds = (data ?? []).map(f => f.id);
+
+  let countMap: Record<string, number> = {};
+  if (formIds.length > 0) {
+    const { data: counts } = await supabase
+      .from("form_submissions")
+      .select("form_id")
+      .in("form_id", formIds)
+      .eq("status", "completed");
+
+    if (counts) {
+      for (const row of counts) {
+        countMap[row.form_id] = (countMap[row.form_id] ?? 0) + 1;
+      }
+    }
+  }
+
+  const formularios = (data ?? []).map(f => ({
+    ...f,
+    response_count: countMap[f.id] ?? 0,
+  }));
+
+  return NextResponse.json({ formularios });
 }
 
 // POST /api/formularios — cria um novo formulário

@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { getSupabaseClient } from "@/lib/supabase";
 import type {
-  KanbanColumn,
   Lead,
   NewLead,
   UpdateLead,
@@ -16,24 +15,17 @@ import type { DateFilter } from "@/components/crm/PeriodFilter";
 //
 // Responsabilidades:
 //  - Busca todos os leads do usuário autenticado
-//  - Agrupa leads por kanban_column (para o board)
+//  - Agrupa leads por stage_id (para o board Kanban)
 //  - CRUD: createLead, updateLead, deleteLead
-//  - moveLead: atualiza kanban_column + registra em lead_movements atomicamente
+//  - moveLead: chama PATCH /api/crm/leads/[id]/move → LeadService → RPC
+//    Nenhuma escrita direta ao Supabase para movimentação de leads.
 //  - Subscription real-time: qualquer mudança na tabela reflete imediatamente
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type LeadsByColumn = Record<KanbanColumn, Lead[]>;
+// Leads sem stage_id (legados ou criados via webhook) agrupados nesta chave
+export const UNASSIGNED_STAGE_KEY = "__unassigned__" as const;
 
-const EMPTY_BOARD: LeadsByColumn = {
-  novo_lead:           [],
-  abordados:           [],
-  em_andamento:        [],
-  formulario_aplicado: [],
-  reuniao_agendada:    [],
-  reuniao_realizada:   [],
-  no_show:             [],
-  venda_realizada:     [],
-};
+export type LeadsByStage = Record<string, Lead[]>;
 
 export function useLeads(dateFilter?: DateFilter | null) {
   const supabase = getSupabaseClient();
@@ -122,14 +114,15 @@ export function useLeads(dateFilter?: DateFilter | null) {
     });
   }, [leads, dateFilter]);
 
-  const leadsByColumn: LeadsByColumn = useMemo(() =>
-    filteredLeads.reduce<LeadsByColumn>(
+  const leadsByStage: LeadsByStage = useMemo(() =>
+    filteredLeads.reduce<LeadsByStage>(
       (acc, lead) => {
-        const col = lead.kanban_column;
-        if (acc[col]) acc[col] = [...acc[col], lead];
+        const key = lead.stage_id ?? UNASSIGNED_STAGE_KEY;
+        if (!acc[key]) acc[key] = [];
+        acc[key].push(lead);
         return acc;
       },
-      structuredClone(EMPTY_BOARD),
+      {},
     ),
   [filteredLeads]);
 
@@ -190,58 +183,76 @@ export function useLeads(dateFilter?: DateFilter | null) {
     return { error: null };
   }
 
-  // ── Move (drag & drop) ────────────────────────────────────────────────────
+  // ── Move (drag & drop) ─────────────────────────────────────────────────────
   //
-  // Faz as duas operações em sequência:
-  //   1. Atualiza kanban_column no lead
-  //   2. Insere registro em lead_movements (histórico)
+  // Toda movimentação passa obrigatoriamente por:
+  //   PATCH /api/crm/leads/[id]/move
+  //     → LeadService.moveLead()
+  //       → PipelineRepository.findStageById() (valida stage + require_note)
+  //       → LeadRepository.moveLeadTransactional() (RPC crm_move_lead)
+  //       → EventBus.publish(lead.stage.left + lead.stage.entered)
+  //         → ConversionEngine
   //
-  // Aplica optimistic update local antes da confirmação do servidor
-  // para resposta visual instantânea no Kanban.
+  // Optimistic update: stage_id muda localmente antes da confirmação do servidor.
+  // Reverte automaticamente se o servidor rejeitar (incluindo 422 require_note).
+  // A subscription real-time sincroniza kanban_column e outros campos pós-RPC.
 
   async function moveLead(
     id: string,
-    fromColumn: KanbanColumn,
-    toColumn: KanbanColumn
-  ): Promise<{ error: string | null }> {
-    if (fromColumn === toColumn) return { error: null };
+    targetStageId: string,
+    note?: string,
+  ): Promise<{ ok: boolean; requireNote: boolean; error: string | null }> {
+    const previousLead = leads.find((l) => l.id === id);
+    const prevStageId = previousLead?.stage_id ?? null;
 
-    // Optimistic update
+    if (prevStageId === targetStageId) {
+      return { ok: true, requireNote: false, error: null };
+    }
+
+    // Optimistic update — stage_id muda imediatamente na UI
     setLeads((prev) =>
       prev.map((l) =>
-        l.id === id ? { ...l, kanban_column: toColumn } : l
+        l.id === id ? { ...l, stage_id: targetStageId } : l
       )
     );
 
-    // 1. Atualiza o lead
-    const { error: updateErr } = await supabase
-      .from("leads")
-      .update({ kanban_column: toColumn })
-      .eq("id", id);
+    try {
+      const res = await fetch(`/api/crm/leads/${id}/move`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ stage_id: targetStageId, note }),
+      });
 
-    if (updateErr) {
-      // Reverte optimistic update
+      if (!res.ok) {
+        const json = await res.json() as { error?: string };
+        // Reverte optimistic update em qualquer erro
+        setLeads((prev) =>
+          prev.map((l) =>
+            l.id === id ? { ...l, stage_id: prevStageId } : l
+          )
+        );
+        const requireNote = res.status === 422;
+        return {
+          ok: false,
+          requireNote,
+          error: json.error ?? "Erro ao mover lead",
+        };
+      }
+
+      return { ok: true, requireNote: false, error: null };
+    } catch (err) {
+      // Reverte em caso de erro de rede
       setLeads((prev) =>
         prev.map((l) =>
-          l.id === id ? { ...l, kanban_column: fromColumn } : l
+          l.id === id ? { ...l, stage_id: prevStageId } : l
         )
       );
-      return { error: updateErr.message };
+      return {
+        ok: false,
+        requireNote: false,
+        error: err instanceof Error ? err.message : "Erro ao mover lead",
+      };
     }
-
-    // 2. Registra no histórico de movimentações
-    const { error: movErr } = await supabase.from("lead_movements").insert({
-      lead_id: id,
-      from_column: fromColumn,
-      to_column: toColumn,
-    });
-
-    // Falha no histórico não reverte o move — apenas loga
-    if (movErr) {
-      console.warn("[useLeads] lead_movements insert failed:", movErr.message);
-    }
-
-    return { error: null };
   }
 
   // ── Helpers ────────────────────────────────────────────────────────────────
@@ -250,14 +261,10 @@ export function useLeads(dateFilter?: DateFilter | null) {
     return leads.find((l) => l.id === id);
   }
 
-  function getColumnCount(col: KanbanColumn): number {
-    return leadsByColumn[col].length;
-  }
-
   return {
     leads:        filteredLeads,   // filtered — what the board renders
     totalLeads:   leads.length,    // unfiltered total (for "X leads no funil" label)
-    leadsByColumn,
+    leadsByStage,
     isLoading,
     error,
     createLead,
@@ -265,7 +272,6 @@ export function useLeads(dateFilter?: DateFilter | null) {
     deleteLead,
     moveLead,
     getLeadById,
-    getColumnCount,
     refetch: fetchLeads,
   };
 }

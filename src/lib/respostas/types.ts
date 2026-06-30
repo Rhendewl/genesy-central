@@ -120,6 +120,8 @@ export interface RespostasParams {
   archived?:  boolean;
   sort?:      SortField;
   direction?: SortDirection;
+  since?:     string;
+  until?:     string;
 }
 
 // ── Patch body ────────────────────────────────────────────────────────────────

@@ -24,6 +24,19 @@ export interface StepRendererProps {
   canGoBack?: boolean;
 }
 
+// ── Utilitário: detecta fundo claro a partir de hex ───────────────────────────
+
+function isLightBg(bg?: string): boolean {
+  if (!bg || bg.startsWith("var(")) return false;
+  const hex = bg.replace(/^#/, "");
+  const full = hex.length === 3 ? hex.split("").map(c => c + c).join("") : hex;
+  if (full.length !== 6) return false;
+  const r = parseInt(full.slice(0, 2), 16);
+  const g = parseInt(full.slice(2, 4), 16);
+  const b = parseInt(full.slice(4, 6), 16);
+  return (0.299 * r + 0.587 * g + 0.114 * b) / 255 > 0.5;
+}
+
 // ── Máscara de telefone ────────────────────────────────────────────────────────
 
 function applyPhoneMask(raw: string): string {
@@ -42,6 +55,7 @@ export function validateStep(step: FormStep, value: unknown): string | null {
   if (step.type === "statement" || step.type === "redirect") return null;
 
   switch (step.type) {
+    case "name":
     case "short_text":
     case "long_text":
     case "number":
@@ -115,10 +129,12 @@ export function StepRenderer({
   }, []);
 
   const primary   = theme?.primaryColor ?? "var(--primary)";
-  const textColor = "var(--text-title)";
-  const muted     = "var(--muted-foreground)";
-  const cardBg    = "var(--card)";
-  const borderC   = "var(--border)";
+  const light     = isLightBg(theme?.backgroundColor);
+  // textColor explícito do tema tem prioridade sobre detecção de luminosidade
+  const textColor = theme?.textColor ?? (light ? "#111827" : "var(--text-title)");
+  const muted     = light ? "#6b7280" : "var(--muted-foreground)";
+  const cardBg    = light ? "rgba(0,0,0,0.04)" : "var(--card)";
+  const borderC   = light ? "rgba(0,0,0,0.12)"  : "var(--border)";
   const align     = (theme?.textAlign ?? "left") as React.CSSProperties["textAlign"];
 
   const btnRadius =
@@ -179,6 +195,26 @@ export function StepRenderer({
     };
 
     switch (step.type) {
+      case "name":
+        return (
+          <input
+            type="text"
+            inputMode="text"
+            autoComplete="name"
+            autoCapitalize="words"
+            className={inputBase}
+            style={inputStyle}
+            placeholder={step.placeholder || "Seu nome completo"}
+            value={(value as string) ?? ""}
+            autoFocus
+            onChange={e => handleChange(e.target.value)}
+            onFocus={onFocusB}
+            onBlur={onBlurB}
+            onKeyDown={onEnterKey}
+            {...commonInputProps}
+          />
+        );
+
       case "short_text":
         return (
           <input
@@ -274,7 +310,7 @@ export function StepRenderer({
           <input
             type="date"
             className={inputBase}
-            style={{ ...inputStyle, colorScheme: "dark" } as React.CSSProperties}
+            style={{ ...inputStyle, colorScheme: light ? "light" : "dark" } as React.CSSProperties}
             value={(value as string) ?? ""}
             onChange={e => handleChange(e.target.value)}
             onFocus={onFocusB}
@@ -438,22 +474,17 @@ export function StepRenderer({
   }
 
   const showNextBtn = step.type !== "redirect" && step.type !== "single_choice" && step.type !== "rating";
-  const showBackBtn = canGoBack && !!onBack;
+  const showBackBtn = false;
   const btnLabel =
     step.type === "statement"   ? "Continuar" :
     step.type === "file_upload" ? "Enviar arquivo" : "Próximo →";
 
   return (
     <div className="flex flex-col gap-5 w-full">
-      {/* Contador */}
-      {totalSteps !== undefined && stepIndex !== undefined && (
-        <div className="flex items-center justify-between text-sm" style={{ color: muted }}>
-          <span>{stepIndex + 1} / {totalSteps}</span>
-          {step.required && (
-            <span className="font-medium" style={{ color: primary }}>
-              Obrigatório
-            </span>
-          )}
+      {/* Obrigatório */}
+      {step.required && (
+        <div className="flex justify-end text-sm">
+          <span className="font-medium" style={{ color: primary }}>Obrigatório</span>
         </div>
       )}
 

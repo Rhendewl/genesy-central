@@ -2,29 +2,105 @@ import type {
   AdapterCapabilities, AdapterPayload, DeliveryResult,
   IntegrationAdapter, IntegrationConfig, IntegrationContext,
 } from "../types";
+import { trackConversion } from "./fbq";
+
+type CAPIEvent = {
+  event_name:   string;
+  event_id:     string;
+  user_data?:   Record<string, unknown>;
+  [key: string]: unknown;
+};
+
+type CAPIBody = {
+  data:             CAPIEvent[];
+  test_event_code?: string;
+};
 
 export class MetaPixelAdapter implements IntegrationAdapter {
   readonly name    = "meta-pixel" as const;
-  readonly version = "1.0.0";
+  readonly version = "1.1.0";
   readonly capabilities: AdapterCapabilities = {
-    supportsBatch:  false,
-    supportsRetry:  true,
-    supportsOAuth:  false,
-    supportsHmac:   false,
-    supportsAsync:  true,
+    supportsBatch: false,
+    supportsRetry: true,
+    supportsOAuth: false,
+    supportsHmac:  false,
+    supportsAsync: true,
   };
 
   async execute(
     payload: AdapterPayload,
     ctx:     IntegrationContext,
-    _config: IntegrationConfig,
+    config:  IntegrationConfig,
   ): Promise<DeliveryResult> {
-    const start = Date.now();
+    const start      = Date.now();
+    const rawMode    = (config.settings.mode as string) ?? "capi";
+    // "server" is treated as "capi" for forward-compatibility
+    const mode       = rawMode === "server" ? "capi" : rawMode;
+    const pixelId    = config.settings.pixel_id as string;
+    const raw        = payload.raw as CAPIBody;
+    const evt0       = raw.data[0];
+    const eventId    = evt0?.event_id  ?? "";
+    const evtName    = evt0?.event_name ?? "Lead";
+    // custom_data mirrors what CAPI receives — Browser Pixel gets identical parameters
+    const customData = evt0?.custom_data as Record<string, unknown> | undefined;
+
+    // ── Browser Pixel ──────────────────────────────────────────────────────
+    if (mode === "browser" || mode === "both") {
+      try {
+        trackConversion(pixelId, evtName, eventId, customData);
+      } catch {
+        // browser errors never fail the delivery record
+      }
+    }
+
+    // ── Conversions API (server-side) ──────────────────────────────────────
+    if (mode === "capi" || mode === "both") {
+      return this.sendCapi(raw, payload, ctx, start);
+    }
+
+    // browser-only: delivery always succeeds from our side
+    return {
+      ok:            true,
+      durationMs:    Date.now() - start,
+      attempt:       ctx.attempt,
+      correlationId: ctx.correlationId,
+    };
+  }
+
+  // ── Private ────────────────────────────────────────────────────────────────
+
+  private async sendCapi(
+    raw:     CAPIBody,
+    payload: AdapterPayload,
+    ctx:     IntegrationContext,
+    start:   number,
+  ): Promise<DeliveryResult> {
+    // Clone so we don't mutate the shared payload
+    const body: CAPIBody = JSON.parse(JSON.stringify(raw)) as CAPIBody;
+    const evt            = body.data[0];
+
+    if (evt) {
+      const ud: Record<string, unknown> = evt.user_data ?? {};
+      evt.user_data = ud;
+
+      // Supplement with browser-available fields when not already present
+      if (!ud.fbp)                ud.fbp                = readCookie("_fbp");
+      if (!ud.fbc)                ud.fbc                = readCookie("_fbc");
+      if (!ud.client_user_agent && typeof navigator !== "undefined")
+        ud.client_user_agent = navigator.userAgent;
+
+      // Remove nullish values to keep the payload clean
+      for (const k of Object.keys(ud)) {
+        if (ud[k] == null) delete ud[k];
+      }
+      if (Object.keys(ud).length === 0) delete evt.user_data;
+    }
+
     try {
       const res = await fetch(payload.endpoint!, {
         method:  payload.method ?? "POST",
         headers: payload.headers,
-        body:    JSON.stringify(payload.raw),
+        body:    JSON.stringify(body),
         signal:  ctx.signal,
       });
       return {
@@ -46,4 +122,9 @@ export class MetaPixelAdapter implements IntegrationAdapter {
       };
     }
   }
+}
+
+function readCookie(name: string): string | undefined {
+  if (typeof document === "undefined") return undefined;
+  return document.cookie.split("; ").find(r => r.startsWith(`${name}=`))?.split("=")[1];
 }
