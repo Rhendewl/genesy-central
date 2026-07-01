@@ -14,7 +14,7 @@ import {
 } from "@dnd-kit/core";
 import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import { motion } from "framer-motion";
-import { ChevronDown, Loader2, Plus, Settings2 } from "lucide-react";
+import { ChevronDown, Cog, Loader2, Plus } from "lucide-react";
 import { toast } from "sonner";
 
 import { useLeads, UNASSIGNED_STAGE_KEY } from "@/hooks/useLeads";
@@ -283,8 +283,13 @@ export function KanbanBoard() {
               <select
                 value={selectedPipelineId ?? ""}
                 onChange={(e) => setSelectedPipelineId(e.target.value)}
-                className="h-8 appearance-none rounded-full border border-[var(--border)] bg-[var(--card)] pl-3 pr-8 text-xs text-[var(--text-title)] focus:outline-none focus:ring-1 focus:ring-[#b4b4b4]/40 cursor-pointer"
-                style={{ background: "var(--card)" }}
+                className="h-8 appearance-none rounded-full pl-3 pr-8 text-xs text-[var(--text-title)] focus:outline-none cursor-pointer"
+                style={{
+                  background: "rgba(10,10,10,.10)",
+                  backdropFilter: "blur(24px)",
+                  WebkitBackdropFilter: "blur(24px)",
+                  border: "1px solid rgba(255,255,255,.06)",
+                }}
               >
                 {activePipelines.map((p) => (
                   <option key={p.id} value={p.id} style={{ background: "var(--background)" }}>
@@ -301,22 +306,28 @@ export function KanbanBoard() {
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
-          {/* Period filter */}
-          <PeriodFilter onChange={setDateFilter} />
-
           {/* CRM settings */}
           {selectedPipeline && (
             <button
               type="button"
               onClick={() => setIsSettingsOpen(true)}
               title="Configurações do CRM"
-              className="flex items-center gap-1.5 h-8 px-3 rounded-full text-xs font-medium transition-colors hover:bg-white/[0.05]"
-              style={{ border: "1px solid var(--border)", color: "var(--muted-foreground)" }}
+              aria-label="Configurações do CRM"
+              className="flex items-center justify-center w-8 h-8 rounded-full transition-all hover:brightness-125"
+              style={{
+                background: "rgba(10,10,10,.10)",
+                backdropFilter: "blur(24px)",
+                WebkitBackdropFilter: "blur(24px)",
+                border: "1px solid rgba(255,255,255,.06)",
+                color: "var(--muted-foreground)",
+              }}
             >
-              <Settings2 size={13} />
-              Configurações
+              <Cog size={14} />
             </button>
           )}
+
+          {/* Period filter */}
+          <PeriodFilter onChange={setDateFilter} />
 
           <motion.button
             onClick={openCreateModal}

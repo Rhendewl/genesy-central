@@ -37,54 +37,52 @@ const SERIES = [
 // Funil CRM
 // ─────────────────────────────────────────────────────────────────────────────
 
-const FUNNEL_STEPS = [
-  { label: "Novo Lead",  key: "novo_lead"  },
-  { label: "Abordados",  key: "abordados"  },
-  { label: "Aplicações", key: "aplicacoes" },
-  { label: "Reuniões",   key: "reunioes"   },
-  { label: "Vendas",     key: "vendas"     },
-] as const;
-
-const FUNNEL_WIDTHS = ["100%", "86%", "72%", "58%", "44%"];
-
 type FunnelCounts = Record<"novo_lead" | "abordados" | "aplicacoes" | "reunioes" | "vendas", number | null>;
 
+const FUNNEL_STEPS: { label: string; key: keyof FunnelCounts }[] = [
+  { label: "Novos Leads",         key: "novo_lead"  },
+  { label: "Leads Qualificados",  key: "abordados"  },
+  { label: "Reuniões Realizadas", key: "reunioes"   },
+  { label: "Vendas",              key: "vendas"     },
+];
+
 function CRMFunnel({ counts }: { counts: FunnelCounts }) {
-  const base = counts.novo_lead ?? 0;
+  const values = FUNNEL_STEPS.map(s => counts[s.key] ?? 0);
+  const max    = Math.max(...values, 1);
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-5">
       {FUNNEL_STEPS.map((step, i) => {
-        const count = counts[step.key];
-        const pct   = base > 0 && count !== null ? Math.round((count / base) * 100) : null;
+        const val = counts[step.key];
+        const pct = val !== null ? (val / max) * 100 : 0;
 
         return (
           <motion.div
             key={step.key}
-            initial={{ opacity: 0, x: -10 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.38, delay: 0.12 + i * 0.07, ease: "easeOut" }}
-            className="flex items-center gap-2"
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.35, delay: 0.1 + i * 0.07, ease: "easeOut" }}
           >
-            <div
-              style={{
-                width: FUNNEL_WIDTHS[i],
-                background: "linear-gradient(to right, rgba(255,255,255,0.08), rgba(255,255,255,0.40))",
-                border: "none",
-                borderRadius: "11px",
-              }}
-              className="flex items-center justify-between px-4 py-[11px]"
-            >
-              <span className="text-[12px] font-semibold leading-none truncate" style={{ color: "rgba(255,255,255,0.85)" }}>
+            <div className="flex items-baseline justify-between mb-2">
+              <span className="text-[12px] font-medium leading-none" style={{ color: "rgba(255,255,255,0.55)" }}>
                 {step.label}
               </span>
-              <span className="ml-3 shrink-0 text-[14px] font-bold leading-none" style={{ color: "#ffffff" }}>
-                {count === null ? "—" : count}
+              <span className="text-[15px] font-bold leading-none tabular-nums" style={{ color: "#ffffff" }}>
+                {val === null ? "—" : val}
               </span>
             </div>
-            <span className="w-8 shrink-0 text-right text-[10px] font-medium text-[var(--muted-foreground)]">
-              {pct !== null && i > 0 ? `${pct}%` : ""}
-            </span>
+            <div
+              className="h-[7px] w-full rounded-full overflow-hidden"
+              style={{ background: "rgba(255,255,255,0.07)" }}
+            >
+              <motion.div
+                className="h-full rounded-full"
+                style={{ background: "linear-gradient(90deg, rgba(255,255,255,0.25) 0%, rgba(255,255,255,0.72) 100%)" }}
+                initial={{ width: 0 }}
+                animate={{ width: `${pct}%` }}
+                transition={{ duration: 0.65, delay: 0.18 + i * 0.08, ease: "easeOut" }}
+              />
+            </div>
           </motion.div>
         );
       })}

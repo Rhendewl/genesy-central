@@ -310,7 +310,10 @@ export default function FormulariosPage() {
   const arquivados = formularios.filter(f => f.status === "archived");
 
   return (
-    <div className="flex flex-col min-h-screen pb-24" style={{ background: "var(--background)" }}>
+    <div
+      className="flex flex-col min-h-screen pb-24"
+      style={{ backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)" }}
+    >
       <Header
         title="Formulários"
         subtitle="Crie formulários conversacionais para capturar leads"

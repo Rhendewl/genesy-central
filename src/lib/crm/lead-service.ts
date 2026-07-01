@@ -14,7 +14,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { EventBus } from "@/lib/event-bus/types";
 import type { DomainEventType } from "@/lib/event-bus/domain-events";
 import { getPlatformEventBus } from "@/lib/event-bus/platform";
-import { LeadRepository } from "./repositories/lead-repository";
+import { LeadRepository, type CreateLeadParams } from "./repositories/lead-repository";
 import { PipelineRepository } from "./repositories/pipeline-repository";
 
 export interface MoveLeadOptions {
@@ -26,6 +26,16 @@ export interface MoveLeadResult {
   ok:          boolean;
   error:       string | null;
   fromStageId: string | null;
+}
+
+export type CreateLeadInput = Omit<CreateLeadParams, "pipeline_id" | "stage_id" | "kanban_column"> & {
+  stageId: string;
+};
+
+export interface CreateLeadResult {
+  ok:     boolean;
+  leadId: string | null;
+  error:  string | null;
 }
 
 export class LeadService {
@@ -41,6 +51,35 @@ export class LeadService {
     this.leads     = new LeadRepository(db);
     this.pipelines = new PipelineRepository(db);
     this.bus       = bus ?? getPlatformEventBus();
+  }
+
+  async createLead(input: CreateLeadInput): Promise<CreateLeadResult> {
+    const stage = await this.pipelines.findStageById(input.stageId, input.user_id);
+    if (!stage) {
+      return { ok: false, leadId: null, error: "Etapa não encontrada" };
+    }
+
+    try {
+      const leadId = await this.leads.createLead({
+        ...input,
+        pipeline_id:   stage.pipeline_id,
+        stage_id:      input.stageId,
+        kanban_column: stage.legacy_column,
+      });
+
+      this.bus.publish("lead.stage.entered", {
+        leadId,
+        pipelineId:  stage.pipeline_id,
+        stageId:     input.stageId,
+        fromStageId: null,
+        userId:      input.user_id,
+      });
+
+      return { ok: true, leadId, error: null };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Erro ao criar lead";
+      return { ok: false, leadId: null, error: msg };
+    }
   }
 
   async moveLead(

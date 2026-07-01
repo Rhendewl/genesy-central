@@ -60,7 +60,7 @@ export function EditorToolbar({
       className="flex items-center gap-3 px-4 h-12 flex-shrink-0"
       style={{
         borderBottom: "1px solid rgba(255,255,255,0.07)",
-        background: "rgba(0,0,0,0.70)",
+        background: "rgba(10,10,10,.10)",
         backdropFilter: "blur(24px) saturate(160%)",
         WebkitBackdropFilter: "blur(24px) saturate(160%)",
       }}

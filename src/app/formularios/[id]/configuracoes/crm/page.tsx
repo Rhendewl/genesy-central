@@ -9,17 +9,18 @@ import { toast } from "sonner";
 import { FormularioShell } from "../../_components/FormularioShell";
 import { ConfigSubNav } from "../_components/ConfigSubNav";
 import { useFormularioIntegracoes } from "@/hooks/useFormularioIntegracoes";
+import { usePipelines } from "@/hooks/usePipelines";
 import { useTags } from "@/hooks/useTags";
 import { useUsers } from "@/hooks/useUsers";
-import { KANBAN_COLUMNS } from "@/types";
-import type { KanbanColumn, FormStep, Form } from "@/types";
+import type { FormStep, Form } from "@/types";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 interface CrmConfig {
   enabled:        boolean;
   source:         string;
-  kanban_column:  KanbanColumn;
+  pipeline_id:    string | null;
+  stage_id:       string | null;
   owner_id:       string | null;
   owner_name:     string | null;
   tag_ids:        string[];
@@ -31,7 +32,8 @@ interface CrmConfig {
 const DEFAULT_CONFIG: CrmConfig = {
   enabled:        true,
   source:         "formulario_genesy",
-  kanban_column:  "novo_lead",
+  pipeline_id:    null,
+  stage_id:       null,
   owner_id:       null,
   owner_name:     null,
   tag_ids:        [],
@@ -227,8 +229,11 @@ export default function FormularioCrmPage() {
   const { id } = useParams<{ id: string }>();
 
   const { integrations, isLoading: intLoading, save, create } = useFormularioIntegracoes(id);
+  const { pipelines, isLoading: pipelinesLoading } = usePipelines();
   const { tags, isLoading: tagsLoading } = useTags();
   const { profiles, isLoading: usersLoading } = useUsers();
+
+  const activePipelines = pipelines.filter(p => p.is_active);
 
   const [form,    setForm]    = useState<Form | null>(null);
   const [config,  setConfig]  = useState<CrmConfig>(DEFAULT_CONFIG);
@@ -251,17 +256,18 @@ export default function FormularioCrmPage() {
     setIsLoading(false);
     const crm = integrations.find(i => i.adapter === "crm");
     if (crm) {
-      const s = crm.settings as Partial<CrmConfig>;
+      const s = crm.settings as Partial<CrmConfig & { kanban_column?: string }>;
       const loaded: CrmConfig = {
-        enabled:        crm.enabled  ?? true,
-        source:         s.source         ?? DEFAULT_CONFIG.source,
-        kanban_column:  s.kanban_column  ?? DEFAULT_CONFIG.kanban_column,
-        owner_id:       s.owner_id       ?? null,
-        owner_name:     s.owner_name     ?? null,
-        tag_ids:        s.tag_ids        ?? [],
-        value_mode:     s.value_mode     ?? "fixed",
-        fixed_value:    s.fixed_value    ?? 0,
-        value_field_id: s.value_field_id ?? null,
+        enabled:        crm.enabled         ?? true,
+        source:         s.source            ?? DEFAULT_CONFIG.source,
+        pipeline_id:    s.pipeline_id       ?? null,
+        stage_id:       s.stage_id          ?? null,
+        owner_id:       s.owner_id          ?? null,
+        owner_name:     s.owner_name        ?? null,
+        tag_ids:        s.tag_ids           ?? [],
+        value_mode:     s.value_mode        ?? "fixed",
+        fixed_value:    s.fixed_value       ?? 0,
+        value_field_id: s.value_field_id    ?? null,
       };
       setConfigId(crm.id);
       setConfig(loaded);
@@ -290,7 +296,8 @@ export default function FormularioCrmPage() {
     try {
       const settings: Record<string, unknown> = {
         source:         config.source,
-        kanban_column:  config.kanban_column,
+        pipeline_id:    config.pipeline_id,
+        stage_id:       config.stage_id,
         owner_id:       config.owner_id,
         owner_name:     config.owner_name,
         tag_ids:        config.tag_ids,
@@ -324,12 +331,18 @@ export default function FormularioCrmPage() {
 
   const isDirty = JSON.stringify(config) !== JSON.stringify(saved);
 
-  // ── Summary label ──────────────────────────────────────────────────────────
+  // ── Summary labels ─────────────────────────────────────────────────────────
 
-  const sourceName   = CRM_SOURCES.find(s => s.id === config.source)?.label ?? config.source;
-  const stageName    = KANBAN_COLUMNS.find(c => c.id === config.kanban_column)?.label ?? config.kanban_column;
-  const ownerLabel   = config.owner_name ?? "sem responsável";
-  const tagCount     = config.tag_ids.length;
+  const sourceName = CRM_SOURCES.find(s => s.id === config.source)?.label ?? config.source;
+  const selectedPipeline = activePipelines.find(p => p.id === config.pipeline_id);
+  const selectedStage    = selectedPipeline?.crm_stages.find(s => s.id === config.stage_id);
+  const pipelineName     = selectedPipeline?.name ?? "—";
+  const stageName        = selectedStage?.name    ?? "—";
+  const ownerLabel       = config.owner_name ?? "sem responsável";
+  const tagCount         = config.tag_ids.length;
+
+  // Stages da pipeline selecionada
+  const availableStages = (selectedPipeline?.crm_stages ?? []).filter(s => s.is_active);
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
@@ -339,7 +352,7 @@ export default function FormularioCrmPage() {
 
         <ConfigSubNav />
 
-        {(isLoading || tagsLoading || usersLoading) && (
+        {(isLoading || tagsLoading || usersLoading || pipelinesLoading) && (
           <div className="flex items-center gap-2 py-8" style={{ color: "var(--muted-foreground)" }}>
             <Loader2 size={15} className="animate-spin" />
             <span className="text-sm">Carregando…</span>
@@ -365,7 +378,7 @@ export default function FormularioCrmPage() {
                 </p>
                 {configId && (
                   <p className="text-[11px] mt-2 font-medium" style={{ color: "#66aed6" }}>
-                    ✓ Integração ativa — origem: {sourceName} · etapa: {stageName}
+                    ✓ Integração ativa — origem: {sourceName} · pipeline: {pipelineName} · etapa: {stageName}
                     {config.owner_name && ` · responsável: ${ownerLabel}`}
                     {tagCount > 0 && ` · ${tagCount} tag${tagCount > 1 ? "s" : ""}`}
                   </p>
@@ -389,17 +402,36 @@ export default function FormularioCrmPage() {
               </FieldRow>
             </SectionCard>
 
-            {/* ── 3. Etapa ─────────────────────────────────────────────────── */}
-            <SectionCard title="Etapa Inicial" description="Em qual coluna do Kanban o lead será criado.">
-              <FieldRow label="Etapa inicial no Kanban">
-                <SelectField<KanbanColumn>
-                  value={config.kanban_column}
-                  onChange={v => patch("kanban_column", v)}
-                  disabled={!config.source}
+            {/* ── 3. Pipeline → Etapa ──────────────────────────────────────── */}
+            <SectionCard title="Destino no CRM" description="Pipeline e etapa onde o lead será criado.">
+              <FieldRow label="Pipeline">
+                <SelectField<string>
+                  value={config.pipeline_id ?? ""}
+                  onChange={v => {
+                    patch("pipeline_id", v || null);
+                    patch("stage_id", null);
+                  }}
+                  disabled={activePipelines.length === 0}
                 >
-                  {KANBAN_COLUMNS.map(col => (
-                    <option key={col.id} value={col.id} style={{ background: "#17172a" }}>
-                      {col.label}
+                  <option value="" style={{ background: "#17172a" }}>Selecionar pipeline…</option>
+                  {activePipelines.map(p => (
+                    <option key={p.id} value={p.id} style={{ background: "#17172a" }}>
+                      {p.name}
+                    </option>
+                  ))}
+                </SelectField>
+              </FieldRow>
+
+              <FieldRow label="Etapa" description="Ao selecionar uma pipeline as etapas são carregadas automaticamente.">
+                <SelectField<string>
+                  value={config.stage_id ?? ""}
+                  onChange={v => patch("stage_id", v || null)}
+                  disabled={!config.pipeline_id || availableStages.length === 0}
+                >
+                  <option value="" style={{ background: "#17172a" }}>Selecionar etapa…</option>
+                  {availableStages.map(s => (
+                    <option key={s.id} value={s.id} style={{ background: "#17172a" }}>
+                      {s.name}
                     </option>
                   ))}
                 </SelectField>
@@ -520,6 +552,7 @@ export default function FormularioCrmPage() {
               <p className="text-xs font-semibold mb-2" style={{ color: "#22c55e" }}>Resumo da integração</p>
               <ul className="text-[11px] space-y-1" style={{ color: "var(--muted-foreground)" }}>
                 <li>• Origem no CRM: <strong style={{ color: "var(--text-title)" }}>{sourceName}</strong></li>
+                <li>• Pipeline: <strong style={{ color: "var(--text-title)" }}>{pipelineName}</strong></li>
                 <li>• Etapa inicial: <strong style={{ color: "var(--text-title)" }}>{stageName}</strong></li>
                 <li>• Responsável: <strong style={{ color: "var(--text-title)" }}>{config.owner_name ?? "Sem responsável"}</strong></li>
                 <li>• Tags: <strong style={{ color: "var(--text-title)" }}>

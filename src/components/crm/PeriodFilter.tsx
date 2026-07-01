@@ -201,21 +201,21 @@ export function PeriodFilter({ onChange }: PeriodFilterProps) {
       <button
         onClick={() => setOpen(o => !o)}
         className={cn(
-          "flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-all hover:scale-[1.02] active:scale-95 select-none backdrop-blur-md",
+          "flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-all hover:scale-[1.02] active:scale-95 select-none",
           isActive
             ? "text-white"
             : "text-[#b4b4b4] hover:text-white",
         )}
         style={{
-          background: isActive
-            ? "rgba(99,102,241,0.15)"
-            : "rgba(255,255,255,0.05)",
+          background: "rgba(10,10,10,.10)",
+          backdropFilter: "blur(24px)",
+          WebkitBackdropFilter: "blur(24px)",
           border: isActive
-            ? "1px solid rgba(99,102,241,0.35)"
-            : "1px solid rgba(255,255,255,0.10)",
+            ? "1px solid rgba(255,255,255,.18)"
+            : "1px solid rgba(255,255,255,.06)",
         }}
       >
-        <Calendar size={13} className={isActive ? "text-indigo-400" : ""} />
+        <Calendar size={13} />
         <span className="hidden sm:inline max-w-[130px] truncate">{label}</span>
         <ChevronDown
           size={12}
@@ -231,7 +231,7 @@ export function PeriodFilter({ onChange }: PeriodFilterProps) {
               setCustomTo("");
               setOpen(false);
             }}
-            className="ml-0.5 rounded-full p-0.5 text-indigo-400 hover:text-white hover:bg-white/10 transition-colors"
+            className="ml-0.5 rounded-full p-0.5 text-white/60 hover:text-white hover:bg-white/10 transition-colors"
           >
             <X size={10} />
           </span>
@@ -270,12 +270,12 @@ export function PeriodFilter({ onChange }: PeriodFilterProps) {
                         : "text-[#b4b4b4] hover:text-white hover:bg-white/[0.06]",
                     )}
                     style={isSelected ? {
-                      background: "rgba(99,102,241,0.18)",
+                      background: "rgba(255,255,255,0.08)",
                     } : {}}
                   >
                     {opt.label}
                     {isSelected && (
-                      <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 shrink-0" />
+                      <span className="w-1.5 h-1.5 rounded-full bg-white/40 shrink-0" />
                     )}
                   </button>
                 );

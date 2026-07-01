@@ -244,7 +244,9 @@ export function ContentSidebar({
         className="w-60 flex-shrink-0 flex flex-col border-r overflow-hidden"
         style={{
           borderColor: "rgba(255,255,255,0.07)",
-          background: "rgba(255,255,255,0.025)",
+          background: "rgba(10,10,10,.10)",
+          backdropFilter: "blur(24px)",
+          WebkitBackdropFilter: "blur(24px)",
         }}
       >
         {/* Header */}

@@ -81,7 +81,10 @@ export function FormularioShell({ id, children }: FormularioShellProps) {
     : null;
 
   return (
-    <div className="flex flex-col min-h-screen pb-24" style={{ background: "var(--background)" }}>
+    <div
+      className="flex flex-col min-h-screen pb-24"
+      style={{ backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)" }}
+    >
 
       {/* ── Cabeçalho ── */}
       <div

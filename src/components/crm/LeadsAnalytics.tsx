@@ -58,6 +58,7 @@ function MetricCard({ label, value, sub, icon, accent, positive }: MetricCardPro
   return (
     <div
       className="lc-card p-4 flex flex-col gap-2 min-w-0"
+      style={{ background: "rgba(0,0,0,.10)" }}
     >
       <div className="flex items-center justify-between gap-2">
         <p className="text-xs text-[var(--text-body)] truncate">{label}</p>
@@ -100,7 +101,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 function ChartCard({ title, children, className }: { title: string; children: React.ReactNode; className?: string }) {
   return (
-    <div className={cn("lc-card p-4", className)}>
+    <div className={cn("lc-card p-4", className)} style={{ background: "rgba(0,0,0,.10)" }}>
       <p className="text-xs font-semibold text-[var(--text-body)] uppercase tracking-widest mb-4">{title}</p>
       {children}
     </div>
@@ -547,6 +548,7 @@ export function LeadsAnalytics() {
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 className="lc-card p-4 flex items-start gap-3"
+                style={{ background: "rgba(0,0,0,.10)" }}
               >
                 <span
                   className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5"

@@ -134,7 +134,7 @@ export function LivePreview({ form, selectedId, onSelectTheme }: LivePreviewProp
       className="flex-1 flex flex-col overflow-hidden"
       aria-label="Preview do formulário"
       role="region"
-      style={{ background: "var(--background)" }}
+      style={{ background: "transparent" }}
     >
       {/* ── Toolbar ── */}
       <div
@@ -189,7 +189,7 @@ export function LivePreview({ form, selectedId, onSelectTheme }: LivePreviewProp
       </div>
 
       {/* ── Preview area ── */}
-      <div className="flex-1 flex overflow-hidden" style={{ padding: device === "desktop" ? 0 : 24 }}>
+      <div className="flex-1 flex overflow-hidden" style={{ padding: device === "desktop" ? 32 : 24 }}>
         <AnimatePresence mode="wait" initial={false}>
           <motion.div
             key={device}
@@ -200,7 +200,11 @@ export function LivePreview({ form, selectedId, onSelectTheme }: LivePreviewProp
             style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}
           >
             {device === "mobile"  && <DeviceFrameMobile  bg={resolvedBg}>{renderer}</DeviceFrameMobile>}
-            {device === "desktop" && <DeviceFrameDesktop bg={resolvedBg} slug={form.slug}>{renderer}</DeviceFrameDesktop>}
+            {device === "desktop" && (
+              <div style={{ width: "100%", maxWidth: 1100, height: "100%" }}>
+                <DeviceFrameDesktop bg={resolvedBg} slug={form.slug}>{renderer}</DeviceFrameDesktop>
+              </div>
+            )}
           </motion.div>
         </AnimatePresence>
       </div>

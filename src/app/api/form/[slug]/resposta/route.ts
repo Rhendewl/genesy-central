@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminSupabaseClient } from "@/lib/supabase-admin";
-import type { KanbanColumn, FormStep } from "@/types";
+import { LeadService } from "@/lib/crm/lead-service";
+import type { FormStep } from "@/types";
 
 type Params = { params: Promise<{ slug: string }> };
 
@@ -136,7 +137,9 @@ export async function POST(req: NextRequest, { params }: Params) {
 
 interface CrmSettings {
   source?:         string;
-  kanban_column?:  KanbanColumn;
+  pipeline_id?:    string | null;
+  stage_id?:       string | null;
+  kanban_column?:  string;        // read-only: backward compat with legacy configs
   owner_id?:       string | null;
   owner_name?:     string | null;
   tag_ids?:        string[];
@@ -165,6 +168,11 @@ async function createCrmLead(
     if (!integration?.enabled) return;
 
     const settings = (integration.settings ?? {}) as CrmSettings;
+
+    // Requer pipeline_id + stage_id (novo fluxo) ou kanban_column (legado)
+    const hasNewConfig = !!settings.pipeline_id && !!settings.stage_id;
+    const hasLegacy    = !!settings.kanban_column;
+    if (!hasNewConfig && !hasLegacy) return;
 
     // 2. Carregar form + steps
     const { data: formData } = await supabase
@@ -244,32 +252,47 @@ async function createCrmLead(
     if (noteLines.length) noteSections.push(noteLines.join("\n"));
     const notes = noteSections.join("\n\n") || null;
 
-    // 6. Criar lead
-    const { data: createdLead } = await supabase
-      .from("leads")
-      .insert({
-        user_id:       userId,
-        name:          leadName ?? "Sem nome",
-        contact:       leadPhone ?? leadEmail ?? "",
-        email:         leadEmail ?? null,
-        source:        settings.source ?? "formulario_genesy",
-        form_id:       formId,
-        form_name:     formName,
-        kanban_column: settings.kanban_column ?? "novo_lead",
-        tags:          settings.tag_ids ?? [],
-        deal_value:    settings.value_mode === "fixed" ? (settings.fixed_value ?? 0) : dealValue,
-        notes,
-        entered_at:    new Date().toISOString().split("T")[0],
-        is_duplicate,
-      })
-      .select("id")
-      .single();
+    const commonFields = {
+      user_id:    userId,
+      name:       leadName ?? "Sem nome",
+      contact:    leadPhone ?? leadEmail ?? "",
+      email:      leadEmail ?? null,
+      source:     settings.source ?? "formulario_genesy",
+      form_id:    formId,
+      form_name:  formName,
+      tags:       settings.tag_ids ?? [],
+      deal_value: settings.value_mode === "fixed" ? (settings.fixed_value ?? 0) : dealValue,
+      notes,
+      entered_at: new Date().toISOString().split("T")[0],
+      is_duplicate,
+    };
 
-    // 7. Linkar lead à submissão
-    if (createdLead?.id) {
+    let createdLeadId: string | null = null;
+
+    if (hasNewConfig) {
+      // ── Novo fluxo: via LeadService (pipeline_id + stage_id) ──────────────
+      // Publica lead.stage.entered → aciona conversion engine + histórico de etapa
+      const service = new LeadService(supabase);
+      const result  = await service.createLead({
+        ...commonFields,
+        stageId: settings.stage_id!,
+      });
+      if (result.ok) createdLeadId = result.leadId;
+    } else {
+      // ── Legado: kanban_column — configs sem pipeline_id/stage_id ──────────
+      const { data: createdLead } = await supabase
+        .from("leads")
+        .insert({ ...commonFields, kanban_column: settings.kanban_column ?? "novo_lead" })
+        .select("id")
+        .single();
+      if (createdLead?.id) createdLeadId = createdLead.id;
+    }
+
+    // 6. Linkar lead à submissão
+    if (createdLeadId) {
       await supabase
         .from("form_submissions")
-        .update({ lead_id: createdLead.id })
+        .update({ lead_id: createdLeadId })
         .eq("id", submissionId);
     }
   } catch (err) {

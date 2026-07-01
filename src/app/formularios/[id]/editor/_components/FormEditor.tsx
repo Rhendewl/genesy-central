@@ -266,7 +266,7 @@ export function FormEditor({ id }: FormEditorProps) {
   return (
     <div
       className="fixed inset-0 flex flex-col"
-      style={{ background: "var(--background)" }}
+      style={{ background: "transparent" }}
     >
       <EditorToolbar
         formName={form.name}
@@ -310,7 +310,9 @@ export function FormEditor({ id }: FormEditorProps) {
           className="w-80 flex-shrink-0 border-l flex flex-col overflow-hidden"
           style={{
             borderColor: "rgba(255,255,255,0.07)",
-            background: "rgba(255,255,255,0.025)",
+            background: "rgba(10,10,10,.10)",
+            backdropFilter: "blur(24px)",
+            WebkitBackdropFilter: "blur(24px)",
           }}
         >
           {selected && (
