@@ -3,6 +3,7 @@ import type {
   AppointmentCalendar,
   NewAppointmentCalendar,
   UpdateAppointmentCalendar,
+  PublicCalendar,
 } from "@/types/appointments";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -84,6 +85,25 @@ export class CalendarRepository {
       .eq("user_id", userId);
 
     if (error) throw new Error(error.message);
+  }
+
+  // findBySlugPublic — bypasses user_id filter (caller must use admin/service client).
+  // Returns only public-safe fields to avoid leaking internal data.
+  async findBySlugPublic(slug: string): Promise<(PublicCalendar & { user_id: string }) | null> {
+    const { data, error } = await this.db
+      .from("appointment_calendars")
+      .select(
+        "id, user_id, name, slug, description, duration_minutes, timezone, " +
+        "meeting_provider, location_type, location, custom_meeting_url, " +
+        "booking_window_days, min_notice_hours, capacity_per_slot, " +
+        "custom_fields, settings",
+      )
+      .eq("slug", slug)
+      .eq("status", "active")
+      .maybeSingle();
+
+    if (error) throw new Error(error.message);
+    return (data as (PublicCalendar & { user_id: string }) | null) ?? null;
   }
 
   async slugExists(userId: string, slug: string, excludeId?: string): Promise<boolean> {

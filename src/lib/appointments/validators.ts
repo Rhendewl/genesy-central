@@ -7,6 +7,10 @@ import type {
   UpdateAppointmentCalendar,
   NewAppointmentAvailabilityRule,
   NewAppointmentAvailabilityException,
+  CreatePublicBookingPayload,
+  PublicCalendar,
+  StandardFieldVisibility,
+  AppointmentCustomField,
 } from "@/types/appointments";
 
 // ── Result types ──────────────────────────────────────────────────────────────
@@ -333,6 +337,84 @@ export function validateAvailabilityException(
     if (isValidTime(st) && isValidTime(et) && st >= et) {
       errors.push(err("end_time", "Horário de fim deve ser posterior ao início"));
     }
+  }
+
+  return errors.length ? fail(errors) : ok();
+}
+
+// ── Public booking ────────────────────────────────────────────────────────────
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+export function validateCreateBooking(
+  payload:  CreatePublicBookingPayload,
+  calendar: PublicCalendar,
+): ValidationResult {
+  const errors: FieldError[] = [];
+
+  if (!payload.visitor_name?.trim()) {
+    errors.push(err("visitor_name", "Nome é obrigatório"));
+  }
+
+  if (!payload.visitor_email?.trim()) {
+    errors.push(err("visitor_email", "E-mail é obrigatório"));
+  } else if (!EMAIL_RE.test(payload.visitor_email.trim())) {
+    errors.push(err("visitor_email", "E-mail inválido"));
+  }
+
+  if (!payload.starts_at) {
+    errors.push(err("starts_at", "Horário é obrigatório"));
+  } else {
+    const t = new Date(payload.starts_at);
+    if (isNaN(t.getTime())) {
+      errors.push(err("starts_at", "Horário inválido"));
+    } else if (t <= new Date()) {
+      errors.push(err("starts_at", "Horário deve ser no futuro"));
+    } else {
+      const maxDate = new Date(Date.now() + calendar.booking_window_days * 24 * 60 * 60 * 1000);
+      if (t > maxDate) {
+        errors.push(err("starts_at", "Horário fora da janela de reserva"));
+      }
+    }
+  }
+
+  if (!payload.visitor_timezone || !isValidTimezone(payload.visitor_timezone)) {
+    errors.push(err("visitor_timezone", "Fuso horário inválido"));
+  }
+
+  const sf = calendar.settings?.form?.standard_fields;
+  const requiresField = (key: keyof NonNullable<typeof sf>): boolean =>
+    (sf?.[key] as StandardFieldVisibility | undefined) === "required";
+
+  if (requiresField("phone") && !payload.visitor_phone?.trim()) {
+    errors.push(err("visitor_phone", "Telefone é obrigatório"));
+  }
+  if (requiresField("company") && !payload.visitor_company?.trim()) {
+    errors.push(err("visitor_company", "Empresa é obrigatório"));
+  }
+  if (requiresField("role") && !payload.visitor_role?.trim()) {
+    errors.push(err("visitor_role", "Cargo é obrigatório"));
+  }
+  if (requiresField("city") && !payload.visitor_city?.trim()) {
+    errors.push(err("visitor_city", "Cidade é obrigatório"));
+  }
+  if (requiresField("notes") && !payload.visitor_notes?.trim()) {
+    errors.push(err("visitor_notes", "Observações são obrigatórias"));
+  }
+
+  const customFields: AppointmentCustomField[] = calendar.custom_fields ?? [];
+  for (const field of customFields) {
+    if (!field.required) continue;
+    const val = payload.custom_form_responses[field.id];
+    const isEmpty = val === undefined || val === null || val === "" ||
+      (Array.isArray(val) && val.length === 0);
+    if (isEmpty) {
+      errors.push(err(`custom_${field.id}`, `"${field.label}" é obrigatório`));
+    }
+  }
+
+  if (calendar.settings?.lgpd?.enabled && !payload.lgpd_accepted) {
+    errors.push(err("lgpd_accepted", "Você deve aceitar os termos para continuar"));
   }
 
   return errors.length ? fail(errors) : ok();

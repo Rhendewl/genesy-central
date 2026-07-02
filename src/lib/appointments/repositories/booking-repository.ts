@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { CreatePublicBookingPayload, PublicBookingResult } from "@/types/appointments";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Db = SupabaseClient<any, any, any>;
@@ -6,6 +7,29 @@ type Db = SupabaseClient<any, any, any>;
 export interface BookingConflictRow {
   starts_at: string;
   ends_at:   string;
+}
+
+export interface CreateBookingRow {
+  calendar_id:          string;
+  user_id:              string;
+  organizer_id:         string;
+  visitor_name:         string;
+  visitor_email:        string;
+  visitor_phone:        string | null;
+  visitor_notes:        string | null;
+  visitor_timezone:     string;
+  starts_at:            string;
+  ends_at:              string;
+  status:               "pending";
+  location_type:        string | null;
+  location:             string | null;
+  meeting_url:          string | null;
+  cancel_token:         string;
+  reschedule_token:     string;
+  cancel_token_expires_at:     string;
+  reschedule_token_expires_at: string;
+  custom_form_responses: Record<string, unknown>;
+  attribution:          Record<string, unknown>;
 }
 
 export class BookingRepository {
@@ -59,5 +83,23 @@ export class BookingRepository {
 
     if (error) throw new Error(error.message);
     return count ?? 0;
+  }
+
+  async createBooking(row: CreateBookingRow): Promise<PublicBookingResult> {
+    const { data, error } = await this.db
+      .from("appointment_bookings")
+      .insert(row)
+      .select("id, starts_at, ends_at, cancel_token")
+      .single();
+
+    if (error) throw new Error(error.message);
+    if (!data)  throw new Error("INSERT returned no data");
+
+    return {
+      booking_id:   data.id as string,
+      starts_at:    data.starts_at as string,
+      ends_at:      data.ends_at as string,
+      cancel_token: data.cancel_token as string,
+    };
   }
 }

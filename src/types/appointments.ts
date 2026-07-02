@@ -59,12 +59,64 @@ export type ConversionTriggerEvent =
 
 // ── Custom Fields ────────────────────────────────────────────────────────────
 
+export type AppointmentCustomFieldType =
+  | "text" | "number" | "email" | "phone" | "url"
+  | "date" | "time" | "select" | "multiselect"
+  | "checkbox" | "radio" | "textarea";
+
 export interface AppointmentCustomField {
-  id:       string;
-  label:    string;
-  type:     "text" | "email" | "phone" | "textarea" | "select";
-  required: boolean;
-  options?: string[];
+  id:           string;
+  label:        string;
+  type:         AppointmentCustomFieldType;
+  required:     boolean;
+  placeholder?: string;
+  help?:        string;
+  order:        number;
+  options?:     string[];   // for select, multiselect, radio, checkbox
+}
+
+// ── Calendar settings (stored in appointment_calendars.settings jsonb) ────────
+
+export type StandardFieldVisibility = "required" | "optional" | "hidden";
+
+export interface AppointmentPageSettings {
+  title:           string | null;
+  subtitle:        string | null;
+  welcome_message: string | null;
+  cover_image_url: string | null;
+  logo_url:        string | null;
+  brand_color:     string;    // hex, default "#6366f1"
+}
+
+export interface AppointmentFormSettings {
+  standard_fields: {
+    phone:   StandardFieldVisibility;
+    company: StandardFieldVisibility;
+    role:    StandardFieldVisibility;
+    city:    StandardFieldVisibility;
+    notes:   StandardFieldVisibility;
+  };
+}
+
+export interface AppointmentSuccessSettings {
+  title:        string;
+  message:      string;
+  button_label: string | null;
+  redirect_url: string | null;
+}
+
+export interface AppointmentLGPDSettings {
+  enabled: boolean;
+  title:   string;
+  text:    string;
+  link:    string | null;
+}
+
+export interface AppointmentCalendarSettings {
+  page?:    AppointmentPageSettings;
+  form?:    AppointmentFormSettings;
+  success?: AppointmentSuccessSettings;
+  lgpd?:    AppointmentLGPDSettings;
 }
 
 // ── Calendar aggregate ───────────────────────────────────────────────────────
@@ -89,7 +141,7 @@ export interface AppointmentCalendar {
   capacity_per_slot:     number;
   status:                AppointmentCalendarStatus;
   custom_fields:         AppointmentCustomField[];
-  settings:              Record<string, unknown>;
+  settings:              AppointmentCalendarSettings;
   created_at:            string;
   updated_at:            string;
 }
@@ -341,4 +393,48 @@ export interface CreateAvailabilityExceptionPayload
 export interface GetSlotsQuery {
   date:              string;  // "YYYY-MM-DD"
   visitor_timezone?: string;  // optional for admin preview
+}
+
+// ── Public calendar (safe to expose without authentication) ───────────────────
+
+export interface PublicCalendar {
+  id:                  string;
+  name:                string;
+  slug:                string;
+  description:         string | null;
+  duration_minutes:    number;
+  timezone:            string;
+  meeting_provider:    AppointmentMeetingProvider;
+  location_type:       AppointmentLocationType | null;
+  location:            string | null;
+  custom_meeting_url:  string | null;
+  booking_window_days: number;
+  min_notice_hours:    number;
+  capacity_per_slot:   number;
+  custom_fields:       AppointmentCustomField[];
+  settings:            AppointmentCalendarSettings;
+}
+
+// ── Public booking creation ───────────────────────────────────────────────────
+
+export interface CreatePublicBookingPayload {
+  starts_at:             string;    // ISO UTC timestamp
+  visitor_name:          string;
+  visitor_email:         string;
+  visitor_phone?:        string;
+  visitor_company?:      string;
+  visitor_role?:         string;
+  visitor_city?:         string;
+  visitor_notes?:        string;
+  visitor_timezone:      string;
+  custom_form_responses: Record<string, unknown>;
+  attribution?:          BookingAttribution;
+  lgpd_accepted?:        boolean;
+}
+
+export interface PublicBookingResult {
+  booking_id:   string;
+  starts_at:    string;
+  ends_at:      string;
+  cancel_token: string;
 }

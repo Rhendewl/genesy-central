@@ -5,9 +5,10 @@ import { useRouter }  from "next/navigation";
 import { motion }     from "framer-motion";
 import { ArrowLeft, Loader2, CalendarX } from "lucide-react";
 import { Header }          from "@/components/layout/Header";
-import { BasicInfoTab }    from "@/components/appointments/BasicInfoTab";
-import { HorariosTab }     from "@/components/appointments/HorariosTab";
-import { ExceptionsTab }   from "@/components/appointments/ExceptionsTab";
+import { BasicInfoTab }       from "@/components/appointments/BasicInfoTab";
+import { HorariosTab }        from "@/components/appointments/HorariosTab";
+import { ExceptionsTab }      from "@/components/appointments/ExceptionsTab";
+import { PaginaPublicaTab }   from "@/components/appointments/PaginaPublicaTab";
 import { useCalendar }     from "@/hooks/useCalendar";
 
 // ── Tab definition ────────────────────────────────────────────────────────────
@@ -24,10 +25,10 @@ const TABS: TabDef[] = [
   { id: "basico",        label: "Básico" },
   { id: "horarios",      label: "Horários" },
   { id: "excecoes",      label: "Exceções" },
+  { id: "pagina-publica",label: "Página Pública" },
   { id: "integracoes",   label: "Integrações",   soon: true },
   { id: "crm",           label: "CRM",           soon: true },
   { id: "notificacoes",  label: "Notificações",  soon: true },
-  { id: "pagina-publica",label: "Página Pública", soon: true },
   { id: "analytics",     label: "Analytics",     soon: true },
 ];
 
@@ -181,6 +182,13 @@ export default function CalendarDetailPage({
             exceptions={exceptions}
             onCreate={createException}
             onDelete={deleteException}
+          />
+        )}
+
+        {activeTab === "pagina-publica" && (
+          <PaginaPublicaTab
+            calendar={calendar}
+            onSave={updateCalendar}
           />
         )}
       </div>
