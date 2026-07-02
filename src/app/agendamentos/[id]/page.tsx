@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useState } from "react";
+import { useState } from "react";
 import { useRouter }     from "next/navigation";
 import { motion }        from "framer-motion";
 import {
@@ -19,9 +19,9 @@ type Tab = "disponibilidade" | "excecoes" | "horarios";
 export default function CalendarDetailPage({
   params,
 }: {
-  params: Promise<{ id: string }>;
+  params: { id: string };
 }) {
-  const { id }   = use(params);
+  const { id }   = params;
   const router   = useRouter();
   const [tab, setTab] = useState<Tab>("disponibilidade");
   const [isSavingRules, setIsSavingRules] = useState(false);
