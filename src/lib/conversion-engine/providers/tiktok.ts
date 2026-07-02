@@ -1,9 +1,10 @@
 import { registerConversionProvider, type ConversionProvider } from "../registry";
 
-// TikTok Pixel provider. Wired in Phase 4.
+// TikTok Events API provider. Wired in a future phase.
+// ConversionEvent will supply all match keys, attribution and commerce fields.
 export const tiktokConversionProvider: ConversionProvider = {
   platform: "tiktok_pixel",
-  async execute(_conversion, _event, _context) {
+  async execute(_conversion, _conversionEvent, _context) {
     // Wired in a future phase.
   },
 };

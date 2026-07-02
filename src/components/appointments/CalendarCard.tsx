@@ -1,0 +1,135 @@
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { motion } from "framer-motion";
+import { Calendar, MoreHorizontal, Archive, Clock, Globe } from "lucide-react";
+import type { AppointmentCalendar } from "@/types/appointments";
+
+interface CalendarCardProps {
+  calendar:  AppointmentCalendar;
+  onArchive: (id: string) => void;
+}
+
+export function CalendarCard({ calendar, onArchive }: CalendarCardProps) {
+  const router   = useRouter();
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  const formatDate = (d: string) =>
+    new Date(d).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" });
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      whileHover={{ y: -2 }}
+      transition={{ duration: 0.2 }}
+      className="relative group p-4 cursor-pointer lc-card"
+      onClick={() => router.push(`/agendamentos/${calendar.id}`)}
+    >
+      {/* Header */}
+      <div className="flex items-start justify-between gap-2 mb-3">
+        <div className="p-2 rounded-lg" style={{ background: "var(--accent)" }}>
+          <Calendar size={14} style={{ color: "var(--primary)" }} />
+        </div>
+        <div className="flex items-center gap-2">
+          <span
+            className="text-xs font-medium px-2 py-0.5 rounded-full"
+            style={{
+              background: calendar.status === "active"
+                ? "rgba(34,197,94,0.12)"
+                : "rgba(255,255,255,0.08)",
+              color: calendar.status === "active" ? "#22c55e" : "rgba(255,255,255,0.35)",
+            }}
+          >
+            {calendar.status === "active" ? "Ativo" : "Arquivado"}
+          </span>
+
+          {/* Context menu */}
+          <div className="relative">
+            <button
+              onClick={e => { e.stopPropagation(); setMenuOpen(o => !o); }}
+              className="p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white/10"
+            >
+              <MoreHorizontal size={14} style={{ color: "var(--muted-foreground)" }} />
+            </button>
+
+            {menuOpen && (
+              <>
+                <div
+                  className="fixed inset-0 z-10"
+                  onClick={e => { e.stopPropagation(); setMenuOpen(false); }}
+                />
+                <div
+                  className="absolute right-0 top-full mt-1 z-20 min-w-[160px] rounded-xl overflow-hidden"
+                  style={{
+                    background:           "rgba(12,12,18,0.96)",
+                    backdropFilter:       "blur(20px)",
+                    WebkitBackdropFilter: "blur(20px)",
+                    border:               "1px solid rgba(255,255,255,0.09)",
+                    boxShadow:            "0 12px 40px rgba(0,0,0,0.6)",
+                  }}
+                  onClick={e => e.stopPropagation()}
+                >
+                  <button
+                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-white/[0.06] transition-colors"
+                    style={{ color: "var(--muted-foreground)" }}
+                    onClick={e => {
+                      e.stopPropagation();
+                      setMenuOpen(false);
+                      onArchive(calendar.id);
+                    }}
+                  >
+                    <Archive size={13} />
+                    Arquivar
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Name + description */}
+      <div className="mb-3">
+        <h3
+          className="font-semibold text-sm mb-1 truncate"
+          style={{ color: "var(--text-title)" }}
+        >
+          {calendar.name}
+        </h3>
+        {calendar.description && (
+          <p
+            className="text-xs line-clamp-2"
+            style={{ color: "var(--muted-foreground)" }}
+          >
+            {calendar.description}
+          </p>
+        )}
+      </div>
+
+      {/* Meta row */}
+      <div className="flex items-center gap-3 text-xs" style={{ color: "var(--muted-foreground)" }}>
+        <span className="flex items-center gap-1">
+          <Clock size={11} />
+          {calendar.duration_minutes} min
+        </span>
+        <span className="flex items-center gap-1">
+          <Globe size={11} />
+          {calendar.timezone.replace("America/", "")}
+        </span>
+      </div>
+
+      {/* Footer */}
+      <div
+        className="mt-3 pt-3 text-xs"
+        style={{
+          borderTop: "1px solid var(--border)",
+          color:     "var(--muted-foreground)",
+        }}
+      >
+        Criado em {formatDate(calendar.created_at)}
+      </div>
+    </motion.div>
+  );
+}

@@ -38,7 +38,7 @@ export class MetaPixelAdapter implements IntegrationAdapter {
     const mode       = rawMode === "server" ? "capi" : rawMode;
     const pixelId    = config.settings.pixel_id as string;
     const raw        = payload.raw as CAPIBody;
-    const evt0       = raw.data[0];
+    const evt0       = raw.data?.[0];
     const eventId    = evt0?.event_id  ?? "";
     const evtName    = evt0?.event_name ?? "Lead";
     // custom_data mirrors what CAPI receives — Browser Pixel gets identical parameters
@@ -77,7 +77,7 @@ export class MetaPixelAdapter implements IntegrationAdapter {
   ): Promise<DeliveryResult> {
     // Clone so we don't mutate the shared payload
     const body: CAPIBody = JSON.parse(JSON.stringify(raw)) as CAPIBody;
-    const evt            = body.data[0];
+    const evt            = body.data?.[0];
 
     if (evt) {
       const ud: Record<string, unknown> = evt.user_data ?? {};

@@ -25,31 +25,36 @@ export async function POST(req: NextRequest, { params }: Params) {
   const body = await req.json().catch(() => ({})) as Record<string, string | undefined>;
 
   // Coleta metadados do visitante via headers
-  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
+  const ip        = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
     ?? req.headers.get("x-real-ip")
     ?? null;
-  const language = req.headers.get("accept-language")?.split(",")[0]?.trim() ?? null;
-  const referrer = req.headers.get("referer") ?? null;
+  const language  = req.headers.get("accept-language")?.split(",")[0]?.trim() ?? null;
+  const referrer  = req.headers.get("referer") ?? null;
+  const userAgent = req.headers.get("user-agent") ?? null;
 
   const { data: session, error } = await supabase
     .from("form_sessions")
     .insert({
       form_id: form.id,
       user_id: form.user_id,
-      device:       body.device       ?? null,
-      browser:      body.browser      ?? null,
-      os:           body.os           ?? null,
-      language:     body.language     ?? language,
-      country:      body.country      ?? null,
+      device:            body.device            ?? null,
+      browser:           body.browser           ?? null,
+      os:                body.os                ?? null,
+      language:          body.language          ?? language,
+      country:           body.country           ?? null,
       ip,
-      utm_source:   body.utm_source   ?? null,
-      utm_medium:   body.utm_medium   ?? null,
-      utm_campaign: body.utm_campaign ?? null,
-      utm_term:     body.utm_term     ?? null,
-      utm_content:  body.utm_content  ?? null,
-      fbclid:       body.fbclid       ?? null,
-      gclid:        body.gclid        ?? null,
-      referrer:     body.referrer     ?? referrer,
+      user_agent:        userAgent,
+      utm_source:        body.utm_source        ?? null,
+      utm_medium:        body.utm_medium        ?? null,
+      utm_campaign:      body.utm_campaign      ?? null,
+      utm_term:          body.utm_term          ?? null,
+      utm_content:       body.utm_content       ?? null,
+      fbclid:            body.fbclid            ?? null,
+      gclid:             body.gclid             ?? null,
+      referrer:          body.referrer          ?? referrer,
+      fbp:               body.fbp               ?? null,
+      fbc:               body.fbc               ?? null,
+      event_source_url:  body.event_source_url  ?? null,
     })
     .select("id, token")
     .single();

@@ -13,6 +13,7 @@ export default defineConfig({
         "src/lib/logic-engine/**/*.ts",
         "src/lib/analytics/**/*.ts",
         "src/lib/integrations/**/*.ts",
+        "src/lib/appointments/**/*.ts",
       ],
       exclude: [
         "src/lib/event-bus/index.ts",
@@ -23,6 +24,9 @@ export default defineConfig({
         "src/lib/logic-engine/errors.ts",
         "src/lib/analytics/index.ts",
         "src/lib/integrations/index.ts",
+        "src/lib/appointments/repositories/**",
+        "src/lib/appointments/calendar-service.ts",
+        "src/lib/appointments/availability-service.ts",
         "**/__tests__/**",
         "**/types.ts",
       ],

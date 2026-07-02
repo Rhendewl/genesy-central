@@ -1,37 +1,28 @@
 import { registerConversionProvider, type ConversionProvider, type ProviderContext } from "../registry";
-import type { LeadStageEnteredPayload } from "@/lib/event-bus/domain-events";
+import type { ConversionEvent } from "../conversion-event";
+import type { IdentitySignals } from "../identity-signals";
 import type { CrmConversionSource, CrmStageConversion, MetaPixelConversionSettings } from "@/types/crm";
-import { hashEmail, hashFirstName, hashLastName, hashPhone } from "../utils/hash";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Meta Pixel / Conversions API provider
 //
-// Orchestrator: resolves the conversion source + lead, builds the CAPI
-// payload, sends it to Meta, and persists the result. Heavy lifting (hashing)
-// lives in utils/hash.ts so it can be reused by future providers (Google
-// Enhanced Conversions uses the same em/ph/fn/ln hashing scheme).
+// Responsibilities (and only these):
+//   1. Load platform credentials (crm_conversion_sources).
+//   2. Convert EventContext into a Meta CAPI payload.
+//   3. Send the HTTP request to the Graph API.
+//   4. Persist success / error back to crm_conversion_sources.
+//
+// All event data (lead, session, attribution, match keys) arrives pre-built
+// in context.eventContext. This provider never queries the database for
+// event data, never hashes PII, and never reads table structure.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const META_GRAPH_VERSION = "v20.0";
 const CAPI_TIMEOUT_MS    = 8_000;
 
-// HTTP statuses worth retrying via the EventBus — everything else (4xx) is a
-// permanent failure (bad token, bad pixel, malformed payload) and retrying
-// would just repeat the same outcome.
 const RETRYABLE_STATUSES = new Set([429, 500, 502, 503, 504]);
 
 type SourceRow = Pick<CrmConversionSource, "id" | "pixel_id" | "access_token" | "test_event_code" | "is_active" | "pipeline_id">;
-
-type LeadRow = {
-  id:            string;
-  name:          string;
-  contact:       string;
-  email:         string | null;
-  source:        string;
-  campaign_name: string | null;
-  ad_name:       string | null;
-  deal_value:    number;
-};
 
 type SendResult = {
   ok:            boolean;
@@ -49,61 +40,69 @@ async function loadSource(db: ProviderContext["db"], sourceId: string): Promise<
   return data ?? null;
 }
 
-async function loadLead(db: ProviderContext["db"], leadId: string): Promise<LeadRow | null> {
-  const { data } = await db
-    .from("leads")
-    .select("id, name, contact, email, source, campaign_name, ad_name, deal_value")
-    .eq("id", leadId)
-    .maybeSingle();
-  return data ?? null;
+function toMetaUserData(identity: IdentitySignals): Record<string, string> {
+  const ud: Record<string, string> = {};
+  if (identity.email)      ud.em                = identity.email;
+  if (identity.phone)      ud.ph                = identity.phone;
+  if (identity.firstName)  ud.fn                = identity.firstName;
+  if (identity.lastName)   ud.ln                = identity.lastName;
+  if (identity.fbp)        ud.fbp               = identity.fbp;
+  if (identity.fbc)        ud.fbc               = identity.fbc;
+  if (identity.externalId) ud.external_id       = identity.externalId;
+  if (identity.ip)         ud.client_ip_address = identity.ip;
+  if (identity.userAgent)  ud.client_user_agent = identity.userAgent;
+  if (identity.country)    ud.country           = identity.country;
+  if (identity.city)       ud.ct                = identity.city;
+  if (identity.state)      ud.st                = identity.state;
+  if (identity.zip)        ud.zp                = identity.zip;
+  return ud;
 }
 
 function buildCapiPayload(
-  source:         SourceRow,
-  lead:           LeadRow,
-  eventId:        string,
-  eventTimestamp: number,
-  payload:        LeadStageEnteredPayload,
-  settings:       MetaPixelConversionSettings,
+  source:          SourceRow,
+  conversionEvent: ConversionEvent,
+  settings:        MetaPixelConversionSettings,
 ) {
-  const userData: Record<string, string> = {};
-  if (lead.email) userData.em = hashEmail(lead.email);
-  const ph = lead.contact ? hashPhone(lead.contact) : null;
-  if (ph) userData.ph = ph;
-  if (lead.name) {
-    userData.fn = hashFirstName(lead.name);
-    const ln = hashLastName(lead.name);
-    if (ln) userData.ln = ln;
-  }
+  const { identity, attribution, commerce, crm, actionSource } = conversionEvent;
 
+  // ── user_data — translate IdentitySignals into Meta field names ───────────
+  const userData = toMetaUserData(identity);
+
+  // ── custom_data ──────────────────────────────────────────────────────────
   const customData: Record<string, unknown> = {
-    lead_id:     payload.leadId,
-    pipeline_id: payload.pipelineId,
-    stage_id:    payload.stageId,
+    lead_id:     crm.leadId,
+    pipeline_id: crm.pipelineId,
+    stage_id:    crm.stageId,
   };
-  if (lead.source)        customData.lead_source   = lead.source;
-  if (lead.campaign_name) customData.campaign_name = lead.campaign_name;
-  if (lead.ad_name)       customData.ad_name       = lead.ad_name;
+  if (crm.leadSource)   customData.lead_source   = crm.leadSource;
+  if (crm.campaignName) customData.campaign_name = crm.campaignName;
+  if (crm.adName)       customData.ad_name       = crm.adName;
 
-  const value = settings.value ?? (lead.deal_value > 0 ? lead.deal_value : null);
+  const value = settings.value ?? (commerce.dealValue > 0 ? commerce.dealValue : null);
   if (value != null) {
     customData.value    = value;
     customData.currency = settings.currency ?? "BRL";
   }
 
+  // ── event name ───────────────────────────────────────────────────────────
   const eventName = settings.event_name === "CustomEvent" && settings.custom_event_name
     ? settings.custom_event_name
     : settings.event_name;
 
+  // ── API event object ─────────────────────────────────────────────────────
+  const apiEvent: Record<string, unknown> = {
+    event_name:    eventName,
+    event_time:    Math.floor(conversionEvent.eventTimestamp / 1000),
+    event_id:      conversionEvent.eventId,
+    action_source: actionSource,
+    custom_data:   customData,
+  };
+
+  if (Object.keys(userData).length > 0) apiEvent.user_data        = userData;
+  if (attribution.event_source_url)      apiEvent.event_source_url = attribution.event_source_url;
+
   return {
-    data: [{
-      event_name:    eventName,
-      event_time:    Math.floor(eventTimestamp / 1000),
-      event_id:      eventId,
-      action_source: "other" as const,
-      user_data:     userData,
-      custom_data:   customData,
-    }],
+    data: [apiEvent],
     ...(source.test_event_code ? { test_event_code: source.test_event_code } : {}),
   };
 }
@@ -132,7 +131,6 @@ async function sendCapiRequest(
       shouldRetry:  RETRYABLE_STATUSES.has(res.status),
     };
   } catch (err) {
-    // Network failure or AbortSignal timeout — both transient.
     return {
       ok:           false,
       errorMessage: err instanceof Error ? err.message : "network error",
@@ -147,9 +145,6 @@ async function persistResult(
   result:   SendResult,
   now:      Date,
 ): Promise<void> {
-  // FUTURE: crm_conversion_sources pode receber `last_error_code` (HTTP
-  // status retornado pela Meta) para diagnóstico mais granular. Quando essa
-  // coluna existir, persistir result.statusCode aqui também.
   const update = result.ok
     ? { last_success_at: now.toISOString(), last_error: null, last_error_at: null }
     : { last_error: result.errorMessage ?? "unknown error", last_error_at: now.toISOString() };
@@ -159,63 +154,48 @@ async function persistResult(
 }
 
 function logSkipped(
-  reason: "source not found" | "source inactive" | "source pipeline mismatch" | "lead not found",
-  ctx:    { source_id?: string; lead_id?: string; pipeline_id: string; stage_id: string },
+  reason: "source not found" | "source inactive" | "source pipeline mismatch",
+  ctx:    { source_id?: string; pipeline_id: string; stage_id: string },
 ): void {
   console.warn("[conversion-engine] dispatch skipped", { provider: "meta_pixel", reason, ...ctx });
 }
 
 export const metaConversionProvider: ConversionProvider = {
   platform: "meta_pixel",
-  async execute(conversion: CrmStageConversion, event, context: ProviderContext) {
-    const payload  = event.payload as LeadStageEnteredPayload;
+  async execute(conversion: CrmStageConversion, conversionEvent: ConversionEvent, context: ProviderContext) {
     const settings = conversion.settings as unknown as MetaPixelConversionSettings;
 
-    // Browser-only mode has no server-side action — the fbq pixel on the page
-    // (not the CRM) is responsible for firing this event.
     if (settings.mode === "browser") return;
 
+    // ── Load platform credentials (only DB query this provider makes) ────────
     const source = await loadSource(context.db, settings.pixel_integration_id);
     if (!source) {
       logSkipped("source not found", {
         source_id:   settings.pixel_integration_id,
-        pipeline_id: payload.pipelineId,
-        stage_id:    payload.stageId,
+        pipeline_id: conversionEvent.crm.pipelineId,
+        stage_id:    conversionEvent.crm.stageId,
       });
       return;
     }
-    // Defensive: never trust settings.pixel_integration_id alone — confirm
-    // the resolved source actually belongs to this event's pipeline before
-    // using its pixel_id/access_token.
-    if (source.pipeline_id !== payload.pipelineId) {
+    if (source.pipeline_id !== conversionEvent.crm.pipelineId) {
       logSkipped("source pipeline mismatch", {
         source_id:   source.id,
-        pipeline_id: payload.pipelineId,
-        stage_id:    payload.stageId,
+        pipeline_id: conversionEvent.crm.pipelineId,
+        stage_id:    conversionEvent.crm.stageId,
       });
       return;
     }
     if (!source.is_active) {
       logSkipped("source inactive", {
         source_id:   source.id,
-        pipeline_id: payload.pipelineId,
-        stage_id:    payload.stageId,
+        pipeline_id: conversionEvent.crm.pipelineId,
+        stage_id:    conversionEvent.crm.stageId,
       });
       return;
     }
 
-    const lead = await loadLead(context.db, payload.leadId);
-    if (!lead) {
-      logSkipped("lead not found", {
-        lead_id:     payload.leadId,
-        pipeline_id: payload.pipelineId,
-        stage_id:    payload.stageId,
-      });
-      return;
-    }
-
-    const capiPayload = buildCapiPayload(source, lead, event.id, event.timestamp, payload, settings);
-    const result       = await sendCapiRequest(capiPayload, source);
+    const capiPayload = buildCapiPayload(source, conversionEvent, settings);
+    const result      = await sendCapiRequest(capiPayload, source);
     await persistResult(context.db, source.id, result, context.now);
 
     if (result.shouldRetry) {

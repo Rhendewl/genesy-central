@@ -701,7 +701,7 @@ export function NpsModule({ year, month }: Props) {
                     <ScoreBadge score={rec.score} />
                   </div>
                   {rec.comment && (
-                    <p className="text-xs text-[#b4b4b4] italic line-clamp-2">"{rec.comment}"</p>
+                    <p className="text-xs text-[#b4b4b4] italic line-clamp-2">&ldquo;{rec.comment}&rdquo;</p>
                   )}
                   <div className="flex items-center justify-between mt-2.5">
                     <span className="text-[10px] text-[#5a5a5a]">

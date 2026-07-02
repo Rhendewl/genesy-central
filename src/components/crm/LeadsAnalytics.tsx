@@ -13,8 +13,11 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { useLeads } from "@/hooks/useLeads";
 import { useLeadsAnalytics } from "@/hooks/useLeadsAnalytics";
+import { useLeadsAnalyticsData } from "@/hooks/useLeadsAnalyticsData";
+import { usePipelineFilter } from "@/hooks/usePipelineFilter";
+import { usePipelines } from "@/hooks/usePipelines";
+import { PipelineFilter } from "@/components/crm/PipelineFilter";
 import { KANBAN_COLUMNS } from "@/types";
 import { cn } from "@/lib/utils";
 
@@ -139,13 +142,20 @@ const INSIGHT_ICONS: Record<string, React.ReactNode> = {
 // ── Main Component ─────────────────────────────────────────────────────────────
 
 export function LeadsAnalytics() {
-  const { leads, isLoading } = useLeads();
-  const analytics = useLeadsAnalytics(leads);
+  const { pipelines }                                   = usePipelines();
+  const { value: selectedPipelineIds, onChange: setPipelineFilter } = usePipelineFilter();
+  const { leads, isLoading }                            = useLeadsAnalyticsData(selectedPipelineIds);
+  const analytics                                       = useLeadsAnalytics(leads);
 
   const [search,       setSearch]       = useState("");
   const [sourceFilter, setSourceFilter] = useState("all");
   const [stageFilter,  setStageFilter]  = useState("all");
   const [showAll,      setShowAll]      = useState(false);
+
+  const activePipelines = useMemo(
+    () => pipelines.filter(p => p.is_active),
+    [pipelines],
+  );
 
   const uniqueSources = useMemo(
     () => Array.from(new Set(leads.map(l => l.source || "manual"))),
@@ -176,6 +186,22 @@ export function LeadsAnalytics() {
 
   return (
     <div className="pt-6">
+      {/* ── Pipeline filter bar ─────────────────────────────────────────────── */}
+      {activePipelines.length > 0 && (
+        <div className="px-4 sm:px-6 pb-5 flex items-center gap-3">
+          <PipelineFilter
+            pipelines={activePipelines}
+            value={selectedPipelineIds}
+            onChange={setPipelineFilter}
+          />
+          {selectedPipelineIds !== null && selectedPipelineIds.length > 0 && (
+            <p className="text-xs text-[#5a5a5a]">
+              {analytics.totalLeads} lead{analytics.totalLeads !== 1 ? "s" : ""} na seleção
+            </p>
+          )}
+        </div>
+      )}
+
       {/* ── Section 1: Metric cards ─────────────────────────────────────────── */}
       <Section title="Visão Geral">
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 px-4 sm:px-6">

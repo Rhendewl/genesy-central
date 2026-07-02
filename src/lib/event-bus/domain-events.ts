@@ -6,7 +6,17 @@ export type DomainEventType =
   | "lead.updated"
   | "lead.deleted"
   | "lead.stage.entered"
-  | "lead.stage.left";
+  | "lead.stage.left"
+  // Appointments module — calendar lifecycle
+  | "calendar.created"
+  | "calendar.updated"
+  | "calendar.archived"
+  // Appointments module — booking lifecycle (Phase 2+)
+  | "booking.created"
+  | "booking.confirmed"
+  | "booking.cancelled"
+  | "booking.completed"
+  | "booking.rescheduled";
 
 export interface LeadCreatedPayload {
   leadId:     string;
@@ -39,5 +49,25 @@ export interface LeadStageLeftPayload {
   pipelineId: string;
   stageId:    string;
   toStageId:  string | null;
+  userId:     string;
+}
+
+// ── Appointments module payloads ──────────────────────────────────────────────
+
+export interface CalendarCreatedPayload {
+  calendarId: string;
+  userId:     string;
+  name:       string;
+  slug:       string;
+}
+
+export interface CalendarUpdatedPayload {
+  calendarId: string;
+  userId:     string;
+  changes:    Record<string, unknown>;
+}
+
+export interface CalendarArchivedPayload {
+  calendarId: string;
   userId:     string;
 }

@@ -15,6 +15,7 @@ import {
   Contact,
   Sparkles,
   FileText,
+  Calendar,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useGlobalStore } from "@/store";
@@ -30,6 +31,7 @@ const NAV_ITEMS = [
   { href: "/trafego",       label: "Tráfego",   icon: TrendingUp,      exactMatch: false, permKey: "trafego" },
   { href: "/criativos",     label: "Criativos",   icon: Sparkles,  exactMatch: false, permKey: "criativos" },
   { href: "/formularios",   label: "Formulários", icon: FileText,  exactMatch: false, permKey: "formularios" },
+  { href: "/agendamentos",  label: "Agenda",      icon: Calendar,  exactMatch: false, permKey: "agendamentos" },
   { href: "/configuracoes", label: "Config",      icon: Settings,  exactMatch: false, permKey: "configuracoes" },
 ];
 

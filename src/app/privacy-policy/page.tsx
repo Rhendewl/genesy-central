@@ -83,7 +83,7 @@ export default function PrivacyPolicyPage() {
               <span className="font-medium text-[var(--text-title)]">
                 Genesy Dashboard
               </span>{" "}
-              ("plataforma", "nós") coleta, utiliza, armazena e protege as
+              (&ldquo;plataforma&rdquo;, &ldquo;nós&rdquo;) coleta, utiliza, armazena e protege as
               informações dos usuários que acessam nossos serviços, em
               conformidade com a Lei Geral de Proteção de Dados (LGPD — Lei
               13.709/2018).
@@ -267,7 +267,7 @@ export default function PrivacyPolicyPage() {
                 </a>{" "}
                 com o assunto{" "}
                 <strong className="text-[var(--text-title)]">
-                  "Exclusão de Dados"
+                  &ldquo;Exclusão de Dados&rdquo;
                 </strong>
                 , informando:
               </p>

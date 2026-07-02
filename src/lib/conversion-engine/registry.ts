@@ -1,13 +1,21 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { BusEvent } from "@/lib/event-bus/types";
 import type { CrmStageConversion } from "@/types/crm";
+import type { ConversionEvent } from "./conversion-event";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Conversion Engine — Provider Registry
 //
-// Mirrors src/lib/integrations/registry.ts: a platform name maps to exactly
-// one provider. No caller (engine, dispatcher) ever references Meta, Google
-// or TikTok by name — they only see the registry.
+// A platform name maps to exactly one provider. No caller (engine, dispatcher)
+// ever references Meta, Google or TikTok by name — they only see the registry.
+//
+// Provider contract:
+//   1. Load platform credentials (Pixel ID, Access Token, API Key…).
+//   2. Translate ConversionEvent into the platform-specific payload.
+//   3. Send the request.
+//   4. Persist success / error.
+//
+// Providers never query the database for event data — that is ConversionEvent's
+// responsibility. The only allowed DB access is credential loading.
 // ─────────────────────────────────────────────────────────────────────────────
 
 export interface ProviderContext {
@@ -16,13 +24,12 @@ export interface ProviderContext {
   // Single timestamp reference for the whole dispatch attempt — used for
   // persistence (last_success_at/last_error_at) and logs. Not used for
   // event_time (that comes from event.timestamp, stable across retries).
-  // Reserved for future: logger, metrics, featureFlags, secretsProvider.
   now: Date;
 }
 
 export interface ConversionProvider {
   readonly platform: string;
-  execute(conversion: CrmStageConversion, event: BusEvent, context: ProviderContext): Promise<void>;
+  execute(conversion: CrmStageConversion, conversionEvent: ConversionEvent, context: ProviderContext): Promise<void>;
 }
 
 const providers = new Map<string, ConversionProvider>();

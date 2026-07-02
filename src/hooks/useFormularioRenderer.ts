@@ -170,17 +170,20 @@ export function useFormularioRenderer(slug: string): UseFormularioRendererReturn
       typeof window !== "undefined" ? window.location.search : "",
     );
     const body = {
-      device:       getDevice(),
-      browser:      getBrowser(),
-      os:           getOS(),
-      utm_source:   params.get("utm_source")   ?? undefined,
-      utm_medium:   params.get("utm_medium")   ?? undefined,
-      utm_campaign: params.get("utm_campaign") ?? undefined,
-      utm_term:     params.get("utm_term")     ?? undefined,
-      utm_content:  params.get("utm_content")  ?? undefined,
-      fbclid:       params.get("fbclid")       ?? undefined,
-      gclid:        params.get("gclid")        ?? undefined,
-      referrer:     typeof document !== "undefined" ? document.referrer || undefined : undefined,
+      device:            getDevice(),
+      browser:           getBrowser(),
+      os:                getOS(),
+      utm_source:        params.get("utm_source")   ?? undefined,
+      utm_medium:        params.get("utm_medium")   ?? undefined,
+      utm_campaign:      params.get("utm_campaign") ?? undefined,
+      utm_term:          params.get("utm_term")     ?? undefined,
+      utm_content:       params.get("utm_content")  ?? undefined,
+      fbclid:            params.get("fbclid")       ?? undefined,
+      gclid:             params.get("gclid")        ?? undefined,
+      referrer:          typeof document !== "undefined" ? document.referrer || undefined : undefined,
+      fbp:               readCookie("_fbp")          ?? undefined,
+      fbc:               readCookie("_fbc")          ?? undefined,
+      event_source_url:  typeof window !== "undefined" ? window.location.href : undefined,
     };
 
     try {
