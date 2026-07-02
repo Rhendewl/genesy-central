@@ -32,11 +32,11 @@ export async function PUT(req: NextRequest, { params }: Params) {
 
   // Build the allowed-field-only update payload
   const allowed: (keyof UpdateAppointmentCalendar)[] = [
-    "name", "slug", "description", "duration_minutes",
-    "location_type", "location", "meeting_provider", "custom_meeting_url",
-    "timezone", "booking_window_days", "min_notice_hours",
-    "buffer_before_minutes", "buffer_after_minutes",
-    "daily_limit", "custom_fields", "settings",
+    "name", "slug", "description", "status",
+    "duration_minutes", "timezone", "booking_window_days", "min_notice_hours",
+    "capacity_per_slot", "buffer_before_minutes", "buffer_after_minutes",
+    "daily_limit", "location_type", "location", "meeting_provider",
+    "custom_meeting_url", "custom_fields", "settings",
   ];
 
   const payload: UpdateAppointmentCalendar = {};

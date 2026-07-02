@@ -8,6 +8,7 @@ import type {
   AppointmentAvailabilityException,
   NewAppointmentAvailabilityRule,
   NewAppointmentAvailabilityException,
+  UpdateAppointmentCalendar,
   AdminSlot,
 } from "@/types/appointments";
 
@@ -57,6 +58,24 @@ export function useCalendar(calendarId: string) {
     refetch();
     return () => { mountedRef.current = false; };
   }, [refetch]);
+
+  // ── Calendar settings ─────────────────────────────────────────────────────
+
+  const updateCalendar = useCallback(async (payload: UpdateAppointmentCalendar): Promise<boolean> => {
+    const res  = await fetch(`/api/appointments/calendars/${calendarId}`, {
+      method:  "PUT",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify(payload),
+    });
+    const json = await res.json() as { calendar?: AppointmentCalendar; error?: string };
+    if (!res.ok) {
+      toast.error(json.error ?? "Erro ao salvar calendário");
+      return false;
+    }
+    toast.success("Calendário atualizado");
+    if (mountedRef.current && json.calendar) setCalendar(json.calendar);
+    return true;
+  }, [calendarId]);
 
   // ── Availability rules ─────────────────────────────────────────────────────
 
@@ -139,6 +158,7 @@ export function useCalendar(calendarId: string) {
     isLoading,
     error,
     refetch,
+    updateCalendar,
     upsertRules,
     createException,
     deleteException,

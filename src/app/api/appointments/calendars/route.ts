@@ -44,6 +44,7 @@ export async function POST(req: NextRequest) {
     timezone:              body.timezone              ?? "America/Sao_Paulo",
     booking_window_days:   body.booking_window_days   ?? 60,
     min_notice_hours:      body.min_notice_hours      ?? 1,
+    capacity_per_slot:     body.capacity_per_slot     ?? 1,
     buffer_before_minutes: body.buffer_before_minutes ?? 0,
     buffer_after_minutes:  body.buffer_after_minutes  ?? 0,
     daily_limit:           body.daily_limit           ?? null,

@@ -71,6 +71,7 @@ function makeCalendar(overrides: Partial<AppointmentCalendar> = {}): Appointment
     timezone:              TZ_SP,
     booking_window_days:   60,
     min_notice_hours:      0,
+    capacity_per_slot:     1,
     buffer_before_minutes: 0,
     buffer_after_minutes:  0,
     daily_limit:           null,
@@ -202,66 +203,98 @@ describe("AvailabilityResolver", () => {
   // 2026-07-05 = Sunday
   const SUN = "2026-07-05";
 
-  const mondayRule  = makeRule(1, "09:00:00", "17:00:00", true);
-  const sundayRule  = makeRule(0, "09:00:00", "17:00:00", false);
+  const mondayRule = makeRule(1, "09:00:00", "17:00:00", true);
+  const sundayRule = makeRule(0, "09:00:00", "17:00:00", false);
 
-  it("returns window for available day", () => {
+  it("returns windows for available day", () => {
     const result = resolveAvailability(MON, TZ_SP, [mondayRule], []);
-    expect(result.window).toEqual({ startTime: "09:00", endTime: "17:00" });
+    expect(result.windows).toHaveLength(1);
+    expect(result.windows[0]).toEqual({ startTime: "09:00", endTime: "17:00" });
     expect(result.source).toBe("rule");
   });
 
-  it("returns null window for unavailable day (is_available=false)", () => {
+  it("returns empty windows for unavailable day (is_available=false)", () => {
     const result = resolveAvailability(SUN, TZ_SP, [sundayRule], []);
-    expect(result.window).toBeNull();
+    expect(result.windows).toHaveLength(0);
     expect(result.source).toBe("rule");
   });
 
-  it("returns null window when no rule exists for the day", () => {
+  it("returns empty windows when no rule exists for the day", () => {
     const result = resolveAvailability(SUN, TZ_SP, [mondayRule], []);
-    expect(result.window).toBeNull();
+    expect(result.windows).toHaveLength(0);
     expect(result.source).toBe("rule");
   });
 
   it("blocked exception overrides an available rule", () => {
     const exc    = makeException(MON, "blocked");
     const result = resolveAvailability(MON, TZ_SP, [mondayRule], [exc]);
-    expect(result.window).toBeNull();
+    expect(result.windows).toHaveLength(0);
     expect(result.source).toBe("exception");
   });
 
   it("custom_hours exception overrides weekly rule window", () => {
     const exc    = makeException(MON, "custom_hours", "10:00:00", "14:00:00");
     const result = resolveAvailability(MON, TZ_SP, [mondayRule], [exc]);
-    expect(result.window).toEqual({ startTime: "10:00", endTime: "14:00" });
+    expect(result.windows).toHaveLength(1);
+    expect(result.windows[0]).toEqual({ startTime: "10:00", endTime: "14:00" });
     expect(result.source).toBe("exception");
   });
 
   it("custom_hours exception on an otherwise unavailable day enables it", () => {
     const exc    = makeException(SUN, "custom_hours", "10:00:00", "12:00:00");
     const result = resolveAvailability(SUN, TZ_SP, [sundayRule], [exc]);
-    expect(result.window).toEqual({ startTime: "10:00", endTime: "12:00" });
+    expect(result.windows).toHaveLength(1);
+    expect(result.windows[0]).toEqual({ startTime: "10:00", endTime: "12:00" });
     expect(result.source).toBe("exception");
   });
 
   it("malformed custom_hours exception (missing times) treated as blocked", () => {
     const exc    = makeException(MON, "custom_hours"); // no times
     const result = resolveAvailability(MON, TZ_SP, [mondayRule], [exc]);
-    expect(result.window).toBeNull();
+    expect(result.windows).toHaveLength(0);
     expect(result.source).toBe("exception");
   });
 
   it("exception on different date does not affect requested date", () => {
     const exc    = makeException("2026-07-07", "blocked"); // Tuesday
     const result = resolveAvailability(MON, TZ_SP, [mondayRule], [exc]);
-    expect(result.window).toEqual({ startTime: "09:00", endTime: "17:00" });
+    expect(result.windows).toHaveLength(1);
+    expect(result.windows[0]).toEqual({ startTime: "09:00", endTime: "17:00" });
     expect(result.source).toBe("rule");
   });
 
   it("correctly slices HH:MM:SS time strings from DB", () => {
     const rule   = makeRule(1, "09:00:00", "18:30:00"); // full Postgres time format
     const result = resolveAvailability(MON, TZ_SP, [rule], []);
-    expect(result.window).toEqual({ startTime: "09:00", endTime: "18:30" });
+    expect(result.windows).toHaveLength(1);
+    expect(result.windows[0]).toEqual({ startTime: "09:00", endTime: "18:30" });
+  });
+
+  it("multi-interval: two rules for the same day produce two windows", () => {
+    const rule1 = { ...makeRule(1, "09:00:00", "12:00:00"), id: "rule-1a" };
+    const rule2 = { ...makeRule(1, "14:00:00", "17:00:00"), id: "rule-1b" };
+    const result = resolveAvailability(MON, TZ_SP, [rule1, rule2], []);
+    expect(result.windows).toHaveLength(2);
+    expect(result.windows[0]).toEqual({ startTime: "09:00", endTime: "12:00" });
+    expect(result.windows[1]).toEqual({ startTime: "14:00", endTime: "17:00" });
+    expect(result.source).toBe("rule");
+  });
+
+  it("multi-interval: windows are sorted by start_time ascending", () => {
+    const rule1 = { ...makeRule(1, "14:00:00", "17:00:00"), id: "rule-1b" };
+    const rule2 = { ...makeRule(1, "09:00:00", "12:00:00"), id: "rule-1a" };
+    const result = resolveAvailability(MON, TZ_SP, [rule1, rule2], []);
+    expect(result.windows[0].startTime).toBe("09:00");
+    expect(result.windows[1].startTime).toBe("14:00");
+  });
+
+  it("multi-interval: blocked exception still returns empty windows", () => {
+    const rule1 = { ...makeRule(1, "09:00:00", "12:00:00"), id: "rule-1a" };
+    const rule2 = { ...makeRule(1, "14:00:00", "17:00:00"), id: "rule-1b" };
+    const exc   = makeException(MON, "blocked");
+    const result = resolveAvailability(MON, TZ_SP, [rule1, rule2], [exc]);
+    expect(result.windows).toHaveLength(0);
+    expect(result.source).toBe("exception");
   });
 });
 

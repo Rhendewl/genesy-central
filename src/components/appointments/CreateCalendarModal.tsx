@@ -60,6 +60,7 @@ export function CreateCalendarModal({ onClose, onCreate }: CreateCalendarModalPr
       timezone,
       booking_window_days:   60,
       min_notice_hours:      1,
+      capacity_per_slot:     1,
       buffer_before_minutes: 0,
       buffer_after_minutes:  0,
       daily_limit:           null,

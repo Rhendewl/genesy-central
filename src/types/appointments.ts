@@ -16,6 +16,7 @@ export type AppointmentMeetingProvider =
   | "zoom"
   | "teams"
   | "whereby"
+  | "whatsapp"
   | "custom"
   | "none";
 
@@ -85,6 +86,7 @@ export interface AppointmentCalendar {
   buffer_before_minutes: number;
   buffer_after_minutes:  number;
   daily_limit:           number | null;
+  capacity_per_slot:     number;
   status:                AppointmentCalendarStatus;
   custom_fields:         AppointmentCustomField[];
   settings:              Record<string, unknown>;

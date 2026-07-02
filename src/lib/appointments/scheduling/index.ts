@@ -30,21 +30,23 @@ export function getAvailableSlots(params: GetAvailableSlotsParams): AdminSlot[] 
   } = params;
   const nowUtc = params.nowUtc ?? new Date();
 
-  // 1. Resolve the effective time window for the requested date
+  // 1. Resolve effective time windows for the requested date (may be multiple)
   const resolved = resolveAvailability(dateStr, calendar.timezone, rules, exceptions);
-  if (!resolved.window) return [];
+  if (resolved.windows.length === 0) return [];
 
-  // 2. Generate candidate slots within the window
-  const candidates = generateSlots({
-    dateStr,
-    timezone:            calendar.timezone,
-    window:              resolved.window,
-    durationMinutes:     calendar.duration_minutes,
-    bufferBeforeMinutes: calendar.buffer_before_minutes,
-    bufferAfterMinutes:  calendar.buffer_after_minutes,
-    minNoticeHours:      calendar.min_notice_hours,
-    nowUtc,
-  });
+  // 2. Generate candidate slots for each window, then sort by start time
+  const candidates = resolved.windows
+    .flatMap(w => generateSlots({
+      dateStr,
+      timezone:            calendar.timezone,
+      window:              w,
+      durationMinutes:     calendar.duration_minutes,
+      bufferBeforeMinutes: calendar.buffer_before_minutes,
+      bufferAfterMinutes:  calendar.buffer_after_minutes,
+      minNoticeHours:      calendar.min_notice_hours,
+      nowUtc,
+    }))
+    .sort((a, b) => a.startsAt.getTime() - b.startsAt.getTime());
 
   // 3. Remove slots that conflict with existing bookings
   const existingWindows = parseBookingWindows(existingBookingRows);

@@ -20,7 +20,8 @@ export class AvailabilityRepository {
       .select("*")
       .eq("calendar_id", calendarId)
       .eq("user_id", userId)
-      .order("day_of_week", { ascending: true });
+      .order("day_of_week", { ascending: true })
+      .order("start_time",  { ascending: true });
 
     if (error) throw new Error(error.message);
     return (data ?? []) as AppointmentAvailabilityRule[];

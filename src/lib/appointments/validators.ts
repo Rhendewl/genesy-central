@@ -140,6 +140,14 @@ export function validateNewCalendar(
     }
   }
 
+  // capacity_per_slot
+  const cps = payload.capacity_per_slot;
+  if (cps !== undefined) {
+    if (!Number.isInteger(cps) || cps < 1) {
+      errors.push(err("capacity_per_slot", "Capacidade por horário deve ser 1 ou maior"));
+    }
+  }
+
   return errors.length ? fail(errors) : ok();
 }
 
@@ -209,6 +217,19 @@ export function validateUpdateCalendar(
     }
   }
 
+  const cps = payload.capacity_per_slot;
+  if (cps !== undefined) {
+    if (!Number.isInteger(cps) || cps < 1) {
+      errors.push(err("capacity_per_slot", "Capacidade por horário deve ser 1 ou maior"));
+    }
+  }
+
+  if (payload.status !== undefined) {
+    if (!["active", "archived"].includes(payload.status as string)) {
+      errors.push(err("status", "Status deve ser 'active' ou 'archived'"));
+    }
+  }
+
   return errors.length ? fail(errors) : ok();
 }
 
@@ -252,15 +273,34 @@ export function validateAvailabilityRules(
   }
 
   const errors: FieldError[] = [];
-  const seen = new Set<number>();
 
+  // Validate each rule individually
   rules.forEach((rule, i) => {
-    if (seen.has(rule.day_of_week)) {
-      errors.push(err(`rules[${i}].day_of_week`, `Dia ${rule.day_of_week} duplicado`));
-    }
-    seen.add(rule.day_of_week);
     errors.push(...validateAvailabilityRule(rule, i));
   });
+
+  // Validate no overlapping intervals within the same day
+  const byDay = new Map<number, { start: string; end: string; idx: number }[]>();
+  rules.forEach((rule, i) => {
+    if (!rule.is_available) return;
+    const st = (rule.start_time ?? "").slice(0, 5);
+    const et = (rule.end_time   ?? "").slice(0, 5);
+    if (!isValidTime(st) || !isValidTime(et) || st >= et) return; // already flagged above
+    if (!byDay.has(rule.day_of_week)) byDay.set(rule.day_of_week, []);
+    byDay.get(rule.day_of_week)!.push({ start: st, end: et, idx: i });
+  });
+
+  for (const intervals of Array.from(byDay.values())) {
+    const sorted = [...intervals].sort((a, b) => a.start.localeCompare(b.start));
+    for (let i = 1; i < sorted.length; i++) {
+      if (sorted[i].start < sorted[i - 1].end) {
+        errors.push(err(
+          `rules[${sorted[i].idx}].start_time`,
+          "Intervalos do mesmo dia se sobrepõem",
+        ));
+      }
+    }
+  }
 
   return errors.length ? fail(errors) : ok();
 }
