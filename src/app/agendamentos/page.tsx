@@ -1,24 +1,36 @@
 "use client";
 
-import { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { Calendar, Plus, Loader2 } from "lucide-react";
-import { Header }              from "@/components/layout/Header";
-import { CalendarCard }        from "@/components/appointments/CalendarCard";
-import { CreateCalendarModal } from "@/components/appointments/CreateCalendarModal";
-import { BookingsTable }       from "@/components/appointments/BookingsTable";
-import { useCalendars }        from "@/hooks/useCalendars";
+import { Suspense, useState, useEffect } from "react";
+import { useSearchParams }               from "next/navigation";
+import { motion, AnimatePresence }       from "framer-motion";
+import { Calendar, Plus, Loader2 }       from "lucide-react";
+import { Header }                        from "@/components/layout/Header";
+import { CalendarCard }                  from "@/components/appointments/CalendarCard";
+import { CreateCalendarModal }           from "@/components/appointments/CreateCalendarModal";
+import { BookingsTable }                 from "@/components/appointments/BookingsTable";
+import { IntegracoesTab }               from "@/components/appointments/IntegracoesTab";
+import { useCalendars }                  from "@/hooks/useCalendars";
 
-type MainTab = "calendarios" | "agendamentos";
+type MainTab = "calendarios" | "agendamentos" | "integracoes";
 
-export default function AgendamentosPage() {
+// Inner component that reads search params (must be inside Suspense)
+function AgendamentosPageContent() {
   const {
     calendars, isLoading, error,
     createCalendar, archiveCalendar,
   } = useCalendars();
 
+  const searchParams = useSearchParams();
   const [showCreate, setShowCreate] = useState(false);
   const [mainTab,    setMainTab]    = useState<MainTab>("calendarios");
+
+  // Honour ?tab=integracoes redirect from Google OAuth callback
+  useEffect(() => {
+    const tab = searchParams.get("tab");
+    if (tab === "integracoes" || tab === "agendamentos" || tab === "calendarios") {
+      setMainTab(tab as MainTab);
+    }
+  }, [searchParams]);
 
   if (isLoading) {
     return (
@@ -35,7 +47,11 @@ export default function AgendamentosPage() {
     <div className="flex flex-col min-h-screen pb-24" style={{ backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)" }}>
       <Header
         title="Agendamentos"
-        subtitle={mainTab === "calendarios" ? "Gerencie seus calendários de agendamento" : "Lista de agendamentos realizados"}
+        subtitle={
+          mainTab === "calendarios"  ? "Gerencie seus calendários de agendamento" :
+          mainTab === "agendamentos" ? "Lista de agendamentos realizados" :
+                                      "Conecte ferramentas externas ao módulo de agendamento"
+        }
       />
 
       {/* Tab bar */}
@@ -43,7 +59,7 @@ export default function AgendamentosPage() {
         className="px-4 sm:px-6 flex items-center gap-0.5 border-b"
         style={{ borderColor: "var(--border)" }}
       >
-        {(["calendarios", "agendamentos"] as MainTab[]).map(tab => (
+        {(["calendarios", "agendamentos", "integracoes"] as MainTab[]).map(tab => (
           <button
             key={tab}
             onClick={() => setMainTab(tab)}
@@ -52,7 +68,7 @@ export default function AgendamentosPage() {
               color: mainTab === tab ? "var(--text-title)" : "var(--muted-foreground)",
             }}
           >
-            {tab === "calendarios" ? "Calendários" : "Agendamentos"}
+            {tab === "calendarios" ? "Calendários" : tab === "agendamentos" ? "Agendamentos" : "Integrações"}
             {mainTab === tab && (
               <motion.span
                 layoutId="main-tab-indicator"
@@ -65,6 +81,8 @@ export default function AgendamentosPage() {
       </div>
 
       <div className="px-4 sm:px-6 pt-4 pb-4">
+        {mainTab === "integracoes" && <IntegracoesTab />}
+
         {mainTab === "calendarios" && (
           <>
             {/* Action bar */}
@@ -114,6 +132,21 @@ export default function AgendamentosPage() {
         )}
       </AnimatePresence>
     </div>
+  );
+}
+
+export default function AgendamentosPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex flex-col min-h-screen" style={{ backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)" }}>
+        <Header title="Agendamentos" subtitle="Gerencie seus calendários de agendamento" />
+        <div className="flex-1 flex items-center justify-center">
+          <Loader2 size={24} className="animate-spin" style={{ color: "var(--muted-foreground)" }} />
+        </div>
+      </div>
+    }>
+      <AgendamentosPageContent />
+    </Suspense>
   );
 }
 

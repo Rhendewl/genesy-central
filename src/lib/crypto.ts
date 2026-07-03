@@ -58,3 +58,27 @@ export function verifyOAuthState<T extends Record<string, unknown>>(state: strin
   if (Date.now() - parsed.ts > 10 * 60 * 1000) throw new Error("State expired");
   return parsed;
 }
+
+// ── Generic state signing (TOKEN_ENCRYPTION_KEY as HMAC secret) ───────────────
+// Used for integrations other than Meta (e.g. Google OAuth) that don't depend
+// on META_APP_SECRET being set.
+
+export function signState(payload: Record<string, unknown>): string {
+  const key = getEncryptionKey();
+  const data = Buffer.from(JSON.stringify({ ...payload, ts: Date.now() })).toString("base64url");
+  const sig  = createHmac("sha256", key).update(data).digest("base64url");
+  return `${data}.${sig}`;
+}
+
+export function verifyState<T extends Record<string, unknown>>(state: string): T {
+  const key = getEncryptionKey();
+  const dotIdx = state.lastIndexOf(".");
+  if (dotIdx === -1) throw new Error("Malformed state");
+  const data = state.slice(0, dotIdx);
+  const sig  = state.slice(dotIdx + 1);
+  const expected = createHmac("sha256", key).update(data).digest("base64url");
+  if (sig !== expected) throw new Error("Invalid state signature");
+  const parsed = JSON.parse(Buffer.from(data, "base64url").toString("utf8")) as T & { ts: number };
+  if (Date.now() - parsed.ts > 15 * 60 * 1000) throw new Error("State expired");
+  return parsed;
+}
