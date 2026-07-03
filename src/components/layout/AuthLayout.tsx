@@ -45,10 +45,11 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
   }, []);
 
   const isAuthenticated = !isChecking && !!session;
-  const isPortalPage  = pathname?.startsWith("/portal/")  ?? false;
-  const isConvitePage = pathname?.startsWith("/convite/")  ?? false;
-  const isFormPage    = pathname?.startsWith("/form/")     ?? false;
-  const showDock = isAuthenticated && !isPortalPage && !isConvitePage && !isFormPage;
+  const isPortalPage   = pathname?.startsWith("/portal/")  ?? false;
+  const isConvitePage  = pathname?.startsWith("/convite/") ?? false;
+  const isFormPage     = pathname?.startsWith("/form/")    ?? false;
+  const isAgendarPage  = pathname?.startsWith("/agendar/") ?? false;
+  const showDock = isAuthenticated && !isPortalPage && !isConvitePage && !isFormPage && !isAgendarPage;
 
   // Em canvas mode o Dock se oculta sozinho, mas o padding do <main> precisa
   // ser removido explicitamente para o canvas ocupar 100% da viewport.
@@ -58,7 +59,7 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <>
-      {isAuthenticated && (
+      {isAuthenticated && !isAgendarPage && (
         <div
           aria-hidden="true"
           style={{
