@@ -63,7 +63,10 @@ export interface ConversionEvent {
   identity:    IdentitySignals;
   attribution: Attribution;
   commerce:    Commerce;
-  crm:         CrmContext;
+
+  // Present for CRM-originated events (lead.stage.entered).
+  // Absent for events from other domains (booking.created, checkout.completed…).
+  crm?: CrmContext;
 
   // ── Derived classification ─────────────────────────────────────────────
   actionSource: ActionSource;

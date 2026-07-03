@@ -3,6 +3,7 @@ import { InMemoryAdapter } from "./storage";
 import type { EventBus } from "./types";
 import type { DomainEventType } from "./domain-events";
 import { createConversionEngine } from "@/lib/conversion-engine/engine";
+import { crmResolver }            from "@/lib/conversion-engine/event-resolvers/crm";
 import { createAdminSupabaseClient } from "@/lib/supabase-admin";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -26,7 +27,11 @@ export function getPlatformEventBus(): EventBus<DomainEventType> {
 
   // Conversion Engine is the first consumer; future modules (Automations,
   // Analytics) will subscribe here too without touching CRM or LeadService.
-  _bus.subscribe(createConversionEngine({ db: createAdminSupabaseClient() }));
+  // To add a new domain: pass its resolver alongside crmResolver — zero other changes.
+  _bus.subscribe(createConversionEngine({
+    db:        createAdminSupabaseClient(),
+    resolvers: [crmResolver],
+  }));
 
   return _bus;
 }

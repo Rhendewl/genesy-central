@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { CrmStageConversion } from "@/types/crm";
+import type { ConversionRule }  from "./event-resolvers/types";
 import type { ConversionEvent } from "./conversion-event";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -29,7 +29,7 @@ export interface ProviderContext {
 
 export interface ConversionProvider {
   readonly platform: string;
-  execute(conversion: CrmStageConversion, conversionEvent: ConversionEvent, context: ProviderContext): Promise<void>;
+  execute(rule: ConversionRule, conversionEvent: ConversionEvent, context: ProviderContext): Promise<void>;
 }
 
 const providers = new Map<string, ConversionProvider>();

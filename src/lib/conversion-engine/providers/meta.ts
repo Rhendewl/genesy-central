@@ -1,7 +1,8 @@
 import { registerConversionProvider, type ConversionProvider, type ProviderContext } from "../registry";
-import type { ConversionEvent } from "../conversion-event";
-import type { IdentitySignals } from "../identity-signals";
-import type { CrmConversionSource, CrmStageConversion, MetaPixelConversionSettings } from "@/types/crm";
+import type { ConversionEvent }  from "../conversion-event";
+import type { IdentitySignals }  from "../identity-signals";
+import type { ConversionRule }   from "../event-resolvers/types";
+import type { CrmConversionSource, MetaPixelConversionSettings } from "@/types/crm";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Meta Pixel / Conversions API provider
@@ -69,14 +70,16 @@ function buildCapiPayload(
   const userData = toMetaUserData(identity);
 
   // ── custom_data ──────────────────────────────────────────────────────────
-  const customData: Record<string, unknown> = {
-    lead_id:     crm.leadId,
-    pipeline_id: crm.pipelineId,
-    stage_id:    crm.stageId,
-  };
-  if (crm.leadSource)   customData.lead_source   = crm.leadSource;
-  if (crm.campaignName) customData.campaign_name = crm.campaignName;
-  if (crm.adName)       customData.ad_name       = crm.adName;
+  const customData: Record<string, unknown> = {};
+  // CRM context is optional — present for lead events, absent for booking events.
+  if (crm) {
+    customData.lead_id     = crm.leadId;
+    customData.pipeline_id = crm.pipelineId;
+    customData.stage_id    = crm.stageId;
+    if (crm.leadSource)   customData.lead_source   = crm.leadSource;
+    if (crm.campaignName) customData.campaign_name = crm.campaignName;
+    if (crm.adName)       customData.ad_name       = crm.adName;
+  }
 
   const value = settings.value ?? (commerce.dealValue > 0 ? commerce.dealValue : null);
   if (value != null) {
@@ -162,8 +165,8 @@ function logSkipped(
 
 export const metaConversionProvider: ConversionProvider = {
   platform: "meta_pixel",
-  async execute(conversion: CrmStageConversion, conversionEvent: ConversionEvent, context: ProviderContext) {
-    const settings = conversion.settings as unknown as MetaPixelConversionSettings;
+  async execute(rule: ConversionRule, conversionEvent: ConversionEvent, context: ProviderContext) {
+    const settings = rule.settings as unknown as MetaPixelConversionSettings;
 
     if (settings.mode === "browser") return;
 
@@ -172,12 +175,15 @@ export const metaConversionProvider: ConversionProvider = {
     if (!source) {
       logSkipped("source not found", {
         source_id:   settings.pixel_integration_id,
-        pipeline_id: conversionEvent.crm.pipelineId,
-        stage_id:    conversionEvent.crm.stageId,
+        pipeline_id: conversionEvent.crm?.pipelineId ?? "n/a",
+        stage_id:    conversionEvent.crm?.stageId    ?? "n/a",
       });
       return;
     }
-    if (source.pipeline_id !== conversionEvent.crm.pipelineId) {
+    // Pipeline scope guard: only enforced when the event carries CRM context.
+    // Booking and other domain events bypass this check — ownership is
+    // already guaranteed by the resolver that built the ConversionEvent.
+    if (conversionEvent.crm && source.pipeline_id !== conversionEvent.crm.pipelineId) {
       logSkipped("source pipeline mismatch", {
         source_id:   source.id,
         pipeline_id: conversionEvent.crm.pipelineId,
@@ -188,8 +194,8 @@ export const metaConversionProvider: ConversionProvider = {
     if (!source.is_active) {
       logSkipped("source inactive", {
         source_id:   source.id,
-        pipeline_id: conversionEvent.crm.pipelineId,
-        stage_id:    conversionEvent.crm.stageId,
+        pipeline_id: conversionEvent.crm?.pipelineId ?? "n/a",
+        stage_id:    conversionEvent.crm?.stageId    ?? "n/a",
       });
       return;
     }
