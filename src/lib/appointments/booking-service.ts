@@ -11,6 +11,7 @@ import { AvailabilityRepository } from "./repositories/availability-repository";
 import { validateCreateBooking, firstError } from "./validators";
 import { getAvailableSlots } from "./scheduling";
 import { localTimeToUTC } from "./scheduling/timezone-resolver";
+import { GoogleCalendarSyncService } from "@/lib/google-calendar";
 import type { ServiceResult } from "./calendar-service";
 import type {
   CreatePublicBookingPayload,
@@ -134,6 +135,25 @@ export class BookingService {
           calendar_id:   calendar.id,
         },
       }).then();
+
+      // Sync to Google Calendar immediately on booking creation (non-fatal, fire-and-forget)
+      void new GoogleCalendarSyncService(this.db).syncBooking({
+        bookingId:           result.booking_id,
+        calendarId:          calendar.id,
+        calendarName:        calendar.name,
+        userId:              ownerId,
+        visitorName:         payload.visitor_name.trim(),
+        visitorEmail:        payload.visitor_email.trim().toLowerCase(),
+        visitorPhone:        payload.visitor_phone?.trim()  ?? null,
+        visitorNotes:        payload.visitor_notes?.trim()  ?? null,
+        startsAt:            startsAt.toISOString(),
+        endsAt:              endsAt.toISOString(),
+        timezone:            calendar.timezone,
+        meetingUrl:          calendar.custom_meeting_url    ?? null,
+        location:            calendar.location              ?? null,
+        customFormResponses: customFormResponses,
+        correlationId:       null,
+      });
 
       return { ok: true, data: result, error: null };
     } catch (err) {

@@ -5,7 +5,6 @@
 import { NextRequest, NextResponse }    from "next/server";
 import { createServerSupabaseClient }   from "@/lib/supabase-server";
 import { BookingRepository }            from "@/lib/appointments/repositories/booking-repository";
-import { GoogleCalendarSyncService }    from "@/lib/google-calendar";
 import type { BookingStatus, BookingCancelledBy } from "@/types/appointments";
 
 type Params = { params: Promise<{ id: string }> };
@@ -83,40 +82,6 @@ export async function PATCH(req: NextRequest, { params }: Params) {
         reason:          body?.cancellation_reason ?? null,
       },
     }).then();
-
-    // Trigger Google Calendar sync when booking is confirmed (non-fatal, fire-and-forget)
-    if (newStatus === "confirmed") {
-      void (async () => {
-        try {
-          const { data: cal } = await supabase
-            .from("appointment_calendars")
-            .select("name")
-            .eq("id", booking.calendar_id)
-            .single();
-
-          const sync = new GoogleCalendarSyncService(supabase);
-          await sync.syncBooking({
-            bookingId:           booking.id,
-            calendarId:          booking.calendar_id,
-            calendarName:        cal?.name ?? booking.calendar_id,
-            userId:              user.id,
-            visitorName:         booking.visitor_name,
-            visitorEmail:        booking.visitor_email,
-            visitorPhone:        booking.visitor_phone        ?? null,
-            visitorNotes:        booking.visitor_notes        ?? null,
-            startsAt:            booking.starts_at,
-            endsAt:              booking.ends_at,
-            timezone:            booking.visitor_timezone,
-            meetingUrl:          booking.meeting_url          ?? null,
-            location:            booking.location             ?? null,
-            customFormResponses: (booking.custom_form_responses as Record<string, unknown>) ?? {},
-            correlationId:       booking.correlation_id       ?? null,
-          });
-        } catch {
-          // syncBooking is already non-throwing; this is a belt-and-suspenders catch
-        }
-      })();
-    }
 
     return NextResponse.json({ booking });
   } catch (err) {
