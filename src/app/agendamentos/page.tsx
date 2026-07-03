@@ -81,7 +81,7 @@ function AgendamentosPageContent() {
       </div>
 
       <div className="px-4 sm:px-6 pt-4 pb-4">
-        {mainTab === "integracoes" && <IntegracoesTab />}
+        {mainTab === "integracoes" && <IntegracoesTab calendars={calendars} />}
 
         {mainTab === "calendarios" && (
           <>

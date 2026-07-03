@@ -1,8 +1,11 @@
 "use client";
 
-import { Suspense, useEffect, useRef } from "react";
-import { useSearchParams }             from "next/navigation";
-import { GoogleCalendarCard }          from "@/components/appointments/integrations/GoogleCalendarCard";
+import { Suspense, useEffect, useRef, useState } from "react";
+import { useSearchParams }                        from "next/navigation";
+import { GoogleCalendarCard }                     from "@/components/appointments/integrations/GoogleCalendarCard";
+import { CrmIntegrationCard }                     from "@/components/appointments/integrations/CrmIntegrationCard";
+import { MetaPixelCard }                          from "@/components/appointments/integrations/MetaPixelCard";
+import type { AppointmentCalendar }       from "@/types/appointments";
 
 function OAuthToast() {
   const searchParams = useSearchParams();
@@ -41,16 +44,70 @@ function OAuthToast() {
   );
 }
 
-export function IntegracoesTab() {
+interface Props {
+  calendars: AppointmentCalendar[];
+}
+
+export function IntegracoesTab({ calendars }: Props) {
+  const [selectedCalendarId, setSelectedCalendarId] = useState<string>(
+    calendars[0]?.id ?? "",
+  );
+
+  // Keep selection valid when calendars list loads/changes
+  useEffect(() => {
+    if (!selectedCalendarId && calendars.length > 0) {
+      setSelectedCalendarId(calendars[0].id);
+    }
+  }, [calendars, selectedCalendarId]);
+
+  const selectedCalendar = calendars.find(c => c.id === selectedCalendarId);
+
   return (
     <div className="flex flex-col gap-6">
       <Suspense>
         <OAuthToast />
       </Suspense>
 
-      {/* Grid of integration cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        <GoogleCalendarCard />
+      {/* Section: conta — global (não por calendário) */}
+      <div className="flex flex-col gap-3">
+        <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--muted-foreground)" }}>
+          Conta
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <GoogleCalendarCard />
+        </div>
+      </div>
+
+      {/* Section: por calendário */}
+      <div className="flex flex-col gap-3">
+        <div className="flex items-center gap-3">
+          <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--muted-foreground)" }}>
+            Por calendário
+          </p>
+          {calendars.length > 0 && (
+            <select
+              value={selectedCalendarId}
+              onChange={e => setSelectedCalendarId(e.target.value)}
+              className="text-sm rounded-lg px-3 py-1.5 border outline-none"
+              style={{ borderColor: "var(--border)", background: "var(--card)", color: "var(--text-title)" }}
+            >
+              {calendars.map(c => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+          )}
+        </div>
+
+        {calendars.length === 0 ? (
+          <p className="text-sm" style={{ color: "var(--muted-foreground)" }}>
+            Crie um calendário para configurar integrações.
+          </p>
+        ) : selectedCalendar ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <CrmIntegrationCard calendarId={selectedCalendar.id} />
+            <MetaPixelCard      calendarId={selectedCalendar.id} />
+          </div>
+        ) : null}
       </div>
     </div>
   );

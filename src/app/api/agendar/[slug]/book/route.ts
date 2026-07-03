@@ -2,12 +2,14 @@
 // Public — no auth required. Creates a booking on the calendar.
 // Input validation → slot availability check → DB insert (GIST exclusion handles races).
 
-import { NextRequest, NextResponse }     from "next/server";
-import { createAdminSupabaseClient }      from "@/lib/supabase-admin";
-import { CalendarRepository }             from "@/lib/appointments/repositories/calendar-repository";
-import { BookingService }                 from "@/lib/appointments/booking-service";
-import { GoogleCalendarSyncService }      from "@/lib/google-calendar";
-import type { CreatePublicBookingPayload } from "@/types/appointments";
+import { NextRequest, NextResponse }        from "next/server";
+import { createAdminSupabaseClient }        from "@/lib/supabase-admin";
+import { CalendarRepository }               from "@/lib/appointments/repositories/calendar-repository";
+import { BookingService }                   from "@/lib/appointments/booking-service";
+import { GoogleCalendarSyncService }        from "@/lib/google-calendar";
+import { BookingCrmSyncService }            from "@/lib/appointments/booking-crm-sync-service";
+import { BookingMetaPixelSyncService }      from "@/lib/appointments/booking-meta-pixel-sync-service";
+import type { CreatePublicBookingPayload }  from "@/types/appointments";
 
 type Params = { params: Promise<{ slug: string }> };
 
@@ -55,22 +57,62 @@ export async function POST(req: NextRequest, { params }: Params) {
 
     // Sync to Google Calendar — awaited so Vercel doesn't kill the process before it completes.
     // syncBooking() is non-throwing; failure is logged internally and never blocks the response.
+    const bookingId    = result.data!.booking_id;
+    const visitorName  = payload.visitor_name.trim();
+    const visitorEmail = payload.visitor_email.trim().toLowerCase();
+    const visitorPhone = payload.visitor_phone?.trim()  ?? null;
+    const startsAt     = new Date(payload.starts_at).toISOString();
+    const attribution  = (payload.attribution ?? {}) as Record<string, unknown>;
+
+    // 1. Google Calendar — awaited so Vercel doesn't kill the process before it completes.
     await new GoogleCalendarSyncService(db).syncBooking({
-      bookingId:           result.data!.booking_id,
+      bookingId,
       calendarId:          calendar.id,
       calendarName:        calendar.name,
       userId:              calendar.user_id,
-      visitorName:         payload.visitor_name.trim(),
-      visitorEmail:        payload.visitor_email.trim().toLowerCase(),
-      visitorPhone:        payload.visitor_phone?.trim()  ?? null,
+      visitorName,
+      visitorEmail,
+      visitorPhone,
       visitorNotes:        payload.visitor_notes?.trim()  ?? null,
-      startsAt:            new Date(payload.starts_at).toISOString(),
+      startsAt,
       endsAt:              new Date(new Date(payload.starts_at).getTime() + calendar.duration_minutes * 60000).toISOString(),
       timezone:            calendar.timezone,
       meetingUrl:          calendar.custom_meeting_url    ?? null,
       location:            calendar.location              ?? null,
       customFormResponses: payload.custom_form_responses  ?? {},
       correlationId:       null,
+    });
+
+    // 2. CRM — non-throwing; failure logged in history, never blocks booking.
+    await new BookingCrmSyncService(db).syncBooking({
+      bookingId,
+      calendarId:   calendar.id,
+      calendarName: calendar.name,
+      userId:       calendar.user_id,
+      crmSettings:  calendar.settings?.crm ?? null,
+      visitorName,
+      visitorEmail,
+      visitorPhone,
+      visitorNotes: payload.visitor_notes?.trim() ?? null,
+      startsAt,
+      attribution,
+      correlationId: null,
+    });
+
+    // 3. Meta Pixel (Conversions API) — non-throwing; failure logged in history, never blocks booking.
+    await new BookingMetaPixelSyncService(db).syncBooking({
+      bookingId,
+      calendarId:   calendar.id,
+      calendarName: calendar.name,
+      userId:       calendar.user_id,
+      metaSettings: calendar.settings?.meta_pixel ?? null,
+      visitorName,
+      visitorEmail,
+      visitorPhone,
+      startsAt,
+      pageUrl:      (attribution.page_url as string | undefined) ?? null,
+      attribution,
+      correlationId: null,
     });
 
     return NextResponse.json({ booking: result.data }, { status: 201 });

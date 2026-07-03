@@ -112,11 +112,28 @@ export interface AppointmentLGPDSettings {
   link:    string | null;
 }
 
+export interface AppointmentCrmSettings {
+  enabled:     boolean;
+  pipeline_id: string | null;
+  stage_id:    string | null;
+}
+
+export interface AppointmentMetaPixelSettings {
+  enabled:          boolean;
+  pixel_id:         string;
+  event_name:       string;              // e.g. "Chronos_Scheduled", "Lead", custom
+  event_mode:       "standard" | "custom";
+  access_token:     string;              // AES-256-GCM encrypted via encryptToken()
+  test_event_code?: string | null;
+}
+
 export interface AppointmentCalendarSettings {
-  page?:    AppointmentPageSettings;
-  form?:    AppointmentFormSettings;
-  success?: AppointmentSuccessSettings;
-  lgpd?:    AppointmentLGPDSettings;
+  page?:       AppointmentPageSettings;
+  form?:       AppointmentFormSettings;
+  success?:    AppointmentSuccessSettings;
+  lgpd?:       AppointmentLGPDSettings;
+  crm?:        AppointmentCrmSettings;
+  meta_pixel?: AppointmentMetaPixelSettings;
 }
 
 // ── Calendar aggregate ───────────────────────────────────────────────────────

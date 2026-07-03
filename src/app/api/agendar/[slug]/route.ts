@@ -29,8 +29,13 @@ export async function GET(_req: NextRequest, { params }: Params) {
       new Set(rules.filter(r => r.is_available).map(r => r.day_of_week)),
     ).sort();
 
-    // Strip user_id before sending to client
+    // Strip user_id and sensitive integration tokens before sending to client
     const { user_id: _, ...publicCalendar } = calendar;
+
+    if (publicCalendar.settings?.meta_pixel) {
+      const { access_token: _t, ...safeMeta } = publicCalendar.settings.meta_pixel;
+      publicCalendar.settings = { ...publicCalendar.settings, meta_pixel: { ...safeMeta, access_token: "" } };
+    }
 
     return NextResponse.json(
       { calendar: publicCalendar, available_weekdays: availableWeekdays },
