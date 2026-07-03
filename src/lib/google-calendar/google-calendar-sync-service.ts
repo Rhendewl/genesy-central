@@ -34,11 +34,13 @@ export class GoogleCalendarSyncService {
 
   // Entry point — non-throwing, fire-and-forget safe.
   async syncBooking(payload: SyncBookingPayload): Promise<void> {
+    console.log(`[GCal] SYNC START bookingId=${payload.bookingId} userId=${payload.userId} calendarId=${payload.calendarId}`);
     try {
       await this._doSync(payload);
+      console.log(`[GCal] SYNC COMPLETE bookingId=${payload.bookingId}`);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      console.error(`[GoogleCalendarSyncService] Sync failed for booking ${payload.bookingId}:`, msg);
+      console.error(`[GCal] SYNC FAILED bookingId=${payload.bookingId}:`, msg);
 
       // Record failure in history (non-fatal)
       void this.db.from("appointment_booking_history").insert({
@@ -58,13 +60,19 @@ export class GoogleCalendarSyncService {
   private async _doSync(payload: SyncBookingPayload): Promise<void> {
     // 1. Check connection exists and auto_create_events is enabled
     const connection = await this.repo.findByUserId(payload.userId);
-    if (!connection || !connection.is_active || !connection.auto_create_events) return;
+    console.log(`[GCal] STEP 1 connection=${connection ? `found (is_active=${connection.is_active} auto_create=${connection.auto_create_events})` : "NOT FOUND"}`);
+    if (!connection || !connection.is_active || !connection.auto_create_events) {
+      console.log(`[GCal] STEP 1 ABORT — no connection or auto_create disabled`);
+      return;
+    }
 
     // 2. Mark syncing
     await this.repo.updateSyncStatus(payload.userId, "syncing", null, null);
+    console.log(`[GCal] STEP 2 marked syncing`);
 
     // 3. Get valid (auto-refreshed) access token
     const accessToken = await this.tokens.getValidAccessToken(payload.userId);
+    console.log(`[GCal] STEP 3 token retrieved (${accessToken.length} chars)`);
 
     // 4. Build event description
     const description = this._buildDescription(payload);
@@ -73,6 +81,7 @@ export class GoogleCalendarSyncService {
     const summary = `${payload.calendarName} • ${payload.visitorName}`;
 
     // 6. Create event in user's primary Google Calendar
+    console.log(`[GCal] STEP 6 calling Google API — summary="${summary}" start=${payload.startsAt} end=${payload.endsAt} tz=${payload.timezone} attendee=${payload.visitorEmail}`);
     const event = await createCalendarEvent({
       accessToken,
       googleCalendarId: "primary",
@@ -85,9 +94,10 @@ export class GoogleCalendarSyncService {
       location:      payload.location,
       conferenceUrl: payload.meetingUrl,
     });
+    console.log(`[GCal] STEP 6 Google event created id=${event.id} url=${event.htmlLink}`);
 
     // 7. Persist event ID on the booking
-    await this.db
+    const { error: updateErr } = await this.db
       .from("appointment_bookings")
       .update({
         google_event_id:    event.id,
@@ -96,6 +106,8 @@ export class GoogleCalendarSyncService {
       })
       .eq("id", payload.bookingId)
       .eq("user_id", payload.userId);
+    if (updateErr) console.error(`[GCal] STEP 7 booking update error:`, updateErr.message);
+    else console.log(`[GCal] STEP 7 booking updated with google_event_id`);
 
     // 8. Record success in history
     void this.db.from("appointment_booking_history").insert({
@@ -106,9 +118,11 @@ export class GoogleCalendarSyncService {
       actor_id:   null,
       payload:    { google_event_id: event.id, google_event_url: event.htmlLink },
     }).then();
+    console.log(`[GCal] STEP 8 history recorded`);
 
     // 9. Update connection last_sync
     await this.repo.updateSyncStatus(payload.userId, "success", new Date().toISOString(), null);
+    console.log(`[GCal] STEP 9 sync status updated to success`);
   }
 
   private _buildDescription(p: SyncBookingPayload): string {
