@@ -8,7 +8,6 @@ import { CalendarRepository }               from "@/lib/appointments/repositorie
 import { BookingService }                   from "@/lib/appointments/booking-service";
 import { GoogleCalendarSyncService }        from "@/lib/google-calendar";
 import { BookingCrmSyncService }            from "@/lib/appointments/booking-crm-sync-service";
-import { BookingMetaPixelSyncService }      from "@/lib/appointments/booking-meta-pixel-sync-service";
 import type { CreatePublicBookingPayload }  from "@/types/appointments";
 
 type Params = { params: Promise<{ slug: string }> };
@@ -95,22 +94,6 @@ export async function POST(req: NextRequest, { params }: Params) {
       visitorPhone,
       visitorNotes: payload.visitor_notes?.trim() ?? null,
       startsAt,
-      attribution,
-      correlationId: null,
-    });
-
-    // 3. Meta Pixel (Conversions API) — non-throwing; failure logged in history, never blocks booking.
-    await new BookingMetaPixelSyncService(db).syncBooking({
-      bookingId,
-      calendarId:   calendar.id,
-      calendarName: calendar.name,
-      userId:       calendar.user_id,
-      metaSettings: calendar.settings?.meta_pixel ?? null,
-      visitorName,
-      visitorEmail,
-      visitorPhone,
-      startsAt,
-      pageUrl:      (attribution.page_url as string | undefined) ?? null,
       attribution,
       correlationId: null,
     });

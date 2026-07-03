@@ -3,9 +3,8 @@
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useSearchParams }                        from "next/navigation";
 import { GoogleCalendarCard }                     from "@/components/appointments/integrations/GoogleCalendarCard";
-import { CrmIntegrationCard }                     from "@/components/appointments/integrations/CrmIntegrationCard";
-import { MetaPixelCard }                          from "@/components/appointments/integrations/MetaPixelCard";
-import type { AppointmentCalendar }       from "@/types/appointments";
+import { CrmIntegrationCard }               from "@/components/appointments/integrations/CrmIntegrationCard";
+import type { AppointmentCalendar }        from "@/types/appointments";
 
 function OAuthToast() {
   const searchParams = useSearchParams();
@@ -105,7 +104,6 @@ export function IntegracoesTab({ calendars }: Props) {
         ) : selectedCalendar ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <CrmIntegrationCard calendarId={selectedCalendar.id} />
-            <MetaPixelCard      calendarId={selectedCalendar.id} />
           </div>
         ) : null}
       </div>
