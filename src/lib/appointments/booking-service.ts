@@ -22,11 +22,13 @@ import type {
 type Db = SupabaseClient<any, any, any>;
 
 export class BookingService {
+  private readonly db:           Db;
   private readonly bookings:     BookingRepository;
   private readonly calendars:    CalendarRepository;
   private readonly availability: AvailabilityRepository;
 
   constructor(db: Db) {
+    this.db           = db;
     this.bookings     = new BookingRepository(db);
     this.calendars    = new CalendarRepository(db);
     this.availability = new AvailabilityRepository(db);
@@ -51,6 +53,10 @@ export class BookingService {
     try {
       const dateStr = startsAt.toLocaleDateString("sv-SE", { timeZone: calendar.timezone });
 
+      // Fetch full calendar to get buffer_before/after_minutes (PublicCalendar lacks them)
+      const fullCalendar = await this.calendars.findById(calendar.id, ownerId);
+      if (!fullCalendar) throw new Error("calendar not found");
+
       const [rules, exceptions] = await Promise.all([
         this.availability.getRules(calendar.id, ownerId),
         this.availability.getExceptions(calendar.id, ownerId, dateStr, dateStr),
@@ -63,10 +69,8 @@ export class BookingService {
         calendar.id, ownerId, dayStartUtc, dayEndUtc,
       );
 
-      // getAvailableSlots expects AppointmentCalendar but PublicCalendar is a subset.
-      // Cast is safe because the scheduling engine only reads the fields present in PublicCalendar.
       const available = getAvailableSlots({
-        calendar: calendar as Parameters<typeof getAvailableSlots>[0]["calendar"],
+        calendar: fullCalendar,
         dateStr,
         rules,
         exceptions,
@@ -116,6 +120,20 @@ export class BookingService {
         custom_form_responses: customFormResponses,
         attribution:          (payload.attribution ?? {}) as Record<string, unknown>,
       });
+
+      // Insert creation history (non-fatal — .then() required to trigger lazy Supabase execution)
+      void this.db.from("appointment_booking_history").insert({
+        booking_id: result.booking_id,
+        user_id:    ownerId,
+        event_type: "created",
+        actor:      "visitor",
+        actor_id:   null,
+        payload: {
+          visitor_name:  payload.visitor_name.trim(),
+          visitor_email: payload.visitor_email.trim().toLowerCase(),
+          calendar_id:   calendar.id,
+        },
+      }).then();
 
       return { ok: true, data: result, error: null };
     } catch (err) {

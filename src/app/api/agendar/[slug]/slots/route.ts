@@ -34,7 +34,9 @@ export async function GET(req: NextRequest, { params }: Params) {
       return NextResponse.json({ error: result.error }, { status: 500 });
     }
 
-    return NextResponse.json({ slots: result.data });
+    return NextResponse.json({ slots: result.data }, {
+      headers: { "Cache-Control": "no-store, no-cache, must-revalidate" },
+    });
   } catch (err) {
     console.error("[agendar/slots] GET error:", err);
     return NextResponse.json({ error: "Erro interno" }, { status: 500 });

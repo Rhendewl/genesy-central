@@ -1,5 +1,13 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { CreatePublicBookingPayload, PublicBookingResult } from "@/types/appointments";
+import type {
+  AppointmentBooking,
+  AppointmentBookingHistory,
+  BookingStatus,
+  BookingCancelledBy,
+  BookingWithCalendar,
+  CreatePublicBookingPayload,
+  PublicBookingResult,
+} from "@/types/appointments";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Db = SupabaseClient<any, any, any>;
@@ -83,6 +91,103 @@ export class BookingRepository {
 
     if (error) throw new Error(error.message);
     return count ?? 0;
+  }
+
+  async listForUser(
+    userId: string,
+    filters?: {
+      calendarId?: string;
+      status?:     string;
+      fromDate?:   string;
+      toDate?:     string;
+      search?:     string;
+      limit?:      number;
+      offset?:     number;
+    },
+  ): Promise<{ data: BookingWithCalendar[]; total: number }> {
+    let query = this.db
+      .from("appointment_bookings")
+      .select("*, appointment_calendars(name)", { count: "exact" })
+      .eq("user_id", userId)
+      .order("starts_at", { ascending: false });
+
+    if (filters?.calendarId) query = query.eq("calendar_id", filters.calendarId);
+    if (filters?.status)     query = query.eq("status", filters.status);
+    if (filters?.fromDate)   query = query.gte("starts_at", `${filters.fromDate}T00:00:00.000Z`);
+    if (filters?.toDate)     query = query.lte("starts_at", `${filters.toDate}T23:59:59.999Z`);
+    if (filters?.search) {
+      const s = filters.search.trim().replace(/[%_]/g, "\\$&");
+      query = query.or(`visitor_name.ilike.%${s}%,visitor_email.ilike.%${s}%,visitor_phone.ilike.%${s}%`);
+    }
+
+    const limit  = Math.min(filters?.limit  ?? 100, 200);
+    const offset = Math.max(filters?.offset ?? 0, 0);
+    query = query.range(offset, offset + limit - 1);
+
+    const { data, error, count } = await query;
+    if (error) throw new Error(error.message);
+
+    const rows = (data ?? []) as Array<Record<string, unknown>>;
+    return {
+      data: rows.map(row => ({
+        ...(row as unknown as AppointmentBooking),
+        calendar_name: (row.appointment_calendars as { name: string } | null)?.name ?? "—",
+      })),
+      total: count ?? 0,
+    };
+  }
+
+  async getById(id: string, userId: string): Promise<AppointmentBooking | null> {
+    const { data, error } = await this.db
+      .from("appointment_bookings")
+      .select("*")
+      .eq("id", id)
+      .eq("user_id", userId)
+      .single();
+    if (error) return null;
+    return data as unknown as AppointmentBooking;
+  }
+
+  async updateStatus(
+    id:     string,
+    userId: string,
+    status: BookingStatus,
+    extra?: { cancelledBy?: BookingCancelledBy; cancellationReason?: string },
+  ): Promise<AppointmentBooking> {
+    const now   = new Date().toISOString();
+    const patch: Record<string, unknown> = { status, updated_at: now };
+
+    if (status === "confirmed")  patch.confirmed_at = now;
+    if (status === "cancelled") {
+      patch.cancelled_at = now;
+      if (extra?.cancelledBy)        patch.cancelled_by         = extra.cancelledBy;
+      if (extra?.cancellationReason) patch.cancellation_reason  = extra.cancellationReason;
+    }
+    if (status === "completed")  patch.completed_at = now;
+
+    const { data, error } = await this.db
+      .from("appointment_bookings")
+      .update(patch)
+      .eq("id", id)
+      .eq("user_id", userId)
+      .select()
+      .single();
+
+    if (error) throw new Error(error.message);
+    if (!data)  throw new Error("Agendamento não encontrado");
+    return data as unknown as AppointmentBooking;
+  }
+
+  async getHistory(bookingId: string, userId: string): Promise<AppointmentBookingHistory[]> {
+    const { data, error } = await this.db
+      .from("appointment_booking_history")
+      .select("*")
+      .eq("booking_id", bookingId)
+      .eq("user_id", userId)
+      .order("created_at", { ascending: true });
+
+    if (error) throw new Error(error.message);
+    return (data ?? []) as unknown as AppointmentBookingHistory[];
   }
 
   async createBooking(row: CreateBookingRow): Promise<PublicBookingResult> {

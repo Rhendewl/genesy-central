@@ -438,3 +438,7 @@ export interface PublicBookingResult {
   ends_at:      string;
   cancel_token: string;
 }
+
+export interface BookingWithCalendar extends AppointmentBooking {
+  calendar_name: string;
+}
