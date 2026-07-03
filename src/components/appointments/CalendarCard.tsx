@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { Calendar, MoreHorizontal, Archive, Clock, Globe } from "lucide-react";
+import { Calendar, MoreHorizontal, Archive, Clock, Globe, Link2, Check } from "lucide-react";
 import type { AppointmentCalendar } from "@/types/appointments";
 
 interface CalendarCardProps {
@@ -14,6 +14,16 @@ interface CalendarCardProps {
 export function CalendarCard({ calendar, onArchive }: CalendarCardProps) {
   const router   = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [copied,   setCopied]   = useState(false);
+
+  function handleCopyLink(e: React.MouseEvent) {
+    e.stopPropagation();
+    const url = `${window.location.origin}/agendar/${calendar.slug}`;
+    void navigator.clipboard.writeText(url).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }
 
   const formatDate = (d: string) =>
     new Date(d).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" });
@@ -122,13 +132,24 @@ export function CalendarCard({ calendar, onArchive }: CalendarCardProps) {
 
       {/* Footer */}
       <div
-        className="mt-3 pt-3 text-xs"
-        style={{
-          borderTop: "1px solid var(--border)",
-          color:     "var(--muted-foreground)",
-        }}
+        className="mt-3 pt-3 flex items-center justify-between text-xs"
+        style={{ borderTop: "1px solid var(--border)", color: "var(--muted-foreground)" }}
       >
-        Criado em {formatDate(calendar.created_at)}
+        <span>Criado em {formatDate(calendar.created_at)}</span>
+
+        <button
+          onClick={handleCopyLink}
+          title="Copiar link público"
+          className="flex items-center gap-1 px-2 py-1 rounded-lg transition-all active:scale-95"
+          style={{
+            color:      copied ? "#22c55e" : "var(--muted-foreground)",
+            background: copied ? "rgba(34,197,94,0.1)" : "transparent",
+          }}
+        >
+          {copied
+            ? <><Check size={11} /><span>Copiado!</span></>
+            : <><Link2 size={11} /><span>Copiar link</span></>}
+        </button>
       </div>
     </motion.div>
   );

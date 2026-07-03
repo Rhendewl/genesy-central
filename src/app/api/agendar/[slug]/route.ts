@@ -32,7 +32,10 @@ export async function GET(_req: NextRequest, { params }: Params) {
     // Strip user_id before sending to client
     const { user_id: _, ...publicCalendar } = calendar;
 
-    return NextResponse.json({ calendar: publicCalendar, available_weekdays: availableWeekdays });
+    return NextResponse.json(
+      { calendar: publicCalendar, available_weekdays: availableWeekdays },
+      { headers: { "Cache-Control": "no-store, no-cache, must-revalidate" } },
+    );
   } catch (err) {
     console.error("[agendar/route] GET error:", err);
     return NextResponse.json({ error: "Erro interno" }, { status: 500 });
