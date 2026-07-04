@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
-import { Providers } from "@/components/layout/Providers";
-import { AuthLayout } from "@/components/layout/AuthLayout";
+import { Providers }       from "@/components/layout/Providers";
+import { AuthLayout }      from "@/components/layout/AuthLayout";
+import { PlatformLoader }  from "@/components/layout/PlatformLoader";
 
 const jakarta = Plus_Jakarta_Sans({
   subsets: ["latin"],
@@ -33,6 +34,7 @@ export default function RootLayout({
             </linearGradient>
           </defs>
         </svg>
+        <PlatformLoader />
         <Providers>
           <AuthLayout>{children}</AuthLayout>
         </Providers>

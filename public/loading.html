@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Genesy</title>
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #000;
+      overflow: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── Loader overlay ─────────────────────────────────────── */
+
+    #genesy-loader {
+      position: fixed;
+      inset: 0;
+      background: #000000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+    }
+
+    /* ── Entry — one-shot: opacity + blur + scale ───────────── */
+
+    .g-entry {
+      opacity: 0;
+      will-change: transform, opacity, filter;
+      animation: gl-entry 1000ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    }
+
+    @keyframes gl-entry {
+      0%   { opacity: 0; filter: blur(18px); transform: scale(0.96); }
+      60%  { opacity: 1; filter: blur(4px);  transform: scale(0.99); }
+      100% { opacity: 1; filter: blur(0px);  transform: scale(1);    }
+    }
+
+    /* ── Breathe — scale oscillation ───────────────────────── */
+
+    .g-breathe {
+      will-change: transform;
+      animation: gl-breathe 5s ease-in-out 700ms infinite;
+    }
+
+    @keyframes gl-breathe {
+      0%   { transform: scale(1.000); }
+      25%  { transform: scale(1.010); }
+      50%  { transform: scale(1.000); }
+      75%  { transform: scale(0.990); }
+      100% { transform: scale(1.000); }
+    }
+
+    /* ── Float — sinusoidal drift + micro-rotation ──────────── */
+
+    .g-float {
+      will-change: transform;
+      animation: gl-float 6s ease-in-out 700ms infinite;
+    }
+
+    @keyframes gl-float {
+      0%   { transform: translateY(0px)  rotate(0deg);   }
+      25%  { transform: translateY(-3px) rotate(0.6deg); }
+      50%  { transform: translateY(0px)  rotate(0deg);   }
+      75%  { transform: translateY(3px)  rotate(-0.6deg);}
+      100% { transform: translateY(0px)  rotate(0deg);   }
+    }
+
+    /* ── SVG ─────────────────────────────────────────────────── */
+
+    .g-svg {
+      display: block;
+      width: 100px;
+      height: auto;
+      overflow: visible;
+    }
+
+    /* ── App content ─────────────────────────────────────────── */
+
+    #app-content {
+      position: fixed;
+      inset: 0;
+      opacity: 0;
+      filter: blur(6px);
+      pointer-events: none;
+      transition:
+        opacity 380ms cubic-bezier(0.4, 0, 0.2, 1) 100ms,
+        filter  380ms cubic-bezier(0.4, 0, 0.2, 1) 100ms;
+    }
+
+    #app-content.visible {
+      opacity: 1;
+      filter: blur(0px);
+      pointer-events: auto;
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── Loader ─────────────────────────────────────────────── -->
+<div id="genesy-loader">
+  <div class="g-entry">
+    <div class="g-breathe">
+      <div class="g-float">
+
+        <svg class="g-svg"
+          viewBox="0 0 697 734.29"
+          xmlns="http://www.w3.org/2000/svg">
+
+          <defs>
+
+            <!-- Reusable crystal path -->
+            <path id="gcrystal"
+              d="M253.02,226.65h243.82c6.92,0,13.55-2.75,18.45-7.64l173.93-173.93
+                 c16.64-16.64,4.85-45.08-18.67-45.08H208.5c-6.29,0-12.31,2.5-16.76,6.94
+                 L8.24,190.45c-5.27,5.27-8.24,12.43-8.24,19.88v312.98
+                 c0,7.87,3.13,15.42,8.69,20.99l182.64,182.64
+                 c4.71,4.71,11.09,7.35,17.75,7.35h272.13
+                 c14.59,0,26.42-11.83,26.42-26.42v-200.23h139.69
+                 c14.59,0,26.42-11.83,26.42-26.42v-113.29
+                 c0-14.58-11.82-26.4-26.4-26.4h-113.6
+                 c-14.42,0-26.11,11.69-26.11,26.11v140h-254.77
+                 c-14.48,0-26.22-11.74-26.22-26.22v-228.4
+                 c0-14.56,11.8-26.36,26.36-26.36Z"/>
+
+            <!-- Base: cool silver, light top-left → dark bottom-right -->
+            <linearGradient id="g-base" x1="0" y1="0" x2="697" y2="734"
+              gradientUnits="userSpaceOnUse">
+              <stop offset="0%"   stop-color="#d8dfe5"/>
+              <stop offset="42%"  stop-color="#9da7af"/>
+              <stop offset="100%" stop-color="#68737c"/>
+            </linearGradient>
+
+            <!-- Specular: catch-light on upper-left face -->
+            <linearGradient id="g-hi" x1="0" y1="0" x2="480" y2="320"
+              gradientUnits="userSpaceOnUse">
+              <stop offset="0%"   stop-color="#fff" stop-opacity="0.75"/>
+              <stop offset="28%"  stop-color="#fff" stop-opacity="0.20"/>
+              <stop offset="65%"  stop-color="#fff" stop-opacity="0.03"/>
+              <stop offset="100%" stop-color="#fff" stop-opacity="0"/>
+            </linearGradient>
+
+            <!-- Depth shadow: lower-right recession -->
+            <linearGradient id="g-shadow" x1="697" y1="734" x2="260" y2="390"
+              gradientUnits="userSpaceOnUse">
+              <stop offset="0%"   stop-color="#000" stop-opacity="0.22"/>
+              <stop offset="55%"  stop-color="#000" stop-opacity="0.04"/>
+              <stop offset="100%" stop-color="#000" stop-opacity="0"/>
+            </linearGradient>
+
+            <!-- Prismatic iridescence: cold-warm diagonal band, very subtle -->
+            <linearGradient id="g-prism" x1="0" y1="734" x2="697" y2="0"
+              gradientUnits="userSpaceOnUse">
+              <stop offset="0%"   stop-color="#aac8f0" stop-opacity="0.10"/>
+              <stop offset="40%"  stop-color="#e8f0f8" stop-opacity="0.00"/>
+              <stop offset="60%"  stop-color="#f8f0e8" stop-opacity="0.00"/>
+              <stop offset="100%" stop-color="#f0d0b8" stop-opacity="0.09"/>
+            </linearGradient>
+
+            <!-- Sweep gradient: soft white beam -->
+            <linearGradient id="g-sweep-grad" x1="0" y1="0" x2="1" y2="0"
+              gradientUnits="objectBoundingBox">
+              <stop offset="0%"   stop-color="#fff" stop-opacity="0"/>
+              <stop offset="30%"  stop-color="#fff" stop-opacity="0.50"/>
+              <stop offset="50%"  stop-color="#fff" stop-opacity="0.82"/>
+              <stop offset="70%"  stop-color="#fff" stop-opacity="0.50"/>
+              <stop offset="100%" stop-color="#fff" stop-opacity="0"/>
+            </linearGradient>
+
+            <!-- ClipPath: confines sweep to crystal shape -->
+            <clipPath id="g-clip">
+              <use href="#gcrystal"/>
+            </clipPath>
+
+            <!-- Edge glow: cool-tinted soft halo -->
+            <filter id="g-glow" x="-10%" y="-10%" width="120%" height="120%">
+              <feGaussianBlur in="SourceAlpha" stdDeviation="5" result="blur"/>
+              <feColorMatrix in="blur" type="matrix"
+                values="1 0 0 0 0.80
+                        0 1 0 0 0.85
+                        0 0 1 0 0.90
+                        0 0 0 0.30 0"
+                result="glow"/>
+              <feMerge>
+                <feMergeNode in="glow"/>
+                <feMergeNode in="SourceGraphic"/>
+              </feMerge>
+            </filter>
+
+          </defs>
+
+          <!-- ── Crystal glass ─────────────────────────────── -->
+
+          <g filter="url(#g-glow)">
+            <!-- Base: silver gradient — the primary color layer -->
+            <use href="#gcrystal"
+              fill="url(#g-base)"
+              stroke="rgba(255,255,255,0.18)"
+              stroke-width="1.5"/>
+
+            <!-- Specular: luminous catch-light on the top-left face -->
+            <use href="#gcrystal" fill="url(#g-hi)"/>
+
+            <!-- Shadow: depth on the lower-right face -->
+            <use href="#gcrystal" fill="url(#g-shadow)"/>
+
+            <!-- Prism: cool-warm edge iridescence -->
+            <use href="#gcrystal" fill="url(#g-prism)"/>
+          </g>
+
+          <!-- ── Light sweep — clipped to crystal, above glow ── -->
+          <!--
+            Linear movement: from=-700 to=900, travel=1600 SVG units.
+            Rect width=420. Crystal spans x=0..697.
+            Center of beam (x+210) enters crystal at t=0.32, exits at t=0.74.
+            Opacity window aligned to that exact crossing — no early fade-out.
+          -->
+          <g clip-path="url(#g-clip)">
+            <rect x="-700" y="-60"
+              width="420" height="900"
+              transform="skewX(-13)"
+              fill="url(#g-sweep-grad)"
+              opacity="0">
+
+              <animate
+                attributeName="x"
+                from="-700" to="900"
+                dur="2s"
+                begin="1.5s"
+                repeatCount="indefinite"
+                calcMode="linear"/>
+
+              <animate
+                attributeName="opacity"
+                values="0;0;1;1;0;0"
+                keyTimes="0;0.26;0.32;0.74;0.80;1"
+                dur="2s"
+                begin="1.5s"
+                repeatCount="indefinite"/>
+            </rect>
+          </g>
+
+        </svg>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── App content ─────────────────────────────────────────── -->
+<div id="app-content">
+  <!-- Replace with actual application markup -->
+</div>
+
+<script>
+  'use strict';
+
+  /**
+   * Call finishLoading() when your async work is done.
+   * Timeline:
+   *   0 ms   — brightness flash + scale 103%
+   *   150 ms — snap to 98% + begin fade-out
+   *   ~450 ms — loader hidden, content fully visible
+   */
+  function finishLoading() {
+    const loader  = document.getElementById('genesy-loader');
+    const entry   = loader.querySelector('.g-entry');
+    const breathe = loader.querySelector('.g-breathe');
+    const float_  = loader.querySelector('.g-float');
+    const content = document.getElementById('app-content');
+
+    // Freeze continuous animations at current computed position.
+    [breathe, float_].forEach(el => {
+      const computed = window.getComputedStyle(el).transform;
+      el.style.transform = computed;
+      el.style.animation = 'none';
+    });
+
+    // Phase 1: brightness flash + scale up (0 – 150 ms)
+    entry.style.transition = [
+      'filter    150ms cubic-bezier(0.4, 0, 0.6, 1)',
+      'transform 150ms cubic-bezier(0.4, 0, 0.6, 1)',
+    ].join(', ');
+    entry.style.filter    = 'blur(0px) brightness(1.5)';
+    entry.style.transform = 'scale(1.03)';
+
+    // Phase 2: collapse + fade out (150 – 430 ms)
+    setTimeout(() => {
+      entry.style.transition = [
+        'opacity   280ms cubic-bezier(0.4, 0, 1, 1)',
+        'filter    280ms cubic-bezier(0.4, 0, 1, 1)',
+        'transform 130ms cubic-bezier(0.4, 0, 0.6, 1)',
+      ].join(', ');
+      entry.style.transform = 'scale(0.98)';
+      entry.style.opacity   = '0';
+      entry.style.filter    = 'blur(12px) brightness(1)';
+
+      // Reveal content shortly after fade begins
+      setTimeout(() => content.classList.add('visible'), 80);
+    }, 150);
+
+    // Remove loader from layout
+    setTimeout(() => { loader.style.display = 'none'; }, 520);
+  }
+
+  // ── Demo: uncomment to auto-trigger ──
+  // setTimeout(finishLoading, 3000);
+</script>
+
+</body>
+</html>
