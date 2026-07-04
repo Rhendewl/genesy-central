@@ -2,8 +2,9 @@
 
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useSearchParams }                        from "next/navigation";
-import { GoogleCalendarCard }                     from "@/components/appointments/integrations/GoogleCalendarCard";
-import { CrmIntegrationCard }               from "@/components/appointments/integrations/CrmIntegrationCard";
+import { GoogleCalendarCard }          from "@/components/appointments/integrations/GoogleCalendarCard";
+import { CrmIntegrationCard }          from "@/components/appointments/integrations/CrmIntegrationCard";
+import { MetaPixelConversionCard }     from "@/components/appointments/integrations/MetaPixelConversionCard";
 import type { AppointmentCalendar }        from "@/types/appointments";
 
 function OAuthToast() {
@@ -103,7 +104,9 @@ export function IntegracoesTab({ calendars }: Props) {
           </p>
         ) : selectedCalendar ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            <CrmIntegrationCard calendarId={selectedCalendar.id} />
+            <CrmIntegrationCard      calendarId={selectedCalendar.id} />
+            <MetaPixelConversionCard calendarId={selectedCalendar.id} triggerEvent="booking.created" />
+            <MetaPixelConversionCard calendarId={selectedCalendar.id} triggerEvent="booking.confirmed" />
           </div>
         ) : null}
       </div>

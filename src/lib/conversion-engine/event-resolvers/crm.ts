@@ -3,6 +3,7 @@ import type { BusEvent }                  from "@/lib/event-bus/types";
 import type { LeadStageEnteredPayload }   from "@/lib/event-bus/domain-events";
 import { buildEventContext }              from "../event-context";
 import { buildConversionEvent }           from "../conversion-event";
+import { deriveActionSource }             from "@/lib/crm/lead-source";
 import type { ConversionEventResolver, ConversionRule, ResolvedConversion } from "./types";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -17,7 +18,7 @@ type Db = SupabaseClient<any, any, any>;
 // Responsibilities:
 //   1. Load enabled crm_stage_conversions for the stage in the event payload.
 //   2. Enrich the event with lead + submission + session (buildEventContext).
-//   3. Map to a domain-agnostic ConversionEvent (buildConversionEvent).
+//   3. Map to a domain-agnostic ConversionEvent via buildConversionEvent().
 //   4. Return rules + event — dispatcher takes it from here.
 //
 // This is the ONLY place in the engine that knows about crm_stage_conversions,
@@ -34,7 +35,7 @@ export const crmResolver: ConversionEventResolver = {
     // 1. Load enabled conversion rules for this stage
     const { data: rows } = await db
       .from("crm_stage_conversions")
-      .select("id, platform, settings, enabled")
+      .select("id, platform, platform_integration_id, settings, enabled")
       .eq("stage_id", payload.stageId)
       .eq("enabled", true);
 
@@ -44,14 +45,30 @@ export const crmResolver: ConversionEventResolver = {
     const ctx = await buildEventContext(db, event, payload);
     if (!ctx) return null;  // lead deleted between publish and dispatch
 
-    // 3. Map to platform-agnostic contract
-    const conversionEvent = buildConversionEvent(ctx);
+    // 3. Map to platform-agnostic contract via the shared builder
+    const conversionEvent = buildConversionEvent({
+      event,
+      identity:     ctx.identity,
+      attribution:  ctx.attribution,
+      commerce:     { dealValue: ctx.lead.deal_value },
+      actionSource: deriveActionSource(ctx.lead.source),
+      crm: {
+        leadId:       ctx.leadId,
+        pipelineId:   ctx.pipelineId,
+        stageId:      ctx.stageId,
+        fromStageId:  ctx.fromStageId,
+        leadSource:   ctx.lead.source,
+        campaignName: ctx.lead.campaign_name,
+        adName:       ctx.lead.ad_name,
+      },
+    });
 
     const rules: ConversionRule[] = rows.map(r => ({
-      id:       r.id       as string,
-      platform: r.platform as string,
-      settings: r.settings as Record<string, unknown>,
-      enabled:  r.enabled  as boolean,
+      id:                      r.id                      as string,
+      platform:                r.platform                as string,
+      platform_integration_id: r.platform_integration_id as string | null,
+      settings:                r.settings                as Record<string, unknown>,
+      enabled:                 r.enabled                 as boolean,
     }));
 
     return { conversionEvent, rules };

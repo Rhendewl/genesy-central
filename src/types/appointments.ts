@@ -335,17 +335,32 @@ export interface AppointmentReminder {
 
 // ── Conversion rules ──────────────────────────────────────────────────────────
 
+export type ConversionPlatform = "meta_pixel" | "google_ads";
+
 export interface AppointmentConversion {
-  id:            string;
-  calendar_id:   string;
-  user_id:       string;
-  trigger_event: ConversionTriggerEvent;
-  platform:      "meta_pixel" | "google_ads" | "tiktok_pixel";
-  settings:      Record<string, unknown>;
-  enabled:       boolean;
-  created_at:    string;
-  updated_at:    string;
+  id:                      string;
+  calendar_id:             string;
+  user_id:                 string;
+  trigger_event:           ConversionTriggerEvent;
+  platform:                ConversionPlatform;
+  platform_integration_id: string | null;
+  settings:                Record<string, unknown>;
+  enabled:                 boolean;
+  created_at:              string;
+  updated_at:              string;
 }
+
+export type NewAppointmentConversion = {
+  trigger_event: ConversionTriggerEvent;
+  platform:      ConversionPlatform;
+  enabled?:      boolean;
+  settings?:     Record<string, unknown>;
+};
+
+export type UpdateAppointmentConversion = Partial<{
+  enabled:  boolean;
+  settings: Record<string, unknown>;
+}>;
 
 // ── Calendar member (V2) ──────────────────────────────────────────────────────
 

@@ -114,7 +114,42 @@ type SubmissionRow = {
   form_sessions: SessionRow | null;
 };
 
-// ── Builder ───────────────────────────────────────────────────────────────────
+// ── Attribution builder ───────────────────────────────────────────────────────
+
+/**
+ * Converts a flat attribution record (from EventBus payloads) into the
+ * typed Attribution contract used by the Conversion Engine.
+ *
+ * Centralises all field mappings so resolvers never build Attribution inline:
+ *   page_url   → event_source_url   (BookingAttribution canonical mapping)
+ *   All other fields map 1-to-1.
+ *
+ * To add a new tracking parameter (msclkid, ttclid, li_fat_id …),
+ * extend only this function — no resolver changes required.
+ */
+export function buildAttribution(record: Record<string, unknown>): Attribution {
+  const str = (key: string): string | undefined => {
+    const v = record[key];
+    return typeof v === "string" && v !== "" ? v : undefined;
+  };
+
+  const attribution: Attribution = {};
+  const utm_source   = str("utm_source");   if (utm_source)   attribution.utm_source   = utm_source;
+  const utm_medium   = str("utm_medium");   if (utm_medium)   attribution.utm_medium   = utm_medium;
+  const utm_campaign = str("utm_campaign"); if (utm_campaign) attribution.utm_campaign = utm_campaign;
+  const utm_term     = str("utm_term");     if (utm_term)     attribution.utm_term     = utm_term;
+  const utm_content  = str("utm_content");  if (utm_content)  attribution.utm_content  = utm_content;
+  const fbclid       = str("fbclid");       if (fbclid)       attribution.fbclid       = fbclid;
+  const gclid        = str("gclid");        if (gclid)        attribution.gclid        = gclid;
+  const referrer     = str("referrer");     if (referrer)     attribution.referrer     = referrer;
+  // Accept both the canonical name and the BookingAttribution alias.
+  const esu = str("event_source_url") ?? str("page_url");
+  if (esu) attribution.event_source_url = esu;
+
+  return attribution;
+}
+
+// ── EventContext builder ──────────────────────────────────────────────────────
 
 export async function buildEventContext(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -157,16 +192,8 @@ export async function buildEventContext(
   const session = sub?.form_sessions ?? null;
 
   // ── Attribution block ────────────────────────────────────────────────────
-  const attribution: Attribution = {};
-  if (session?.utm_source)       attribution.utm_source       = session.utm_source;
-  if (session?.utm_medium)       attribution.utm_medium       = session.utm_medium;
-  if (session?.utm_campaign)     attribution.utm_campaign     = session.utm_campaign;
-  if (session?.utm_term)         attribution.utm_term         = session.utm_term;
-  if (session?.utm_content)      attribution.utm_content      = session.utm_content;
-  if (session?.fbclid)           attribution.fbclid           = session.fbclid;
-  if (session?.gclid)            attribution.gclid            = session.gclid;
-  if (session?.referrer)         attribution.referrer         = session.referrer;
-  if (session?.event_source_url) attribution.event_source_url = session.event_source_url;
+  // buildAttribution ignores non-attribution keys (ip, fbp, fbc …) safely.
+  const attribution = buildAttribution(session ?? {});
 
   // ── Identity signals ─────────────────────────────────────────────────────
   const leadIdentity: LeadIdentityInput = {

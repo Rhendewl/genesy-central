@@ -25,7 +25,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
   if (typeof update.access_token === "string") update.access_token = (update.access_token as string).trim();
 
   const { data, error } = await supabase
-    .from("crm_conversion_sources")
+    .from("platform_integrations")
     .update(update)
     .eq("id", id)
     .eq("user_id", user.id)
@@ -55,7 +55,7 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
   if (!user) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
 
   const { error } = await supabase
-    .from("crm_conversion_sources")
+    .from("platform_integrations")
     .delete()
     .eq("id", id)
     .eq("user_id", user.id);

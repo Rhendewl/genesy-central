@@ -8,7 +8,6 @@ import type { ProviderContext } from "./registry";
 // Side-effect: registers all platform providers into the registry.
 import "./providers/meta";
 import "./providers/google";
-import "./providers/tiktok";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Platform Conversion Engine — EventConsumer factory

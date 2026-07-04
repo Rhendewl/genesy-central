@@ -23,10 +23,11 @@ type Db = SupabaseClient<any, any, any>;
  * the rule originated from a CRM stage or a booking calendar.
  */
 export interface ConversionRule {
-  id:       string;
-  platform: string;
-  settings: Record<string, unknown>;
-  enabled:  boolean;
+  id:                      string;
+  platform:                string;
+  platform_integration_id: string | null;
+  settings:                Record<string, unknown>;
+  enabled:                 boolean;
 }
 
 /**

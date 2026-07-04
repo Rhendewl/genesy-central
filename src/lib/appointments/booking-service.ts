@@ -1,18 +1,25 @@
 // ── BookingService ────────────────────────────────────────────────────────────
-// Handles public booking creation.
+// Handles booking domain logic and publishes lifecycle events to the EventBus.
 // Caller is responsible for providing the correct SupabaseClient:
 //   - Use createAdminSupabaseClient() for public (unauthenticated) flows.
+//   - Use createServerSupabaseClient() for authenticated admin flows (RLS enforced).
 //   - The DB-level GIST exclusion (btree_gist) handles concurrent race conditions.
 
-import type { SupabaseClient } from "@supabase/supabase-js";
-import { BookingRepository } from "./repositories/booking-repository";
-import { CalendarRepository } from "./repositories/calendar-repository";
+import type { SupabaseClient }   from "@supabase/supabase-js";
+import type { EventBus }         from "@/lib/event-bus/types";
+import type { DomainEventType }  from "@/lib/event-bus/domain-events";
+import { getPlatformEventBus }   from "@/lib/event-bus/platform";
+import { BookingRepository }     from "./repositories/booking-repository";
+import { CalendarRepository }    from "./repositories/calendar-repository";
 import { AvailabilityRepository } from "./repositories/availability-repository";
 import { validateCreateBooking, firstError } from "./validators";
-import { getAvailableSlots } from "./scheduling";
-import { localTimeToUTC } from "./scheduling/timezone-resolver";
-import type { ServiceResult } from "./calendar-service";
+import { getAvailableSlots }     from "./scheduling";
+import { localTimeToUTC }        from "./scheduling/timezone-resolver";
+import type { ServiceResult }    from "./calendar-service";
 import type {
+  AppointmentBooking,
+  BookingStatus,
+  BookingCancelledBy,
   CreatePublicBookingPayload,
   PublicBookingResult,
   PublicCalendar,
@@ -26,12 +33,14 @@ export class BookingService {
   private readonly bookings:     BookingRepository;
   private readonly calendars:    CalendarRepository;
   private readonly availability: AvailabilityRepository;
+  private readonly bus:          EventBus<DomainEventType>;
 
-  constructor(db: Db) {
+  constructor(db: Db, bus?: EventBus<DomainEventType>) {
     this.db           = db;
     this.bookings     = new BookingRepository(db);
     this.calendars    = new CalendarRepository(db);
     this.availability = new AvailabilityRepository(db);
+    this.bus          = bus ?? getPlatformEventBus();
   }
 
   async createPublicBooking(
@@ -135,6 +144,18 @@ export class BookingService {
         },
       }).then();
 
+      // Publish domain event — fire-and-forget; never blocks the booking response.
+      this.bus.publish("booking.created", {
+        bookingId:    result.booking_id,
+        calendarId:   calendar.id,
+        userId:       ownerId,
+        visitorName:  payload.visitor_name.trim(),
+        visitorEmail: payload.visitor_email.trim().toLowerCase(),
+        visitorPhone: payload.visitor_phone?.trim() || null,
+        startsAt:     startsAt.toISOString(),
+        attribution:  (payload.attribution ?? {}) as Record<string, unknown>,
+      });
+
       return { ok: true, data: result, error: null };
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Erro";
@@ -142,6 +163,59 @@ export class BookingService {
       if (msg.includes("23P01") || msg.includes("exclusion") || msg.includes("overlaps")) {
         return { ok: false, data: null, error: "Horário não disponível. Escolha outro horário.", errorCode: "CONFLICT" };
       }
+      return { ok: false, data: null, error: msg, errorCode: "SERVER_ERROR" };
+    }
+  }
+
+  // ── Status transitions ───────────────────────────────────────────────────────
+
+  /**
+   * Updates a booking's status and publishes the corresponding lifecycle event
+   * to the EventBus when the new status has conversion tracking configured.
+   *
+   * History insertion (appointment_booking_history) remains the caller's
+   * responsibility — that concern belongs at the application layer, not here.
+   *
+   * To add a new publishable lifecycle event (e.g. booking.completed), extend
+   * PUBLISHABLE_STATUS_EVENTS — no other code change required.
+   */
+  async updateStatus(
+    bookingId: string,
+    userId:    string,
+    newStatus: BookingStatus,
+    current:   AppointmentBooking,
+    options?:  { cancellationReason?: string },
+  ): Promise<ServiceResult<AppointmentBooking>> {
+    try {
+      const booking = await this.bookings.updateStatus(bookingId, userId, newStatus, {
+        cancelledBy:        newStatus === "cancelled" ? ("admin" as BookingCancelledBy) : undefined,
+        cancellationReason: options?.cancellationReason,
+      });
+
+      // Publish lifecycle events for statuses that have conversion tracking.
+      // Map is the extension point: add a new entry to publish future events.
+      const PUBLISHABLE_STATUS_EVENTS: Partial<Record<BookingStatus, DomainEventType>> = {
+        confirmed: "booking.confirmed",
+        completed: "booking.completed",
+      };
+
+      const eventType = PUBLISHABLE_STATUS_EVENTS[newStatus];
+      if (eventType) {
+        this.bus.publish(eventType, {
+          bookingId:    current.id,
+          calendarId:   current.calendar_id,
+          userId:       current.user_id,
+          visitorName:  current.visitor_name,
+          visitorEmail: current.visitor_email,
+          visitorPhone: current.visitor_phone,
+          startsAt:     current.starts_at,
+          attribution:  current.attribution as Record<string, unknown>,
+        });
+      }
+
+      return { ok: true, data: booking, error: null };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Erro ao atualizar status";
       return { ok: false, data: null, error: msg, errorCode: "SERVER_ERROR" };
     }
   }

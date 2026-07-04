@@ -12,7 +12,7 @@ export async function GET(req: NextRequest) {
   if (!pipelineId) return NextResponse.json({ error: "pipeline_id é obrigatório" }, { status: 400 });
 
   const { data, error } = await supabase
-    .from("crm_conversion_sources")
+    .from("platform_integrations")
     .select("*")
     .eq("pipeline_id", pipelineId)
     .eq("user_id", user.id)
@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
   if (!pipeline) return NextResponse.json({ error: "Pipeline não encontrada" }, { status: 404 });
 
   const { data, error } = await supabase
-    .from("crm_conversion_sources")
+    .from("platform_integrations")
     .insert({
       user_id:         user.id,
       pipeline_id:     pipeline_id as string,

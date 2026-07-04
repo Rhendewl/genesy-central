@@ -8,10 +8,10 @@ import type { CrmConversionSource, MetaPixelConversionSettings } from "@/types/c
 // Meta Pixel / Conversions API provider
 //
 // Responsibilities (and only these):
-//   1. Load platform credentials (crm_conversion_sources).
+//   1. Load platform credentials (platform_integrations).
 //   2. Convert EventContext into a Meta CAPI payload.
 //   3. Send the HTTP request to the Graph API.
-//   4. Persist success / error back to crm_conversion_sources.
+//   4. Persist success / error back to platform_integrations.
 //
 // All event data (lead, session, attribution, match keys) arrives pre-built
 // in context.eventContext. This provider never queries the database for
@@ -34,7 +34,7 @@ type SendResult = {
 
 async function loadSource(db: ProviderContext["db"], sourceId: string): Promise<SourceRow | null> {
   const { data } = await db
-    .from("crm_conversion_sources")
+    .from("platform_integrations")
     .select("id, pixel_id, access_token, test_event_code, is_active, pipeline_id")
     .eq("id", sourceId)
     .maybeSingle();
@@ -81,10 +81,13 @@ function buildCapiPayload(
     if (crm.adName)       customData.ad_name       = crm.adName;
   }
 
-  const value = settings.value ?? (commerce.dealValue > 0 ? commerce.dealValue : null);
-  if (value != null) {
+  // settings.value overrides the dynamic commerce value when explicitly configured.
+  // commerce.dealValue: null = no value to send; 0 = a real zero-value deal.
+  const value    = settings.value ?? commerce.dealValue;
+  const currency = settings.currency ?? commerce.currency ?? "BRL";
+  if (value !== null && value !== undefined) {
     customData.value    = value;
-    customData.currency = settings.currency ?? "BRL";
+    customData.currency = currency;
   }
 
   // ── event name ───────────────────────────────────────────────────────────
@@ -152,7 +155,7 @@ async function persistResult(
     ? { last_success_at: now.toISOString(), last_error: null, last_error_at: null }
     : { last_error: result.errorMessage ?? "unknown error", last_error_at: now.toISOString() };
 
-  const { error } = await db.from("crm_conversion_sources").update(update).eq("id", sourceId);
+  const { error } = await db.from("platform_integrations").update(update).eq("id", sourceId);
   if (error) console.warn("[conversion-engine] failed to persist meta result", { sourceId, error: error.message });
 }
 
@@ -171,19 +174,22 @@ export const metaConversionProvider: ConversionProvider = {
     if (settings.mode === "browser") return;
 
     // ── Load platform credentials (only DB query this provider makes) ────────
-    const source = await loadSource(context.db, settings.pixel_integration_id);
+    // Prefer the FK column; fall back to the jsonb field for rows where the
+    // migration backfill did not match (e.g. dangling reference in settings).
+    const sourceId = rule.platform_integration_id ?? settings.pixel_integration_id;
+    const source = sourceId ? await loadSource(context.db, sourceId) : null;
     if (!source) {
       logSkipped("source not found", {
-        source_id:   settings.pixel_integration_id,
+        source_id:   sourceId ?? undefined,
         pipeline_id: conversionEvent.crm?.pipelineId ?? "n/a",
         stage_id:    conversionEvent.crm?.stageId    ?? "n/a",
       });
       return;
     }
-    // Pipeline scope guard: only enforced when the event carries CRM context.
-    // Booking and other domain events bypass this check — ownership is
-    // already guaranteed by the resolver that built the ConversionEvent.
-    if (conversionEvent.crm && source.pipeline_id !== conversionEvent.crm.pipelineId) {
+    // Pipeline scope guard: only enforced when the event carries CRM context
+    // AND the integration is pipeline-scoped (pipeline_id != null).
+    // Global integrations (pipeline_id = null) are valid for any pipeline.
+    if (conversionEvent.crm && source.pipeline_id !== null && source.pipeline_id !== conversionEvent.crm.pipelineId) {
       logSkipped("source pipeline mismatch", {
         source_id:   source.id,
         pipeline_id: conversionEvent.crm.pipelineId,

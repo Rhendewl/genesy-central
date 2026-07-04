@@ -4,6 +4,7 @@ import type { EventBus } from "./types";
 import type { DomainEventType } from "./domain-events";
 import { createConversionEngine } from "@/lib/conversion-engine/engine";
 import { crmResolver }            from "@/lib/conversion-engine/event-resolvers/crm";
+import { bookingResolver }        from "@/lib/conversion-engine/event-resolvers/booking";
 import { createAdminSupabaseClient } from "@/lib/supabase-admin";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -30,7 +31,7 @@ export function getPlatformEventBus(): EventBus<DomainEventType> {
   // To add a new domain: pass its resolver alongside crmResolver — zero other changes.
   _bus.subscribe(createConversionEngine({
     db:        createAdminSupabaseClient(),
-    resolvers: [crmResolver],
+    resolvers: [crmResolver, bookingResolver],
   }));
 
   return _bus;

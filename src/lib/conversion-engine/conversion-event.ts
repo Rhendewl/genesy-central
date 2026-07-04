@@ -1,17 +1,17 @@
-import type { Attribution, EventContext } from "./event-context";
+import type { Attribution } from "./event-context";
 import type { IdentitySignals } from "./identity-signals";
-import { deriveActionSource, type ActionSource } from "@/lib/crm/lead-source";
+import { type ActionSource } from "@/lib/crm/lead-source";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Conversion Engine — ConversionEvent
 //
-// Platform-agnostic domain model that sits between EventContext and providers.
+// Platform-agnostic domain model that sits between domain resolvers and providers.
 //
-//   EventContext  →  buildConversionEvent()  →  ConversionEvent
-//                                                      ↓
-//                                             Provider (Meta, Google, TikTok…)
-//                                                      ↓
-//                                             Platform-specific payload
+//   Resolver (any domain)
+//        ↓
+//   buildConversionEvent(input)
+//        ↓
+//   ConversionEvent  →  Provider (Meta, Google, TikTok…)  →  platform payload
 //
 // ConversionEvent knows nothing about Meta, Google or TikTok.
 // Providers know nothing about leads, sessions or database tables.
@@ -21,10 +21,14 @@ import { deriveActionSource, type ActionSource } from "@/lib/crm/lead-source";
 
 /** Commerce signals available to any conversion provider. */
 export interface Commerce {
-  dealValue: number;
+  /** null = no monetary value (booking, lead capture, etc.)
+   *  0   = a real deal with zero cost (100 % discount, free tier, etc.) */
+  dealValue: number | null;
+  /** ISO 4217 code; optional — providers fall back to their own default. */
+  currency?: string;
 }
 
-/** CRM positioning and lead metadata available to any conversion provider. */
+/** CRM positioning and lead metadata — present only for CRM-originated events. */
 export interface CrmContext {
   leadId:       string;
   pipelineId:   string;
@@ -40,18 +44,9 @@ export interface CrmContext {
 /**
  * Public contract consumed by all conversion providers.
  *
- * EventContext is an internal implementation detail of the Conversion Engine.
- * Providers must never depend on it directly — only on ConversionEvent.
- * This decoupling ensures that changes to the internal enrichment logic
- * (queries, session structure, table schema) never require provider changes.
- *
- *   EventContext (internal)
- *        ↓
- *   buildConversionEvent()
- *        ↓
- *   ConversionEvent (public contract)
- *        ↓
- *   Provider → platform-specific payload
+ * Providers must never depend on EventContext or any domain-specific structure
+ * — only on ConversionEvent.  Adding a new domain (checkout, subscription, …)
+ * never requires provider changes.
  */
 export interface ConversionEvent {
   // ── Event identity ─────────────────────────────────────────────────────
@@ -64,40 +59,43 @@ export interface ConversionEvent {
   attribution: Attribution;
   commerce:    Commerce;
 
-  // Present for CRM-originated events (lead.stage.entered).
-  // Absent for events from other domains (booking.created, checkout.completed…).
+  // Present for CRM-originated events; absent for booking, checkout, etc.
   crm?: CrmContext;
 
   // ── Derived classification ─────────────────────────────────────────────
   actionSource: ActionSource;
 }
 
-// ── Builder ───────────────────────────────────────────────────────────────────
+// ── Generic builder ───────────────────────────────────────────────────────────
 
-export function buildConversionEvent(ctx: EventContext): ConversionEvent {
+/**
+ * Input for the platform-level ConversionEvent builder.
+ *
+ * Every resolver — CRM, Booking, Checkout, Subscription — uses this builder.
+ * Resolvers are responsible for providing pre-built identity and attribution;
+ * the builder assembles the envelope without knowing the originating domain.
+ */
+export interface BuildConversionEventInput {
+  /** Event envelope — provides stable identifiers across retries. */
+  event:        { id: string; timestamp: number; correlationId: string };
+  identity:     IdentitySignals;
+  attribution:  Attribution;
+  commerce:     Commerce;
+  actionSource: ActionSource;
+  /** Omit for non-CRM domains (booking, checkout, …). */
+  crm?:         CrmContext;
+}
+
+export function buildConversionEvent(input: BuildConversionEventInput): ConversionEvent {
   return {
-    eventId:        ctx.eventId,
-    eventTimestamp: ctx.eventTimestamp,
-    correlationId:  ctx.correlationId,
-
-    identity:    ctx.identity,
-    attribution: ctx.attribution,
-
-    commerce: {
-      dealValue: ctx.lead.deal_value,
-    },
-
-    crm: {
-      leadId:       ctx.leadId,
-      pipelineId:   ctx.pipelineId,
-      stageId:      ctx.stageId,
-      fromStageId:  ctx.fromStageId,
-      leadSource:   ctx.lead.source,
-      campaignName: ctx.lead.campaign_name,
-      adName:       ctx.lead.ad_name,
-    },
-
-    actionSource: deriveActionSource(ctx.lead.source),
+    eventId:        input.event.id,
+    eventTimestamp: input.event.timestamp,
+    correlationId:  input.event.correlationId,
+    identity:       input.identity,
+    attribution:    input.attribution,
+    commerce:       input.commerce,
+    actionSource:   input.actionSource,
+    crm:            input.crm,
   };
 }
 

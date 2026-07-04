@@ -71,3 +71,27 @@ export interface CalendarArchivedPayload {
   calendarId: string;
   userId:     string;
 }
+
+// ── Booking events ────────────────────────────────────────────────────────────
+
+/**
+ * Shared shape for all booking lifecycle events that carry visitor data.
+ * Resolvers and consumers depend on this interface, not on event-specific types,
+ * so adding a new lifecycle event (booking.completed, booking.rescheduled …)
+ * never requires changes to existing resolvers.
+ */
+export interface BookingEventPayload {
+  bookingId:    string;
+  calendarId:   string;
+  userId:       string;
+  visitorName:  string;
+  visitorEmail: string;
+  visitorPhone: string | null;
+  startsAt:     string;
+  attribution:  Record<string, unknown>;
+}
+
+// Per-event aliases — all identical in shape today; kept separate so each
+// event can evolve its payload independently in the future.
+export type BookingCreatedPayload   = BookingEventPayload;
+export type BookingConfirmedPayload = BookingEventPayload;

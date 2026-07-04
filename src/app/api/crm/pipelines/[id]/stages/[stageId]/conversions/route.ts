@@ -46,7 +46,7 @@ export async function POST(req: NextRequest, { params }: Params) {
   const pixelIntegrationId = (settings as Record<string, unknown> | undefined)?.pixel_integration_id;
   if (typeof pixelIntegrationId === "string" && pixelIntegrationId.length > 0) {
     const { data: source } = await supabase
-      .from("crm_conversion_sources")
+      .from("platform_integrations")
       .select("id")
       .eq("id", pixelIntegrationId)
       .eq("user_id", user.id)

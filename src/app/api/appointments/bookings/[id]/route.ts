@@ -5,7 +5,8 @@
 import { NextRequest, NextResponse }    from "next/server";
 import { createServerSupabaseClient }   from "@/lib/supabase-server";
 import { BookingRepository }            from "@/lib/appointments/repositories/booking-repository";
-import type { BookingStatus, BookingCancelledBy } from "@/types/appointments";
+import { BookingService }               from "@/lib/appointments/booking-service";
+import type { BookingStatus }           from "@/types/appointments";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -64,12 +65,16 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       );
     }
 
-    const booking = await repo.updateStatus(id, user.id, newStatus, {
-      cancelledBy:         newStatus === "cancelled" ? "admin" as BookingCancelledBy : undefined,
-      cancellationReason:  body?.cancellation_reason,
+    // BookingService owns the DB update + lifecycle event publication.
+    // It receives the already-loaded `current` to avoid a redundant DB round-trip.
+    const service = new BookingService(supabase);
+    const result  = await service.updateStatus(id, user.id, newStatus, current, {
+      cancellationReason: body?.cancellation_reason,
     });
 
-    // Insert history record (non-fatal — .then() required to trigger lazy Supabase execution)
+    if (!result.ok) return NextResponse.json({ error: result.error }, { status: 500 });
+
+    // History insertion remains at the application layer (non-fatal, fire-and-forget).
     void supabase.from("appointment_booking_history").insert({
       booking_id: id,
       user_id:    user.id,
@@ -83,7 +88,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       },
     }).then();
 
-    return NextResponse.json({ booking });
+    return NextResponse.json({ booking: result.data });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Erro interno";
     return NextResponse.json({ error: msg }, { status: 500 });

@@ -79,19 +79,19 @@ export type UpdateCrmStage = Partial<{
 export type ConversionPlatform =
   | "meta_pixel"
   | "google_ads"
-  | "tiktok_pixel"
   | "linkedin_insight"
   | "ga4";
 
 export interface CrmStageConversion {
-  id:         string;
-  stage_id:   string;
-  user_id:    string;
-  platform:   ConversionPlatform;
-  enabled:    boolean;
-  settings:   Record<string, unknown>;
-  created_at: string;
-  updated_at: string;
+  id:                      string;
+  stage_id:                string;
+  user_id:                 string;
+  platform:                ConversionPlatform;
+  platform_integration_id: string | null;
+  enabled:                 boolean;
+  settings:                Record<string, unknown>;
+  created_at:              string;
+  updated_at:              string;
 }
 
 export type NewCrmStageConversion = {
@@ -162,14 +162,14 @@ export interface MetaPixelConversionSettings {
   test_event_code?:     string | null;
 }
 
-// ── Conversion Sources (Origens) ─────────────────────────────────────────────
-// Pipeline-scoped pixel/provider credentials. Separate from form_integrations
-// (form-scoped) and meta_tokens (OAuth for Ads API).
+// ── Conversion Sources / Platform Integrations ────────────────────────────────
+// User-scoped pixel/provider credentials. Optionally linked to a pipeline.
+// DB table: platform_integrations (renamed from crm_conversion_sources).
 
 export interface CrmConversionSource {
   id:              string;
   user_id:         string;
-  pipeline_id:     string;
+  pipeline_id:     string | null;
   name:            string;
   description:     string | null;
   provider:        ConversionPlatform;
@@ -187,7 +187,7 @@ export interface CrmConversionSource {
 }
 
 export type NewCrmConversionSource = {
-  pipeline_id:      string;
+  pipeline_id?:     string | null;
   name:             string;
   description?:     string | null;
   provider:         ConversionPlatform;
@@ -207,3 +207,9 @@ export type UpdateCrmConversionSource = Partial<{
   is_default:      boolean;
   is_active:       boolean;
 }>;
+
+// Aliases para o novo nome do módulo global.
+// O tipo base permanece CrmConversionSource enquanto o código migra gradualmente.
+export type PlatformIntegration    = CrmConversionSource;
+export type NewPlatformIntegration = NewCrmConversionSource;
+export type UpdatePlatformIntegration = UpdateCrmConversionSource;
