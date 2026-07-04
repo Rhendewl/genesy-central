@@ -10,7 +10,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
   if (!user) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
 
   const body = await req.json() as Record<string, unknown>;
-  const allowed = ["enabled", "settings"] as const;
+  const allowed = ["enabled", "settings", "platform_integration_id"] as const;
   const update: Record<string, unknown> = {};
   for (const key of allowed) {
     if (key in body) update[key] = body[key];
@@ -20,18 +20,16 @@ export async function PUT(req: NextRequest, { params }: Params) {
     return NextResponse.json({ error: "Nenhum campo para atualizar" }, { status: 400 });
   }
 
-  // Validate pixel_integration_id when settings is being updated
-  if (update.settings) {
-    const pixelId = (update.settings as Record<string, unknown>)?.pixel_integration_id;
-    if (typeof pixelId === "string" && pixelId.length > 0) {
-      const { data: source } = await supabase
-        .from("platform_integrations")
-        .select("id")
-        .eq("id", pixelId)
-        .eq("user_id", user.id)
-        .maybeSingle();
-      if (!source) return NextResponse.json({ error: "Origem de conversão não encontrada" }, { status: 404 });
-    }
+  // Validate platform_integration_id belongs to this user.
+  const integrationId = update.platform_integration_id;
+  if (typeof integrationId === "string" && integrationId.length > 0) {
+    const { data: source } = await supabase
+      .from("platform_integrations")
+      .select("id")
+      .eq("id", integrationId)
+      .eq("user_id", user.id)
+      .maybeSingle();
+    if (!source) return NextResponse.json({ error: "Origem de conversão não encontrada" }, { status: 404 });
   }
 
   const { data, error } = await supabase

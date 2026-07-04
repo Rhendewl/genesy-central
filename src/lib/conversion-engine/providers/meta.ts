@@ -174,13 +174,12 @@ export const metaConversionProvider: ConversionProvider = {
     if (settings.mode === "browser") return;
 
     // ── Load platform credentials (only DB query this provider makes) ────────
-    // Prefer the FK column; fall back to the jsonb field for rows where the
-    // migration backfill did not match (e.g. dangling reference in settings).
-    const sourceId = rule.platform_integration_id ?? settings.pixel_integration_id;
-    const source = sourceId ? await loadSource(context.db, sourceId) : null;
+    const source = rule.platform_integration_id
+      ? await loadSource(context.db, rule.platform_integration_id)
+      : null;
     if (!source) {
       logSkipped("source not found", {
-        source_id:   sourceId ?? undefined,
+        source_id:   rule.platform_integration_id ?? undefined,
         pipeline_id: conversionEvent.crm?.pipelineId ?? "n/a",
         stage_id:    conversionEvent.crm?.stageId    ?? "n/a",
       });

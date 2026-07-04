@@ -57,19 +57,18 @@ const DEFAULT_FORM: FormState = {
 };
 
 type SavedSettings = {
-  pixel_integration_id?: string;
-  event_name?:           string;
-  custom_event_name?:    string;
-  mode?:                 string;
-  value?:                number | null;
-  currency?:             string | null;
+  event_name?:        string;
+  custom_event_name?: string;
+  mode?:              string;
+  value?:             number | null;
+  currency?:          string | null;
 };
 
 function formFromConversion(saved: AppointmentConversion | undefined): FormState {
   if (!saved) return DEFAULT_FORM;
   const s = saved.settings as SavedSettings;
   return {
-    source_id:         s.pixel_integration_id                                          ?? "",
+    source_id:         saved.platform_integration_id                                   ?? "",
     event_name:        (s.event_name as MetaPixelEventName | undefined)                ?? "Schedule",
     custom_event_name: s.custom_event_name                                             ?? "",
     mode:              (s.mode as "capi" | "browser" | "both" | undefined)             ?? "capi",
@@ -106,7 +105,7 @@ export function MetaPixelConversionCard({ calendarId, triggerEvent }: Props) {
   }, [
     saved?.id,
     saved?.enabled,
-    savedSettings?.pixel_integration_id,
+    saved?.platform_integration_id,
     savedSettings?.event_name,
     savedSettings?.custom_event_name,
     savedSettings?.mode,
@@ -124,9 +123,8 @@ export function MetaPixelConversionCard({ calendarId, triggerEvent }: Props) {
 
   function buildSettings(): Record<string, unknown> {
     const s: Record<string, unknown> = {
-      pixel_integration_id: form.source_id,
-      event_name:           form.event_name,
-      mode:                 form.mode,
+      event_name: form.event_name,
+      mode:       form.mode,
     };
     if (form.event_name === "CustomEvent" && form.custom_event_name.trim()) {
       s.custom_event_name = form.custom_event_name.trim();
@@ -146,8 +144,8 @@ export function MetaPixelConversionCard({ calendarId, triggerEvent }: Props) {
     setIsSaving(true);
     const settings = buildSettings();
     const ok = saved
-      ? await updateConversion(saved.id, { enabled: form.enabled, settings })
-      : await upsertConversion({ trigger_event: triggerEvent, platform: PLATFORM, enabled: form.enabled, settings });
+      ? await updateConversion(saved.id, { platform_integration_id: form.source_id, enabled: form.enabled, settings })
+      : await upsertConversion({ trigger_event: triggerEvent, platform: PLATFORM, platform_integration_id: form.source_id, enabled: form.enabled, settings });
     setIsSaving(false);
     if (ok) setIsDirty(false);
   }

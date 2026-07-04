@@ -95,10 +95,11 @@ export interface CrmStageConversion {
 }
 
 export type NewCrmStageConversion = {
-  stage_id:  string;
-  platform:  ConversionPlatform;
-  enabled?:  boolean;
-  settings?: Record<string, unknown>;
+  stage_id:                 string;
+  platform:                 ConversionPlatform;
+  platform_integration_id?: string | null;
+  enabled?:                 boolean;
+  settings?:                Record<string, unknown>;
 };
 
 export type UpdateCrmStageConversion = Partial<{
@@ -153,13 +154,12 @@ export type MetaPixelEventName =
   | "CustomEvent";
 
 export interface MetaPixelConversionSettings {
-  pixel_integration_id: string;
-  mode:                 "browser" | "capi" | "both";
-  event_name:           MetaPixelEventName;
-  custom_event_name?:   string | null;
-  value?:               number | null;
-  currency?:            string | null;
-  test_event_code?:     string | null;
+  mode:               "browser" | "capi" | "both";
+  event_name:         MetaPixelEventName;
+  custom_event_name?: string | null;
+  value?:             number | null;
+  currency?:          string | null;
+  test_event_code?:   string | null;
 }
 
 // ── Conversion Sources / Platform Integrations ────────────────────────────────

@@ -351,15 +351,17 @@ export interface AppointmentConversion {
 }
 
 export type NewAppointmentConversion = {
-  trigger_event: ConversionTriggerEvent;
-  platform:      ConversionPlatform;
-  enabled?:      boolean;
-  settings?:     Record<string, unknown>;
+  trigger_event:            ConversionTriggerEvent;
+  platform:                 ConversionPlatform;
+  platform_integration_id?: string | null;
+  enabled?:                 boolean;
+  settings?:                Record<string, unknown>;
 };
 
 export type UpdateAppointmentConversion = Partial<{
-  enabled:  boolean;
-  settings: Record<string, unknown>;
+  platform_integration_id: string | null;
+  enabled:                 boolean;
+  settings:                Record<string, unknown>;
 }>;
 
 // ── Calendar member (V2) ──────────────────────────────────────────────────────

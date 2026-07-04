@@ -37,23 +37,21 @@ export async function POST(req: NextRequest, { params }: Params) {
   if (!stage) return NextResponse.json({ error: "Etapa não encontrada" }, { status: 404 });
 
   const body = await req.json() as Record<string, unknown>;
-  const { platform, enabled, settings } = body;
+  const { platform, enabled, settings, platform_integration_id } = body;
 
   if (!platform) return NextResponse.json({ error: "Plataforma é obrigatória" }, { status: 400 });
 
-  // Verify pixel_integration_id belongs to this user and this pipeline —
-  // prevents pointing a stage conversion at another tenant's pixel source.
-  const pixelIntegrationId = (settings as Record<string, unknown> | undefined)?.pixel_integration_id;
-  if (typeof pixelIntegrationId === "string" && pixelIntegrationId.length > 0) {
+  // Verify platform_integration_id belongs to this user.
+  // Global integrations (pipeline_id IS NULL) are accepted for any pipeline.
+  if (typeof platform_integration_id === "string" && platform_integration_id.length > 0) {
     const { data: source } = await supabase
       .from("platform_integrations")
-      .select("id")
-      .eq("id", pixelIntegrationId)
+      .select("id, pipeline_id")
+      .eq("id", platform_integration_id)
       .eq("user_id", user.id)
-      .eq("pipeline_id", pipelineId)
       .maybeSingle();
 
-    if (!source) {
+    if (!source || (source.pipeline_id !== null && source.pipeline_id !== pipelineId)) {
       return NextResponse.json({ error: "Origem de conversão não encontrada" }, { status: 404 });
     }
   }
@@ -62,11 +60,12 @@ export async function POST(req: NextRequest, { params }: Params) {
     .from("crm_stage_conversions")
     .upsert(
       {
-        stage_id: stageId,
-        user_id:  user.id,
+        stage_id:                stageId,
+        user_id:                 user.id,
         platform,
-        enabled:  enabled ?? false,
-        settings: settings ?? {},
+        platform_integration_id: platform_integration_id ?? null,
+        enabled:                 enabled ?? false,
+        settings:                settings ?? {},
       },
       { onConflict: "stage_id,platform" },
     )

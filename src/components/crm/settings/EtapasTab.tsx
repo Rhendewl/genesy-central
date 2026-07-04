@@ -55,15 +55,14 @@ interface RowProps {
 
 function StageConversionRow({ stage, sources, saved, onUpsert }: RowProps) {
   const savedSettings = saved?.settings as {
-    pixel_integration_id?: string;
-    event_name?:           string;
-    custom_event_name?:    string;
-    mode?:                 string;
+    event_name?:        string;
+    custom_event_name?: string;
+    mode?:              string;
   } | undefined;
 
   function savedToConfig(): RowConfig {
     return {
-      source_id:         savedSettings?.pixel_integration_id ?? "",
+      source_id:         saved?.platform_integration_id ?? "",
       event_name:        (savedSettings?.event_name as MetaPixelEventName | undefined) ?? "Lead",
       custom_event_name: (savedSettings?.custom_event_name as string | undefined) ?? "",
       enabled:           saved?.enabled ?? false,
@@ -80,7 +79,7 @@ function StageConversionRow({ stage, sources, saved, onUpsert }: RowProps) {
     setForm(savedToConfig());
     setIsDirty(false);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [savedId, saved?.enabled, savedSettings?.pixel_integration_id, savedSettings?.event_name, savedSettings?.custom_event_name]);
+  }, [savedId, saved?.enabled, saved?.platform_integration_id, savedSettings?.event_name, savedSettings?.custom_event_name]);
 
   function patch<K extends keyof RowConfig>(key: K, value: RowConfig[K]) {
     setForm(prev => {
@@ -112,17 +111,17 @@ function StageConversionRow({ stage, sources, saved, onUpsert }: RowProps) {
     setSaving(true);
     const preservedMode = (savedSettings?.mode as string | undefined) ?? "capi";
     const settingsPayload: Record<string, unknown> = {
-      pixel_integration_id: form.source_id,
-      event_name:           form.event_name,
-      mode:                 preservedMode,
+      event_name: form.event_name,
+      mode:       preservedMode,
     };
     if (form.event_name === "CustomEvent" && form.custom_event_name.trim()) {
       settingsPayload.custom_event_name = form.custom_event_name.trim();
     }
     const ok = await onUpsert(stage.id, {
-      platform: "meta_pixel",
-      enabled:  form.enabled,
-      settings: settingsPayload,
+      platform:                "meta_pixel",
+      platform_integration_id: form.source_id,
+      enabled:                 form.enabled,
+      settings:                settingsPayload,
     });
     setSaving(false);
     if (ok) setIsDirty(false);

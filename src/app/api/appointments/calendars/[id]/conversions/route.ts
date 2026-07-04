@@ -39,7 +39,7 @@ export async function POST(req: NextRequest, { params }: Params) {
   if (!calendar) return NextResponse.json({ error: "Calendário não encontrado" }, { status: 404 });
 
   const body = await req.json() as Record<string, unknown>;
-  const { trigger_event, platform, enabled, settings } = body;
+  const { trigger_event, platform, enabled, settings, platform_integration_id } = body;
 
   if (!trigger_event) return NextResponse.json({ error: "trigger_event é obrigatório" }, { status: 400 });
   if (!platform)      return NextResponse.json({ error: "platform é obrigatório" }, { status: 400 });
@@ -50,13 +50,12 @@ export async function POST(req: NextRequest, { params }: Params) {
     return NextResponse.json({ error: "platform inválido" }, { status: 400 });
   }
 
-  // Validate pixel_integration_id belongs to this user (not pipeline-scoped for Agenda)
-  const pixelIntegrationId = (settings as Record<string, unknown> | undefined)?.pixel_integration_id;
-  if (typeof pixelIntegrationId === "string" && pixelIntegrationId.length > 0) {
+  // Validate platform_integration_id belongs to this user.
+  if (typeof platform_integration_id === "string" && platform_integration_id.length > 0) {
     const { data: source } = await supabase
       .from("platform_integrations")
       .select("id")
-      .eq("id", pixelIntegrationId)
+      .eq("id", platform_integration_id)
       .eq("user_id", user.id)
       .maybeSingle();
     if (!source) return NextResponse.json({ error: "Origem de conversão não encontrada" }, { status: 404 });
@@ -66,12 +65,13 @@ export async function POST(req: NextRequest, { params }: Params) {
     .from("appointment_conversions")
     .upsert(
       {
-        calendar_id:   calendarId,
-        user_id:       user.id,
+        calendar_id:             calendarId,
+        user_id:                 user.id,
         trigger_event,
         platform,
-        enabled:       enabled ?? false,
-        settings:      settings ?? {},
+        platform_integration_id: platform_integration_id ?? null,
+        enabled:                 enabled ?? false,
+        settings:                settings ?? {},
       },
       { onConflict: "calendar_id,trigger_event,platform" },
     )
