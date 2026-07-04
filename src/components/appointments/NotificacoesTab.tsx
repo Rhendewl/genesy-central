@@ -166,26 +166,32 @@ export function NotificacoesTab({ calendar, onSave }: Props) {
       return;
     }
 
-    if (!("serviceWorker" in navigator)) {
-      setTestMsg("Service Worker não disponível neste navegador.");
-      setIsTesting(false);
-      return;
-    }
+    const title = renderPreview(form.title || DEFAULT_TITLE);
+    const body  = renderPreview(form.body  || DEFAULT_BODY);
+    const opts  = { body, icon: "/favicon.png", badge: "/favicon.png" };
 
     try {
-      const registration = await navigator.serviceWorker.ready;
-      await registration.showNotification(
-        renderPreview(form.title || DEFAULT_TITLE),
-        {
-          body:  renderPreview(form.body  || DEFAULT_BODY),
-          icon:  "/favicon.png",
-          badge: "/favicon.png",
-        },
-      );
+      // Tenta via Service Worker (necessário em mobile e para push server-side).
+      // Promise.race com 3 s de timeout — se o SW ainda está instalando, não trava.
+      if ("serviceWorker" in navigator) {
+        const timeoutPromise = new Promise<null>(res => setTimeout(() => res(null), 3000));
+        const reg = await Promise.race([navigator.serviceWorker.ready, timeoutPromise]);
+
+        if (reg) {
+          await reg.showNotification(title, opts);
+          setTestMsg("Notificação enviada!");
+          setIsTesting(false);
+          setTimeout(() => setTestMsg(null), 4000);
+          return;
+        }
+      }
+
+      // Fallback: Notification API direta (desktop Chrome/Edge/Firefox).
+      new Notification(title, opts);
       setTestMsg("Notificação enviada!");
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Erro desconhecido";
-      setTestMsg(`Erro ao enviar: ${msg}`);
+      setTestMsg(`Erro: ${msg}`);
     }
 
     setIsTesting(false);
