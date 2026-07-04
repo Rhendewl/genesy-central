@@ -695,7 +695,7 @@ export default function FormularioConfiguracoesPage() {
                     </div>
                     <span
                       className="px-2 py-0.5 rounded text-[11px] font-mono font-semibold"
-                      style={{ background: "rgba(102,174,214,0.12)", color: "#66aed6" }}
+                      style={{ background: "rgba(64,69,73,0.12)", color: "#404549" }}
                     >
                       POST
                     </span>
@@ -738,11 +738,11 @@ export default function FormularioConfiguracoesPage() {
             <SectionCard title="Após o envio">
               <div
                 className="flex items-start gap-3 p-3 rounded-lg"
-                style={{ background: "rgba(102,174,214,0.07)", border: "1px solid rgba(102,174,214,0.15)" }}
+                style={{ background: "rgba(64,69,73,0.07)", border: "1px solid rgba(64,69,73,0.15)" }}
               >
-                <AlertTriangle size={14} className="mt-0.5 flex-shrink-0" style={{ color: "#66aed6" }} />
+                <AlertTriangle size={14} className="mt-0.5 flex-shrink-0" style={{ color: "#404549" }} />
                 <div>
-                  <p className="text-xs font-medium mb-0.5" style={{ color: "#66aed6" }}>Configurado no Editor Visual</p>
+                  <p className="text-xs font-medium mb-0.5" style={{ color: "#404549" }}>Configurado no Editor Visual</p>
                   <p className="text-[11px]" style={{ color: "var(--muted-foreground)" }}>
                     O redirecionamento, mensagem de agradecimento e tela de encerramento são configurados
                     na seção <strong style={{ color: "var(--text-title)" }}>Ending</strong> do Editor Visual.
@@ -751,7 +751,7 @@ export default function FormularioConfiguracoesPage() {
                     type="button"
                     onClick={() => router.push(`/formularios/${id}/editor`)}
                     className="inline-flex items-center gap-1 mt-2 text-[11px] font-medium hover:underline"
-                    style={{ color: "#66aed6" }}
+                    style={{ color: "#404549" }}
                   >
                     Ir para o Editor <ExternalLink size={9} />
                   </button>

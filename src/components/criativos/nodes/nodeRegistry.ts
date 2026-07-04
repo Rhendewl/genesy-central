@@ -262,10 +262,10 @@ export const STARTER_WORKFLOW = {
     },
   ],
   edges: [
-    { id: "se1", source: "starter-prompt",   target: "starter-copy",    animated: true, style: { stroke: "rgba(102,174,214,0.5)", strokeWidth: 2 } },
-    { id: "se2", source: "starter-branding", target: "starter-copy",    animated: true, style: { stroke: "rgba(102,174,214,0.5)", strokeWidth: 2 } },
-    { id: "se3", source: "starter-prompt",   target: "starter-visual",  animated: true, style: { stroke: "rgba(102,174,214,0.5)", strokeWidth: 2 } },
-    { id: "se4", source: "starter-copy",     target: "starter-preview", animated: true, style: { stroke: "rgba(102,174,214,0.5)", strokeWidth: 2 } },
-    { id: "se5", source: "starter-visual",   target: "starter-preview", animated: true, style: { stroke: "rgba(102,174,214,0.5)", strokeWidth: 2 } },
+    { id: "se1", source: "starter-prompt",   target: "starter-copy",    animated: true, style: { stroke: "rgba(64,69,73,0.5)", strokeWidth: 2 } },
+    { id: "se2", source: "starter-branding", target: "starter-copy",    animated: true, style: { stroke: "rgba(64,69,73,0.5)", strokeWidth: 2 } },
+    { id: "se3", source: "starter-prompt",   target: "starter-visual",  animated: true, style: { stroke: "rgba(64,69,73,0.5)", strokeWidth: 2 } },
+    { id: "se4", source: "starter-copy",     target: "starter-preview", animated: true, style: { stroke: "rgba(64,69,73,0.5)", strokeWidth: 2 } },
+    { id: "se5", source: "starter-visual",   target: "starter-preview", animated: true, style: { stroke: "rgba(64,69,73,0.5)", strokeWidth: 2 } },
   ],
 };

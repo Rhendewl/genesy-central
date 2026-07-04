@@ -152,9 +152,9 @@ function RatingSettings({ step, onChange }: BlockSettingsProps) {
             aria-pressed={max === n}
             className="flex-1 py-1.5 rounded-lg text-xs font-medium transition-all"
             style={{
-              background: max === n ? "rgba(102,174,214,0.20)" : "rgba(0,0,0,0.30)",
-              color: max === n ? "#66aed6" : "var(--muted-foreground)",
-              border: `1px solid ${max === n ? "rgba(102,174,214,0.35)" : "rgba(255,255,255,0.07)"}`,
+              background: max === n ? "rgba(64,69,73,0.20)" : "rgba(0,0,0,0.30)",
+              color: max === n ? "#404549" : "var(--muted-foreground)",
+              border: `1px solid ${max === n ? "rgba(64,69,73,0.35)" : "rgba(255,255,255,0.07)"}`,
             }}
           >
             {n}

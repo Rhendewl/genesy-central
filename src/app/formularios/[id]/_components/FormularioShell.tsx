@@ -153,9 +153,9 @@ export function FormularioShell({ id, children }: FormularioShellProps) {
               disabled={isPublishing}
               className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg transition-all hover:opacity-90 disabled:opacity-50 flex-shrink-0"
               style={{
-                background: "rgba(102,174,214,0.12)",
-                color: "#66aed6",
-                border: "1px solid rgba(102,174,214,0.22)",
+                background: "rgba(64,69,73,0.12)",
+                color: "#404549",
+                border: "1px solid rgba(64,69,73,0.22)",
               }}
               aria-label="Publicar formulário"
             >

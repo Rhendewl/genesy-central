@@ -73,7 +73,7 @@ export function NovoProjetoModal({ open, onClose, onSubmit, isLoading }: Props) 
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4" style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom, 0px))" }}>
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}

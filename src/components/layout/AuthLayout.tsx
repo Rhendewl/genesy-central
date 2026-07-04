@@ -5,7 +5,8 @@ import { usePathname } from "next/navigation";
 import type { Session } from "@supabase/supabase-js";
 import { getSupabaseClient } from "@/lib/supabase";
 import { useGlobalStore } from "@/store";
-import { Dock } from "./Dock";
+import { Dock }             from "./Dock";
+import { MobileNavigation } from "./MobileNavigation";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // AuthLayout
@@ -51,10 +52,10 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
   const isAgendarPage  = pathname?.startsWith("/agendar/") ?? false;
   const showDock = isAuthenticated && !isPortalPage && !isConvitePage && !isFormPage && !isAgendarPage;
 
-  // Em canvas mode o Dock se oculta sozinho, mas o padding do <main> precisa
-  // ser removido explicitamente para o canvas ocupar 100% da viewport.
+  // Mobile: top padding for the fixed header (safe-area-top + 8px gap + 56px header = ~4.5rem)
+  // Desktop: left padding for the dock sidebar; no top padding needed
   const mainClass = showDock && !canvasMode
-    ? "min-h-dvh pb-28 md:pb-0 md:pl-[80px]"
+    ? "min-h-dvh pt-[calc(env(safe-area-inset-top,0px)+4.5rem)] md:pt-0 md:pl-[80px]"
     : "min-h-dvh";
 
   return (
@@ -81,6 +82,7 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
       </main>
 
       {showDock && <Dock />}
+      {showDock && <MobileNavigation />}
     </>
   );
 }

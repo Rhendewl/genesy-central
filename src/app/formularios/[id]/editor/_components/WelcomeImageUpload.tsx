@@ -100,7 +100,7 @@ export function WelcomeImageUpload({
             type="button"
             onClick={() => inputRef.current?.click()}
             className="text-[10px] hover:underline mt-0.5"
-            style={{ color: "#66aed6" }}
+            style={{ color: "#404549" }}
           >
             Trocar imagem
           </button>
@@ -133,26 +133,26 @@ export function WelcomeImageUpload({
         disabled={isUploading}
         className="flex flex-col items-center justify-center gap-2 w-full py-5 rounded-xl text-center transition-all"
         style={{
-          border: `1.5px dashed ${isDragging ? "#66aed6" : "rgba(255,255,255,0.12)"}`,
-          background: isDragging ? "rgba(102,174,214,0.06)" : "rgba(255,255,255,0.02)",
+          border: `1.5px dashed ${isDragging ? "#404549" : "rgba(255,255,255,0.12)"}`,
+          background: isDragging ? "rgba(64,69,73,0.06)" : "rgba(255,255,255,0.02)",
         }}
         aria-label="Área para upload de imagem ou logo"
       >
         {isUploading ? (
           <>
-            <Loader2 size={20} className="animate-spin" style={{ color: "#66aed6" }} />
+            <Loader2 size={20} className="animate-spin" style={{ color: "#404549" }} />
             <span className="text-xs" style={{ color: "var(--muted-foreground)" }}>Enviando...</span>
           </>
         ) : (
           <>
             <div
               className="w-9 h-9 rounded-xl flex items-center justify-center"
-              style={{ background: "rgba(102,174,214,0.12)" }}
+              style={{ background: "rgba(64,69,73,0.12)" }}
             >
               {isDragging ? (
-                <Upload size={16} style={{ color: "#66aed6" }} />
+                <Upload size={16} style={{ color: "#404549" }} />
               ) : (
-                <ImageIcon size={16} style={{ color: "#66aed6" }} />
+                <ImageIcon size={16} style={{ color: "#404549" }} />
               )}
             </div>
             <div>

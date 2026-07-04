@@ -42,8 +42,8 @@ function ToolbarBtn({
       onMouseDown={e => { e.preventDefault(); onClick(); }}
       className="p-1 rounded transition-all hover:opacity-90"
       style={{
-        background: active ? "rgba(102,174,214,0.25)" : "rgba(255,255,255,0.06)",
-        color: active ? "#66aed6" : "rgba(255,255,255,0.60)",
+        background: active ? "rgba(64,69,73,0.25)" : "rgba(255,255,255,0.06)",
+        color: active ? "#404549" : "rgba(255,255,255,0.60)",
       }}
       aria-pressed={active}
       aria-label={title}

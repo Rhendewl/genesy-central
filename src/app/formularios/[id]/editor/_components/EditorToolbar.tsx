@@ -133,7 +133,7 @@ export function EditorToolbar({
         <button
           onClick={onPublish}
           className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg transition-all hover:opacity-90 flex-shrink-0"
-          style={{ background: "rgba(102,174,214,0.12)", color: "#66aed6", border: "1px solid rgba(102,174,214,0.22)" }}
+          style={{ background: "rgba(64,69,73,0.12)", color: "#404549", border: "1px solid rgba(64,69,73,0.22)" }}
           aria-label="Publicar formulário"
         >
           <Send size={12} aria-hidden="true" />

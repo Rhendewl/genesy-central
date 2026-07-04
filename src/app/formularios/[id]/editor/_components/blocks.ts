@@ -29,7 +29,7 @@ export const BLOCK_DEFINITIONS: BlockDefinition[] = [
     description: "Resposta de uma linha",
     icon: Type,
     category: "text",
-    color: "#66aed6",
+    color: "#404549",
   },
   {
     type: "long_text",
@@ -37,7 +37,7 @@ export const BLOCK_DEFINITIONS: BlockDefinition[] = [
     description: "Múltiplas linhas de texto",
     icon: AlignLeft,
     category: "text",
-    color: "#66aed6",
+    color: "#404549",
   },
   {
     type: "number",
@@ -45,7 +45,7 @@ export const BLOCK_DEFINITIONS: BlockDefinition[] = [
     description: "Valor numérico",
     icon: Hash,
     category: "text",
-    color: "#66aed6",
+    color: "#404549",
   },
   {
     type: "date",
@@ -53,7 +53,7 @@ export const BLOCK_DEFINITIONS: BlockDefinition[] = [
     description: "Seleção de data",
     icon: Calendar,
     category: "text",
-    color: "#66aed6",
+    color: "#404549",
   },
   {
     type: "name",

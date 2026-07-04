@@ -97,9 +97,9 @@ function ChipGroup<T extends string>({
             disabled={disabled}
             className="flex-1 py-1.5 rounded-lg text-xs font-medium transition-all"
             style={{
-              background: active ? "rgba(102,174,214,0.20)" : "rgba(0,0,0,0.30)",
-              color: active ? "#66aed6" : "var(--muted-foreground)",
-              border: `1px solid ${active ? "rgba(102,174,214,0.35)" : "rgba(255,255,255,0.07)"}`,
+              background: active ? "rgba(64,69,73,0.20)" : "rgba(0,0,0,0.30)",
+              color: active ? "#404549" : "var(--muted-foreground)",
+              border: `1px solid ${active ? "rgba(64,69,73,0.35)" : "rgba(255,255,255,0.07)"}`,
             }}
           >
             {opt.label}

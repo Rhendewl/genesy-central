@@ -198,7 +198,7 @@ function RuleModal({ rule, onSave, onClose }: ModalProps) {
   return (
     <div
       className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
-      style={{ background: "rgba(0,0,0,0.70)", backdropFilter: "blur(8px)" }}
+      style={{ background: "rgba(0,0,0,0.70)", backdropFilter: "blur(8px)", paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div

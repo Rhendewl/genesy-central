@@ -153,12 +153,7 @@ export default function AgendamentosPage() {
 function EmptyState({ onNew }: { onNew: () => void }) {
   return (
     <div className="flex flex-col items-center justify-center py-20 text-center">
-      <div
-        className="p-4 rounded-2xl mb-4"
-        style={{ background: "var(--accent)" }}
-      >
-        <Calendar size={28} style={{ color: "var(--primary)" }} />
-      </div>
+      <Calendar size={28} className="mb-4" style={{ color: "#ffffff" }} />
       <h3
         className="font-semibold text-base mb-2"
         style={{ color: "var(--text-title)" }}

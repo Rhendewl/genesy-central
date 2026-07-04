@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  FileText, Plus, MoreHorizontal, Trash2, Archive,
+  NotepadText, Plus, MoreHorizontal, Trash2, Archive,
   Clock, Copy, EyeOff, X, Loader2, MessageSquare,
 } from "lucide-react";
 import { Header } from "@/components/layout/Header";
@@ -59,9 +59,7 @@ function FormCard({
     >
       {/* Topo */}
       <div className="flex items-start justify-between gap-2 mb-3">
-        <div className="p-2 rounded-lg" style={{ background: "var(--accent)" }}>
-          <FileText size={14} style={{ color: "var(--primary)" }} />
-        </div>
+        <NotepadText size={14} style={{ color: "#ffffff" }} />
         <div className="flex items-center gap-2">
           <span
             className="text-xs font-medium px-2 py-0.5 rounded-full"
@@ -162,12 +160,7 @@ function EmptyState({ onCreate }: { onCreate: () => void }) {
       animate={{ opacity: 1, y: 0 }}
       className="flex flex-col items-center justify-center py-20 text-center"
     >
-      <div
-        className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4"
-        style={{ background: "var(--accent)" }}
-      >
-        <FileText size={28} style={{ color: "var(--primary)" }} />
-      </div>
+      <NotepadText size={28} className="mb-4" style={{ color: "#ffffff" }} />
       <h3 className="font-semibold text-base mb-1" style={{ color: "var(--text-title)" }}>
         Nenhum formulário criado
       </h3>
@@ -326,7 +319,7 @@ export default function FormulariosPage() {
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border"
             style={{ borderColor: "var(--border)", background: "var(--card)" }}
           >
-            <FileText size={13} style={{ color: "var(--muted-foreground)" }} />
+            <NotepadText size={13} style={{ color: "var(--muted-foreground)" }} />
             <span className="text-xs" style={{ color: "var(--muted-foreground)" }}>
               {ativos.length} formulário{ativos.length !== 1 ? "s" : ""}
             </span>

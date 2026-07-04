@@ -364,11 +364,11 @@ export default function FormularioCrmPage() {
             {/* ── 1. Resumo/Status ─────────────────────────────────────────── */}
             <div
               className="rounded-xl p-4 flex items-start gap-3"
-              style={{ background: "rgba(102,174,214,0.06)", border: "1px solid rgba(102,174,214,0.15)" }}
+              style={{ background: "rgba(64,69,73,0.06)", border: "1px solid rgba(64,69,73,0.15)" }}
             >
-              <Info size={14} className="mt-0.5 flex-shrink-0" style={{ color: "#66aed6" }} />
+              <Info size={14} className="mt-0.5 flex-shrink-0" style={{ color: "#404549" }} />
               <div>
-                <p className="text-xs font-semibold mb-1" style={{ color: "#66aed6" }}>Como funciona</p>
+                <p className="text-xs font-semibold mb-1" style={{ color: "#404549" }}>Como funciona</p>
                 <p className="text-[11px] leading-relaxed" style={{ color: "var(--muted-foreground)" }}>
                   Todo lead enviado por este formulário será criado automaticamente no CRM utilizando
                   a <strong style={{ color: "var(--text-title)" }}>origem</strong>,{" "}
@@ -377,7 +377,7 @@ export default function FormularioCrmPage() {
                   e <strong style={{ color: "var(--text-title)" }}>tags</strong> configurados abaixo.
                 </p>
                 {configId && (
-                  <p className="text-[11px] mt-2 font-medium" style={{ color: "#66aed6" }}>
+                  <p className="text-[11px] mt-2 font-medium" style={{ color: "#404549" }}>
                     ✓ Integração ativa — origem: {sourceName} · pipeline: {pipelineName} · etapa: {stageName}
                     {config.owner_name && ` · responsável: ${ownerLabel}`}
                     {tagCount > 0 && ` · ${tagCount} tag${tagCount > 1 ? "s" : ""}`}

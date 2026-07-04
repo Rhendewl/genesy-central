@@ -39,9 +39,7 @@ export function CalendarCard({ calendar, onArchive }: CalendarCardProps) {
     >
       {/* Header */}
       <div className="flex items-start justify-between gap-2 mb-3">
-        <div className="p-2 rounded-lg" style={{ background: "var(--accent)" }}>
-          <Calendar size={14} style={{ color: "var(--primary)" }} />
-        </div>
+        <Calendar size={14} style={{ color: "#ffffff" }} />
         <div className="flex items-center gap-2">
           <span
             className="text-xs font-medium px-2 py-0.5 rounded-full"

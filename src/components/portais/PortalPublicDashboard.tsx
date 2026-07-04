@@ -294,7 +294,7 @@ export function PortalPublicDashboard({ slug }: Props) {
   // Funnel data
   const funnelData = [
     { name: "Alcance", value: kpis?.alcance ?? 0, fill: "#27a3ff" },
-    { name: "Cliques", value: kpis?.cliques ?? 0, fill: "#66aed6" },
+    { name: "Cliques", value: kpis?.cliques ?? 0, fill: "#404549" },
     { name: "Leads",   value: kpis?.leads   ?? 0, fill: "#22c55e" },
   ];
 

@@ -38,39 +38,74 @@ export default function CrmPage() {
       <Header title="CRM" subtitle={SUBTITLES[activeTab]} />
 
       {/* Tab bar */}
-      <div
-        className="sticky top-0 z-30 px-4 sm:px-6 pt-2 pb-4"
-        style={{
-          background: "rgba(0,0,0,0.60)",
-          backdropFilter: "blur(24px) saturate(160%)",
-          WebkitBackdropFilter: "blur(24px) saturate(160%)",
-          borderBottom: "1px solid rgba(255,255,255,0.06)",
-        }}
-      >
-        <div className="overflow-x-auto scrollbar-none">
+      <div className="sticky top-[calc(env(safe-area-inset-top,0px)+4.5rem)] md:top-0 z-30">
+
+        {/* ── Mobile: pílula glassmorphism ───────────────────────── */}
+        <div className="md:hidden px-4 pt-2 pb-3">
           <div
-            className="flex gap-1 p-1 rounded-2xl min-w-max"
-            style={{ background: "rgba(0,0,0,0.30)", border: "1px solid rgba(255,255,255,0.08)" }}
+            className="rounded-[20px] overflow-hidden"
+            style={{
+              background:           "rgba(8,8,12,0.72)",
+              backdropFilter:       "blur(24px) saturate(160%)",
+              WebkitBackdropFilter: "blur(24px) saturate(160%)",
+              border:               "1px solid rgba(255,255,255,0.09)",
+              boxShadow:            "0 4px 24px rgba(0,0,0,0.20)",
+            }}
           >
-            {TABS.map(tab => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={cn(
-                  "flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all whitespace-nowrap",
-                  activeTab === tab.id
-                    ? "text-white"
-                    : "text-white/50 hover:text-white hover:bg-white/[0.05]",
-                )}
-                style={activeTab === tab.id ? {
-                  background: "rgba(255,255,255,0.14)",
-                  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.10), 0 1px 8px rgba(0,0,0,0.30)",
-                } : {}}
-              >
-                {tab.icon}
-                <span>{tab.label}</span>
-              </button>
-            ))}
+            <div className="overflow-x-auto scrollbar-none px-2 py-2">
+              <div className="flex gap-0.5 min-w-max">
+                {TABS.map(tab => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={cn(
+                      "flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-all active:scale-95",
+                      activeTab === tab.id ? "text-white" : "text-white/50",
+                    )}
+                    style={activeTab === tab.id ? {
+                      background: "rgba(255,255,255,0.14)",
+                      boxShadow:  "inset 0 1px 0 rgba(255,255,255,0.10), 0 1px 8px rgba(0,0,0,0.30)",
+                    } : {}}
+                  >
+                    {tab.icon}
+                    <span>{tab.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ── Desktop: barra full-width (sem alterações) ─────────── */}
+        <div
+          className="hidden md:block px-4 sm:px-6 pt-2 pb-4"
+          style={{
+            background:           "rgba(0,0,0,0.60)",
+            backdropFilter:       "blur(24px) saturate(160%)",
+            WebkitBackdropFilter: "blur(24px) saturate(160%)",
+            borderBottom:         "1px solid rgba(255,255,255,0.06)",
+          }}
+        >
+          <div className="overflow-x-auto scrollbar-none">
+            <div className="flex gap-1 p-1 rounded-2xl min-w-max" style={{ background: "rgba(0,0,0,0.30)", border: "1px solid rgba(255,255,255,0.08)" }}>
+              {TABS.map(tab => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={cn(
+                    "flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all whitespace-nowrap",
+                    activeTab === tab.id ? "text-white" : "text-white/50 hover:text-white hover:bg-white/[0.05]",
+                  )}
+                  style={activeTab === tab.id ? {
+                    background: "rgba(255,255,255,0.14)",
+                    boxShadow:  "inset 0 1px 0 rgba(255,255,255,0.10), 0 1px 8px rgba(0,0,0,0.30)",
+                  } : {}}
+                >
+                  {tab.icon}
+                  <span>{tab.label}</span>
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       </div>

@@ -264,9 +264,9 @@ export function ContentSidebar({
             onClick={() => setModalOpen(true)}
             className="flex items-center gap-1 text-[11px] px-2 py-1 rounded-lg transition-all hover:opacity-90 active:scale-95"
             style={{
-              background: "rgba(102,174,214,0.14)",
-              color: "#66aed6",
-              border: "1px solid rgba(102,174,214,0.24)",
+              background: "rgba(64,69,73,0.14)",
+              color: "#404549",
+              border: "1px solid rgba(64,69,73,0.24)",
             }}
             aria-label="Adicionar conteúdo"
           >

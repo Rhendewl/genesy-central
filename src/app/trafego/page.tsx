@@ -217,85 +217,117 @@ function TrafegoPageInner() {
     <div className="mx-auto max-w-7xl px-4 sm:px-6">
       <Header title="Tráfego Pago" subtitle={tabSubtitle} />
 
-      <div
-        className="sticky top-0 z-30 pt-2 pb-4"
-        style={{
-          background: "rgba(0,0,0,0.60)",
-          backdropFilter: "blur(24px) saturate(160%)",
-          WebkitBackdropFilter: "blur(24px) saturate(160%)",
-          borderBottom: "1px solid rgba(255,255,255,0.06)",
-        }}
-      >
-        {/* Period navigator + account selector */}
-        {showPeriodNav && (
-          <div className="flex items-center gap-3 mb-4 flex-wrap">
-            {/* Month navigation */}
-            <div className="flex items-center gap-2">
-              <button
-                onClick={prevMonth}
-                className="w-8 h-8 rounded-xl flex items-center justify-center text-[#b4b4b4] hover:text-white hover:bg-white/5 transition-all"
-              >
-                <ChevronLeft size={16} />
-              </button>
-              <div className="lc-card px-4 py-2 flex items-center gap-2 min-w-[160px] justify-center">
-                <p className="text-white font-semibold text-sm">{MONTH_NAMES[month - 1]}</p>
-                <p className="text-[#b4b4b4] text-sm">{year}</p>
-                {isCurrentMonth && (
-                  <span className="text-xs text-[#4a8fd4] bg-[#4a8fd4]/10 px-2 py-0.5 rounded-full font-medium">
-                    atual
-                  </span>
-                )}
-              </div>
-              <button
-                onClick={nextMonth}
-                disabled={isCurrentMonth}
-                className="w-8 h-8 rounded-xl flex items-center justify-center text-[#b4b4b4] hover:text-white hover:bg-white/5 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-              >
-                <ChevronRight size={16} />
-              </button>
-            </div>
+      <div className="sticky top-[calc(env(safe-area-inset-top,0px)+4.5rem)] md:top-0 z-30">
 
-            {/* Account selector — only when ≥1 Meta account exists */}
-            {metaAccounts.length >= 1 && (
-              <AccountSelector
-                accounts={metaAccounts}
-                selectedAccountId={selectedAccountId}
-                onChange={setSelectedAccountId}
-              />
-            )}
-          </div>
-        )}
-
-        {/* Tab bar */}
-        <div className="overflow-x-auto scrollbar-none">
+        {/* ── Mobile: pílula glassmorphism ───────────────────────── */}
+        <div className="md:hidden pt-2 pb-3">
           <div
-            className="flex gap-1 p-1 rounded-2xl min-w-max"
+            className="rounded-[20px] overflow-hidden"
             style={{
-              background: "rgba(0,0,0,0.30)",
-              border: "1px solid rgba(255,255,255,0.08)",
+              background:           "rgba(8,8,12,0.72)",
+              backdropFilter:       "blur(24px) saturate(160%)",
+              WebkitBackdropFilter: "blur(24px) saturate(160%)",
+              border:               "1px solid rgba(255,255,255,0.09)",
+              boxShadow:            "0 4px 24px rgba(0,0,0,0.20)",
             }}
           >
-            {TABS.map(tab => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={cn(
-                  "flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all whitespace-nowrap",
-                  activeTab === tab.id
-                    ? "text-white"
-                    : "text-white/50 hover:text-white hover:bg-white/[0.05]"
+            {/* Linha de filtros */}
+            {showPeriodNav && (
+              <div className="flex items-center gap-2 px-3 pt-3 pb-2.5">
+                <button onClick={prevMonth} className="w-7 h-7 rounded-lg flex items-center justify-center text-white/50 hover:text-white active:scale-90 transition-all">
+                  <ChevronLeft size={13} />
+                </button>
+                <span className="text-xs font-semibold text-white whitespace-nowrap">
+                  {MONTH_NAMES[month - 1].slice(0, 3)} {year}
+                </span>
+                {isCurrentMonth && (
+                  <span className="text-[10px] text-[#4a8fd4] bg-[#4a8fd4]/10 px-1.5 py-0.5 rounded-full font-medium">atual</span>
                 )}
-                style={
-                  activeTab === tab.id
-                    ? { background: "rgba(255,255,255,0.14)", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.10), 0 1px 8px rgba(0,0,0,0.30)" }
-                    : {}
-                }
-              >
-                {tab.icon}
-                <span className="hidden sm:inline">{tab.shortLabel ?? tab.label}</span>
-                <span className="sm:hidden">{tab.shortLabel?.charAt(0) ?? tab.label.charAt(0)}</span>
-              </button>
-            ))}
+                <button onClick={nextMonth} disabled={isCurrentMonth} className="w-7 h-7 rounded-lg flex items-center justify-center text-white/50 disabled:opacity-30 active:scale-90 transition-all">
+                  <ChevronRight size={13} />
+                </button>
+                {metaAccounts.length >= 1 && (
+                  <div className="ml-auto">
+                    <AccountSelector accounts={metaAccounts} selectedAccountId={selectedAccountId} onChange={setSelectedAccountId} />
+                  </div>
+                )}
+              </div>
+            )}
+            {showPeriodNav && <div className="mx-3 h-px" style={{ background: "rgba(255,255,255,0.07)" }} />}
+            {/* Esteira de submódulos */}
+            <div className="overflow-x-auto scrollbar-none px-2 py-2">
+              <div className="flex gap-0.5 min-w-max">
+                {TABS.map(tab => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={cn(
+                      "flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-all active:scale-95",
+                      activeTab === tab.id ? "text-white" : "text-white/50",
+                    )}
+                    style={activeTab === tab.id ? {
+                      background: "rgba(255,255,255,0.14)",
+                      boxShadow:  "inset 0 1px 0 rgba(255,255,255,0.10), 0 1px 8px rgba(0,0,0,0.30)",
+                    } : {}}
+                  >
+                    {tab.icon}
+                    <span>{tab.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ── Desktop: barra full-width (sem alterações) ─────────── */}
+        <div
+          className="hidden md:block pt-2 pb-4"
+          style={{
+            background:           "rgba(0,0,0,0.60)",
+            backdropFilter:       "blur(24px) saturate(160%)",
+            WebkitBackdropFilter: "blur(24px) saturate(160%)",
+            borderBottom:         "1px solid rgba(255,255,255,0.06)",
+          }}
+        >
+          {showPeriodNav && (
+            <div className="flex items-center gap-3 mb-4 flex-wrap">
+              <div className="flex items-center gap-2">
+                <button onClick={prevMonth} className="w-8 h-8 rounded-xl flex items-center justify-center text-[#b4b4b4] hover:text-white hover:bg-white/5 transition-all">
+                  <ChevronLeft size={16} />
+                </button>
+                <div className="lc-card px-4 py-2 flex items-center gap-2 min-w-[160px] justify-center">
+                  <p className="text-white font-semibold text-sm">{MONTH_NAMES[month - 1]}</p>
+                  <p className="text-[#b4b4b4] text-sm">{year}</p>
+                  {isCurrentMonth && (
+                    <span className="text-xs text-[#4a8fd4] bg-[#4a8fd4]/10 px-2 py-0.5 rounded-full font-medium">atual</span>
+                  )}
+                </div>
+                <button onClick={nextMonth} disabled={isCurrentMonth} className="w-8 h-8 rounded-xl flex items-center justify-center text-[#b4b4b4] hover:text-white hover:bg-white/5 transition-all disabled:opacity-30 disabled:cursor-not-allowed">
+                  <ChevronRight size={16} />
+                </button>
+              </div>
+              {metaAccounts.length >= 1 && (
+                <AccountSelector accounts={metaAccounts} selectedAccountId={selectedAccountId} onChange={setSelectedAccountId} />
+              )}
+            </div>
+          )}
+          <div className="overflow-x-auto scrollbar-none">
+            <div className="flex gap-1 p-1 rounded-2xl min-w-max" style={{ background: "rgba(0,0,0,0.30)", border: "1px solid rgba(255,255,255,0.08)" }}>
+              {TABS.map(tab => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={cn(
+                    "flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all whitespace-nowrap",
+                    activeTab === tab.id ? "text-white" : "text-white/50 hover:text-white hover:bg-white/[0.05]",
+                  )}
+                  style={activeTab === tab.id ? { background: "rgba(255,255,255,0.14)", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.10), 0 1px 8px rgba(0,0,0,0.30)" } : {}}
+                >
+                  {tab.icon}
+                  <span>{tab.shortLabel ?? tab.label}</span>
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       </div>

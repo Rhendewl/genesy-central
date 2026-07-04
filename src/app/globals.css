@@ -18,7 +18,7 @@
     --popover: #07091a;
     --popover-foreground: #ffffff;
 
-    --primary: #66aed6;
+    --primary: #404549;
     --primary-foreground: #ffffff;
 
     --secondary: #0d1226;
@@ -49,8 +49,8 @@
 
     /* Button gradient */
     --btn-from: #0b0c20;
-    --btn-mid: #093079;
-    --btn-to: #66aed6;
+    --btn-mid: #404549;
+    --btn-to: #404549;
     --btn-border: #133d83;
 
     /* Legacy silver (kept for backward compat) */
@@ -126,7 +126,7 @@
     --popover: #ffffff;
     --popover-foreground: #111111;
 
-    --primary: #093079;
+    --primary: #404549;
     --primary-foreground: #ffffff;
 
     --secondary: #f2f2f2;
@@ -143,7 +143,7 @@
 
     --border: rgba(0, 0, 0, 0.09);
     --input: rgba(0, 0, 0, 0.04);
-    --ring: #093079;
+    --ring: #404549;
 
     --bg-base: #f8f8f8;
     --bg-card: rgba(0, 0, 0, 0.02);
@@ -152,20 +152,20 @@
     --text-body: #52525b;
     --hover: rgba(0, 0, 0, 0.04);
     --btn-from: #0b0c20;
-    --btn-mid: #093079;
-    --btn-to: #66aed6;
+    --btn-mid: #404549;
+    --btn-to: #404549;
     --btn-border: #133d83;
 
     --silver: #6b7280;
     --silver-dim: rgba(107, 114, 128, 0.10);
     --silver-border: rgba(107, 114, 128, 0.25);
 
-    --accent-blue: #093079;
+    --accent-blue: #404549;
     --accent-cyan: #0a8c85;
     --accent-orange: #d6582a;
     --accent-blue-glow: rgba(9, 48, 121, 0.3);
 
-    --gold: #093079;
+    --gold: #404549;
     --gold-border: rgba(9, 48, 121, 0.35);
 
     --glass-bg: rgba(0, 0, 0, 0.03);
@@ -463,7 +463,7 @@
   }
 
   .gradient-text {
-    background: linear-gradient(135deg, #27a3ff, #66aed6);
+    background: linear-gradient(135deg, #27a3ff, #404549);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;

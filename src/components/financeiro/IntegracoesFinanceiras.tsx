@@ -56,7 +56,7 @@ function ConnectModal({ isConnecting, connectError, onClose, onConnect }: Connec
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4" style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
       <div className="absolute inset-0 bg-black/[0.03] backdrop-blur-sm" onClick={!isConnecting ? onClose : undefined} />
 
       <motion.div
