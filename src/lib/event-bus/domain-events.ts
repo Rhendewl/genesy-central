@@ -83,6 +83,7 @@ export interface CalendarArchivedPayload {
 export interface BookingEventPayload {
   bookingId:    string;
   calendarId:   string;
+  calendarName: string;
   userId:       string;
   visitorName:  string;
   visitorEmail: string;

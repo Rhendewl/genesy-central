@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
-import { Providers }       from "@/components/layout/Providers";
-import { AuthLayout }      from "@/components/layout/AuthLayout";
-import { PlatformLoader }  from "@/components/layout/PlatformLoader";
+import { Providers }        from "@/components/layout/Providers";
+import { AuthLayout }       from "@/components/layout/AuthLayout";
+import { PlatformLoader }   from "@/components/layout/PlatformLoader";
+import { PwaRegistration }  from "@/components/layout/PwaRegistration";
 
 const jakarta = Plus_Jakarta_Sans({
   subsets: ["latin"],
@@ -15,6 +16,7 @@ const jakarta = Plus_Jakarta_Sans({
 export const metadata: Metadata = {
   title: "Genesy | Dashboard",
   description: "Plataforma operacional integrada: CRM, Financeiro e Tráfego Pago",
+  manifest: "/manifest.json",
 };
 
 export default function RootLayout({
@@ -34,6 +36,7 @@ export default function RootLayout({
             </linearGradient>
           </defs>
         </svg>
+        <PwaRegistration />
         <PlatformLoader />
         <Providers>
           <AuthLayout>{children}</AuthLayout>

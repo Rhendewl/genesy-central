@@ -118,12 +118,22 @@ export interface AppointmentCrmSettings {
   stage_id:    string | null;
 }
 
+export type NotificationChannel = "pwa";
+
+export interface AppointmentNotificationSettings {
+  enabled:  boolean;
+  channels: NotificationChannel[];
+  title:    string;
+  body:     string;
+}
+
 export interface AppointmentCalendarSettings {
-  page?:    AppointmentPageSettings;
-  form?:    AppointmentFormSettings;
-  success?: AppointmentSuccessSettings;
-  lgpd?:    AppointmentLGPDSettings;
-  crm?:     AppointmentCrmSettings;
+  page?:          AppointmentPageSettings;
+  form?:          AppointmentFormSettings;
+  success?:       AppointmentSuccessSettings;
+  lgpd?:          AppointmentLGPDSettings;
+  crm?:           AppointmentCrmSettings;
+  notifications?: AppointmentNotificationSettings;
 }
 
 // ── Calendar aggregate ───────────────────────────────────────────────────────

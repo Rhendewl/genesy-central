@@ -2,10 +2,11 @@ import { createEventBus } from "./bus";
 import { InMemoryAdapter } from "./storage";
 import type { EventBus } from "./types";
 import type { DomainEventType } from "./domain-events";
-import { createConversionEngine } from "@/lib/conversion-engine/engine";
-import { crmResolver }            from "@/lib/conversion-engine/event-resolvers/crm";
-import { bookingResolver }        from "@/lib/conversion-engine/event-resolvers/booking";
-import { createAdminSupabaseClient } from "@/lib/supabase-admin";
+import { createConversionEngine }            from "@/lib/conversion-engine/engine";
+import { crmResolver }                       from "@/lib/conversion-engine/event-resolvers/crm";
+import { bookingResolver }                   from "@/lib/conversion-engine/event-resolvers/booking";
+import { createPushNotificationConsumer }    from "@/lib/event-bus/appointments/consumers/push-notification";
+import { createAdminSupabaseClient }         from "@/lib/supabase-admin";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Platform-wide EventBus singleton for server-side domain events.
@@ -26,13 +27,19 @@ export function getPlatformEventBus(): EventBus<DomainEventType> {
     storage: new InMemoryAdapter(),
   });
 
+  const db = createAdminSupabaseClient();
+
   // Conversion Engine is the first consumer; future modules (Automations,
   // Analytics) will subscribe here too without touching CRM or LeadService.
   // To add a new domain: pass its resolver alongside crmResolver — zero other changes.
   _bus.subscribe(createConversionEngine({
-    db:        createAdminSupabaseClient(),
+    db,
     resolvers: [crmResolver, bookingResolver],
   }));
+
+  // Push notification consumer — handles booking.created, reads per-calendar
+  // notification config, sends to all registered PWA subscriptions of the owner.
+  _bus.subscribe(createPushNotificationConsumer(db));
 
   return _bus;
 }
