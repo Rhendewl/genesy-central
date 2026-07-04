@@ -213,3 +213,42 @@ export type UpdateCrmConversionSource = Partial<{
 export type PlatformIntegration    = CrmConversionSource;
 export type NewPlatformIntegration = NewCrmConversionSource;
 export type UpdatePlatformIntegration = UpdateCrmConversionSource;
+
+// ── CRM Notification Rules ────────────────────────────────────────────────────
+
+export type CrmNotificationChannel = "pwa";
+
+export interface CrmNotificationRule {
+  id:          string;
+  user_id:     string;
+  pipeline_id: string;
+  stage_id:    string;
+  enabled:     boolean;
+  channels:    CrmNotificationChannel[];
+  title:       string;
+  body:        string;
+  created_at:  string;
+  updated_at:  string;
+}
+
+export interface CrmNotificationRuleWithNames extends CrmNotificationRule {
+  pipeline_name: string;
+  stage_name:    string;
+  stage_color:   string;
+}
+
+export type NewCrmNotificationRule = {
+  pipeline_id: string;
+  stage_id:    string;
+  enabled?:    boolean;
+  channels?:   CrmNotificationChannel[];
+  title?:      string;
+  body?:       string;
+};
+
+export type UpdateCrmNotificationRule = Partial<{
+  enabled:  boolean;
+  channels: CrmNotificationChannel[];
+  title:    string;
+  body:     string;
+}>;

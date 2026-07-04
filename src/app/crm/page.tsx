@@ -2,29 +2,32 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { LayoutGrid, BarChart2, Settings2 } from "lucide-react";
+import { LayoutGrid, BarChart2, Settings2, Bell } from "lucide-react";
 import { Header } from "@/components/layout/Header";
 import { KanbanBoard } from "@/components/crm/KanbanBoard";
 import { LeadsAnalytics } from "@/components/crm/LeadsAnalytics";
 import { PipelineAdmin } from "@/components/crm/admin/PipelineAdmin";
+import { CrmNotificacoesTab } from "@/components/crm/notifications/CrmNotificacoesTab";
 import { cn } from "@/lib/utils";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CRM Page — Kanban / Leads / Pipelines
 // ─────────────────────────────────────────────────────────────────────────────
 
-type TabId = "kanban" | "leads" | "pipelines";
+type TabId = "kanban" | "leads" | "pipelines" | "notificacoes";
 
 const TABS: { id: TabId; label: string; icon: React.ReactNode }[] = [
-  { id: "kanban",    label: "Kanban",    icon: <LayoutGrid size={15} /> },
-  { id: "leads",     label: "Leads",     icon: <BarChart2  size={15} /> },
-  { id: "pipelines", label: "Pipelines", icon: <Settings2  size={15} /> },
+  { id: "kanban",        label: "Kanban",       icon: <LayoutGrid size={15} /> },
+  { id: "leads",         label: "Leads",        icon: <BarChart2  size={15} /> },
+  { id: "pipelines",     label: "Pipelines",    icon: <Settings2  size={15} /> },
+  { id: "notificacoes",  label: "Notificações", icon: <Bell       size={15} /> },
 ];
 
 const SUBTITLES: Record<TabId, string> = {
-  kanban:    "Funil comercial de leads",
-  leads:     "Métricas e análise",
-  pipelines: "Gerenciar pipelines e etapas",
+  kanban:       "Funil comercial de leads",
+  leads:        "Métricas e análise",
+  pipelines:    "Gerenciar pipelines e etapas",
+  notificacoes: "Notificações automáticas por etapa",
 };
 
 export default function CrmPage() {
@@ -82,9 +85,14 @@ export default function CrmPage() {
           transition={{ duration: 0.2 }}
           className="pb-8"
         >
-          {activeTab === "kanban"    && <KanbanBoard />}
-          {activeTab === "leads"     && <LeadsAnalytics />}
-          {activeTab === "pipelines" && <PipelineAdmin />}
+          {activeTab === "kanban"       && <KanbanBoard />}
+          {activeTab === "leads"        && <LeadsAnalytics />}
+          {activeTab === "pipelines"    && <PipelineAdmin />}
+          {activeTab === "notificacoes" && (
+            <div className="px-4 sm:px-6 pt-6">
+              <CrmNotificacoesTab />
+            </div>
+          )}
         </motion.div>
       </AnimatePresence>
     </div>

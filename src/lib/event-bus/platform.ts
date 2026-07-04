@@ -5,8 +5,9 @@ import type { DomainEventType } from "./domain-events";
 import { createConversionEngine }            from "@/lib/conversion-engine/engine";
 import { crmResolver }                       from "@/lib/conversion-engine/event-resolvers/crm";
 import { bookingResolver }                   from "@/lib/conversion-engine/event-resolvers/booking";
-import { createPushNotificationConsumer }    from "@/lib/event-bus/appointments/consumers/push-notification";
-import { createAdminSupabaseClient }         from "@/lib/supabase-admin";
+import { createPushNotificationConsumer }      from "@/lib/event-bus/appointments/consumers/push-notification";
+import { createCrmStageNotificationConsumer } from "@/lib/event-bus/crm/consumers/stage-notification";
+import { createAdminSupabaseClient }          from "@/lib/supabase-admin";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Platform-wide EventBus singleton for server-side domain events.
@@ -37,9 +38,11 @@ export function getPlatformEventBus(): EventBus<DomainEventType> {
     resolvers: [crmResolver, bookingResolver],
   }));
 
-  // Push notification consumer — handles booking.created, reads per-calendar
-  // notification config, sends to all registered PWA subscriptions of the owner.
+  // Agenda: push notification on booking.created
   _bus.subscribe(createPushNotificationConsumer(db));
+
+  // CRM: push notification on lead.stage.entered
+  _bus.subscribe(createCrmStageNotificationConsumer(db));
 
   return _bus;
 }
