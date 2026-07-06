@@ -8,6 +8,7 @@ import {
   ChevronLeft, ChevronRight, Plug, Globe,
 } from "lucide-react";
 import { Header } from "@/components/layout/Header";
+import { ModuleAccessGate } from "@/components/layout/ModuleAccessGate";
 import { DashboardTrafego } from "@/components/trafego/DashboardTrafego";
 import { GestaoCampanhas } from "@/components/trafego/GestaoCampanhas";
 import { IntegracoesTab } from "@/components/trafego/IntegracoesTab";
@@ -220,8 +221,10 @@ function TrafegoPageInner() {
 
 export default function TrafegoPage() {
   return (
-    <Suspense>
-      <TrafegoPageInner />
-    </Suspense>
+    <ModuleAccessGate module="trafego">
+      <Suspense>
+        <TrafegoPageInner />
+      </Suspense>
+    </ModuleAccessGate>
   );
 }

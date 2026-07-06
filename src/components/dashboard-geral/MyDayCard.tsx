@@ -10,10 +10,14 @@ import type { useWorkspaceTasks } from "@/hooks/useWorkspaceTasks";
 import type { Lead } from "@/types";
 
 interface MyDayCardProps {
-  tasksHook: ReturnType<typeof useWorkspaceTasks>;
-  leads:     Lead[];
-  height:    number;
-  delay?:    number;
+  tasksHook:         ReturnType<typeof useWorkspaceTasks>;
+  leads:             Lead[];
+  height:            number;
+  delay?:            number;
+  // Suprime o insight de cobrança pra quem não tem permissão de financeiro —
+  // continuamos chamando useUpcomingCollection() de qualquer forma (regra
+  // dos hooks não permite condicionar a chamada em si), só não usamos o resultado.
+  financeiroEnabled?: boolean;
 }
 
 function buildInsights(params: {
@@ -64,7 +68,7 @@ function buildInsights(params: {
   return insights;
 }
 
-export function MyDayCard({ tasksHook, leads, height, delay = 0 }: MyDayCardProps) {
+export function MyDayCard({ tasksHook, leads, height, delay = 0, financeiroEnabled = true }: MyDayCardProps) {
   const today = useMemo(() => startOfDay(new Date()), []);
   const todayKey = format(today, "yyyy-MM-dd");
 
@@ -88,7 +92,7 @@ export function MyDayCard({ tasksHook, leads, height, delay = 0 }: MyDayCardProp
     eventCount:      events.length,
     firstEventTime,
     newLeadsCount,
-    collection,
+    collection: financeiroEnabled ? collection : null,
     hasTodayTasks:   todayTasks.length > 0,
   });
 

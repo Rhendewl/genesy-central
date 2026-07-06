@@ -32,7 +32,14 @@ const CARD_H_NOTES          = 214;
 
 export default function DashboardPage() {
   const { greeting, name, isLoading: greetingLoading } = useGreeting();
-  const { member } = useCurrentMember();
+  const { member, isLoading: memberLoading } = useCurrentMember();
+
+  // Enquanto o perfil ainda carrega, nenhum widget condicionado por papel é
+  // exibido — evita o flash de mostrar e depois esconder um card.
+  const canSee = (key: string) => !memberLoading && (member?.permissions.includes(key) ?? false);
+  const showCrm       = canSee("crm");
+  const showTrafego   = canSee("trafego");
+  const showFinanceiro = canSee("financeiro");
 
   const { leads } = useLeads();
 
@@ -66,17 +73,25 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.6fr)]">
           {/* ── Coluna esquerda ──────────────────────────────────────────────── */}
           <div className="flex flex-col gap-4">
-            <MyDayCard tasksHook={tasksHook} leads={leads} height={CARD_H_ATTENTION} delay={0} />
-            <WorkspaceSummaryPanel tasksHook={tasksHook} height={CARD_H_WORKSPACE} delay={0.04} />
-            <CrmFunnelPanel
-              totalLeads={funnelCounts.totalLeads}
-              agendadas={funnelCounts.agendadas}
-              realizadas={funnelCounts.realizadas}
-              noShow={funnelCounts.noShow}
-              vendas={funnelCounts.vendas}
-              height={CARD_H_FUNNEL}
-              delay={0.08}
+            <MyDayCard
+              tasksHook={tasksHook}
+              leads={showCrm ? leads : []}
+              financeiroEnabled={showFinanceiro}
+              height={CARD_H_ATTENTION}
+              delay={0}
             />
+            <WorkspaceSummaryPanel tasksHook={tasksHook} height={CARD_H_WORKSPACE} delay={0.04} />
+            {showCrm && (
+              <CrmFunnelPanel
+                totalLeads={funnelCounts.totalLeads}
+                agendadas={funnelCounts.agendadas}
+                realizadas={funnelCounts.realizadas}
+                noShow={funnelCounts.noShow}
+                vendas={funnelCounts.vendas}
+                height={CARD_H_FUNNEL}
+                delay={0.08}
+              />
+            )}
           </div>
 
           {/* ── Coluna direita ───────────────────────────────────────────────── */}
@@ -92,11 +107,17 @@ export default function DashboardPage() {
               <AgendaSemanalPanel />
             </motion.div>
 
-            {/* Linha 2: Tráfego | Financeiro */}
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-              <TrafegoSummaryCard year={now.getFullYear()} month={now.getMonth() + 1} height={CARD_H_TRAFEGO_FIN} delay={0.12} />
-              <FinanceiroSummaryCard year={now.getFullYear()} month={now.getMonth() + 1} height={CARD_H_TRAFEGO_FIN} delay={0.16} />
-            </div>
+            {/* Linha 2: Tráfego | Financeiro — colapsa conforme a permissão do usuário */}
+            {(showTrafego || showFinanceiro) && (
+              <div className={`grid grid-cols-1 gap-4 ${showTrafego && showFinanceiro ? "lg:grid-cols-2" : ""}`}>
+                {showTrafego && (
+                  <TrafegoSummaryCard year={now.getFullYear()} month={now.getMonth() + 1} height={CARD_H_TRAFEGO_FIN} delay={0.12} />
+                )}
+                {showFinanceiro && (
+                  <FinanceiroSummaryCard year={now.getFullYear()} month={now.getMonth() + 1} height={CARD_H_TRAFEGO_FIN} delay={0.16} />
+                )}
+              </div>
+            )}
 
             {/* Linha 3: Notas */}
             <NotesSummaryCard height={CARD_H_NOTES} delay={0.2} />

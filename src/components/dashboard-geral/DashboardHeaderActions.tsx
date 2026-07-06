@@ -149,10 +149,10 @@ function UserAvatarLink({ name, avatarUrl }: UserAvatarLinkProps) {
 
   return (
     <Link
-      href="/configuracoes/perfil"
+      href="/configuracoes/meu-perfil"
       className="flex h-9 w-9 flex-shrink-0 items-center justify-center overflow-hidden rounded-full text-xs font-semibold transition-transform hover:scale-105"
       style={{ background: "var(--primary)", color: "#ffffff" }}
-      aria-label="Configurações do usuário"
+      aria-label="Meu Perfil"
     >
       {avatarUrl ? (
         // eslint-disable-next-line @next/next/no-img-element

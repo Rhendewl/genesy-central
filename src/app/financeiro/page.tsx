@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Header } from "@/components/layout/Header";
+import { ModuleAccessGate } from "@/components/layout/ModuleAccessGate";
 import { DashboardFinanceiro } from "@/components/financeiro/DashboardFinanceiro";
 import { GestaoReceitas } from "@/components/financeiro/GestaoReceitas";
 import { GestaoDespesas } from "@/components/financeiro/GestaoDespesas";
@@ -76,6 +77,7 @@ export default function FinanceiroPage() {
   }, [activeTab, month, year]);
 
   return (
+    <ModuleAccessGate module="financeiro">
     <div className="mx-auto max-w-7xl px-4 sm:px-6">
       <Header title="Financeiro" subtitle={tabSubtitle} />
 
@@ -208,5 +210,6 @@ export default function FinanceiroPage() {
         </motion.div>
       </AnimatePresence>
     </div>
+    </ModuleAccessGate>
   );
 }
