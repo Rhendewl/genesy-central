@@ -5,7 +5,7 @@ import { Header } from "@/components/layout/Header";
 import { useLeads } from "@/hooks/useLeads";
 import { useGreeting } from "@/hooks/useGreeting";
 import { useWorkspaceTasks } from "@/hooks/useWorkspaceTasks";
-import { useCompanyProfile } from "@/hooks/useCompanyProfile";
+import { useCurrentMember } from "@/context/CurrentMemberContext";
 import { AgendaSemanalPanel } from "@/components/agenda/AgendaSemanalPanel";
 import { MyDayCard } from "@/components/dashboard-geral/MyDayCard";
 import { CrmFunnelPanel } from "@/components/dashboard-geral/CrmFunnelPanel";
@@ -32,7 +32,7 @@ const CARD_H_NOTES          = 214;
 
 export default function DashboardPage() {
   const { greeting, name, isLoading: greetingLoading } = useGreeting();
-  const { profile } = useCompanyProfile();
+  const { member } = useCurrentMember();
 
   const { leads } = useLeads();
 
@@ -60,7 +60,7 @@ export default function DashboardPage() {
       <div className="mx-auto max-w-7xl space-y-4 px-4 pb-6 sm:px-6">
         <Header
           title={greetingLoading ? "Olá" : name ? `${greeting}, ${name}` : greeting}
-          actions={<DashboardHeaderActions tasksHook={tasksHook} name={name} avatarUrl={profile?.logo_url ?? null} />}
+          actions={<DashboardHeaderActions tasksHook={tasksHook} name={name} avatarUrl={member?.avatar_url ?? null} />}
         />
 
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.6fr)]">

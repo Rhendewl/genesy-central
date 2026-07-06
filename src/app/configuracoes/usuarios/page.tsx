@@ -27,7 +27,7 @@ import { PrimaryButton } from "@/components/ui/PrimaryButton";
 // Constants
 // ─────────────────────────────────────────────────────────────────────────────
 
-const ROLES: UserRole[] = ["admin", "comercial", "trafego", "financeiro", "operacional", "viewer"];
+const ROLES: UserRole[] = ["admin", "comercial", "gestor_comercial", "trafego", "designer", "financeiro", "operacional", "viewer"];
 
 const STATUS_OPTIONS = [
   { value: "",        label: "Todos os status" },

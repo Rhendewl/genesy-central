@@ -23,13 +23,15 @@ export interface MemberProfile {
   role: string;
   job_title: string | null;
   is_active: boolean;
+  avatar_url: string | null;
   permissions: string[];
 }
 
 interface CurrentMemberContextValue {
-  member: MemberProfile | null; // null → não é membro da equipe (é owner)
+  member: MemberProfile | null; // linha de user_profiles do usuário logado (dono ou convidado)
   isOwner: boolean | null;      // null → ainda carregando
   isLoading: boolean;
+  refetch: () => Promise<void>;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -40,6 +42,7 @@ const CurrentMemberContext = createContext<CurrentMemberContextValue>({
   member: null,
   isOwner: null,
   isLoading: true,
+  refetch: async () => {},
 });
 
 export function CurrentMemberProvider({ children }: { children: ReactNode }) {
@@ -59,13 +62,15 @@ export function CurrentMemberProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    // Busca perfil onde auth_user_id = uid do usuário logado.
-    // Retorna dados somente se este usuário é um membro da equipe de alguém.
+    // Busca perfil onde auth_user_id = uid do usuário logado. Desde a
+    // migration 20260719_owner_self_profile, todo usuário — dono ou
+    // convidado — tem exatamente uma linha aqui (o dono tem uma linha
+    // auto-referente, owner_id = auth_user_id = seu próprio uid).
     // RLS policy "user_profiles_member_select_own" permite este SELECT.
     const { data } = await supabase
       .from("user_profiles")
       .select(
-        "id, owner_id, auth_user_id, full_name, email, role, job_title, is_active, permissions"
+        "id, owner_id, auth_user_id, full_name, email, role, job_title, is_active, avatar_url, permissions"
       )
       .eq("auth_user_id", user.id)
       .maybeSingle();
@@ -75,8 +80,11 @@ export function CurrentMemberProvider({ children }: { children: ReactNode }) {
         ...data,
         permissions: Array.isArray(data.permissions) ? data.permissions : [],
       });
-      setIsOwner(false);
+      setIsOwner(data.auth_user_id === data.owner_id);
     } else {
+      // Fallback defensivo — conta ainda não migrada (não deveria acontecer
+      // após 20260719_owner_self_profile.sql rodar).
+      setMember(null);
       setIsOwner(true);
     }
     setIsLoading(false);
@@ -98,7 +106,7 @@ export function CurrentMemberProvider({ children }: { children: ReactNode }) {
   }, [load]);
 
   return (
-    <CurrentMemberContext.Provider value={{ member, isOwner, isLoading }}>
+    <CurrentMemberContext.Provider value={{ member, isOwner, isLoading, refetch: load }}>
       {children}
     </CurrentMemberContext.Provider>
   );

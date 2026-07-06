@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Building2, Users, ShieldCheck, ArrowUpRight } from "lucide-react";
+import { Building2, Users, ShieldCheck, ArrowUpRight, UserRound } from "lucide-react";
 import { Header } from "@/components/layout/Header";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -110,6 +110,14 @@ function SettingsCard({
 // ─────────────────────────────────────────────────────────────────────────────
 
 const CARDS: Omit<SettingsCardProps, "delay">[] = [
+  {
+    icon: UserRound,
+    title: "Meu Perfil",
+    description: "Seu nome, foto e cargo — pessoal, não compartilhado com a empresa.",
+    href: "/configuracoes/meu-perfil",
+    accentColor: "#34d399",
+    glowColor: "rgba(52,211,153,0.08)",
+  },
   {
     icon: Building2,
     title: "Perfil da Empresa",
