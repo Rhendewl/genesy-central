@@ -412,7 +412,7 @@ function FunnelStep({
             animate={{ width: `${step.fillPct}%` }}
             transition={{ duration: 0.75, delay: 0.45 + index * 0.09, ease: [0.22, 1, 0.36, 1] }}
             style={{
-              background: `linear-gradient(90deg, ${step.color}28 0%, ${step.color}10 100%)`,
+              background: "linear-gradient(90deg, #26292e 0%, #b0b8c1 100%)",
               borderRight: `1px solid ${step.color}35`,
             }}
           />

@@ -171,7 +171,7 @@ function SlotPreview({
           onClick={preview}
           disabled={isLoading}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium disabled:opacity-50"
-          style={{ background: "var(--primary)", color: "#fff" }}
+          style={{ background: "#b0b8c1", color: "#000000" }}
         >
           {isLoading ? <Loader2 size={13} className="animate-spin" /> : <CalendarDays size={13} />}
           Ver horários
@@ -383,7 +383,7 @@ export function HorariosTab({
           onClick={handleSave}
           disabled={isSaving || hasAnyError}
           className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all active:scale-95 disabled:opacity-50"
-          style={{ background: "var(--primary)", color: "#fff" }}
+          style={{ background: "#b0b8c1", color: "#000000" }}
         >
           {isSaving && <Loader2 size={13} className="animate-spin" />}
           Salvar horários

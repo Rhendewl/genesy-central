@@ -1,0 +1,121 @@
+// GET    /api/workspace/tasks/[id] — tarefa + checklist + comentários + anexos
+// PATCH  /api/workspace/tasks/[id] — atualiza campos gerais (não status/position)
+// DELETE /api/workspace/tasks/[id] — remove tarefa (cascade nos filhos + limpeza de storage)
+
+import { NextRequest, NextResponse } from "next/server";
+import { createServerSupabaseClient } from "@/lib/supabase-server";
+import type {
+  UpdateWorkspaceTask, WorkspaceTask, WorkspaceTaskDetail,
+  WorkspaceTaskChecklistItem, WorkspaceTaskComment, WorkspaceTaskAttachment,
+} from "@/types/workspace";
+
+type Params = { params: Promise<{ id: string }> };
+
+export async function GET(_req: NextRequest, { params }: Params) {
+  const { id } = await params;
+  const supabase = await createServerSupabaseClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
+
+  try {
+    const [taskRes, checklistRes, commentsRes, attachmentsRes, assigneesRes] = await Promise.all([
+      supabase.from("workspace_tasks").select("*").eq("id", id).maybeSingle(),
+      supabase.from("workspace_task_checklist_items").select("*").eq("task_id", id).order("position"),
+      supabase.from("workspace_task_comments").select("*").eq("task_id", id).order("created_at"),
+      supabase.from("workspace_task_attachments").select("*").eq("task_id", id).order("created_at"),
+      supabase.from("workspace_task_assignees").select("assignee_id").eq("task_id", id),
+    ]);
+
+    if (taskRes.error) throw new Error(taskRes.error.message);
+    if (!taskRes.data) return NextResponse.json({ error: "Tarefa não encontrada" }, { status: 404 });
+
+    const detail: WorkspaceTaskDetail = {
+      ...(taskRes.data as WorkspaceTask),
+      assignee_ids:    (assigneesRes.data ?? []).map((a) => a.assignee_id),
+      checklist_items: (checklistRes.data ?? []) as WorkspaceTaskChecklistItem[],
+      comments:        (commentsRes.data ?? [])  as WorkspaceTaskComment[],
+      attachments:     (attachmentsRes.data ?? []) as WorkspaceTaskAttachment[],
+    };
+
+    return NextResponse.json({ task: detail });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Erro interno";
+    return NextResponse.json({ error: msg }, { status: 500 });
+  }
+}
+
+export async function PATCH(req: NextRequest, { params }: Params) {
+  const { id } = await params;
+  const supabase = await createServerSupabaseClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
+
+  const body = await req.json().catch(() => null) as UpdateWorkspaceTask | null;
+  if (!body) return NextResponse.json({ error: "Corpo inválido" }, { status: 400 });
+
+  const patch: Record<string, unknown> = {};
+  for (const key of ["title", "description", "priority", "tags", "due_date", "due_time", "color", "notes"] as const) {
+    if (key in body) patch[key] = body[key];
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from("workspace_tasks")
+      .update(patch)
+      .eq("id", id)
+      .select("*")
+      .single();
+
+    if (error) throw new Error(error.message);
+
+    let assigneeIds: string[];
+    if (body.assignee_ids) {
+      assigneeIds = body.assignee_ids;
+      const { error: deleteError } = await supabase.from("workspace_task_assignees").delete().eq("task_id", id);
+      if (deleteError) throw new Error(deleteError.message);
+      if (assigneeIds.length > 0) {
+        const { error: insertError } = await supabase
+          .from("workspace_task_assignees")
+          .insert(assigneeIds.map((assignee_id) => ({ task_id: id, assignee_id })));
+        if (insertError) throw new Error(insertError.message);
+      }
+    } else {
+      const { data: assigneesData } = await supabase
+        .from("workspace_task_assignees")
+        .select("assignee_id")
+        .eq("task_id", id);
+      assigneeIds = (assigneesData ?? []).map((a) => a.assignee_id);
+    }
+
+    return NextResponse.json({ task: { ...data, assignee_ids: assigneeIds } as WorkspaceTask });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Erro interno";
+    return NextResponse.json({ error: msg }, { status: 500 });
+  }
+}
+
+export async function DELETE(_req: NextRequest, { params }: Params) {
+  const { id } = await params;
+  const supabase = await createServerSupabaseClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
+
+  try {
+    const { data: attachments } = await supabase
+      .from("workspace_task_attachments")
+      .select("storage_path")
+      .eq("task_id", id);
+
+    if (attachments && attachments.length > 0) {
+      await supabase.storage.from("criativos").remove(attachments.map((a) => a.storage_path));
+    }
+
+    const { error } = await supabase.from("workspace_tasks").delete().eq("id", id);
+    if (error) throw new Error(error.message);
+
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Erro interno";
+    return NextResponse.json({ error: msg }, { status: 500 });
+  }
+}

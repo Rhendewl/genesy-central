@@ -360,7 +360,7 @@
 
   /* ── Lancaster Primary Action Button — metallic luminous ── */
   .lc-btn {
-    background: linear-gradient(90deg, #afb7c0 0%, #7c878e 100%);
+    background: #b0b8c1;
     border: none;
     border-radius: 12px;
     color: #000000;
@@ -756,6 +756,137 @@
   pointer-events: none;
   color: rgba(255,255,255,0.25);
   font-style: normal;
+}
+
+/* ── Notas do Workspace — editor de documento completo (Notion-like) ──
+   Fonte maior que o editor minimalista de rótulos de formulário. */
+
+.note-editor-content.ProseMirror {
+  font-size: 0.925rem;
+  line-height: 1.7;
+}
+
+.note-editor-content.ProseMirror h1 { font-size: 1.6em; font-weight: 700; margin: 0.6em 0 0.3em; }
+.note-editor-content.ProseMirror h2 { font-size: 1.3em; font-weight: 700; margin: 0.6em 0 0.3em; }
+.note-editor-content.ProseMirror h3 { font-size: 1.1em; font-weight: 600; margin: 0.5em 0 0.25em; }
+
+.note-editor-content.ProseMirror blockquote {
+  border-left: 3px solid rgba(255,255,255,0.18);
+  padding-left: 0.85em;
+  margin: 0.5em 0;
+  color: var(--muted-foreground);
+}
+
+.note-editor-content.ProseMirror pre {
+  background: rgba(0,0,0,0.42);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 10px;
+  padding: 0.7em 0.9em;
+  overflow-x: auto;
+  font-size: 0.85em;
+}
+.note-editor-content.ProseMirror code {
+  background: rgba(255,255,255,0.08);
+  border-radius: 4px;
+  padding: 0.1em 0.35em;
+  font-size: 0.88em;
+}
+.note-editor-content.ProseMirror pre code { background: none; padding: 0; }
+
+.note-editor-content.ProseMirror hr {
+  border: none;
+  border-top: 1px solid rgba(255,255,255,0.12);
+  margin: 1em 0;
+}
+
+.note-editor-content.ProseMirror mark {
+  background: rgba(224, 163, 68, 0.35);
+  color: inherit;
+  border-radius: 3px;
+  padding: 0 0.15em;
+}
+
+.note-editor-content.ProseMirror a {
+  color: var(--primary);
+  text-decoration: underline;
+}
+
+/* Checklist */
+.note-editor-content.ProseMirror ul[data-type="taskList"] {
+  list-style: none;
+  padding-left: 0;
+}
+.note-editor-content.ProseMirror ul[data-type="taskList"] li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5em;
+}
+.note-editor-content.ProseMirror ul[data-type="taskList"] li > label {
+  margin-top: 0.2em;
+}
+.note-editor-content.ProseMirror ul[data-type="taskList"] li[data-checked="true"] > div {
+  text-decoration: line-through;
+  color: var(--muted-foreground);
+}
+
+/* Tabelas */
+.note-editor-content.ProseMirror table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 0.5em 0;
+}
+.note-editor-content.ProseMirror th,
+.note-editor-content.ProseMirror td {
+  border: 1px solid rgba(255,255,255,0.10);
+  padding: 0.4em 0.6em;
+  text-align: left;
+  vertical-align: top;
+}
+.note-editor-content.ProseMirror th {
+  background: rgba(255,255,255,0.04);
+  font-weight: 600;
+}
+.note-editor-content.ProseMirror .selectedCell {
+  background: rgba(255,255,255,0.06);
+}
+
+/* Bloco recolhível */
+.note-editor-content.ProseMirror details {
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 10px;
+  padding: 0.4em 0.6em;
+  margin: 0.4em 0;
+}
+.note-editor-content.ProseMirror summary {
+  cursor: pointer;
+  font-weight: 500;
+  color: var(--text-title);
+}
+
+/* Imagem selecionada */
+.note-editor-content.ProseMirror img.ProseMirror-selectednode {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+.note-editor-content.ProseMirror img {
+  max-width: 100%;
+  border-radius: 8px;
+}
+
+/* Chip de anexo */
+.note-attachment-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5em;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.03);
+  border-radius: 10px;
+  padding: 0.4em 0.7em;
+  margin: 0.2em 0;
+  font-size: 0.85em;
+  color: var(--text-title);
+  text-decoration: none;
 }
 
 /* ── Rich HTML no preview do formulário ── */

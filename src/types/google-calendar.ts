@@ -51,6 +51,32 @@ export interface GoogleUserInfo {
   verified_email: boolean;
 }
 
+// Normalized event shape returned by GET /api/google-calendar/events
+// (mirrors the "dashboard agenda" panel — read-only mirror of the user's primary Google Calendar)
+export interface NormalizedCalendarEvent {
+  id:          string;
+  title:       string;
+  description: string | null;
+  location:    string | null;
+  htmlLink:    string;
+  start:       string;   // ISO datetime (timed) or "YYYY-MM-DD" (all-day)
+  end:         string;
+  isAllDay:    boolean;
+  timezone:    string | null;
+  attendees: {
+    email:          string;
+    name:           string | null;
+    responseStatus: string | null;
+    isSelf:         boolean;
+  }[];
+}
+
+export interface CalendarEventsResponse {
+  connected: boolean;
+  events:    NormalizedCalendarEvent[];
+  error?:    string;
+}
+
 // Payload passed to GoogleCalendarSyncService
 export interface SyncBookingPayload {
   bookingId:        string;

@@ -7,6 +7,7 @@ import { crmResolver }                       from "@/lib/conversion-engine/event
 import { bookingResolver }                   from "@/lib/conversion-engine/event-resolvers/booking";
 import { createPushNotificationConsumer }      from "@/lib/event-bus/appointments/consumers/push-notification";
 import { createCrmStageNotificationConsumer } from "@/lib/event-bus/crm/consumers/stage-notification";
+import { createTaskNotificationConsumer }     from "@/lib/event-bus/workspace/consumers/task-notification";
 import { createAdminSupabaseClient }          from "@/lib/supabase-admin";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -43,6 +44,10 @@ export function getPlatformEventBus(): EventBus<DomainEventType> {
 
   // CRM: push notification on lead.stage.entered
   _bus.subscribe(createCrmStageNotificationConsumer(db));
+
+  // Workspace: push notification on task.assigned/task.status_changed/task.completed
+  // (scaffold da Fase 2 — nada publica esses eventos ainda, ver Fase 3)
+  _bus.subscribe(createTaskNotificationConsumer(db));
 
   return _bus;
 }

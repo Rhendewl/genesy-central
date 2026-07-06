@@ -16,6 +16,7 @@ import {
   Sparkles,
   NotepadText,
   Calendar,
+  KanbanSquare,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useGlobalStore } from "@/store";
@@ -25,6 +26,7 @@ import { useCurrentMember } from "@/context/CurrentMemberContext";
 // Cada item tem uma permKey que referencia os módulos em user_profiles.permissions
 const NAV_ITEMS = [
   { href: "/",              label: "Dashboard", icon: LayoutDashboard, exactMatch: true,  permKey: "dashboard" },
+  { href: "/workspace",     label: "Workspace", icon: KanbanSquare,    exactMatch: false, permKey: "workspace" },
   { href: "/crm",           label: "CRM",       icon: Users,           exactMatch: false, permKey: "crm" },
   { href: "/clientes",      label: "Clientes",  icon: Contact,         exactMatch: false, permKey: "clientes" },
   { href: "/financeiro",    label: "Financeiro",icon: Wallet,          exactMatch: false, permKey: "financeiro" },

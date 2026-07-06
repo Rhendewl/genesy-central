@@ -9,6 +9,7 @@
 import { encryptToken, decryptToken } from "@/lib/crypto";
 import { refreshAccessToken }          from "./google-oauth-service";
 import { GoogleConnectionRepository }  from "./google-connection-repository";
+import { GoogleAuthError }             from "./google-calendar-service";
 import type { SupabaseClient }         from "@supabase/supabase-js";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -37,7 +38,7 @@ export class GoogleTokenService {
   async getValidAccessToken(userId: string): Promise<string> {
     const row = await this.repo.findByUserId(userId);
     if (!row || !row.is_active) {
-      throw new Error("Google Calendar not connected");
+      throw new GoogleAuthError("Google Calendar not connected");
     }
 
     const isExpired =
@@ -50,7 +51,13 @@ export class GoogleTokenService {
 
     // Token expired — refresh
     const plainRefresh = decryptToken(row.refresh_token);
-    const refreshed    = await refreshAccessToken(plainRefresh);
+    let refreshed: { access_token: string; expires_at: string };
+    try {
+      refreshed = await refreshAccessToken(plainRefresh);
+    } catch (err) {
+      // Refresh token itself revoked/invalid — same "needs reconnect" state as no connection
+      throw new GoogleAuthError(err instanceof Error ? err.message : "Google Calendar refresh failed");
+    }
 
     const encryptedNew = encryptToken(refreshed.access_token);
     await this.repo.updateTokens(userId, encryptedNew, refreshed.expires_at);

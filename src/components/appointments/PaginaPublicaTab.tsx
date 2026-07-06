@@ -209,7 +209,7 @@ function FieldEditor({
           onClick={save}
           disabled={!label.trim()}
           className="px-4 py-1.5 rounded-lg text-sm font-medium disabled:opacity-50"
-          style={{ background: "var(--primary)", color: "#fff" }}
+          style={{ background: "#b0b8c1", color: "#000000" }}
         >
           Salvar campo
         </button>
@@ -339,7 +339,7 @@ export function PaginaPublicaTab({ calendar, onSave }: PaginaPublicaTabProps) {
           target="_blank"
           rel="noopener noreferrer"
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-opacity hover:opacity-70"
-          style={{ background: "var(--primary)", color: "#fff" }}
+          style={{ background: "#b0b8c1", color: "#000000" }}
         >
           <ExternalLink size={11} />
           Abrir
@@ -561,7 +561,7 @@ export function PaginaPublicaTab({ calendar, onSave }: PaginaPublicaTabProps) {
           onClick={handleSave}
           disabled={isSaving}
           className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium transition-all active:scale-95 disabled:opacity-50"
-          style={{ background: "var(--primary)", color: "#fff" }}
+          style={{ background: "#b0b8c1", color: "#000000" }}
         >
           {isSaving && <Loader2 size={13} className="animate-spin" />}
           Salvar alterações

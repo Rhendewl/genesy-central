@@ -34,7 +34,7 @@ function AgendamentosPageContent() {
 
   if (isLoading) {
     return (
-      <div className="flex flex-col min-h-screen" style={{ backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)" }}>
+      <div className="m-3 flex flex-col rounded-[22px]" style={{ minHeight: "calc(100dvh - 24px)", background: "rgba(0,0,0,0.31)", backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)", border: "1px solid rgba(255,255,255,0.08)" }}>
         <Header title="Agendamentos" subtitle="Gerencie seus calendários de agendamento" />
         <div className="flex-1 flex items-center justify-center">
           <Loader2 size={24} className="animate-spin" style={{ color: "var(--muted-foreground)" }} />
@@ -44,7 +44,7 @@ function AgendamentosPageContent() {
   }
 
   return (
-    <div className="flex flex-col min-h-screen pb-24" style={{ backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)" }}>
+    <div className="m-3 flex flex-col rounded-[22px] pb-24" style={{ minHeight: "calc(100dvh - 24px)", background: "rgba(0,0,0,0.31)", backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)", border: "1px solid rgba(255,255,255,0.08)" }}>
       <Header
         title="Agendamentos"
         subtitle={
@@ -91,7 +91,7 @@ function AgendamentosPageContent() {
               <button
                 onClick={() => setShowCreate(true)}
                 className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-all active:scale-95 hover:opacity-90"
-                style={{ background: "var(--primary)", color: "#fff" }}
+                style={{ background: "#b0b8c1", color: "#000000" }}
               >
                 <Plus size={14} />
                 Novo calendário
@@ -120,7 +120,12 @@ function AgendamentosPageContent() {
           </>
         )}
 
-        {mainTab === "agendamentos" && <BookingsTable />}
+        {mainTab === "agendamentos" && (
+          <BookingsTable
+            initialFromDate={searchParams.get("from_date") ?? undefined}
+            initialToDate={searchParams.get("to_date") ?? undefined}
+          />
+        )}
       </div>
 
       <AnimatePresence>
@@ -138,7 +143,7 @@ function AgendamentosPageContent() {
 export default function AgendamentosPage() {
   return (
     <Suspense fallback={
-      <div className="flex flex-col min-h-screen" style={{ backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)" }}>
+      <div className="m-3 flex flex-col rounded-[22px]" style={{ minHeight: "calc(100dvh - 24px)", background: "rgba(0,0,0,0.31)", backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)", border: "1px solid rgba(255,255,255,0.08)" }}>
         <Header title="Agendamentos" subtitle="Gerencie seus calendários de agendamento" />
         <div className="flex-1 flex items-center justify-center">
           <Loader2 size={24} className="animate-spin" style={{ color: "var(--muted-foreground)" }} />
@@ -169,7 +174,7 @@ function EmptyState({ onNew }: { onNew: () => void }) {
       <button
         onClick={onNew}
         className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all active:scale-95"
-        style={{ background: "var(--primary)", color: "#fff" }}
+        style={{ background: "#b0b8c1", color: "#000000" }}
       >
         <Plus size={14} />
         Novo calendário

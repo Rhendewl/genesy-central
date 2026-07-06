@@ -185,7 +185,7 @@ export default function GerarPage() {
         <button
           onClick={() => router.push(`/criativos/${params.id}`)}
           className="mt-6 px-4 py-2 rounded-lg text-sm font-medium transition-all hover:opacity-90"
-          style={{ background: "var(--primary)", color: "#fff" }}
+          style={{ background: "#b0b8c1", color: "#000000" }}
         >
           Voltar ao projeto
         </button>

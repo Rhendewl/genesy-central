@@ -163,7 +163,7 @@ function ConnectedBody({
         ) : (
           <div
             className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold"
-            style={{ background: "var(--primary)", color: "#fff" }}
+            style={{ background: "#b0b8c1", color: "#000000" }}
           >
             {(connection.google_account_name ?? connection.google_account_email)[0].toUpperCase()}
           </div>
@@ -244,7 +244,7 @@ function DisconnectedBody({ onConnect }: { onConnect: () => void }) {
       <button
         onClick={onConnect}
         className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-all active:scale-95 self-start"
-        style={{ background: "var(--primary)", color: "#fff" }}
+        style={{ background: "#b0b8c1", color: "#000000" }}
       >
         <Link2 size={14} />
         Conectar Google Calendar

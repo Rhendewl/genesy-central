@@ -16,7 +16,15 @@ export type DomainEventType =
   | "booking.confirmed"
   | "booking.cancelled"
   | "booking.completed"
-  | "booking.rescheduled";
+  | "booking.rescheduled"
+  // Workspace module — task lifecycle (Fase 3 conecta os publish(); os tipos
+  // abaixo além destes 3 — task.commented, task.mentioned,
+  // task.checklist_completed, task.priority_changed, task.due_date_changed,
+  // task.attachment_added, task.archived — são extensões futuras previstas
+  // pela seção 12 do pedido original, ainda não implementadas)
+  | "task.assigned"
+  | "task.status_changed"
+  | "task.completed";
 
 export interface LeadCreatedPayload {
   leadId:     string;
@@ -96,3 +104,31 @@ export interface BookingEventPayload {
 // event can evolve its payload independently in the future.
 export type BookingCreatedPayload   = BookingEventPayload;
 export type BookingConfirmedPayload = BookingEventPayload;
+
+// ── Workspace module — task lifecycle payloads ────────────────────────────────
+// assigneeIds carrega TODOS os responsáveis da tarefa; actorUserId é quem
+// executou a ação (criou/moveu) e nunca deve ser notificado sobre sua própria
+// ação, mesmo quando também está em assigneeIds.
+
+export interface TaskAssignedPayload {
+  taskId:      string;
+  taskTitle:   string;
+  assigneeIds: string[];
+  actorUserId: string;
+  priority:    string;
+  dueDate:     string | null;
+}
+
+export interface TaskStatusChangedPayload {
+  taskId:      string;
+  taskTitle:   string;
+  assigneeIds: string[];
+  actorUserId: string;
+  fromStatus:  string;
+  toStatus:    string;
+}
+
+// task.completed é um caso específico de status_changed (toStatus === "concluido");
+// mesmo formato de payload, tratado como evento próprio para que o consumer
+// escolha a preferência certa (notify_on_completion vs. notify_on_status_change).
+export type TaskCompletedPayload = TaskStatusChangedPayload;

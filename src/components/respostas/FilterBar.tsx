@@ -246,7 +246,7 @@ function RangeCalendar({
           disabled={!canApply}
           onClick={() => canApply && onApply(localFrom!, localTo!)}
           className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all hover:opacity-90 disabled:opacity-40"
-          style={{ background: "var(--primary)", color: "#fff" }}
+          style={{ background: "#b0b8c1", color: "#000000" }}
         >
           Aplicar
         </button>

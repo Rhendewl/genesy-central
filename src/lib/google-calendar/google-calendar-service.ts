@@ -4,6 +4,10 @@
 
 const CALENDAR_API = "https://www.googleapis.com/calendar/v3";
 
+// Thrown when Google rejects the token (revoked/expired beyond refresh) —
+// callers treat this as "not connected" rather than a generic 500.
+export class GoogleAuthError extends Error {}
+
 export interface CreateEventParams {
   accessToken:     string;
   googleCalendarId: string;   // "primary" or a specific calendar ID
@@ -84,6 +88,53 @@ export async function createCalendarEvent(params: CreateEventParams): Promise<Go
 
   const data = await res.json() as { id: string; htmlLink: string };
   return { id: data.id, htmlLink: data.htmlLink };
+}
+
+export interface ListEventsParams {
+  accessToken: string;
+  timeMin:     string;   // ISO 8601
+  timeMax:     string;   // ISO 8601
+  maxResults?: number;
+}
+
+export interface RawGoogleEvent {
+  id:          string;
+  status:      string;   // "confirmed" | "cancelled" | "tentative"
+  summary?:    string;
+  description?: string;
+  location?:   string;
+  htmlLink:    string;
+  start: { date?: string; dateTime?: string; timeZone?: string };
+  end:   { date?: string; dateTime?: string; timeZone?: string };
+  attendees?: { email: string; displayName?: string; responseStatus?: string; self?: boolean }[];
+}
+
+export async function listCalendarEvents(params: ListEventsParams): Promise<RawGoogleEvent[]> {
+  const { accessToken, timeMin, timeMax, maxResults = 250 } = params;
+
+  const qs = new URLSearchParams({
+    timeMin,
+    timeMax,
+    singleEvents: "true",
+    orderBy:      "startTime",
+    maxResults:   String(maxResults),
+  });
+
+  const url = `${CALENDAR_API}/calendars/primary/events?${qs.toString()}`;
+  const res = await fetch(url, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+
+  if (res.status === 401 || res.status === 403) {
+    throw new GoogleAuthError(`Google Calendar auth failed (${res.status})`);
+  }
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Google Calendar list events failed (${res.status}): ${err}`);
+  }
+
+  const data = await res.json() as { items?: RawGoogleEvent[] };
+  return (data.items ?? []).filter((e) => e.status !== "cancelled");
 }
 
 export async function deleteCalendarEvent(

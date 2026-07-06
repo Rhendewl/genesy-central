@@ -176,7 +176,7 @@ function EmptyState({ onCreate }: { onCreate: () => void }) {
       <button
         onClick={onCreate}
         className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all hover:opacity-90"
-        style={{ background: "var(--primary)", color: "#fff" }}
+        style={{ background: "#b0b8c1", color: "#000000" }}
       >
         <Plus size={15} />
         Criar Projeto
@@ -250,7 +250,7 @@ function QuickCreateModal({ open, onClose, onCreate }: {
             type="submit"
             disabled={!nome.trim() || saving}
             className="flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-all hover:opacity-90 disabled:opacity-50"
-            style={{ background: "var(--primary)", color: "#fff" }}
+            style={{ background: "#b0b8c1", color: "#000000" }}
           >
             {saving ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
             {saving ? "Criando..." : "Criar e abrir canvas"}
@@ -371,7 +371,7 @@ export default function CriativosPage() {
             <button
               onClick={() => setModalOpen(true)}
               className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all hover:opacity-90 active:scale-95"
-              style={{ background: "var(--primary)", color: "#fff" }}
+              style={{ background: "#b0b8c1", color: "#000000" }}
             >
               <Plus size={15} />
               Novo Projeto

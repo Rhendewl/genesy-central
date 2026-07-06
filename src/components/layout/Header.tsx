@@ -6,9 +6,10 @@ interface HeaderProps {
   title: string;
   subtitle?: string;
   showLogo?: boolean;
+  actions?: React.ReactNode;
 }
 
-export function Header({ title, subtitle, showLogo = false }: HeaderProps) {
+export function Header({ title, subtitle, showLogo = false, actions }: HeaderProps) {
   return (
     <motion.header
       initial={{ opacity: 0, y: -10 }}
@@ -35,6 +36,7 @@ export function Header({ title, subtitle, showLogo = false }: HeaderProps) {
           <p className="mt-0.5 text-xs sm:text-sm truncate" style={{ color: "var(--muted-foreground)" }}>{subtitle}</p>
         )}
       </div>
+      {actions && <div className="flex flex-shrink-0 items-center gap-2.5">{actions}</div>}
     </motion.header>
   );
 }

@@ -339,7 +339,7 @@ export function PipelineAdmin() {
             type="button"
             onClick={openCreate}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all hover:opacity-90"
-            style={{ background: "var(--primary)", color: "#fff" }}
+            style={{ background: "#b0b8c1", color: "#000000" }}
           >
             <Plus size={12} />
             Novo Pipeline
@@ -360,7 +360,7 @@ export function PipelineAdmin() {
               type="button"
               onClick={openCreate}
               className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-medium mt-1 transition-all hover:opacity-90"
-              style={{ background: "var(--primary)", color: "#fff" }}
+              style={{ background: "#b0b8c1", color: "#000000" }}
             >
               <Plus size={12} />
               Criar Primeiro Pipeline

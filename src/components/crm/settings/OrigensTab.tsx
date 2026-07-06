@@ -260,7 +260,7 @@ function SourceForm({ source, onBack, onSave }: FormProps) {
             type="submit"
             disabled={!canSubmit || saving}
             className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-medium hover:opacity-90 transition-opacity disabled:opacity-40"
-            style={{ background: "var(--primary)", color: "#fff" }}
+            style={{ background: "#b0b8c1", color: "#000000" }}
           >
             {saving && <Loader2 size={11} className="animate-spin" />}
             {saving ? "Salvando…" : isNew ? "Criar Origem" : "Salvar"}
@@ -349,7 +349,7 @@ export function OrigensTab({ pipelineId, sources, onCreate, onUpdate, onDelete }
           type="button"
           onClick={() => setEditing("new")}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium hover:opacity-90 transition-opacity"
-          style={{ background: "var(--primary)", color: "#fff" }}
+          style={{ background: "#b0b8c1", color: "#000000" }}
         >
           <Plus size={12} />
           Nova Origem

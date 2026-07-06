@@ -6,6 +6,7 @@ import { getSupabaseClient } from "@/lib/supabase";
 export interface CompanyProfile {
   id: string;
   user_id: string;
+  owner_full_name: string | null;
   company_name: string | null;
   trade_name: string | null;
   logo_url: string | null;
@@ -31,6 +32,7 @@ export interface CompanyProfile {
 export type CompanyProfilePayload = Omit<CompanyProfile, "id" | "user_id" | "created_at" | "updated_at">;
 
 const DEFAULTS: CompanyProfilePayload = {
+  owner_full_name: null,
   company_name: null,
   trade_name: null,
   logo_url: null,

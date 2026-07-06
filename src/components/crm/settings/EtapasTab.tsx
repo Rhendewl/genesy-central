@@ -254,7 +254,7 @@ function StageConversionRow({ stage, sources, saved, onUpsert }: RowProps) {
             onClick={handleSave}
             disabled={saving}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium hover:opacity-90 transition-opacity disabled:opacity-40"
-            style={{ background: "var(--primary)", color: "#fff" }}
+            style={{ background: "#b0b8c1", color: "#000000" }}
           >
             {saving && <Loader2 size={11} className="animate-spin" />}
             {saving ? "Salvando…" : "Salvar"}

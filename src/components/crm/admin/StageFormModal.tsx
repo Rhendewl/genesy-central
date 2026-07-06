@@ -269,7 +269,7 @@ export function StageFormModal({ open, stage, onClose, onSave }: Props) {
               type="submit"
               disabled={!name.trim() || saving}
               className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-medium transition-all hover:opacity-90 disabled:opacity-40"
-              style={{ background: "var(--primary)", color: "#fff" }}
+              style={{ background: "#b0b8c1", color: "#000000" }}
             >
               {saving && <Loader2 size={11} className="animate-spin" />}
               {saving ? "Salvando…" : stage ? "Salvar" : "Criar Etapa"}

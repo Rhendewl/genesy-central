@@ -212,7 +212,7 @@ function TagMultiSelect({
               type="button"
               onClick={() => setOpen(false)}
               className="text-[11px] font-medium px-3 py-1 rounded-lg"
-              style={{ background: "var(--primary)", color: "#fff" }}
+              style={{ background: "#b0b8c1", color: "#000000" }}
             >
               Confirmar
             </button>
@@ -599,7 +599,7 @@ export default function FormularioCrmPage() {
             onClick={handleSave}
             disabled={!isDirty || isSaving}
             className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-medium transition-all hover:opacity-90 disabled:opacity-40"
-            style={{ background: "var(--primary)", color: "#fff" }}
+            style={{ background: "#b0b8c1", color: "#000000" }}
           >
             {isSaving && <Loader2 size={11} className="animate-spin" />}
             {isSaving ? "Salvando…" : "Salvar"}

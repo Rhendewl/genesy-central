@@ -361,7 +361,7 @@ export function ConfiguracaoIAModal({ open, onClose, onSaved }: Props) {
             onClick={handleSave}
             disabled={saving}
             className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all hover:opacity-90 disabled:opacity-40"
-            style={{ background: "var(--primary)", color: "#fff" }}
+            style={{ background: "#b0b8c1", color: "#000000" }}
           >
             {saving
               ? <><Loader2 size={14} className="animate-spin" />Salvando...</>

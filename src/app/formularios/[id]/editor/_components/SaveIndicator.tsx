@@ -28,7 +28,7 @@ export function SaveIndicator({ isDirty, isSaving, onSave }: SaveIndicatorProps)
       <button
         onClick={onSave}
         className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg transition-all hover:opacity-90 active:scale-95"
-        style={{ background: "var(--primary)", color: "#fff" }}
+        style={{ background: "#b0b8c1", color: "#000000" }}
         aria-label="Salvar alterações (Ctrl+S)"
         title="Salvar (Ctrl+S)"
       >

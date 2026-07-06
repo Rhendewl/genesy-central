@@ -427,7 +427,7 @@ export function BasicInfoTab({ calendar, onSave }: BasicInfoTabProps) {
           type="submit"
           disabled={isSaving || !name.trim()}
           className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium transition-all active:scale-95 disabled:opacity-50"
-          style={{ background: "var(--primary)", color: "#fff" }}
+          style={{ background: "#b0b8c1", color: "#000000" }}
         >
           {isSaving && <Loader2 size={13} className="animate-spin" />}
           Salvar alterações

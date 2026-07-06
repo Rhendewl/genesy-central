@@ -369,7 +369,7 @@ export function MetaPixelConversionCard({ calendarId, triggerEvent }: Props) {
               onClick={handleSave}
               disabled={isSaving || !isDirty || (form.enabled && !form.source_id)}
               className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium transition-all active:scale-95 disabled:opacity-50"
-              style={{ background: "var(--primary)", color: "#fff" }}
+              style={{ background: "#b0b8c1", color: "#000000" }}
             >
               {isSaving && <Loader2 size={14} className="animate-spin" />}
               Salvar

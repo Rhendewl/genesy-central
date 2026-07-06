@@ -180,7 +180,7 @@ export function CrmIntegrationCard({ calendarId }: Props) {
             onClick={handleSave}
             disabled={isSaving || !isDirty}
             className="flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all active:scale-95 disabled:opacity-50 self-start"
-            style={{ background: "var(--primary)", color: "#fff" }}
+            style={{ background: "#b0b8c1", color: "#000000" }}
           >
             {isSaving && <Loader2 size={14} className="animate-spin" />}
             Salvar

@@ -157,7 +157,7 @@ export function ExceptionsTab({ exceptions, onCreate, onDelete }: ExceptionsTabP
               type="submit"
               disabled={isSaving || !date}
               className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium disabled:opacity-50"
-              style={{ background: "var(--primary)", color: "#fff" }}
+              style={{ background: "#b0b8c1", color: "#000000" }}
             >
               {isSaving && <Loader2 size={12} className="animate-spin" />}
               Adicionar

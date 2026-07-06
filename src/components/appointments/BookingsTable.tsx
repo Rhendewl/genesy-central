@@ -598,7 +598,13 @@ function BookingDrawer({
 
 // ── BookingsTable ──────────────────────────────────────────────────────────────
 
-export function BookingsTable() {
+export function BookingsTable({
+  initialFromDate,
+  initialToDate,
+}: {
+  initialFromDate?: string;
+  initialToDate?:   string;
+} = {}) {
   const { calendars } = useCalendars();
 
   const [bookings,     setBookings]     = useState<BookingWithCalendar[]>([]);
@@ -611,8 +617,8 @@ export function BookingsTable() {
   const [search,       setSearch]       = useState("");
   const [calendarId,   setCalendarId]   = useState("");
   const [status,       setStatus]       = useState("");
-  const [fromDate,     setFromDate]     = useState("");
-  const [toDate,       setToDate]       = useState("");
+  const [fromDate,     setFromDate]     = useState(initialFromDate ?? "");
+  const [toDate,       setToDate]       = useState(initialToDate ?? "");
   const [selected,     setSelected]     = useState<BookingWithCalendar | null>(null);
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);

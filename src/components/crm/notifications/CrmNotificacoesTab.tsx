@@ -399,7 +399,7 @@ function RuleModal({ rule, onSave, onClose }: ModalProps) {
               onClick={handleSave}
               disabled={isSaving || !canSave}
               className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium transition-all active:scale-95 disabled:opacity-50"
-              style={{ background: "var(--primary)", color: "#fff" }}
+              style={{ background: "#b0b8c1", color: "#000000" }}
             >
               {isSaving && <Loader2 size={14} className="animate-spin" />}
               Salvar
@@ -457,7 +457,7 @@ export function CrmNotificacoesTab() {
           type="button"
           onClick={openCreate}
           className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium transition-all active:scale-95"
-          style={{ background: "var(--primary)", color: "#fff" }}
+          style={{ background: "#b0b8c1", color: "#000000" }}
         >
           <Plus size={15} />
           Nova notificação
@@ -486,7 +486,7 @@ export function CrmNotificacoesTab() {
             type="button"
             onClick={openCreate}
             className="mt-2 flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium transition-all"
-            style={{ background: "var(--primary)", color: "#fff" }}
+            style={{ background: "#b0b8c1", color: "#000000" }}
           >
             <Plus size={14} />
             Nova notificação

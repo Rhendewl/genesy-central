@@ -197,7 +197,7 @@ export default function FormularioOverviewPage() {
               <button
                 onClick={() => router.push(`/formularios/${id}/editor`)}
                 className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:opacity-90 active:scale-[0.98]"
-                style={{ background: "var(--primary)", color: "#fff" }}
+                style={{ background: "#b0b8c1", color: "#000000" }}
                 aria-label="Abrir o Editor Visual deste formulário"
               >
                 <Pencil size={14} aria-hidden="true" />

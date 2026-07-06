@@ -146,7 +146,7 @@ function LogoUploader({ currentUrl, onUpload, isUploading }: LogoUploaderProps) 
   return (
     <div className="flex flex-col gap-1.5">
       <label className="text-[12px] font-medium uppercase tracking-[0.08em]" style={{ color: "rgba(255,255,255,0.45)" }}>
-        Logo da Empresa
+        Perfil | Logomarca
       </label>
 
       <div className="flex items-center gap-4">
@@ -389,6 +389,13 @@ export default function PerfilEmpresaPage() {
               <LogoUploader currentUrl={form.logo_url} onUpload={handleLogoUpload} isUploading={isUploading} />
             </div>
 
+            <ProfileInput
+              label="Seu Nome"
+              placeholder="Como devemos te chamar"
+              hint="Usado no cumprimento do Dashboard"
+              value={str(form.owner_full_name)}
+              onChange={e => set("owner_full_name", e.target.value)}
+            />
             <ProfileInput
               label="Razão Social"
               placeholder="Nome completo da empresa"
