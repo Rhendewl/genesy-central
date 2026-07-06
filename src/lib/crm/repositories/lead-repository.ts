@@ -19,6 +19,7 @@ export interface CreateLeadParams {
   source:        string;
   form_id?:      string | null;
   form_name?:    string | null;
+  assigned_to?:  string | null;
   tags?:         string[];
   deal_value?:   number;
   notes?:        string | null;
@@ -28,7 +29,6 @@ export interface CreateLeadParams {
 
 export interface MoveLeadRpcParams {
   leadId:   string;
-  userId:   string;
   stageId:  string;
   note:     string | null;
   movedBy:  string | null;
@@ -61,6 +61,7 @@ export class LeadRepository {
         source:        params.source,
         form_id:       params.form_id       ?? null,
         form_name:     params.form_name     ?? null,
+        assigned_to:   params.assigned_to   ?? null,
         tags:          params.tags          ?? [],
         deal_value:    params.deal_value    ?? 0,
         notes:         params.notes         ?? null,
@@ -101,7 +102,6 @@ export class LeadRepository {
   async moveLeadTransactional(params: MoveLeadRpcParams): Promise<MoveLeadRpcResult> {
     const { data, error } = await this.db.rpc("crm_move_lead", {
       p_lead_id:  params.leadId,
-      p_user_id:  params.userId,
       p_stage_id: params.stageId,
       p_note:     params.note,
       p_moved_by: params.movedBy,

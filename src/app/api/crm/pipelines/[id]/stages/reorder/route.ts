@@ -23,21 +23,21 @@ export async function PUT(req: NextRequest, { params }: Params) {
     return NextResponse.json({ ok: true });
   }
 
-  // Verify pipeline ownership first
+  // Verify pipeline exists (e é visível ao chamador — a RLS já garante isso)
   const { data: pipeline } = await supabase
     .from("crm_pipelines")
     .select("id")
     .eq("id", pipelineId)
-    .eq("user_id", user.id)
     .maybeSingle();
 
   if (!pipeline) return NextResponse.json({ error: "Pipeline não encontrado" }, { status: 404 });
 
   // Batch update: each stage gets order_index = its position in the array.
-  // Double-keyed on (id, user_id, pipeline_id) — safe against cross-pipeline manipulation.
+  // Double-keyed on (id, pipeline_id) — safe against cross-pipeline manipulation;
+  // a RLS garante que só stages da própria organização são afetados.
   //
   // .select("id") is intentional: without it, Supabase returns { data: null, error: null }
-  // for both successful updates AND 0-row matches (stage ID not found or wrong pipeline/user).
+  // for both successful updates AND 0-row matches (stage ID not found or wrong pipeline).
   // With .select("id"), successful updates return the updated row; 0-row matches return [].
   // This lets us distinguish "updated" from "silently did nothing" and avoid returning { ok: true }
   // when the reorder was actually incomplete.
@@ -47,7 +47,6 @@ export async function PUT(req: NextRequest, { params }: Params) {
         .from("crm_stages")
         .update({ order_index: index })
         .eq("id", stageId)
-        .eq("user_id", user.id)
         .eq("pipeline_id", pipelineId)
         .select("id"),
     ),

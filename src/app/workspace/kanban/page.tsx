@@ -6,13 +6,15 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Plus, Loader2, Settings } from "lucide-react";
 import { Header } from "@/components/layout/Header";
 import { useWorkspaceTasks } from "@/hooks/useWorkspaceTasks";
+import { useWorkspaceViewing } from "@/context/WorkspaceViewingContext";
 import { WorkspaceViewSwitcher, type WorkspaceView } from "@/components/workspace/WorkspaceViewSwitcher";
 import { TaskBoard } from "@/components/workspace/TaskBoard";
 import { TaskListView } from "@/components/workspace/TaskListView";
 import { TaskDetailPanel } from "@/components/workspace/TaskDetailPanel";
 
 export default function WorkspaceKanbanPage() {
-  const tasksHook = useWorkspaceTasks();
+  const { viewingMember } = useWorkspaceViewing();
+  const tasksHook = useWorkspaceTasks(viewingMember?.auth_user_id ?? undefined);
   const [view, setView] = useState<WorkspaceView>("kanban");
   const [openTaskId, setOpenTaskId] = useState<string | null>(null);
   const [isPanelOpen, setIsPanelOpen] = useState(false);

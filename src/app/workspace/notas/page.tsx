@@ -6,11 +6,13 @@ import { Plus } from "lucide-react";
 import { toast } from "sonner";
 import { Header } from "@/components/layout/Header";
 import { useWorkspaceNotes } from "@/hooks/useWorkspaceNotes";
+import { useWorkspaceViewing } from "@/context/WorkspaceViewingContext";
 import { NotesGrid } from "@/components/workspace/notes/NotesGrid";
 
 export default function WorkspaceNotasPage() {
   const router = useRouter();
-  const { notes, isLoading, createNote, deleteNote } = useWorkspaceNotes();
+  const { viewingMember } = useWorkspaceViewing();
+  const { notes, isLoading, createNote, deleteNote } = useWorkspaceNotes(viewingMember?.auth_user_id ?? undefined);
 
   async function handleCreate() {
     const result = await createNote();

@@ -253,17 +253,21 @@ async function createCrmLead(
     const notes = noteSections.join("\n\n") || null;
 
     const commonFields = {
-      user_id:    userId,
-      name:       leadName ?? "Sem nome",
-      contact:    leadPhone ?? leadEmail ?? "",
-      email:      leadEmail ?? null,
-      source:     settings.source ?? "formulario_genesy",
-      form_id:    formId,
-      form_name:  formName,
-      tags:       settings.tag_ids ?? [],
-      deal_value: settings.value_mode === "fixed" ? (settings.fixed_value ?? 0) : dealValue,
+      user_id:     userId,
+      name:        leadName ?? "Sem nome",
+      contact:     leadPhone ?? leadEmail ?? "",
+      email:       leadEmail ?? null,
+      source:      settings.source ?? "formulario_genesy",
+      form_id:     formId,
+      form_name:   formName,
+      // Coluna estruturada, fonte de verdade a partir de agora — o texto em
+      // "notes" acima é só compatibilidade visual (mostra o nome mesmo se o
+      // responsável for removido da equipe depois).
+      assigned_to: settings.owner_id ?? null,
+      tags:        settings.tag_ids ?? [],
+      deal_value:  settings.value_mode === "fixed" ? (settings.fixed_value ?? 0) : dealValue,
       notes,
-      entered_at: new Date().toISOString().split("T")[0],
+      entered_at:  new Date().toISOString().split("T")[0],
       is_duplicate,
     };
 

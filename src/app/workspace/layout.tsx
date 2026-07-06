@@ -1,4 +1,7 @@
 import { WorkspaceSubNav } from "@/components/workspace/WorkspaceSubNav";
+import { WorkspaceMemberSwitcher } from "@/components/workspace/WorkspaceMemberSwitcher";
+import { WorkspaceViewingBanner } from "@/components/workspace/WorkspaceViewingBanner";
+import { WorkspaceViewingProvider } from "@/context/WorkspaceViewingContext";
 
 export default function WorkspaceLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -12,8 +15,11 @@ export default function WorkspaceLayout({ children }: { children: React.ReactNod
         boxShadow:    "0 12px 40px rgba(0,0,0,.18)",
       }}
     >
-      <WorkspaceSubNav />
-      {children}
+      <WorkspaceViewingProvider>
+        <WorkspaceSubNav rightSlot={<WorkspaceMemberSwitcher />} />
+        <WorkspaceViewingBanner />
+        {children}
+      </WorkspaceViewingProvider>
     </div>
   );
 }

@@ -66,6 +66,7 @@ export interface Lead {
   kanban_column: KanbanColumn;
   pipeline_id: string | null;
   stage_id: string | null;
+  assigned_to: string | null;     // user_profiles.id do responsável (SDR)
   tags: string[]; // array of tag ids
   notes: string | null;
   deal_value: number;
@@ -77,8 +78,9 @@ export interface Lead {
 export type NewLead = Pick<Lead, "name" | "contact" | "kanban_column" | "tags" | "notes" | "deal_value" | "entered_at"> & {
   stage_id?: string | null;
   pipeline_id?: string | null;
+  assigned_to?: string | null;
 };
-export type UpdateLead = Partial<Pick<Lead, "name" | "contact" | "kanban_column" | "tags" | "notes" | "deal_value" | "entered_at">>;
+export type UpdateLead = Partial<Pick<Lead, "name" | "contact" | "kanban_column" | "tags" | "notes" | "deal_value" | "entered_at" | "assigned_to">>;
 
 export interface LeadMovement {
   id: string;

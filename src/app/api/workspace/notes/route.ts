@@ -12,11 +12,14 @@ export async function GET(req: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
 
-  const url    = new URL(req.url);
-  const search = url.searchParams.get("search") ?? undefined;
+  const url         = new URL(req.url);
+  const search      = url.searchParams.get("search") ?? undefined;
+  // De quem é este Workspace — o próprio por padrão, ou um colega sendo
+  // visualizado via Painel Equipe (a RLS decide se isso é permitido).
+  const targetUserId = url.searchParams.get("as_user_id") || user.id;
 
   try {
-    let query = supabase.from("workspace_notes").select(SUMMARY_COLUMNS).order("updated_at", { ascending: false });
+    let query = supabase.from("workspace_notes").select(SUMMARY_COLUMNS).eq("user_id", targetUserId).order("updated_at", { ascending: false });
     if (search) query = query.ilike("title", `%${search}%`);
 
     const { data, error } = await query;
@@ -34,12 +37,15 @@ export async function POST(req: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
 
-  const body = await req.json().catch(() => ({})) as { title?: string } | null;
+  const body = await req.json().catch(() => ({})) as { title?: string; user_id?: string } | null;
 
   try {
     const { data, error } = await supabase
       .from("workspace_notes")
       .insert({
+        // user_id só enviado quando o admin cria "em nome de" um colega —
+        // RLS (is_admin_of_user) valida; sem isso o trigger usa o próprio uid.
+        ...(body?.user_id ? { user_id: body.user_id } : {}),
         created_by: user.id,
         ...(body?.title ? { title: body.title } : {}),
       })

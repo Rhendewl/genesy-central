@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { MoneyInput } from "@/components/ui/MoneyInput";
 import { useTags } from "@/hooks/useTags";
+import { useUsers } from "@/hooks/useUsers";
 import type { KanbanColumn, Lead, NewLead, UpdateLead } from "@/types";
 import { KANBAN_COLUMNS } from "@/types";
 import type { CrmStage } from "@/types/crm";
@@ -53,12 +54,13 @@ const TODAY = format(new Date(), "yyyy-MM-dd");
 
 function emptyForm() {
   return {
-    name:       "",
-    contact:    "",
-    stage_id:   null as string | null,
-    tags:       [] as string[],
-    notes:      "",
-    entered_at: TODAY,
+    name:        "",
+    contact:     "",
+    stage_id:    null as string | null,
+    assigned_to: null as string | null,
+    tags:        [] as string[],
+    notes:       "",
+    entered_at:  TODAY,
   };
 }
 
@@ -72,6 +74,8 @@ export function LeadModal({
   onDelete,
 }: LeadModalProps) {
   const { tags } = useTags();
+  const { profiles } = useUsers();
+  const activeProfiles = profiles.filter((p) => p.auth_user_id && p.is_active);
   const firstInputRef = useRef<HTMLInputElement>(null);
 
   const [form, setForm]             = useState(emptyForm());
@@ -92,12 +96,13 @@ export function LeadModal({
       setConfirmDelete(false);
       if (lead) {
         setForm({
-          name:       lead.name,
-          contact:    lead.contact,
-          stage_id:   lead.stage_id ?? null,
-          tags:       lead.tags as string[],
-          notes:      lead.notes ?? "",
-          entered_at: lead.entered_at,
+          name:        lead.name,
+          contact:     lead.contact,
+          stage_id:    lead.stage_id ?? null,
+          assigned_to: lead.assigned_to ?? null,
+          tags:        lead.tags as string[],
+          notes:       lead.notes ?? "",
+          entered_at:  lead.entered_at,
         });
         setDealValue(lead.deal_value ?? 0);
       } else {
@@ -156,12 +161,13 @@ export function LeadModal({
       // Atualização: NÃO inclui stage_id — movimentos passam exclusivamente
       // pelo LeadService via PATCH /api/crm/leads/[id]/move
       const updatePayload: UpdateLead = {
-        name:       form.name.trim(),
-        contact:    form.contact.trim(),
-        tags:       form.tags,
-        notes:      form.notes.trim() || null,
-        deal_value: dealValue,
-        entered_at: form.entered_at,
+        name:        form.name.trim(),
+        contact:     form.contact.trim(),
+        tags:        form.tags,
+        notes:       form.notes.trim() || null,
+        deal_value:  dealValue,
+        entered_at:  form.entered_at,
+        assigned_to: form.assigned_to,
       };
       const result = await onUpdate(lead.id, updatePayload);
       setIsSubmitting(false);
@@ -177,6 +183,7 @@ export function LeadModal({
         kanban_column,
         stage_id:      form.stage_id,
         pipeline_id:   selectedStage?.pipeline_id ?? null,
+        assigned_to:   form.assigned_to,
         tags:          form.tags,
         notes:         form.notes.trim() || null,
         deal_value:    dealValue,
@@ -363,6 +370,26 @@ export function LeadModal({
                         </select>
                       )}
                     </div>
+                  </div>
+
+                  {/* Responsável */}
+                  <div className="space-y-1.5">
+                    <Label htmlFor="lead-assigned-to" className="text-[11px] font-medium text-[var(--muted-foreground)]">
+                      Responsável
+                    </Label>
+                    <select
+                      id="lead-assigned-to"
+                      value={form.assigned_to ?? ""}
+                      onChange={(e) => setForm((p) => ({ ...p, assigned_to: e.target.value || null }))}
+                      className="h-9 w-full rounded-md border border-[var(--border)] bg-[var(--input)] px-3 text-xs text-[var(--text-title)] focus:outline-none focus:ring-1 focus:ring-[#b4b4b4]/40"
+                    >
+                      <option value="">Sem responsável</option>
+                      {activeProfiles.map((p) => (
+                        <option key={p.id} value={p.id} style={{ background: "var(--background)" }}>
+                          {p.full_name}
+                        </option>
+                      ))}
+                    </select>
                   </div>
 
                   {/* Tags */}

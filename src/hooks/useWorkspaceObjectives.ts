@@ -9,9 +9,11 @@ import type {
 // ─────────────────────────────────────────────────────────────────────────────
 // useWorkspaceObjectives — grade de objetivos (mesmo formato de useWorkspaceTasks.ts,
 // mais simples: sem status/coluna/move — só progresso calculado das etapas).
+// Busca sempre via GET /api/workspace/objectives, nunca um select() direto
+// sem filtro de user_id — ver o comentário equivalente em useWorkspaceTasks.ts.
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function useWorkspaceObjectives() {
+export function useWorkspaceObjectives(viewAsUserId?: string) {
   const supabase = getSupabaseClient();
 
   const [objectives, setObjectives] = useState<WorkspaceObjective[]>([]);
@@ -22,24 +24,31 @@ export function useWorkspaceObjectives() {
   const fetchObjectives = useCallback(async () => {
     setError(null);
 
-    // Busca as etapas completas (não só a contagem) — objetivos têm poucas
-    // etapas cada, então dá pra exibi-las direto no card sem query extra por card.
-    const [objectivesRes, stepsRes] = await Promise.all([
-      supabase.from("workspace_objectives").select("*").order("updated_at", { ascending: false }),
-      supabase.from("workspace_objective_steps").select("*").order("position"),
-    ]);
+    const qs = viewAsUserId ? `?as_user_id=${viewAsUserId}` : "";
+    const res  = await fetch(`/api/workspace/objectives${qs}`);
+    const json = await res.json() as { objectives?: WorkspaceObjective[]; error?: string };
 
     if (!mountedRef.current) return;
-    if (objectivesRes.error) { setError(objectivesRes.error.message); return; }
+    if (!res.ok || !json.objectives) { setError(json.error ?? "Erro ao carregar objetivos"); return; }
+
+    // Busca as etapas completas (não só a contagem) — objetivos têm poucas
+    // etapas cada, então dá pra exibi-las direto no card sem query extra por
+    // card. Escopada pelos ids já retornados (nunca um select() sem filtro).
+    const objectiveIds = json.objectives.map((o) => o.id);
+    const { data: stepsData } = objectiveIds.length > 0
+      ? await supabase.from("workspace_objective_steps").select("*").in("objective_id", objectiveIds).order("position")
+      : { data: [] as WorkspaceObjectiveStep[] };
+
+    if (!mountedRef.current) return;
 
     const stepsByObjective = new Map<string, WorkspaceObjectiveStep[]>();
-    for (const row of (stepsRes.data ?? []) as WorkspaceObjectiveStep[]) {
+    for (const row of (stepsData ?? []) as WorkspaceObjectiveStep[]) {
       const list = stepsByObjective.get(row.objective_id);
       if (list) list.push(row);
       else stepsByObjective.set(row.objective_id, [row]);
     }
 
-    const enriched = ((objectivesRes.data as WorkspaceObjective[]) ?? []).map((o) => {
+    const enriched = json.objectives.map((o) => {
       const steps = stepsByObjective.get(o.id) ?? [];
       return {
         ...o,
@@ -50,7 +59,7 @@ export function useWorkspaceObjectives() {
     });
 
     setObjectives(enriched);
-  }, [supabase]);
+  }, [supabase, viewAsUserId]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -58,7 +67,7 @@ export function useWorkspaceObjectives() {
     fetchObjectives().finally(() => { if (mountedRef.current) setIsLoading(false); });
 
     const channel = supabase
-      .channel("workspace-objectives-realtime")
+      .channel(`workspace-objectives-realtime-${viewAsUserId ?? "self"}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "workspace_objectives" }, () => fetchObjectives())
       .on("postgres_changes", { event: "*", schema: "public", table: "workspace_objective_steps" }, () => fetchObjectives())
       .subscribe();
@@ -67,14 +76,14 @@ export function useWorkspaceObjectives() {
       mountedRef.current = false;
       supabase.removeChannel(channel);
     };
-  }, [fetchObjectives, supabase]);
+  }, [fetchObjectives, supabase, viewAsUserId]);
 
   async function createObjective(data: NewWorkspaceObjective): Promise<{ error: string | null; objective: WorkspaceObjective | null }> {
     try {
       const res  = await fetch("/api/workspace/objectives", {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify(data),
+        body:    JSON.stringify(viewAsUserId ? { ...data, user_id: viewAsUserId } : data),
       });
       const json = await res.json() as { objective?: WorkspaceObjective; error?: string };
       if (!res.ok || !json.objective) return { error: json.error ?? "Erro ao criar objetivo", objective: null };

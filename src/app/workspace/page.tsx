@@ -4,6 +4,7 @@ import { Header } from "@/components/layout/Header";
 import { useWorkspaceTasks } from "@/hooks/useWorkspaceTasks";
 import { useWorkspaceNotes } from "@/hooks/useWorkspaceNotes";
 import { useWorkspaceObjectives } from "@/hooks/useWorkspaceObjectives";
+import { useWorkspaceViewing } from "@/context/WorkspaceViewingContext";
 import { PercentageGaugeCard } from "@/components/workspace/dashboard/PercentageGaugeCard";
 import { TodoListCard } from "@/components/workspace/dashboard/TodoListCard";
 import { TodayAgendaCard } from "@/components/workspace/dashboard/TodayAgendaCard";
@@ -11,13 +12,16 @@ import { UpcomingDeadlinesCard } from "@/components/workspace/dashboard/Upcoming
 import { RecentNotesCard } from "@/components/workspace/dashboard/RecentNotesCard";
 
 export default function WorkspaceDashboardPage() {
+  const { viewingMember } = useWorkspaceViewing();
+  const asUserId = viewingMember?.auth_user_id ?? undefined;
+
   // Cada hook é instanciado uma única vez aqui e compartilhado pelos cards que
   // precisam dos mesmos dados — evita múltiplos fetches/canais realtime
   // duplicados na mesma página (ex: To-do List e Próximas Entregas usam a
   // mesma lista de tarefas).
-  const tasksHook      = useWorkspaceTasks();
-  const notesHook      = useWorkspaceNotes();
-  const objectivesHook = useWorkspaceObjectives();
+  const tasksHook      = useWorkspaceTasks(asUserId);
+  const notesHook      = useWorkspaceNotes(asUserId);
+  const objectivesHook = useWorkspaceObjectives(asUserId);
 
   const totalTasks = tasksHook.tasks.length;
   const doneTasks  = tasksHook.tasks.filter((t) => t.status === "concluido").length;

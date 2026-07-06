@@ -13,29 +13,39 @@ const SECTIONS = [
   { href: "/workspace/objetivos",  label: "Objetivos",  icon: Target,          exact: false },
 ];
 
-export function WorkspaceSubNav() {
+interface WorkspaceSubNavProps {
+  rightSlot?: React.ReactNode;
+}
+
+export function WorkspaceSubNav({ rightSlot }: WorkspaceSubNavProps) {
   const pathname = usePathname();
 
   return (
-    <div className="flex items-center gap-1 px-4 pt-4 sm:px-6" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-      {SECTIONS.map((section) => {
-        const active = section.exact ? pathname === section.href : (pathname?.startsWith(section.href) ?? false);
-        const Icon = section.icon;
-        return (
-          <Link
-            key={section.href}
-            href={section.href}
-            className={cn(
-              "flex items-center gap-1.5 px-3 pb-3 text-sm font-medium transition-colors",
-              active ? "text-white" : "text-[var(--muted-foreground)] hover:text-white/80"
-            )}
-            style={{ borderBottom: active ? "2px solid var(--primary)" : "2px solid transparent" }}
-          >
-            <Icon size={14} />
-            {section.label}
-          </Link>
-        );
-      })}
+    <div
+      className="flex flex-wrap items-center justify-between gap-2 px-4 pt-4 sm:px-6"
+      style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}
+    >
+      <div className="flex items-center gap-1">
+        {SECTIONS.map((section) => {
+          const active = section.exact ? pathname === section.href : (pathname?.startsWith(section.href) ?? false);
+          const Icon = section.icon;
+          return (
+            <Link
+              key={section.href}
+              href={section.href}
+              className={cn(
+                "flex items-center gap-1.5 px-3 pb-3 text-sm font-medium transition-colors",
+                active ? "text-white" : "text-[var(--muted-foreground)] hover:text-white/80"
+              )}
+              style={{ borderBottom: active ? "2px solid var(--primary)" : "2px solid transparent" }}
+            >
+              <Icon size={14} />
+              {section.label}
+            </Link>
+          );
+        })}
+      </div>
+      {rightSlot && <div className="pb-3">{rightSlot}</div>}
     </div>
   );
 }

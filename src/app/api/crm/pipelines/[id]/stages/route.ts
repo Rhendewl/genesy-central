@@ -13,7 +13,6 @@ export async function GET(_req: NextRequest, { params }: Params) {
     .from("crm_stages")
     .select("*")
     .eq("pipeline_id", id)
-    .eq("user_id", user.id)
     .order("order_index", { ascending: true });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -26,12 +25,11 @@ export async function POST(req: NextRequest, { params }: Params) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
 
-  // Verify pipeline ownership
+  // Verify pipeline exists (e é visível ao chamador — a RLS já garante isso)
   const { data: pipeline } = await supabase
     .from("crm_pipelines")
     .select("id")
     .eq("id", pipelineId)
-    .eq("user_id", user.id)
     .maybeSingle();
 
   if (!pipeline) return NextResponse.json({ error: "Pipeline não encontrado" }, { status: 404 });
@@ -48,7 +46,6 @@ export async function POST(req: NextRequest, { params }: Params) {
 
   const insert: Record<string, unknown> = {
     pipeline_id:        pipelineId,
-    user_id:            user.id,
     name:               name.trim(),
     // Defaults applied only when the field is absent from the request body
     color:              "#4a8fd4",

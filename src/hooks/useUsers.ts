@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { getSupabaseClient } from "@/lib/supabase";
+import { useCurrentMember } from "@/context/CurrentMemberContext";
 
 // Importa e re-exporta as constantes do módulo neutro (sem "use client")
 import type { UserRole } from "@/lib/roles";
@@ -63,6 +64,7 @@ export interface UpdateUserPayload {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function useUsers() {
+  const { member, isLoading: memberLoading } = useCurrentMember();
   const [profiles, setProfiles] = useState<UserProfile[]>([]);
   const [invites, setInvites]   = useState<UserInvite[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -76,16 +78,21 @@ export function useUsers() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { setIsLoading(false); return; }
 
+      // owner_id efetivo: para o dono é o próprio uid, para um admin
+      // convidado é o owner_id herdado do próprio perfil (member) —
+      // sem isso, um admin que não é o dono original nunca via a equipe.
+      const ownerId = member?.owner_id ?? user.id;
+
       const [profilesRes, invitesRes] = await Promise.all([
         supabase
           .from("user_profiles")
           .select("*")
-          .eq("owner_id", user.id)
+          .eq("owner_id", ownerId)
           .order("created_at", { ascending: false }),
         supabase
           .from("user_invites")
           .select("*")
-          .eq("owner_id", user.id)
+          .eq("owner_id", ownerId)
           .eq("status", "pending")
           .order("created_at", { ascending: false }),
       ]);
@@ -105,9 +112,12 @@ export function useUsers() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [member?.owner_id]);
 
-  useEffect(() => { fetchAll(); }, [fetchAll]);
+  useEffect(() => {
+    if (memberLoading) return; // espera resolver member.owner_id antes do primeiro fetch
+    fetchAll();
+  }, [fetchAll, memberLoading]);
 
   const createUser = useCallback(async (payload: CreateUserPayload): Promise<{ error: string | null }> => {
     try {

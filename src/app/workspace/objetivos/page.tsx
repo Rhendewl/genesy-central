@@ -5,11 +5,13 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Plus, Loader2 } from "lucide-react";
 import { Header } from "@/components/layout/Header";
 import { useWorkspaceObjectives } from "@/hooks/useWorkspaceObjectives";
+import { useWorkspaceViewing } from "@/context/WorkspaceViewingContext";
 import { ObjectivesGrid } from "@/components/workspace/objectives/ObjectivesGrid";
 import { ObjectiveDetailPanel } from "@/components/workspace/objectives/ObjectiveDetailPanel";
 
 export default function WorkspaceObjetivosPage() {
-  const objectivesHook = useWorkspaceObjectives();
+  const { viewingMember } = useWorkspaceViewing();
+  const objectivesHook = useWorkspaceObjectives(viewingMember?.auth_user_id ?? undefined);
   const [openObjectiveId, setOpenObjectiveId] = useState<string | null>(null);
   const [isPanelOpen,     setIsPanelOpen]     = useState(false);
 

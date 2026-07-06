@@ -13,7 +13,6 @@ export async function GET(_req: NextRequest, { params }: Params) {
     .from("crm_stage_conversions")
     .select("*")
     .eq("stage_id", stageId)
-    .eq("user_id", user.id)
     .order("created_at", { ascending: true });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

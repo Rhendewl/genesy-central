@@ -13,7 +13,6 @@ export async function GET(_req: NextRequest, { params }: Params) {
     .from("crm_stages")
     .select("*")
     .eq("id", stageId)
-    .eq("user_id", user.id)
     .single();
 
   if (error || !data) return NextResponse.json({ error: "Etapa não encontrada" }, { status: 404 });
@@ -41,7 +40,6 @@ export async function PUT(req: NextRequest, { params }: Params) {
     .from("crm_stages")
     .update(update)
     .eq("id", stageId)
-    .eq("user_id", user.id)
     .select()
     .single();
 
@@ -59,8 +57,7 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
   const { count } = await supabase
     .from("leads")
     .select("id", { count: "exact", head: true })
-    .eq("stage_id", stageId)
-    .eq("user_id", user.id);
+    .eq("stage_id", stageId);
 
   if (count && count > 0) {
     return NextResponse.json(
@@ -73,8 +70,7 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
   const { error } = await supabase
     .from("crm_stages")
     .update({ is_active: false })
-    .eq("id", stageId)
-    .eq("user_id", user.id);
+    .eq("id", stageId);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ ok: true });

@@ -77,7 +77,6 @@ export class BookingCrmSyncService {
       const moveResult = await svc.moveLead(
         existingLeadId,
         cfg.stage_id,
-        payload.userId,
         { note: `Agendamento via calendário: ${payload.calendarName} em ${new Date(payload.startsAt).toLocaleString("pt-BR")}` },
       );
 

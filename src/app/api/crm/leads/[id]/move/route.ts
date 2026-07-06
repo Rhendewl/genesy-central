@@ -17,7 +17,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   }
 
   const service = new LeadService(supabase);
-  const result  = await service.moveLead(leadId, body.stage_id, user.id, {
+  const result  = await service.moveLead(leadId, body.stage_id, {
     note:    body.note,
     movedBy: user.id,
   });

@@ -13,7 +13,6 @@ export async function GET(_req: NextRequest, { params }: Params) {
     .from("crm_pipelines")
     .select("*, crm_stages(*)")
     .eq("id", id)
-    .eq("user_id", user.id)
     .single();
 
   if (error || !data) return NextResponse.json({ error: "Pipeline não encontrado" }, { status: 404 });
@@ -38,7 +37,6 @@ export async function PUT(req: NextRequest, { params }: Params) {
     .from("crm_pipelines")
     .update(update)
     .eq("id", id)
-    .eq("user_id", user.id)
     .select()
     .single();
 
@@ -56,8 +54,7 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
   const { error } = await supabase
     .from("crm_pipelines")
     .update({ is_active: false })
-    .eq("id", id)
-    .eq("user_id", user.id);
+    .eq("id", id);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ ok: true });

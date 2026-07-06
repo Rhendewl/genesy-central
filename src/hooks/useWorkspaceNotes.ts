@@ -5,10 +5,12 @@ import { getSupabaseClient } from "@/lib/supabase";
 import type { WorkspaceNote, WorkspaceNoteSummary } from "@/types/workspace-notes";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// useWorkspaceNotes — grade de notas (mesmo formato de useWorkspaceTasks.ts)
+// useWorkspaceNotes — grade de notas (mesmo formato de useWorkspaceTasks.ts).
+// Busca sempre via GET /api/workspace/notes, nunca um select() direto sem
+// filtro de user_id — ver o comentário equivalente em useWorkspaceTasks.ts.
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function useWorkspaceNotes() {
+export function useWorkspaceNotes(viewAsUserId?: string) {
   const supabase = getSupabaseClient();
 
   const [notes,     setNotes]     = useState<WorkspaceNoteSummary[]>([]);
@@ -18,15 +20,14 @@ export function useWorkspaceNotes() {
 
   const fetchNotes = useCallback(async () => {
     setError(null);
-    const { data, error: err } = await supabase
-      .from("workspace_notes")
-      .select("id,title,cover_url,color,tags,created_at,updated_at")
-      .order("updated_at", { ascending: false });
+    const qs = viewAsUserId ? `?as_user_id=${viewAsUserId}` : "";
+    const res  = await fetch(`/api/workspace/notes${qs}`);
+    const json = await res.json() as { notes?: WorkspaceNoteSummary[]; error?: string };
 
     if (!mountedRef.current) return;
-    if (err) { setError(err.message); return; }
-    setNotes((data as WorkspaceNoteSummary[]) ?? []);
-  }, [supabase]);
+    if (!res.ok || !json.notes) { setError(json.error ?? "Erro ao carregar notas"); return; }
+    setNotes(json.notes);
+  }, [viewAsUserId]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -34,7 +35,7 @@ export function useWorkspaceNotes() {
     fetchNotes().finally(() => { if (mountedRef.current) setIsLoading(false); });
 
     const channel = supabase
-      .channel("workspace-notes-realtime")
+      .channel(`workspace-notes-realtime-${viewAsUserId ?? "self"}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "workspace_notes" }, () => fetchNotes())
       .subscribe();
 
@@ -42,11 +43,15 @@ export function useWorkspaceNotes() {
       mountedRef.current = false;
       supabase.removeChannel(channel);
     };
-  }, [fetchNotes, supabase]);
+  }, [fetchNotes, supabase, viewAsUserId]);
 
   async function createNote(): Promise<{ error: string | null; note: WorkspaceNote | null }> {
     try {
-      const res  = await fetch("/api/workspace/notes", { method: "POST" });
+      const res  = await fetch("/api/workspace/notes", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify(viewAsUserId ? { user_id: viewAsUserId } : {}),
+      });
       const json = await res.json() as { note?: WorkspaceNote; error?: string };
       if (!res.ok || !json.note) return { error: json.error ?? "Erro ao criar nota", note: null };
 

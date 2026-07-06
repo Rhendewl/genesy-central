@@ -11,7 +11,6 @@ export async function GET(req: NextRequest) {
   let query = supabase
     .from("crm_pipelines")
     .select("*, crm_stages(*)")
-    .eq("user_id", user.id)
     .order("order_index", { ascending: true })
     .order("order_index", { foreignTable: "crm_stages", ascending: true });
 
@@ -37,7 +36,6 @@ export async function POST(req: NextRequest) {
   const { data, error } = await supabase
     .from("crm_pipelines")
     .insert({
-      user_id:     user.id,
       name:        name.trim(),
       description: (body.description as string | null) ?? null,
       color:       (body.color as string) ?? "#4a8fd4",

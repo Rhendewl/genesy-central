@@ -54,7 +54,7 @@ export class LeadService {
   }
 
   async createLead(input: CreateLeadInput): Promise<CreateLeadResult> {
-    const stage = await this.pipelines.findStageById(input.stageId, input.user_id);
+    const stage = await this.pipelines.findStageById(input.stageId);
     if (!stage) {
       return { ok: false, leadId: null, error: "Etapa não encontrada" };
     }
@@ -85,11 +85,10 @@ export class LeadService {
   async moveLead(
     leadId:        string,
     targetStageId: string,
-    userId:        string,
     options?:      MoveLeadOptions,
   ): Promise<MoveLeadResult> {
-    // 1. Pre-validate: stage exists and belongs to this user
-    const targetStage = await this.pipelines.findStageById(targetStageId, userId);
+    // 1. Pre-validate: stage exists e é visível ao chamador (RLS garante isso)
+    const targetStage = await this.pipelines.findStageById(targetStageId);
     if (!targetStage) {
       return { ok: false, error: "Etapa não encontrada", fromStageId: null };
     }
@@ -105,7 +104,6 @@ export class LeadService {
     try {
       result = await this.leads.moveLeadTransactional({
         leadId,
-        userId,
         stageId:  targetStageId,
         note:     options?.note   ?? null,
         movedBy:  options?.movedBy ?? null,
@@ -120,7 +118,10 @@ export class LeadService {
 
     // 4. Publish domain events — strictly after commit (RPC only resolves post-commit).
     //    Fire-and-forget: failures do not roll back the already-committed move.
+    // userId aqui é quem executou o move (mesmo valor que já era passado antes
+    // desta correção — nunca foi usado para ownership, só para notificação).
     const fromStageId = result.from_stage_id;
+    const userId = options?.movedBy ?? "";
 
     if (fromStageId) {
       this.bus.publish("lead.stage.left", {
