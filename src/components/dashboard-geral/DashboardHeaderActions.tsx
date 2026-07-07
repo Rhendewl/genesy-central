@@ -23,7 +23,7 @@ function DateBadge() {
   return (
     <div
       className="lc-card hidden items-center gap-2 px-3.5 py-2 text-sm sm:flex"
-      style={{ background: "rgba(0,0,0,0.31)" }}
+      style={{ background: "var(--glass-bg-soft)" }}
     >
       <CalendarDays size={14} style={{ color: "var(--muted-foreground)" }} />
       <span style={{ color: "var(--text-title)" }}>{weekday} | {dayMonth}</span>
@@ -94,8 +94,8 @@ function QuickAddTaskButton({ tasksHook }: QuickAddTaskButtonProps) {
                 <div
                   className="rounded-xl p-2 shadow-2xl"
                   style={{
-                    background: "rgba(0,0,0,0.10)",
-                    border: "1px solid rgba(255,255,255,0.10)",
+                    background: "var(--glass-bg)",
+                    border: "1px solid var(--glass-border)",
                     backdropFilter: "blur(24px)",
                     WebkitBackdropFilter: "blur(24px)",
                   }}
@@ -106,7 +106,7 @@ function QuickAddTaskButton({ tasksHook }: QuickAddTaskButtonProps) {
                     onChange={(e) => setTitle(e.target.value)}
                     onKeyDown={(e) => { if (e.key === "Enter") void handleAdd(); if (e.key === "Escape") setOpen(false); }}
                     placeholder="Título da tarefa..."
-                    className="w-full rounded-lg bg-white/[0.04] px-3 py-2 text-sm outline-none placeholder:text-[var(--muted-foreground)]"
+                    className="w-full rounded-lg bg-[var(--input)] px-3 py-2 text-sm outline-none placeholder:text-[var(--muted-foreground)]"
                     style={{ color: "var(--text-title)" }}
                   />
                 </div>
@@ -125,7 +125,7 @@ function QuickAddTaskButton({ tasksHook }: QuickAddTaskButtonProps) {
 function NotificationBell() {
   return (
     <button
-      className="relative flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full transition-colors hover:bg-white/[0.06]"
+      className="relative flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full transition-colors hover:bg-[var(--hover)]"
       aria-label="Notificações"
     >
       <Bell size={16} style={{ color: "var(--muted-foreground)" }} />

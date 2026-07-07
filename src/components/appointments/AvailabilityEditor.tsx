@@ -87,14 +87,14 @@ export function AvailabilityEditor({ rules, isSaving, onSave }: AvailabilityEdit
               onClick={() => toggle(day.day_of_week)}
               className="relative w-9 h-5 rounded-full transition-colors shrink-0"
               style={{
-                background: day.is_available ? "var(--primary)" : "rgba(255,255,255,0.12)",
+                background: day.is_available ? "var(--primary)" : "var(--hover)",
               }}
             >
               <span
                 className="absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform"
                 style={{
                   left:      day.is_available ? "calc(100% - 18px)" : "2px",
-                  boxShadow: "0 1px 3px rgba(0,0,0,0.3)",
+                  boxShadow: "0 1px 3px var(--shadow-sm)",
                 }}
               />
             </button>
@@ -116,7 +116,7 @@ export function AvailabilityEditor({ rules, isSaving, onSave }: AvailabilityEdit
                   onChange={e => setTime(day.day_of_week, "start_time", e.target.value)}
                   className="px-2 py-1 rounded-lg text-xs"
                   style={{
-                    background: "rgba(255,255,255,0.06)",
+                    background: "var(--input)",
                     border:     "1px solid var(--border)",
                     color:      "var(--text-title)",
                   }}
@@ -128,7 +128,7 @@ export function AvailabilityEditor({ rules, isSaving, onSave }: AvailabilityEdit
                   onChange={e => setTime(day.day_of_week, "end_time", e.target.value)}
                   className="px-2 py-1 rounded-lg text-xs"
                   style={{
-                    background: "rgba(255,255,255,0.06)",
+                    background: "var(--input)",
                     border:     "1px solid var(--border)",
                     color:      "var(--text-title)",
                   }}

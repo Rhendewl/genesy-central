@@ -73,7 +73,7 @@ function FormCard({
           <div className="relative">
             <button
               onClick={e => { e.stopPropagation(); setMenuOpen(o => !o); }}
-              className="p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white/10"
+              className="p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity hover:bg-[var(--hover)]"
             >
               <MoreHorizontal size={14} style={{ color: "var(--muted-foreground)" }} />
             </button>
@@ -84,7 +84,7 @@ function FormCard({
                 onClick={e => e.stopPropagation()}
               >
                 <button
-                  className="flex items-center gap-2 w-full px-3 py-1.5 text-xs hover:bg-white/5 transition-colors"
+                  className="flex items-center gap-2 w-full px-3 py-1.5 text-xs hover:bg-[var(--hover)] transition-colors"
                   style={{ color: "var(--muted-foreground)" }}
                   onClick={() => { onDuplicate(form.id); setMenuOpen(false); }}
                 >
@@ -92,7 +92,7 @@ function FormCard({
                   Duplicar
                 </button>
                 <button
-                  className="flex items-center gap-2 w-full px-3 py-1.5 text-xs hover:bg-white/5 transition-colors"
+                  className="flex items-center gap-2 w-full px-3 py-1.5 text-xs hover:bg-[var(--hover)] transition-colors"
                   style={{ color: "var(--muted-foreground)" }}
                   onClick={() => { onToggleStatus(form.id); setMenuOpen(false); }}
                 >
@@ -100,7 +100,7 @@ function FormCard({
                   {form.status === "disabled" ? "Ativar" : "Desativar"}
                 </button>
                 <button
-                  className="flex items-center gap-2 w-full px-3 py-1.5 text-xs hover:bg-white/5 transition-colors"
+                  className="flex items-center gap-2 w-full px-3 py-1.5 text-xs hover:bg-[var(--hover)] transition-colors"
                   style={{ color: "var(--muted-foreground)" }}
                   onClick={() => { onArchive(form.id); setMenuOpen(false); }}
                 >
@@ -137,7 +137,7 @@ function FormCard({
       <div className="flex items-center justify-between pt-3" style={{ borderTop: "1px solid var(--border)" }}>
         <div
           className="flex items-center gap-1 px-2 py-0.5 rounded-full"
-          style={{ background: "rgba(255,255,255,0.06)", color: "var(--muted-foreground)" }}
+          style={{ background: "var(--glass-bg-soft)", color: "var(--muted-foreground)" }}
         >
           <MessageSquare size={10} />
           <span className="text-xs">{responseCount} resposta{responseCount !== 1 ? "s" : ""}</span>
@@ -213,7 +213,7 @@ function NovoFormularioModal({ open, onClose, onCreate }: {
               Configure as perguntas no editor após criar
             </p>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-white/5 transition-colors">
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-[var(--hover)] transition-colors">
             <X size={14} style={{ color: "var(--muted-foreground)" }} />
           </button>
         </div>
@@ -304,7 +304,7 @@ export default function FormulariosPage() {
 
   return (
     <div
-      className="flex flex-col min-h-screen pb-24"
+      className="flex flex-col pb-24"
       style={{ backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)" }}
     >
       <Header

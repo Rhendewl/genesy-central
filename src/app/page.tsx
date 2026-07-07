@@ -99,7 +99,7 @@ export default function DashboardPage() {
             {/* Linha 1: Calendário */}
             <motion.div
               className="lc-card flex flex-col overflow-hidden p-5"
-              style={{ background: "rgba(0,0,0,0.31)", height: CARD_H_AGENDA }}
+              style={{ background: "var(--glass-bg-soft)", height: CARD_H_AGENDA }}
               initial={{ opacity: 0, y: 18 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.4, delay: 0.08, ease: "easeOut" }}

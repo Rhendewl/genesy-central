@@ -122,7 +122,7 @@ export function NoteEditor({ noteId, content, onChange }: NoteEditorProps) {
   if (!editor) return null;
 
   return (
-    <div className="rounded-xl overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.08)" }}>
+    <div className="rounded-xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
       <NoteEditorToolbar
         editor={editor}
         onRequestImage={() => imageInputRef.current?.click()}

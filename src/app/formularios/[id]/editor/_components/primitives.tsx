@@ -26,7 +26,7 @@ export function Toggle({ enabled, onToggle, label }: ToggleProps) {
       style={{
         width: 36,
         height: 20,
-        background: enabled ? "var(--primary)" : "rgba(255,255,255,0.12)",
+        background: enabled ? "var(--primary)" : "var(--border)",
         outlineColor: "var(--primary)",
       }}
     >

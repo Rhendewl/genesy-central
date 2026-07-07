@@ -49,12 +49,12 @@ export function WorkspaceMemberSwitcher() {
         onClick={handleToggle}
         className={cn(
           "lc-card flex items-center gap-2 px-3.5 py-2 text-sm transition-all",
-          open && "ring-1 ring-white/20"
+          open && "ring-1 ring-[var(--glass-border)]"
         )}
       >
         <Users size={13} style={{ color: viewingMember ? "#e0a344" : "var(--primary)" }} />
-        <span className="max-w-[140px] truncate font-medium text-white">{label}</span>
-        <ChevronDown size={13} className={cn("shrink-0 text-[#b4b4b4] transition-transform", open && "rotate-180")} />
+        <span className="max-w-[140px] truncate font-medium text-[var(--text-title)]">{label}</span>
+        <ChevronDown size={13} className={cn("shrink-0 text-[var(--silver)] transition-transform", open && "rotate-180")} />
       </button>
 
       {mounted && createPortal(
@@ -73,8 +73,8 @@ export function WorkspaceMemberSwitcher() {
                 <div
                   className="rounded-xl shadow-2xl"
                   style={{
-                    background: "rgba(0,0,0,0.10)",
-                    border: "1px solid rgba(255,255,255,0.10)",
+                    background: "var(--bg-tooltip)",
+                    border: "1px solid var(--border-tooltip)",
                     backdropFilter: "blur(24px)",
                     WebkitBackdropFilter: "blur(24px)",
                   }}
@@ -83,15 +83,15 @@ export function WorkspaceMemberSwitcher() {
                     onClick={() => { setViewingMember(null); setOpen(false); }}
                     className={cn(
                       "flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm transition-colors",
-                      !viewingMember ? "bg-white/10 text-white" : "text-[#b4b4b4] hover:bg-white/5 hover:text-white"
+                      !viewingMember ? "bg-[var(--hover)] text-[var(--text-title)]" : "text-[var(--silver)] hover:bg-[var(--hover)] hover:text-[var(--text-title)]"
                     )}
                   >
                     <div className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-400" />
                     <span className="font-medium">Meu Workspace</span>
-                    {!viewingMember && <span className="ml-auto text-xs text-white/70">✓</span>}
+                    {!viewingMember && <span className="ml-auto text-xs text-[var(--text-body)]">✓</span>}
                   </button>
 
-                  <div className="mx-3 border-t" style={{ borderColor: "rgba(255,255,255,0.07)" }} />
+                  <div className="mx-3 border-t" style={{ borderColor: "var(--border)" }} />
 
                   {colleagues.map((p) => (
                     <button
@@ -99,15 +99,15 @@ export function WorkspaceMemberSwitcher() {
                       onClick={() => { setViewingMember(p); setOpen(false); }}
                       className={cn(
                         "flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm transition-colors",
-                        viewingMember?.id === p.id ? "bg-white/10 text-white" : "text-[#b4b4b4] hover:bg-white/5 hover:text-white"
+                        viewingMember?.id === p.id ? "bg-[var(--hover)] text-[var(--text-title)]" : "text-[var(--silver)] hover:bg-[var(--hover)] hover:text-[var(--text-title)]"
                       )}
                     >
                       <div className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: "#e0a344" }} />
                       <div className="min-w-0 flex-1">
                         <p className="truncate font-medium leading-tight">{p.full_name}</p>
-                        <p className="truncate text-[10px] text-[#5a5a5a]">{p.job_title || p.email}</p>
+                        <p className="truncate text-[10px] text-[var(--text-muted)]">{p.job_title || p.email}</p>
                       </div>
-                      {viewingMember?.id === p.id && <span className="ml-auto shrink-0 text-xs text-white/70">✓</span>}
+                      {viewingMember?.id === p.id && <span className="ml-auto shrink-0 text-xs text-[var(--text-body)]">✓</span>}
                     </button>
                   ))}
                 </div>

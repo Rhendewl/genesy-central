@@ -31,7 +31,7 @@ export default function WorkspaceObjetivosPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col pb-24">
+    <div className="flex flex-col pb-24">
       <Header title="Workspace" subtitle="Suas metas e o progresso de cada uma" />
 
       <div className="flex flex-wrap items-center justify-end gap-3 px-4 pb-4 sm:px-6">

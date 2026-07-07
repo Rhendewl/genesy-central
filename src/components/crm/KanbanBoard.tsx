@@ -264,7 +264,7 @@ export function KanbanBoard() {
             {isFiltered ? (
               <>
                 <span className="font-semibold text-[var(--text-title)]">{filteredCount}</span>
-                <span className="text-[#5a5a5a]"> / {totalLeads}</span>
+                <span className="text-[var(--text-body)]"> / {totalLeads}</span>
                 {" "}
                 {filteredCount === 1 ? "lead" : "leads"} no período
               </>
@@ -285,10 +285,10 @@ export function KanbanBoard() {
                 onChange={(e) => setSelectedPipelineId(e.target.value)}
                 className="h-8 appearance-none rounded-full pl-3 pr-8 text-xs text-[var(--text-title)] focus:outline-none cursor-pointer"
                 style={{
-                  background: "rgba(10,10,10,.10)",
+                  background: "var(--glass-bg-soft)",
                   backdropFilter: "blur(24px)",
                   WebkitBackdropFilter: "blur(24px)",
-                  border: "1px solid rgba(255,255,255,.06)",
+                  border: "1px solid var(--glass-border)",
                 }}
               >
                 {activePipelines.map((p) => (
@@ -315,10 +315,10 @@ export function KanbanBoard() {
               aria-label="Configurações do CRM"
               className="flex items-center justify-center w-8 h-8 rounded-full transition-all hover:brightness-125"
               style={{
-                background: "rgba(10,10,10,.10)",
+                background: "var(--glass-bg-soft)",
                 backdropFilter: "blur(24px)",
                 WebkitBackdropFilter: "blur(24px)",
-                border: "1px solid rgba(255,255,255,.06)",
+                border: "1px solid var(--glass-border)",
                 color: "var(--muted-foreground)",
               }}
             >
@@ -349,11 +349,16 @@ export function KanbanBoard() {
         onDragEnd={handleDragEnd}
         onDragCancel={handleDragCancel}
       >
-        {/* Scroll horizontal — snap por coluna no mobile */}
+        {/* Scroll horizontal — snap por coluna no mobile.
+            scroll-snap-type fica desligado durante o drag: com ele ativo, o
+            snap do CSS briga com o auto-scroll do dnd-kit (que também tenta
+            mover este mesmo container enquanto o card é arrastado perto da
+            borda) — na prática isso travava a rolagem e às vezes fazia ela
+            "pular" pra última coluna assim que o snap vencia a disputa. */}
         <div
           className="flex gap-4 overflow-x-auto px-4 pb-4 sm:px-6"
           style={{
-            scrollSnapType: "x mandatory",
+            scrollSnapType: activeId ? "none" : "x mandatory",
             WebkitOverflowScrolling: "touch",
           }}
         >
@@ -394,7 +399,7 @@ export function KanbanBoard() {
                   user_id:            "",
                   name:               "Sem Etapa",
                   description:        null,
-                  color:              "rgba(255,255,255,0.20)",
+                  color:              "var(--text-empty)",
                   icon:               null,
                   order_index:        9999,
                   is_active:          true,
@@ -403,6 +408,8 @@ export function KanbanBoard() {
                   require_attachment: false,
                   allow_edit:         false,
                   legacy_column:      null,
+                  is_won:             false,
+                  is_lost:            false,
                   created_at:         "",
                   updated_at:         "",
                 }}
@@ -430,7 +437,7 @@ export function KanbanBoard() {
       {/* ── Observação obrigatória dialog ──────────────────────────────────── */}
       {pendingMove && (
         <div
-          className="fixed inset-0 z-[60] flex items-center justify-center p-4"
+          className="fixed inset-0 z-[60] flex items-center justify-center p-4 lc-scrim"
           style={{ background: "rgba(0,0,0,0.60)", backdropFilter: "blur(6px)" }}
         >
           <motion.div
@@ -440,9 +447,9 @@ export function KanbanBoard() {
             transition={{ type: "spring", stiffness: 440, damping: 34 }}
             className="w-full max-w-sm rounded-2xl overflow-hidden"
             style={{
-              background: "rgba(8,8,12,0.96)",
-              border: "1px solid rgba(255,255,255,0.09)",
-              boxShadow: "0 24px 64px rgba(0,0,0,0.65)",
+              background: "var(--bg-modal)",
+              border: "1px solid var(--border-modal)",
+              boxShadow: "0 24px 64px var(--shadow-modal)",
             }}
           >
             <div className="px-5 pt-5 pb-4 flex flex-col gap-3">
@@ -460,8 +467,8 @@ export function KanbanBoard() {
                 rows={3}
                 className="w-full rounded-xl px-3 py-2.5 text-sm outline-none resize-none"
                 style={{
-                  background: "rgba(255,255,255,0.04)",
-                  border: "1px solid rgba(255,255,255,0.10)",
+                  background: "var(--hover)",
+                  border: "1px solid var(--glass-border)",
                   color: "var(--text-title)",
                 }}
                 onKeyDown={(e) => {
@@ -474,7 +481,7 @@ export function KanbanBoard() {
             </div>
             <div
               className="flex justify-end gap-2 px-5 py-4"
-              style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}
+              style={{ borderTop: "1px solid var(--glass-border)" }}
             >
               <button
                 type="button"
@@ -482,9 +489,9 @@ export function KanbanBoard() {
                 disabled={isMoveSubmitting}
                 className="rounded-full px-4 py-1.5 text-xs transition-colors disabled:opacity-40"
                 style={{
-                  background: "rgba(255,255,255,0.05)",
+                  background: "var(--hover)",
                   color: "var(--muted-foreground)",
-                  border: "1px solid rgba(255,255,255,0.08)",
+                  border: "1px solid var(--glass-border)",
                 }}
               >
                 Cancelar
@@ -508,10 +515,12 @@ export function KanbanBoard() {
         isOpen={isModalOpen}
         lead={editingLead}
         stages={stages}
+        pipelines={pipelines}
         onClose={closeModal}
         onCreate={createLead}
         onUpdate={updateLead}
         onDelete={deleteLead}
+        onMove={moveLead}
       />
 
       {/* CRM Settings modal */}

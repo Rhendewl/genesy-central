@@ -1,6 +1,7 @@
 "use client";
 
-import { Input } from "@/components/ui/input";
+import { DatePickerPopover } from "./DatePickerPopover";
+import { TimePickerPopover } from "./TimePickerPopover";
 
 interface DueDatePickerProps {
   date:         string | null;
@@ -12,16 +13,17 @@ interface DueDatePickerProps {
 export function DueDatePicker({ date, time, onChangeDate, onChangeTime }: DueDatePickerProps) {
   return (
     <div className="flex gap-2">
-      <Input
-        type="date"
-        value={date ?? ""}
-        onChange={(e) => onChangeDate(e.target.value || null)}
+      <DatePickerPopover
+        value={date}
+        onChange={(d) => {
+          onChangeDate(d);
+          if (!d) onChangeTime(null);
+        }}
         className="flex-1"
       />
-      <Input
-        type="time"
-        value={time ?? ""}
-        onChange={(e) => onChangeTime(e.target.value || null)}
+      <TimePickerPopover
+        value={time}
+        onChange={onChangeTime}
         disabled={!date}
         className="w-28"
       />

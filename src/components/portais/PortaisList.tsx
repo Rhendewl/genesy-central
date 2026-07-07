@@ -62,7 +62,7 @@ function CopyButton({ slug }: { slug: string }) {
         "w-7 h-7 rounded-lg flex items-center justify-center transition-all",
         copied
           ? "bg-emerald-500/15 text-emerald-400"
-          : "text-white/40 hover:text-white hover:bg-white/[0.07]"
+          : "text-[color-mix(in_srgb,var(--text-title)_40%,transparent)] hover:text-[var(--text-title)] hover:bg-[var(--hover)]"
       )}
     >
       {copied ? <Check size={13} strokeWidth={2.5} /> : <Copy size={13} />}
@@ -104,7 +104,7 @@ function PortalRow({ portal, onEdit, onToggleStatus, onDelete }: PortalRowProps)
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -4 }}
       transition={{ duration: 0.18 }}
-      className="group border-b border-white/[0.05] hover:bg-white/[0.025] transition-colors"
+      className="group border-b border-[color-mix(in_srgb,var(--text-title)_5%,transparent)] hover:bg-[var(--hover)] transition-colors"
     >
       {/* Cliente + Nome */}
       <td className="px-5 py-4">
@@ -116,8 +116,8 @@ function PortalRow({ portal, onEdit, onToggleStatus, onDelete }: PortalRowProps)
             <Globe size={14} style={{ color: "#27a3ff" }} strokeWidth={1.8} />
           </div>
           <div>
-            <p className="text-white font-medium text-sm leading-tight">{portal.name}</p>
-            <p className="text-white/40 text-xs mt-0.5">
+            <p className="text-[var(--text-title)] font-medium text-sm leading-tight">{portal.name}</p>
+            <p className="text-[color-mix(in_srgb,var(--text-title)_40%,transparent)] text-xs mt-0.5">
               {(portal.client as { name?: string } | null | undefined)?.name ?? "Sem cliente"}
             </p>
           </div>
@@ -131,15 +131,15 @@ function PortalRow({ portal, onEdit, onToggleStatus, onDelete }: PortalRowProps)
 
       {/* Contas vinculadas */}
       <td className="px-5 py-4">
-        <div className="flex items-center gap-1.5 text-white/50 text-sm">
-          <Layers size={13} className="text-white/30" />
+        <div className="flex items-center gap-1.5 text-[color-mix(in_srgb,var(--text-title)_50%,transparent)] text-sm">
+          <Layers size={13} className="text-[color-mix(in_srgb,var(--text-title)_30%,transparent)]" />
           <span>{accountCount} conta{accountCount !== 1 ? "s" : ""}</span>
         </div>
       </td>
 
       {/* Última atualização */}
       <td className="px-5 py-4">
-        <div className="flex items-center gap-1.5 text-white/40 text-xs">
+        <div className="flex items-center gap-1.5 text-[color-mix(in_srgb,var(--text-title)_40%,transparent)] text-xs">
           <Clock size={12} />
           <span>{formatRelativeDate(portal.updated_at)}</span>
         </div>
@@ -156,7 +156,7 @@ function PortalRow({ portal, onEdit, onToggleStatus, onDelete }: PortalRowProps)
             target="_blank"
             rel="noopener noreferrer"
             onClick={e => e.stopPropagation()}
-            className="text-white/25 hover:text-[#27a3ff] transition-colors"
+            className="text-[color-mix(in_srgb,var(--text-title)_25%,transparent)] hover:text-[#27a3ff] transition-colors"
             title="Abrir portal"
           >
             <ExternalLink size={12} />
@@ -172,7 +172,7 @@ function PortalRow({ portal, onEdit, onToggleStatus, onDelete }: PortalRowProps)
           <button
             onClick={e => { e.stopPropagation(); onEdit(portal); }}
             title="Editar"
-            className="w-7 h-7 rounded-lg flex items-center justify-center text-white/40 hover:text-white hover:bg-white/[0.07] transition-all"
+            className="w-7 h-7 rounded-lg flex items-center justify-center text-[color-mix(in_srgb,var(--text-title)_40%,transparent)] hover:text-[var(--text-title)] hover:bg-[var(--hover)] transition-all"
           >
             <Pencil size={13} />
           </button>
@@ -181,7 +181,7 @@ function PortalRow({ portal, onEdit, onToggleStatus, onDelete }: PortalRowProps)
             onClick={handleToggle}
             disabled={toggling}
             title={portal.status === "ativo" ? "Pausar" : "Ativar"}
-            className="w-7 h-7 rounded-lg flex items-center justify-center text-white/40 hover:text-white hover:bg-white/[0.07] transition-all disabled:opacity-40"
+            className="w-7 h-7 rounded-lg flex items-center justify-center text-[color-mix(in_srgb,var(--text-title)_40%,transparent)] hover:text-[var(--text-title)] hover:bg-[var(--hover)] transition-all disabled:opacity-40"
           >
             {portal.status === "ativo" ? <Pause size={13} /> : <Play size={13} />}
           </button>
@@ -190,7 +190,7 @@ function PortalRow({ portal, onEdit, onToggleStatus, onDelete }: PortalRowProps)
             onClick={handleDelete}
             disabled={deleting}
             title="Excluir"
-            className="w-7 h-7 rounded-lg flex items-center justify-center text-white/40 hover:text-red-400 hover:bg-red-500/[0.07] transition-all disabled:opacity-40"
+            className="w-7 h-7 rounded-lg flex items-center justify-center text-[color-mix(in_srgb,var(--text-title)_40%,transparent)] hover:text-red-400 hover:bg-red-500/[0.07] transition-all disabled:opacity-40"
           >
             <Trash2 size={13} />
           </button>
@@ -211,8 +211,8 @@ function EmptyState({ onNew }: { onNew: () => void }) {
       >
         <Globe size={28} style={{ color: "rgba(39,163,255,0.6)" }} strokeWidth={1.4} />
       </div>
-      <h3 className="text-white/80 font-semibold text-base mb-2">Nenhum portal criado</h3>
-      <p className="text-white/35 text-sm max-w-xs mb-8">
+      <h3 className="text-[color-mix(in_srgb,var(--text-title)_80%,transparent)] font-semibold text-base mb-2">Nenhum portal criado</h3>
+      <p className="text-[color-mix(in_srgb,var(--text-title)_35%,transparent)] text-sm max-w-xs mb-8">
         Crie dashboards públicos para seus clientes acompanharem resultados das campanhas em tempo real.
       </p>
       <button
@@ -269,14 +269,14 @@ export function PortaisList() {
         <div>
           <div className="flex items-center gap-2.5 mb-1">
             <Globe size={18} style={{ color: "#27a3ff" }} strokeWidth={1.8} />
-            <h2 className="text-white font-semibold text-lg">Portais</h2>
+            <h2 className="text-[var(--text-title)] font-semibold text-lg">Portais</h2>
             {portals.length > 0 && (
               <span className="text-xs text-[#27a3ff]/70 bg-[#27a3ff]/10 px-2 py-0.5 rounded-full font-medium border border-[#27a3ff]/15">
                 {portals.length}
               </span>
             )}
           </div>
-          <p className="text-white/40 text-sm">Dashboards públicos de campanhas para clientes</p>
+          <p className="text-[color-mix(in_srgb,var(--text-title)_40%,transparent)] text-sm">Dashboards públicos de campanhas para clientes</p>
         </div>
         <button
           onClick={openNew}
@@ -297,11 +297,11 @@ export function PortaisList() {
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-white/[0.07]">
+                <tr className="border-b border-[color-mix(in_srgb,var(--text-title)_7%,transparent)]">
                   {["Cliente / Portal", "Status", "Contas", "Atualizado", "Link público", "Ações"].map(col => (
                     <th
                       key={col}
-                      className="px-5 py-3.5 text-left text-xs font-semibold text-white/40 uppercase tracking-wider whitespace-nowrap"
+                      className="px-5 py-3.5 text-left text-xs font-semibold text-[color-mix(in_srgb,var(--text-title)_40%,transparent)] uppercase tracking-wider whitespace-nowrap"
                     >
                       {col}
                     </th>

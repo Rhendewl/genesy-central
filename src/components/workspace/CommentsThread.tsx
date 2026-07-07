@@ -69,7 +69,7 @@ export function CommentsThread({ comments, onAdd, onDelete }: CommentsThreadProp
           onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); submit(); } }}
           placeholder="Escrever um comentário..."
           className="flex-1 rounded-lg px-2.5 py-1.5 text-sm outline-none placeholder:text-[var(--muted-foreground)]"
-          style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "var(--text-title)" }}
+          style={{ background: "var(--input)", border: "1px solid var(--border-color)", color: "var(--text-title)" }}
         />
         <button onClick={submit} disabled={!body.trim()} style={{ color: "var(--primary)" }} className="disabled:opacity-30">
           <Send size={16} />

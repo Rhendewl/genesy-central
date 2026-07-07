@@ -10,13 +10,13 @@ import { AgendaSemanalPanel } from "@/components/agenda/AgendaSemanalPanel";
 
 export default function WorkspaceCalendarioPage() {
   return (
-    <div className="flex min-h-screen flex-col pb-24">
+    <div className="flex flex-col pb-24">
       <Header title="Workspace" subtitle="Sua agenda, sincronizada com o Google Calendar" />
 
       <div className="px-4 sm:px-6">
         <motion.div
           className="lc-card p-5"
-          style={{ background: "rgba(0,0,0,0.31)" }}
+          style={{ background: "var(--glass-bg-soft)" }}
           initial={{ opacity: 0, y: 18 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, ease: "easeOut" }}

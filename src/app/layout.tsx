@@ -33,7 +33,15 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="pt-BR" className="dark" suppressHydrationWarning>
+    <html lang="pt-BR" suppressHydrationWarning>
+      <head>
+        {/* Aplica o tema salvo antes do primeiro paint — evita flash de tema errado */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t=localStorage.getItem("genesy-theme");document.documentElement.className=(t==="light"?"light":"dark");}catch(e){document.documentElement.className="dark";}})();`,
+          }}
+        />
+      </head>
       <body className={`${jakarta.variable} font-sans antialiased`}>
         {/* SVG gradient defs for icon gradient — referenced globally via url(#icon-gradient) */}
         <svg aria-hidden="true" focusable="false" style={{ position: "absolute", width: 0, height: 0, overflow: "hidden" }}>

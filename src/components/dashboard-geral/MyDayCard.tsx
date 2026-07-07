@@ -98,18 +98,18 @@ export function MyDayCard({ tasksHook, leads, height, delay = 0, financeiroEnabl
 
   return (
     <motion.div
-      className="lc-card flex flex-col p-6"
-      style={{ background: "rgba(0,0,0,0.31)", height }}
+      className="lc-card myday-card flex flex-col p-6"
+      style={{ background: "var(--glass-bg-soft)", height }}
       initial={{ opacity: 0, y: 18 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay, ease: "easeOut" }}
     >
       <div className="mb-4 flex flex-shrink-0 items-center gap-3">
         <div className="flex h-9 w-9 items-center justify-center rounded-xl">
-          <Sparkles size={17} style={{ color: "#ffffff" }} />
+          <Sparkles size={17} style={{ color: "var(--text-title)" }} />
         </div>
         <div>
-          <p className="text-[13px] font-semibold leading-tight" style={{ color: "#b4b4b4" }}>Minha atenção hoje</p>
+          <p className="text-[13px] font-semibold leading-tight" style={{ color: "var(--silver)" }}>Minha atenção hoje</p>
           <p className="text-[10px] text-[var(--muted-foreground)] capitalize">
             {format(today, "EEEE, d 'de' MMMM")}
           </p>

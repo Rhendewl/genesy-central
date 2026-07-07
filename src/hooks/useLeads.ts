@@ -154,12 +154,31 @@ export function useLeads(dateFilter?: DateFilter | null) {
     id: string,
     data: UpdateLead
   ): Promise<{ error: string | null }> {
-    const { error: err } = await supabase
-      .from("leads")
-      .update(data)
-      .eq("id", id);
+    // tags passa pelo servidor (não pelo update direto abaixo) — é o único
+    // jeito do Workflow Engine conseguir reagir a "lead recebeu/removeu tag",
+    // já que essa rota publica lead.tag.added/removed no EventBus.
+    const { tags, ...rest } = data;
 
-    if (err) return { error: err.message };
+    if (tags !== undefined) {
+      const res = await fetch(`/api/crm/leads/${id}/tags`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tags }),
+      });
+      if (!res.ok) {
+        const json = await res.json() as { error?: string };
+        return { error: json.error ?? "Erro ao atualizar tags" };
+      }
+    }
+
+    if (Object.keys(rest).length > 0) {
+      const { error: err } = await supabase
+        .from("leads")
+        .update(rest)
+        .eq("id", id);
+      if (err) return { error: err.message };
+    }
+
     return { error: null };
   }
 

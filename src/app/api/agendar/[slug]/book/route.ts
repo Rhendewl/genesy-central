@@ -64,6 +64,12 @@ export async function POST(req: NextRequest, { params }: Params) {
     const startsAt     = new Date(payload.starts_at).toISOString();
     const attribution  = (payload.attribution ?? {}) as Record<string, unknown>;
 
+    // IQ calculado no bloco Calendário do formulário (LeadScoreEngine),
+    // repassado aqui pra também aparecer no lead criado pelo lado da Agenda
+    // — ver CalendarStepField.tsx / BookingCrmSyncService.
+    const sourceIqScoreRaw = payload.custom_form_responses?._source_iq_score;
+    const sourceIqScore    = typeof sourceIqScoreRaw === "number" ? sourceIqScoreRaw : null;
+
     // 1. Google Calendar — awaited so Vercel doesn't kill the process before it completes.
     await new GoogleCalendarSyncService(db).syncBooking({
       bookingId,
@@ -97,6 +103,7 @@ export async function POST(req: NextRequest, { params }: Params) {
       startsAt,
       attribution,
       correlationId: null,
+      iqScore: sourceIqScore,
     });
 
     // 3. Publish booking.created — consumed by Conversion Engine and Push Notification consumer.

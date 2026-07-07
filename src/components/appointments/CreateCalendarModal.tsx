@@ -76,7 +76,7 @@ export function CreateCalendarModal({ onClose, onCreate }: CreateCalendarModalPr
   return (
     <AnimatePresence>
       <motion.div
-        className="fixed inset-0 z-50 flex items-center justify-center p-4"
+        className="fixed inset-0 z-50 flex items-center justify-center p-4 lc-scrim"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
@@ -98,7 +98,7 @@ export function CreateCalendarModal({ onClose, onCreate }: CreateCalendarModalPr
             </h2>
             <button
               onClick={onClose}
-              className="p-1.5 rounded-lg hover:bg-white/10 transition-colors"
+              className="p-1.5 rounded-lg hover:bg-[var(--hover)] transition-colors"
             >
               <X size={16} style={{ color: "var(--muted-foreground)" }} />
             </button>
@@ -118,7 +118,7 @@ export function CreateCalendarModal({ onClose, onCreate }: CreateCalendarModalPr
                 required
                 className="w-full px-3 py-2 rounded-xl text-sm outline-none"
                 style={{
-                  background: "rgba(255,255,255,0.05)",
+                  background: "var(--input)",
                   border:     "1px solid var(--border)",
                   color:      "var(--text-title)",
                 }}
@@ -137,7 +137,7 @@ export function CreateCalendarModal({ onClose, onCreate }: CreateCalendarModalPr
                 rows={2}
                 className="w-full px-3 py-2 rounded-xl text-sm outline-none resize-none"
                 style={{
-                  background: "rgba(255,255,255,0.05)",
+                  background: "var(--input)",
                   border:     "1px solid var(--border)",
                   color:      "var(--text-title)",
                 }}
@@ -155,7 +155,7 @@ export function CreateCalendarModal({ onClose, onCreate }: CreateCalendarModalPr
                   onChange={e => setDurationMinutes(Number(e.target.value))}
                   className="w-full px-3 py-2 rounded-xl text-sm outline-none"
                   style={{
-                    background: "rgba(255,255,255,0.05)",
+                    background: "var(--input)",
                     border:     "1px solid var(--border)",
                     color:      "var(--text-title)",
                   }}
@@ -174,7 +174,7 @@ export function CreateCalendarModal({ onClose, onCreate }: CreateCalendarModalPr
                   onChange={e => setTimezone(e.target.value)}
                   className="w-full px-3 py-2 rounded-xl text-sm outline-none"
                   style={{
-                    background: "rgba(255,255,255,0.05)",
+                    background: "var(--input)",
                     border:     "1px solid var(--border)",
                     color:      "var(--text-title)",
                   }}
@@ -191,7 +191,7 @@ export function CreateCalendarModal({ onClose, onCreate }: CreateCalendarModalPr
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2 rounded-xl text-sm transition-colors hover:bg-white/[0.06]"
+                className="px-4 py-2 rounded-xl text-sm transition-colors hover:bg-[var(--hover)]"
                 style={{ color: "var(--muted-foreground)" }}
               >
                 Cancelar

@@ -12,6 +12,7 @@ import { getPlatformEventBus }   from "@/lib/event-bus/platform";
 import { BookingRepository }     from "./repositories/booking-repository";
 import { CalendarRepository }    from "./repositories/calendar-repository";
 import { AvailabilityRepository } from "./repositories/availability-repository";
+import { GoogleCalendarSyncService } from "@/lib/google-calendar";
 import { validateCreateBooking, firstError } from "./validators";
 import { getAvailableSlots }     from "./scheduling";
 import { localTimeToUTC }        from "./scheduling/timezone-resolver";
@@ -154,6 +155,9 @@ export class BookingService {
         visitorPhone: payload.visitor_phone?.trim() || null,
         startsAt:     startsAt.toISOString(),
         attribution:  (payload.attribution ?? {}) as Record<string, unknown>,
+        // O sync CRM (BookingCrmSyncService) ainda não rodou nesta request —
+        // leadId só existe a partir dos eventos de status seguintes.
+        leadId:       null,
       });
 
       return { ok: true, data: result, error: null };
@@ -197,6 +201,8 @@ export class BookingService {
       const PUBLISHABLE_STATUS_EVENTS: Partial<Record<BookingStatus, DomainEventType>> = {
         confirmed: "booking.confirmed",
         completed: "booking.completed",
+        cancelled: "booking.cancelled",
+        no_show:   "booking.no_show",
       };
 
       const eventType = PUBLISHABLE_STATUS_EVENTS[newStatus];
@@ -210,12 +216,44 @@ export class BookingService {
           visitorPhone: current.visitor_phone,
           startsAt:     current.starts_at,
           attribution:  current.attribution as Record<string, unknown>,
+          // Por essa altura (confirmação/conclusão/cancelamento, minutos a
+          // dias depois da criação), o sync CRM já rodou e populou lead_id —
+          // habilita os gatilhos "lead compareceu"/"lead faltou" do Workflow Engine.
+          leadId:       current.lead_id,
         });
       }
 
       return { ok: true, data: booking, error: null };
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Erro ao atualizar status";
+      return { ok: false, data: null, error: msg, errorCode: "SERVER_ERROR" };
+    }
+  }
+
+  // ── Exclusão permanente ────────────────────────────────────────────────────
+  //
+  // Único lugar que sabe fazer isso — usado tanto pelo DELETE de um agendamento
+  // quanto pelo bulk-delete (loop chamando isto pra cada id), sem duplicar a
+  // lógica de limpeza do Google Calendar em dois lugares.
+  async deleteBooking(id: string, userId: string): Promise<ServiceResult<null>> {
+    try {
+      const current = await this.bookings.getById(id, userId);
+      if (!current) {
+        return { ok: false, data: null, error: "Agendamento não encontrado", errorCode: "SERVER_ERROR" };
+      }
+
+      // Best-effort: remove o evento do Google Calendar, se sincronizado —
+      // nunca bloqueia a exclusão do agendamento em si.
+      if (current.google_event_id && current.google_calendar_id) {
+        await new GoogleCalendarSyncService(this.db).deleteBookingEvent(
+          userId, current.google_calendar_id, current.google_event_id,
+        );
+      }
+
+      await this.bookings.deleteBooking(id, userId);
+      return { ok: true, data: null, error: null };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Erro ao excluir agendamento";
       return { ok: false, data: null, error: msg, errorCode: "SERVER_ERROR" };
     }
   }

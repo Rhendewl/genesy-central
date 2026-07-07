@@ -66,7 +66,7 @@ const LOG_META: Record<string, { label: string; icon: React.ElementType; color: 
   password_changed:    { label: "Senha alterada",          icon: Key,           color: "#a78bfa" },
   sessions_terminated: { label: "Sessões encerradas",      icon: LogOut,        color: "#f87171" },
   login:               { label: "Login realizado",          icon: CheckCircle2,  color: "#34d399" },
-  logout:              { label: "Logout",                   icon: LogOut,        color: "rgba(255,255,255,0.4)" },
+  logout:              { label: "Logout",                   icon: LogOut,        color: "color-mix(in srgb, var(--text-title) 40%, transparent)" },
   failed_login:        { label: "Tentativa de acesso",     icon: AlertTriangle, color: "#fb923c" },
   "2fa_enabled":       { label: "2FA ativado",             icon: ShieldCheck,   color: "#34d399" },
   "2fa_disabled":      { label: "2FA desativado",          icon: ShieldAlert,   color: "#f87171" },
@@ -74,7 +74,7 @@ const LOG_META: Record<string, { label: string; icon: React.ElementType; color: 
 };
 
 function getLogMeta(action: string) {
-  return LOG_META[action] ?? { label: action, icon: Activity, color: "rgba(255,255,255,0.4)" };
+  return LOG_META[action] ?? { label: action, icon: Activity, color: "color-mix(in srgb, var(--text-title) 40%, transparent)" };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -82,18 +82,20 @@ function getLogMeta(action: string) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 const sectionStyle = {
-  background: "rgba(255,255,255,0.02)",
-  border:     "1px solid rgba(255,255,255,0.06)",
+  background: "var(--hover)",
+  border: "1px solid var(--border)",
+  backdropFilter: "blur(20px) saturate(160%)",
+  WebkitBackdropFilter: "blur(20px) saturate(160%)",
 };
 
 const inputBase = {
-  background: "rgba(255,255,255,0.09)",
-  border:     "1px solid rgba(255,255,255,0.08)",
-  color:      "#ffffff",
+  background: "var(--hover)",
+  border: "1px solid var(--border)",
+  color:      "var(--text-title)",
 };
 
-const focusStyle  = { borderColor: "rgba(167,139,250,0.45)", background: "rgba(255,255,255,0.07)" };
-const blurStyle   = { borderColor: "rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.09)" };
+const focusStyle  = { borderColor: "rgba(167,139,250,0.45)", background: "var(--hover)" };
+const blurStyle   = { borderColor: "var(--glass-border)", background: "var(--hover)" };
 
 // ─────────────────────────────────────────────────────────────────────────────
 // StatCard
@@ -116,8 +118,8 @@ function StatCard({
         <Icon size={17} style={{ color: accent }} strokeWidth={1.75} />
       </div>
       <div className="min-w-0">
-        <p className="truncate text-[13px] font-semibold leading-none" style={{ color: "#ffffff" }}>{value}</p>
-        <p className="mt-1 text-[11px]" style={{ color: "rgba(255,255,255,0.38)" }}>{label}</p>
+        <p className="truncate text-[13px] font-semibold leading-none" style={{ color: "var(--text-title)" }}>{value}</p>
+        <p className="mt-1 text-[11px]" style={{ color: "color-mix(in srgb, var(--text-title) 38%, transparent)" }}>{label}</p>
       </div>
     </motion.div>
   );
@@ -133,10 +135,10 @@ function SectionHeader({
   icon: React.ElementType; title: string; accent: string; action?: React.ReactNode;
 }) {
   return (
-    <div className="flex items-center justify-between gap-3 px-5 py-4" style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+    <div className="flex items-center justify-between gap-3 px-5 py-4" style={{ borderBottom: "1px solid var(--border)" }}>
       <div className="flex items-center gap-2.5">
         <Icon size={15} style={{ color: accent }} strokeWidth={1.75} />
-        <span className="text-[13px] font-semibold" style={{ color: "#ffffff" }}>{title}</span>
+        <span className="text-[13px] font-semibold" style={{ color: "var(--text-title)" }}>{title}</span>
       </div>
       {action}
     </div>
@@ -166,7 +168,7 @@ function PasswordInput({
   return (
     <div className="space-y-1.5">
       {label && (
-        <label className="text-[11px] font-medium uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.38)" }}>
+        <label className="text-[11px] font-medium uppercase tracking-widest" style={{ color: "color-mix(in srgb, var(--text-title) 38%, transparent)" }}>
           {label}
         </label>
       )}
@@ -185,9 +187,9 @@ function PasswordInput({
           type="button"
           onClick={() => setShow(v => !v)}
           className="absolute right-3 top-1/2 -translate-y-1/2 transition-colors"
-          style={{ color: "rgba(255,255,255,0.3)" }}
-          onMouseEnter={e => (e.currentTarget.style.color = "rgba(255,255,255,0.7)")}
-          onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,255,255,0.3)")}
+          style={{ color: "color-mix(in srgb, var(--text-title) 30%, transparent)" }}
+          onMouseEnter={e => (e.currentTarget.style.color = "color-mix(in srgb, var(--text-title) 70%, transparent)")}
+          onMouseLeave={e => (e.currentTarget.style.color = "color-mix(in srgb, var(--text-title) 30%, transparent)")}
         >
           {show ? <EyeOff size={14} /> : <Eye size={14} />}
         </button>
@@ -200,7 +202,7 @@ function PasswordInput({
               <div
                 key={b}
                 className="h-1 flex-1 rounded-full transition-all duration-300"
-                style={{ background: b <= strength.score ? strength.color : "rgba(255,255,255,0.08)" }}
+                style={{ background: b <= strength.score ? strength.color : "var(--border)" }}
               />
             ))}
           </div>
@@ -222,10 +224,10 @@ function Toggle({
   onChange: (v: boolean) => void; disabled?: boolean;
 }) {
   return (
-    <div className="flex items-center justify-between gap-4 py-3.5" style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+    <div className="flex items-center justify-between gap-4 py-3.5" style={{ borderBottom: "1px solid var(--border)" }}>
       <div>
-        <p className="text-[13px] font-medium" style={{ color: disabled ? "rgba(255,255,255,0.4)" : "rgba(255,255,255,0.85)" }}>{label}</p>
-        <p className="mt-0.5 text-[11px]" style={{ color: "rgba(255,255,255,0.32)" }}>{description}</p>
+        <p className="text-[13px] font-medium" style={{ color: disabled ? "var(--icon)" : "var(--text-title)" }}>{label}</p>
+        <p className="mt-0.5 text-[11px]" style={{ color: "color-mix(in srgb, var(--text-title) 32%, transparent)" }}>{description}</p>
       </div>
       <button
         type="button"
@@ -234,7 +236,7 @@ function Toggle({
         disabled={disabled}
         onClick={() => onChange(!checked)}
         className="relative h-5 w-9 shrink-0 rounded-full transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed"
-        style={{ background: checked ? "#a78bfa" : "rgba(255,255,255,0.12)" }}
+        style={{ background: checked ? "#a78bfa" : "var(--border)" }}
       >
         <span
           className="absolute top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-transform duration-200"
@@ -260,17 +262,17 @@ function SessionRow({
   return (
     <div
       className="flex items-center gap-4 px-5 py-4 transition-colors"
-      style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}
-      onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.02)")}
+      style={{ borderBottom: "1px solid var(--border)" }}
+      onMouseEnter={e => (e.currentTarget.style.background = "var(--hover)")}
       onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
     >
-      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl" style={{ background: "rgba(255,255,255,0.09)" }}>
-        <DeviceIcon size={16} style={{ color: "rgba(255,255,255,0.5)" }} strokeWidth={1.5} />
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl" style={{ background: "var(--hover)" }}>
+        <DeviceIcon size={16} style={{ color: "color-mix(in srgb, var(--text-title) 50%, transparent)" }} strokeWidth={1.5} />
       </div>
 
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
-          <p className="text-[13px] font-medium" style={{ color: "#ffffff" }}>
+          <p className="text-[13px] font-medium" style={{ color: "var(--text-title)" }}>
             {session.device} · {session.browser}
           </p>
           {session.is_current && (
@@ -279,7 +281,7 @@ function SessionRow({
             </span>
           )}
         </div>
-        <div className="mt-0.5 flex items-center gap-3 text-[11px]" style={{ color: "rgba(255,255,255,0.35)" }}>
+        <div className="mt-0.5 flex items-center gap-3 text-[11px]" style={{ color: "color-mix(in srgb, var(--text-title) 35%, transparent)" }}>
           <span className="flex items-center gap-1"><Globe size={10} />{session.location}</span>
           <span className="flex items-center gap-1"><Clock size={10} />{fmtDate(session.last_seen)}</span>
         </div>
@@ -310,10 +312,10 @@ function Skeleton({ rows = 3 }: { rows?: number }) {
     <div className="space-y-3 p-5">
       {[...Array(rows)].map((_, i) => (
         <div key={i} className="flex animate-pulse items-center gap-4">
-          <div className="h-9 w-9 rounded-xl" style={{ background: "rgba(255,255,255,0.06)" }} />
+          <div className="h-9 w-9 rounded-xl" style={{ background: "var(--hover)" }} />
           <div className="flex-1 space-y-1.5">
-            <div className="h-3 w-40 rounded" style={{ background: "rgba(255,255,255,0.06)" }} />
-            <div className="h-2.5 w-56 rounded" style={{ background: "rgba(255,255,255,0.08)" }} />
+            <div className="h-3 w-40 rounded" style={{ background: "var(--hover)" }} />
+            <div className="h-2.5 w-56 rounded" style={{ background: "var(--hover)" }} />
           </div>
         </div>
       ))}
@@ -404,17 +406,17 @@ export default function SegurancaPage() {
         <Link
           href="/configuracoes"
           className="inline-flex items-center gap-1.5 text-[12px] transition-colors"
-          style={{ color: "rgba(255,255,255,0.35)" }}
-          onMouseEnter={e => (e.currentTarget.style.color = "rgba(255,255,255,0.7)")}
-          onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,255,255,0.35)")}
+          style={{ color: "color-mix(in srgb, var(--text-title) 35%, transparent)" }}
+          onMouseEnter={e => (e.currentTarget.style.color = "color-mix(in srgb, var(--text-title) 70%, transparent)")}
+          onMouseLeave={e => (e.currentTarget.style.color = "color-mix(in srgb, var(--text-title) 35%, transparent)")}
         >
           <ArrowLeft size={13} />
           Configurações
         </Link>
-        <h1 className="text-xl font-bold sm:text-2xl" style={{ color: "#ffffff", letterSpacing: "-0.02em" }}>
+        <h1 className="text-xl font-bold sm:text-2xl" style={{ color: "var(--text-title)", letterSpacing: "-0.02em" }}>
           Segurança
         </h1>
-        <p className="text-[13px]" style={{ color: "rgba(255,255,255,0.38)" }}>
+        <p className="text-[13px]" style={{ color: "color-mix(in srgb, var(--text-title) 38%, transparent)" }}>
           Proteção de acesso, sessões e controles da plataforma
         </p>
       </motion.div>
@@ -470,7 +472,7 @@ export default function SegurancaPage() {
 
           {/* Confirmar senha — campo simples sem double-label */}
           <div className="space-y-1.5">
-            <label className="text-[11px] font-medium uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.38)" }}>
+            <label className="text-[11px] font-medium uppercase tracking-widest" style={{ color: "color-mix(in srgb, var(--text-title) 38%, transparent)" }}>
               Confirmar nova senha
             </label>
             <div className="relative">
@@ -482,7 +484,7 @@ export default function SegurancaPage() {
                 className="h-10 w-full rounded-xl pl-3.5 pr-10 text-[14px] outline-none transition-all"
                 style={{
                   ...inputBase,
-                  borderColor: pwMismatch ? "rgba(248,113,113,0.5)" : pwMatch ? "rgba(52,211,153,0.4)" : "rgba(255,255,255,0.08)",
+                  borderColor: pwMismatch ? "rgba(248,113,113,0.5)" : pwMatch ? "rgba(52,211,153,0.4)" : "var(--glass-border)",
                 }}
                 onFocus={e => { if (!pwMismatch && !pwMatch) Object.assign(e.currentTarget.style, focusStyle); }}
                 onBlur={e  => { if (!pwMismatch && !pwMatch) Object.assign(e.currentTarget.style, blurStyle); }}
@@ -491,9 +493,9 @@ export default function SegurancaPage() {
                 type="button"
                 onClick={() => setShowConfirm(v => !v)}
                 className="absolute right-3 top-1/2 -translate-y-1/2 transition-colors"
-                style={{ color: "rgba(255,255,255,0.3)" }}
-                onMouseEnter={e => (e.currentTarget.style.color = "rgba(255,255,255,0.7)")}
-                onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,255,255,0.3)")}
+                style={{ color: "color-mix(in srgb, var(--text-title) 30%, transparent)" }}
+                onMouseEnter={e => (e.currentTarget.style.color = "color-mix(in srgb, var(--text-title) 70%, transparent)")}
+                onMouseLeave={e => (e.currentTarget.style.color = "color-mix(in srgb, var(--text-title) 30%, transparent)")}
               >
                 {showConfirm ? <EyeOff size={14} /> : <Eye size={14} />}
               </button>
@@ -558,13 +560,13 @@ export default function SegurancaPage() {
         ) : currentSession ? (
           <SessionRow session={currentSession} />
         ) : (
-          <p className="px-5 py-4 text-[13px]" style={{ color: "rgba(255,255,255,0.3)" }}>
+          <p className="px-5 py-4 text-[13px]" style={{ color: "color-mix(in srgb, var(--text-title) 30%, transparent)" }}>
             Nenhuma sessão ativa encontrada.
           </p>
         )}
 
-        <div className="px-5 py-3" style={{ borderTop: "1px solid rgba(255,255,255,0.04)" }}>
-          <p className="text-[11px]" style={{ color: "rgba(255,255,255,0.22)" }}>
+        <div className="px-5 py-3" style={{ borderTop: "1px solid var(--border)" }}>
+          <p className="text-[11px]" style={{ color: "color-mix(in srgb, var(--text-title) 22%, transparent)" }}>
             Ao encerrar outras sessões, todos os dispositivos (exceto este) serão desconectados imediatamente.
           </p>
         </div>
@@ -583,12 +585,12 @@ export default function SegurancaPage() {
         <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
-              <span className="text-[13px] font-medium" style={{ color: "#ffffff" }}>Status:</span>
+              <span className="text-[13px] font-medium" style={{ color: "var(--text-title)" }}>Status:</span>
               <span className="rounded-full px-2.5 py-0.5 text-[11px] font-semibold" style={{ background: "rgba(248,113,113,0.12)", color: "#f87171" }}>
                 Não ativado
               </span>
             </div>
-            <p className="text-[12px]" style={{ color: "rgba(255,255,255,0.38)" }}>
+            <p className="text-[12px]" style={{ color: "color-mix(in srgb, var(--text-title) 38%, transparent)" }}>
               Adicione uma camada extra com autenticador TOTP (Google Authenticator, Authy).
             </p>
           </div>
@@ -624,7 +626,7 @@ export default function SegurancaPage() {
           accent="#facc15"
           action={
             savingPrefs
-              ? <RefreshCw size={13} className="animate-spin" style={{ color: "rgba(255,255,255,0.3)" }} />
+              ? <RefreshCw size={13} className="animate-spin" style={{ color: "color-mix(in srgb, var(--text-title) 30%, transparent)" }} />
               : undefined
           }
         />
@@ -683,8 +685,8 @@ export default function SegurancaPage() {
           <Skeleton rows={4} />
         ) : logs.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-2 py-10">
-            <Shield size={28} style={{ color: "rgba(255,255,255,0.1)" }} />
-            <p className="text-[13px]" style={{ color: "rgba(255,255,255,0.3)" }}>
+            <Shield size={28} style={{ color: "color-mix(in srgb, var(--text-title) 10%, transparent)" }} />
+            <p className="text-[13px]" style={{ color: "color-mix(in srgb, var(--text-title) 30%, transparent)" }}>
               Nenhum evento registrado ainda
             </p>
           </div>
@@ -702,8 +704,8 @@ export default function SegurancaPage() {
                   animate={{ opacity: 1 }}
                   transition={{ delay: i * 0.02 }}
                   className="flex items-center gap-4 px-5 py-3.5 transition-colors"
-                  style={{ borderBottom: i < logs.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none" }}
-                  onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.02)")}
+                  style={{ borderBottom: i < logs.length - 1 ? "1px solid var(--border)" : "none" }}
+                  onMouseEnter={e => (e.currentTarget.style.background = "var(--hover)")}
                   onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
                 >
                   <div
@@ -714,17 +716,17 @@ export default function SegurancaPage() {
                   </div>
 
                   <div className="flex-1 min-w-0">
-                    <p className="text-[13px] font-medium" style={{ color: "rgba(255,255,255,0.85)" }}>
+                    <p className="text-[13px] font-medium" style={{ color: "color-mix(in srgb, var(--text-title) 85%, transparent)" }}>
                       {meta.label}
                     </p>
                     {detail && (
-                      <p className="truncate text-[11px]" style={{ color: "rgba(255,255,255,0.32)" }}>
+                      <p className="truncate text-[11px]" style={{ color: "color-mix(in srgb, var(--text-title) 32%, transparent)" }}>
                         {detail}
                       </p>
                     )}
                   </div>
 
-                  <span className="shrink-0 text-[11px]" style={{ color: "rgba(255,255,255,0.28)" }}>
+                  <span className="shrink-0 text-[11px]" style={{ color: "color-mix(in srgb, var(--text-title) 28%, transparent)" }}>
                     {fmtDate(log.created_at)}
                   </span>
                 </motion.div>

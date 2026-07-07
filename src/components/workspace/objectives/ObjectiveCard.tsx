@@ -52,19 +52,19 @@ export function ObjectiveCard({ objective, onClick, onToggleStep }: ObjectiveCar
       </div>
 
       {steps.length > 0 && (
-        <div className="mb-3 flex flex-col gap-1 rounded-xl p-2" style={{ background: "rgba(255,255,255,0.02)" }}>
+        <div className="mb-3 flex flex-col gap-1 rounded-xl p-2" style={{ background: "var(--hover)" }}>
           {visibleSteps.map((step) => (
             <button
               key={step.id}
               onClick={(e) => { e.stopPropagation(); onToggleStep(step.id, !step.is_completed); }}
-              className="flex items-center gap-2 rounded-lg px-1 py-0.5 text-left transition-colors hover:bg-white/[0.04]"
+              className="flex items-center gap-2 rounded-lg px-1 py-0.5 text-left transition-colors hover:bg-[var(--hover)]"
             >
               <span
                 className="flex flex-shrink-0 items-center justify-center rounded-full border transition-colors"
                 style={{
                   width:       "14px",
                   height:      "14px",
-                  borderColor: step.is_completed ? "#5fd98a" : "rgba(255,255,255,0.25)",
+                  borderColor: step.is_completed ? "#5fd98a" : "var(--border)",
                   background:  step.is_completed ? "#5fd98a" : "transparent",
                 }}
               >

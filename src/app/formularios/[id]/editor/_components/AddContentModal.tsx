@@ -50,7 +50,7 @@ export function AddContentModal({ open, onClose, onAdd }: AddContentModalProps) 
               </div>
               <button
                 onClick={onClose}
-                className="p-1.5 rounded-lg hover:bg-white/5 transition-colors"
+                className="p-1.5 rounded-lg hover:bg-[var(--hover)] transition-colors"
                 aria-label="Fechar"
               >
                 <X size={14} style={{ color: "var(--muted-foreground)" }} />
@@ -75,8 +75,8 @@ export function AddContentModal({ open, onClose, onAdd }: AddContentModalProps) 
                         <button
                           key={block.type}
                           onClick={() => onAdd(block.type)}
-                          className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-left transition-all hover:bg-white/5 active:scale-95"
-                          style={{ border: "1px solid rgba(255,255,255,0.07)" }}
+                          className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-left transition-all hover:bg-[var(--hover)] active:scale-95"
+                          style={{ border: "1px solid var(--glass-border)" }}
                         >
                           <div
                             className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"

@@ -39,7 +39,7 @@ function ProgressBar({ value, goal, delay = 0 }: { value: number; goal: number; 
           {pct >= 100 ? "Meta atingida!" : `Faltam ${goal - value > 0 ? fmtNum(Math.ceil(goal - value)) : 0}`}
         </span>
       </div>
-      <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.08)" }}>
+      <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "var(--hover)" }}>
         <motion.div
           initial={{ width: 0 }}
           animate={{ width: `${pct}%` }}
@@ -92,8 +92,8 @@ function GoalModal({ goal, clients, onSave, onClose, year, month }: GoalModalPro
   };
 
   const inputClass = "w-full rounded-lg px-3 py-2 text-sm text-[#d0e8ff] outline-none placeholder-[#3d5a70]";
-  const inputStyle = { background: "rgba(255,255,255,0.09)", border: "1px solid rgba(42,82,128,0.4)" };
-  const labelClass = "block text-xs font-medium text-[#b4b4b4] mb-1";
+  const inputStyle = { background: "var(--hover)", border: "1px solid rgba(42,82,128,0.4)" };
+  const labelClass = "block text-xs font-medium text-[var(--silver)] mb-1";
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -188,8 +188,8 @@ function GoalModal({ goal, clients, onSave, onClose, year, month }: GoalModalPro
           <div className="flex gap-3 pt-1">
             <button
               type="button" onClick={onClose}
-              className="flex-1 py-2 rounded-xl text-sm font-medium text-[#b4b4b4] transition-colors"
-              style={{ background: "rgba(255,255,255,0.09)", border: "none" }}
+              className="flex-1 py-2 rounded-xl text-sm font-medium text-[var(--silver)] transition-colors"
+              style={{ background: "var(--hover)", border: "none" }}
             >
               Cancelar
             </button>
@@ -274,7 +274,7 @@ function GoalCard({ goal, clientName, actual, onEdit, onDelete, delay = 0 }: Goa
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-center gap-3">
           <div
-            className="w-9 h-9 rounded-xl flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
+            className="w-9 h-9 rounded-xl flex items-center justify-center text-xs font-bold text-[var(--text-title)] flex-shrink-0"
             style={{ background: "linear-gradient(135deg, #1a3a5c, #2a5280)" }}
           >
             {clientName.slice(0, 2).toUpperCase()}
@@ -292,7 +292,7 @@ function GoalCard({ goal, clientName, actual, onEdit, onDelete, delay = 0 }: Goa
           <button
             onClick={onEdit}
             className="p-1.5 rounded-lg text-[#4a8fd4] transition-colors"
-            style={{ background: "rgba(255,255,255,0.09)" }}
+            style={{ background: "var(--hover)" }}
           >
             <Edit3 size={13} />
           </button>
@@ -337,7 +337,7 @@ function GoalCard({ goal, clientName, actual, onEdit, onDelete, delay = 0 }: Goa
               <span className="flex items-center gap-1" style={{ color: r.accent }}>
                 {r.icon} {r.label}
               </span>
-              <span className="text-[#b4b4b4]">
+              <span className="text-[var(--silver)]">
                 {r.fmtVal(r.value)} / {r.fmtGoal(r.goal)}
               </span>
             </div>
@@ -352,7 +352,7 @@ function GoalCard({ goal, clientName, actual, onEdit, onDelete, delay = 0 }: Goa
           <span className="flex items-center gap-1 text-[#a78bfa]">
             <BarChart2 size={12} /> ROAS Alvo
           </span>
-          <span className="text-[#b4b4b4]">{goal.target_roas.toFixed(1)}x</span>
+          <span className="text-[var(--silver)]">{goal.target_roas.toFixed(1)}x</span>
         </div>
       )}
     </motion.div>
@@ -421,7 +421,7 @@ export function MetasTrafego({ year, month }: MetasTrafegoProps) {
             <h2 className="text-base font-semibold text-[#d0e8ff]">Metas de Tráfego</h2>
             <span
               className="text-xs font-medium px-2 py-0.5 rounded-full"
-              style={{ background: "rgba(255,255,255,0.06)", color: "#4a8fd4" }}
+              style={{ background: "var(--hover)", color: "#4a8fd4" }}
             >
               {goals.length} definida{goals.length !== 1 ? "s" : ""}
             </span>
@@ -436,7 +436,7 @@ export function MetasTrafego({ year, month }: MetasTrafegoProps) {
           <div className="flex flex-col items-center justify-center py-20 gap-4">
             <div
               className="w-16 h-16 rounded-2xl flex items-center justify-center"
-              style={{ background: "rgba(255,255,255,0.09)", border: "none" }}
+              style={{ background: "var(--hover)", border: "none" }}
             >
               <Target size={28} className="text-[#4a8fd4]" />
             </div>
@@ -495,14 +495,14 @@ export function MetasTrafego({ year, month }: MetasTrafegoProps) {
               <div className="flex gap-3">
                 <button
                   onClick={() => setConfirmDelete(null)}
-                  className="flex-1 py-2 rounded-xl text-sm text-[#b4b4b4]"
-                  style={{ background: "rgba(255,255,255,0.09)", border: "none" }}
+                  className="flex-1 py-2 rounded-xl text-sm text-[var(--silver)]"
+                  style={{ background: "var(--hover)", border: "none" }}
                 >
                   Cancelar
                 </button>
                 <button
                   onClick={() => handleDelete(confirmDelete)}
-                  className="flex-1 py-2 rounded-xl text-sm font-semibold text-white"
+                  className="flex-1 py-2 rounded-xl text-sm font-semibold text-[var(--text-title)]"
                   style={{ background: "linear-gradient(135deg, #7f1d1d, #b91c1c)" }}
                 >
                   Excluir

@@ -37,7 +37,7 @@ export default function WorkspaceNotificationSettingsPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col pb-24">
+    <div className="flex flex-col pb-24">
       <Header title="Notificações de Tarefas" subtitle="Escolha como você quer ser avisado" />
 
       {isLoading || !preferences ? (
@@ -46,11 +46,11 @@ export default function WorkspaceNotificationSettingsPage() {
         </div>
       ) : (
         <div className="flex flex-col gap-4 px-4 sm:px-6">
-          <div className="lc-card p-6" style={{ background: "rgba(0,0,0,0.31)" }}>
+          <div className="lc-card p-6" style={{ background: "var(--glass-bg-soft)" }}>
             <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide" style={{ color: "var(--muted-foreground)" }}>
               Atividade da tarefa
             </p>
-            <div className="flex flex-col divide-y" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
+            <div className="flex flex-col divide-y" style={{ borderColor: "var(--border)" }}>
               <PreferenceRow
                 label="Atribuição"
                 description="Quando uma tarefa for atribuída para mim"
@@ -72,7 +72,7 @@ export default function WorkspaceNotificationSettingsPage() {
             </div>
           </div>
 
-          <div className="lc-card p-6" style={{ background: "rgba(0,0,0,0.31)" }}>
+          <div className="lc-card p-6" style={{ background: "var(--glass-bg-soft)" }}>
             <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide" style={{ color: "var(--muted-foreground)" }}>
               Lembretes de prazo
             </p>
@@ -84,7 +84,7 @@ export default function WorkspaceNotificationSettingsPage() {
             />
 
             {preferences.notify_deadline_reminder && (
-              <div className="mt-1 flex flex-col gap-4 border-t pt-4" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
+              <div className="mt-1 flex flex-col gap-4 border-t pt-4" style={{ borderColor: "var(--border)" }}>
                 <div>
                   <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide" style={{ color: "var(--muted-foreground)" }}>
                     Horário do lembrete
@@ -111,9 +111,9 @@ export default function WorkspaceNotificationSettingsPage() {
                           onClick={() => toggleAdvanceDay(opt.value)}
                           className="rounded-full px-2.5 py-1 text-[11px] font-medium transition-all"
                           style={{
-                            background: active ? "rgba(176,184,193,0.24)" : "rgba(255,255,255,0.04)",
+                            background: active ? "rgba(176,184,193,0.24)" : "var(--hover)",
                             color:      active ? "#b0b8c1" : "var(--muted-foreground)",
-                            border:     `1px solid ${active ? "rgba(176,184,193,0.5)" : "rgba(255,255,255,0.08)"}`,
+                            border:     `1px solid ${active ? "rgba(176,184,193,0.5)" : "var(--glass-border)"}`,
                           }}
                         >
                           {opt.label}

@@ -10,6 +10,7 @@ interface UpdateMyProfileBody {
   full_name?:  string;
   job_title?:  string | null;
   avatar_url?: string | null;
+  theme?:      "dark" | "light";
 }
 
 export async function PATCH(req: NextRequest) {
@@ -24,6 +25,7 @@ export async function PATCH(req: NextRequest) {
   if (typeof body.full_name === "string" && body.full_name.trim()) update.full_name = body.full_name.trim();
   if (body.job_title !== undefined)  update.job_title  = body.job_title;
   if (body.avatar_url !== undefined) update.avatar_url = body.avatar_url;
+  if (body.theme === "dark" || body.theme === "light") update.theme = body.theme;
 
   if (Object.keys(update).length === 0) {
     return NextResponse.json({ error: "Nada para atualizar" }, { status: 400 });
@@ -33,7 +35,7 @@ export async function PATCH(req: NextRequest) {
     .from("user_profiles")
     .update(update)
     .eq("auth_user_id", user.id)
-    .select("id, owner_id, auth_user_id, full_name, email, role, job_title, is_active, avatar_url, permissions")
+    .select("id, owner_id, auth_user_id, full_name, email, role, job_title, is_active, avatar_url, permissions, theme")
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

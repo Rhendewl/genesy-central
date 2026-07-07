@@ -3,17 +3,20 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useModalOpen } from "@/hooks/useModalOpen";
 import { AnimatePresence, motion } from "framer-motion";
-import { X, Loader2, Trash2, Tag as TagIcon } from "lucide-react";
+import { X, Loader2, Trash2, Tag as TagIcon, RefreshCw } from "lucide-react";
+import { toast } from "sonner";
 import { format } from "date-fns";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { MoneyInput } from "@/components/ui/MoneyInput";
+import { ProgressBar } from "@/components/workspace/ProgressBar";
 import { useTags } from "@/hooks/useTags";
 import { useUsers } from "@/hooks/useUsers";
 import type { KanbanColumn, Lead, NewLead, UpdateLead } from "@/types";
 import { KANBAN_COLUMNS } from "@/types";
-import type { CrmStage } from "@/types/crm";
+import type { CrmStage, CrmPipelineWithStages } from "@/types/crm";
+import { LeadScoreEngine } from "@/lib/crm/lead-score-engine";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Utilitários
@@ -44,10 +47,12 @@ interface LeadModalProps {
   isOpen: boolean;
   lead: Lead | null;
   stages: CrmStage[];   // active stages of the currently selected pipeline
+  pipelines: CrmPipelineWithStages[]; // todas as pipelines — usado só pra "Transferir para outra pipeline"
   onClose: () => void;
   onCreate: (data: NewLead) => Promise<{ error: string | null }>;
   onUpdate: (id: string, data: UpdateLead) => Promise<{ error: string | null }>;
   onDelete: (id: string) => Promise<{ error: string | null }>;
+  onMove: (leadId: string, targetStageId: string, note?: string) => Promise<{ ok: boolean; requireNote: boolean; error: string | null }>;
 }
 
 const TODAY = format(new Date(), "yyyy-MM-dd");
@@ -68,10 +73,12 @@ export function LeadModal({
   isOpen,
   lead,
   stages,
+  pipelines,
   onClose,
   onCreate,
   onUpdate,
   onDelete,
+  onMove,
 }: LeadModalProps) {
   const { tags } = useTags();
   const { profiles } = useUsers();
@@ -84,6 +91,16 @@ export function LeadModal({
   const [isDeleting, setIsDeleting]       = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [error, setError]                 = useState<string | null>(null);
+  const [isRecalculating, setIsRecalculating] = useState(false);
+  // Override otimista: reflete o novo IQ na hora, sem esperar o realtime
+  // (que também vai atualizar `lead.iq_score` em breve).
+  const [recalculatedIq, setRecalculatedIq] = useState<number | null | undefined>(undefined);
+
+  // ── Transferir para outra pipeline ──────────────────────────────────────────
+  const [transferPipelineId, setTransferPipelineId] = useState("");
+  const [transferNote,       setTransferNote]       = useState("");
+  const [transferNeedsNote,  setTransferNeedsNote]  = useState(false);
+  const [isTransferring,     setIsTransferring]     = useState(false);
 
   useModalOpen(isOpen);
   const isEditing = lead !== null;
@@ -94,6 +111,10 @@ export function LeadModal({
     if (isOpen) {
       setError(null);
       setConfirmDelete(false);
+      setRecalculatedIq(undefined);
+      setTransferPipelineId("");
+      setTransferNote("");
+      setTransferNeedsNote(false);
       if (lead) {
         setForm({
           name:        lead.name,
@@ -137,6 +158,50 @@ export function LeadModal({
     return KANBAN_COLUMNS.find((c) => c.id === lead.kanban_column)?.label ?? lead.kanban_column;
   }, [lead, stages]);
 
+  // Pipelines elegíveis como destino: ativas e diferentes da atual do lead.
+  const transferablePipelines = useMemo(
+    () => pipelines.filter((p) => p.is_active && p.id !== lead?.pipeline_id),
+    [pipelines, lead],
+  );
+
+  // ── Transferir para outra pipeline ──────────────────────────────────────────
+  // O lead vai sempre para a primeira etapa ATIVA da pipeline de destino —
+  // mesmo endpoint de mover (PATCH /api/crm/leads/[id]/move) já usado pelo
+  // drag-and-drop do Kanban; a RPC crm_move_lead já resolve o pipeline_id a
+  // partir da própria etapa de destino, então mover pra uma etapa de outra
+  // pipeline já "transfere" o lead sem nenhuma mudança no backend.
+  async function handleTransfer() {
+    if (!lead || !transferPipelineId) return;
+    const targetPipeline = pipelines.find((p) => p.id === transferPipelineId);
+    if (!targetPipeline) return;
+
+    const firstStage = [...(targetPipeline.crm_stages ?? [])]
+      .filter((s) => s.is_active)
+      .sort((a, b) => a.order_index - b.order_index)[0];
+
+    if (!firstStage) {
+      toast.error(`"${targetPipeline.name}" não tem etapas ativas`);
+      return;
+    }
+
+    if (firstStage.require_note && !transferNeedsNote) {
+      setTransferNeedsNote(true);
+      return;
+    }
+
+    setIsTransferring(true);
+    const result = await onMove(lead.id, firstStage.id, transferNote.trim() || undefined);
+    setIsTransferring(false);
+
+    if (!result.ok) {
+      toast.error(result.error ?? "Erro ao transferir lead");
+      return;
+    }
+
+    toast.success(`Lead transferido para "${targetPipeline.name}"`);
+    onClose();
+  }
+
   // ── Helpers ────────────────────────────────────────────────────────────────
 
   function toggleTag(tagId: string) {
@@ -177,6 +242,15 @@ export function LeadModal({
       const selectedStage = stages.find((s) => s.id === form.stage_id);
       const kanban_column = (selectedStage?.legacy_column as KanbanColumn | null) ?? "novo_lead";
 
+      // IE (Índice de Evolução) — `stages` já é só as etapas ATIVAS do
+      // pipeline selecionado, então seu length já é o total certo pra
+      // fórmula (ver LeadScoreEngine.calculateIE). Único caminho de criação
+      // de lead que define stage_id fora do LeadService — por isso calculado
+      // aqui em vez de num fetch redundante.
+      const ieScore = selectedStage
+        ? LeadScoreEngine.calculateIE(selectedStage.order_index, stages.length)
+        : null;
+
       const createPayload: NewLead = {
         name:          form.name.trim(),
         contact:       form.contact.trim(),
@@ -188,6 +262,7 @@ export function LeadModal({
         notes:         form.notes.trim() || null,
         deal_value:    dealValue,
         entered_at:    form.entered_at,
+        ie_score:      ieScore,
       };
       const result = await onCreate(createPayload);
       setIsSubmitting(false);
@@ -195,6 +270,27 @@ export function LeadModal({
     }
 
     onClose();
+  }
+
+  // ── Recalcular IQ (manual, um lead por vez — nunca em lote) ────────────────
+
+  async function handleRecalculate() {
+    if (!lead) return;
+    setIsRecalculating(true);
+    try {
+      const res  = await fetch(`/api/crm/leads/${lead.id}/recalculate-iq`, { method: "POST" });
+      const json = await res.json() as { iq_score?: number | null; error?: string };
+      if (!res.ok) {
+        toast.error("Não foi possível recalcular", { description: json.error });
+        return;
+      }
+      setRecalculatedIq(json.iq_score ?? null);
+      toast.success("IQ recalculado");
+    } catch {
+      toast.error("Erro ao recalcular IQ");
+    } finally {
+      setIsRecalculating(false);
+    }
   }
 
   // ── Delete ─────────────────────────────────────────────────────────────────
@@ -226,7 +322,7 @@ export function LeadModal({
             transition={{ duration: 0.22 }}
             className="fixed inset-0 z-40"
             style={{
-              background: "rgba(0, 0, 0, 0.03)",
+              background: "var(--dock-bg)",
               backdropFilter: "blur(12px) saturate(140%)",
               WebkitBackdropFilter: "blur(12px) saturate(140%)",
             }}
@@ -242,11 +338,11 @@ export function LeadModal({
               transition={{ type: "spring", stiffness: 420, damping: 34 }}
               className="pointer-events-auto w-full max-w-md rounded-3xl"
               style={{
-                background: "rgba(8, 8, 12, 0.92)",
+                background: "var(--bg-modal)",
                 backdropFilter: "blur(24px) saturate(160%)",
                 WebkitBackdropFilter: "blur(24px) saturate(160%)",
-                border: "1px solid rgba(255,255,255,0.07)",
-                boxShadow: "0 24px 64px rgba(0,0,0,0.6), 0 1px 0 rgba(255,255,255,0.06) inset",
+                border: "1px solid var(--border-modal)",
+                boxShadow: "0 24px 64px var(--shadow-modal), 0 1px 0 var(--hover) inset",
               }}
               onClick={(e) => e.stopPropagation()}
             >
@@ -290,7 +386,7 @@ export function LeadModal({
                       value={form.name}
                       onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
                       placeholder="João Silva"
-                      className="border-[var(--border)] bg-[var(--input)] text-[var(--text-title)] placeholder:text-[var(--muted-foreground)] focus-visible:ring-[#b4b4b4]/40"
+                      className="border-[var(--border)] bg-[var(--input)] text-[var(--text-title)] placeholder:text-[var(--muted-foreground)] focus-visible:ring-[var(--silver)]/40"
                     />
                   </div>
 
@@ -305,7 +401,7 @@ export function LeadModal({
                       value={form.contact}
                       onChange={(e) => setForm((p) => ({ ...p, contact: e.target.value }))}
                       placeholder="+55 11 99999-9999"
-                      className="border-[var(--border)] bg-[var(--input)] text-[var(--text-title)] placeholder:text-[var(--muted-foreground)] focus-visible:ring-[#b4b4b4]/40"
+                      className="border-[var(--border)] bg-[var(--input)] text-[var(--text-title)] placeholder:text-[var(--muted-foreground)] focus-visible:ring-[var(--silver)]/40"
                     />
                   </div>
 
@@ -332,7 +428,7 @@ export function LeadModal({
                         type="date"
                         value={form.entered_at}
                         onChange={(e) => setForm((p) => ({ ...p, entered_at: e.target.value }))}
-                        className="border-[var(--border)] bg-[var(--input)] text-[var(--text-title)] focus-visible:ring-[#b4b4b4]/40"
+                        className="border-[var(--border)] bg-[var(--input)] text-[var(--text-title)] focus-visible:ring-[var(--silver)]/40"
                       />
                     </div>
 
@@ -357,7 +453,7 @@ export function LeadModal({
                           onChange={(e) =>
                             setForm((p) => ({ ...p, stage_id: e.target.value || null }))
                           }
-                          className="h-9 w-full rounded-md border border-[var(--border)] bg-[var(--input)] px-3 text-xs text-[var(--text-title)] focus:outline-none focus:ring-1 focus:ring-[#b4b4b4]/40"
+                          className="h-9 w-full rounded-md border border-[var(--border)] bg-[var(--input)] px-3 text-xs text-[var(--text-title)] focus:outline-none focus:ring-1 focus:ring-[var(--silver)]/40"
                         >
                           {stages.length === 0 && (
                             <option value="">Nenhuma etapa</option>
@@ -372,6 +468,58 @@ export function LeadModal({
                     </div>
                   </div>
 
+                  {/* Transferir para outra pipeline (ex.: SDR → Closer) */}
+                  {isEditing && lead && transferablePipelines.length > 0 && (
+                    <div
+                      className="space-y-2 rounded-2xl p-3"
+                      style={{ background: "var(--hover)", border: "1px solid var(--border)" }}
+                    >
+                      <Label className="text-[11px] font-medium text-[var(--muted-foreground)]">
+                        Transferir para outra pipeline
+                      </Label>
+                      <div className="flex items-center gap-2">
+                        <select
+                          value={transferPipelineId}
+                          onChange={(e) => {
+                            setTransferPipelineId(e.target.value);
+                            setTransferNeedsNote(false);
+                            setTransferNote("");
+                          }}
+                          className="h-9 flex-1 rounded-md border border-[var(--border)] bg-[var(--input)] px-3 text-xs text-[var(--text-title)] focus:outline-none focus:ring-1 focus:ring-[var(--silver)]/40"
+                        >
+                          <option value="">Selecionar pipeline...</option>
+                          {transferablePipelines.map((p) => (
+                            <option key={p.id} value={p.id} style={{ background: "var(--background)" }}>
+                              {p.name}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          type="button"
+                          onClick={() => void handleTransfer()}
+                          disabled={!transferPipelineId || isTransferring || (transferNeedsNote && !transferNote.trim())}
+                          className="flex items-center gap-1.5 px-3 py-2 rounded-md text-xs font-medium transition-all disabled:opacity-40"
+                          style={{ background: "var(--hover)", color: "var(--text-title)" }}
+                        >
+                          {isTransferring && <Loader2 size={11} className="animate-spin" />}
+                          Transferir
+                        </button>
+                      </div>
+                      {transferNeedsNote && (
+                        <Textarea
+                          value={transferNote}
+                          onChange={(e) => setTransferNote(e.target.value)}
+                          placeholder="Observação obrigatória para a etapa de destino..."
+                          rows={2}
+                          className="resize-none border-[var(--border)] bg-[var(--input)] text-[var(--text-title)] placeholder:text-[var(--muted-foreground)] text-xs"
+                        />
+                      )}
+                      <p className="text-[10px]" style={{ color: "var(--muted-foreground)" }}>
+                        O lead vai para a primeira etapa ativa da pipeline escolhida.
+                      </p>
+                    </div>
+                  )}
+
                   {/* Responsável */}
                   <div className="space-y-1.5">
                     <Label htmlFor="lead-assigned-to" className="text-[11px] font-medium text-[var(--muted-foreground)]">
@@ -381,7 +529,7 @@ export function LeadModal({
                       id="lead-assigned-to"
                       value={form.assigned_to ?? ""}
                       onChange={(e) => setForm((p) => ({ ...p, assigned_to: e.target.value || null }))}
-                      className="h-9 w-full rounded-md border border-[var(--border)] bg-[var(--input)] px-3 text-xs text-[var(--text-title)] focus:outline-none focus:ring-1 focus:ring-[#b4b4b4]/40"
+                      className="h-9 w-full rounded-md border border-[var(--border)] bg-[var(--input)] px-3 text-xs text-[var(--text-title)] focus:outline-none focus:ring-1 focus:ring-[var(--silver)]/40"
                     >
                       <option value="">Sem responsável</option>
                       {activeProfiles.map((p) => (
@@ -424,6 +572,53 @@ export function LeadModal({
                     </div>
                   )}
 
+                  {/* Qualificação — IQ / IE (só em edição, lead recém-criado ainda não tem) */}
+                  {isEditing && lead && (
+                    <div
+                      className="space-y-3 rounded-2xl p-3"
+                      style={{ background: "var(--hover)", border: "1px solid var(--border)" }}
+                    >
+                      <div className="flex items-center justify-between">
+                        <Label className="text-[11px] font-medium text-[var(--muted-foreground)]">
+                          Qualificação
+                        </Label>
+                        {lead.form_id && (
+                          <button
+                            type="button"
+                            onClick={handleRecalculate}
+                            disabled={isRecalculating}
+                            className="flex items-center gap-1 text-[10px] text-[var(--muted-foreground)] transition-colors hover:text-[var(--text-title)] disabled:opacity-50"
+                          >
+                            <RefreshCw size={10} className={isRecalculating ? "animate-spin" : ""} />
+                            Recalcular IQ
+                          </button>
+                        )}
+                      </div>
+
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between text-[10px]" style={{ color: "var(--muted-foreground)" }}>
+                          <span>IQ — Inteligência de Qualificação</span>
+                        </div>
+                        {(recalculatedIq ?? lead.iq_score) !== null ? (
+                          <ProgressBar percent={recalculatedIq ?? lead.iq_score ?? 0} />
+                        ) : (
+                          <p className="text-[10px]" style={{ color: "var(--muted-foreground)" }}>Não aplicável</p>
+                        )}
+                      </div>
+
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between text-[10px]" style={{ color: "var(--muted-foreground)" }}>
+                          <span>IE — Índice de Evolução</span>
+                        </div>
+                        {lead.ie_score !== null ? (
+                          <ProgressBar percent={lead.ie_score} />
+                        ) : (
+                          <p className="text-[10px]" style={{ color: "var(--muted-foreground)" }}>Sem etapa atribuída</p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Notas */}
                   <div className="space-y-1.5">
                     <Label htmlFor="lead-notes" className="text-[11px] font-medium text-[var(--muted-foreground)]">
@@ -435,7 +630,7 @@ export function LeadModal({
                       value={form.notes}
                       onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))}
                       placeholder="Observações sobre o lead..."
-                      className="resize-none border-[var(--border)] bg-[var(--input)] text-[var(--text-title)] placeholder:text-[var(--muted-foreground)] focus-visible:ring-[#b4b4b4]/40"
+                      className="resize-none border-[var(--border)] bg-[var(--input)] text-[var(--text-title)] placeholder:text-[var(--muted-foreground)] focus-visible:ring-[var(--silver)]/40"
                     />
                   </div>
 

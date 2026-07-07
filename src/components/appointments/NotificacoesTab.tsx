@@ -201,7 +201,7 @@ export function NotificacoesTab({ calendar, onSave }: Props) {
   // ── Render ────────────────────────────────────────────────────────────────
 
   const INPUT_STYLE = {
-    background: "rgba(255,255,255,0.04)",
+    background: "var(--input)",
     border:     "1px solid var(--border)",
     color:      "var(--text-title)",
   } as const;
@@ -345,7 +345,7 @@ export function NotificacoesTab({ calendar, onSave }: Props) {
                       title={v.label}
                       className="px-2 py-1 rounded text-xs font-mono transition-colors hover:opacity-80"
                       style={{
-                        background: "rgba(255,255,255,0.07)",
+                        background: "var(--hover)",
                         color:      "var(--text-title)",
                         border:     "1px solid var(--border)",
                       }}
@@ -369,13 +369,13 @@ export function NotificacoesTab({ calendar, onSave }: Props) {
               <div
                 className="rounded-xl px-4 py-3 flex items-start gap-3"
                 style={{
-                  background: "rgba(255,255,255,0.05)",
-                  border:     "1px solid rgba(255,255,255,0.08)",
+                  background: "var(--hover)",
+                  border:     "1px solid var(--border)",
                 }}
               >
                 <div
                   className="w-9 h-9 rounded-lg shrink-0 flex items-center justify-center text-base"
-                  style={{ background: "rgba(255,255,255,0.08)" }}
+                  style={{ background: "var(--accent)" }}
                 >
                   🔔
                 </div>
@@ -399,7 +399,7 @@ export function NotificacoesTab({ calendar, onSave }: Props) {
                   disabled={isTesting}
                   className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium transition-all active:scale-95 disabled:opacity-50"
                   style={{
-                    background: "rgba(255,255,255,0.07)",
+                    background: "var(--hover)",
                     color:      "var(--text-title)",
                     border:     "1px solid var(--border)",
                   }}

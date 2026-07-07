@@ -73,14 +73,22 @@ export interface Lead {
   entered_at: string;
   created_at: string;
   updated_at: string;
+  // IQ (Inteligência de Qualificação) — calculado uma vez a partir das
+  // respostas do formulário, nunca recalculado automaticamente depois.
+  // null = formulário não tinha nenhuma pergunta ponderada (não aplicável).
+  iq_score: number | null;
+  // IE (Índice de Evolução) — recalculado automaticamente a cada mudança de
+  // etapa na Pipeline. null = lead ainda sem etapa atribuída.
+  ie_score: number | null;
 }
 
 export type NewLead = Pick<Lead, "name" | "contact" | "kanban_column" | "tags" | "notes" | "deal_value" | "entered_at"> & {
   stage_id?: string | null;
   pipeline_id?: string | null;
   assigned_to?: string | null;
+  ie_score?: number | null;
 };
-export type UpdateLead = Partial<Pick<Lead, "name" | "contact" | "kanban_column" | "tags" | "notes" | "deal_value" | "entered_at" | "assigned_to">>;
+export type UpdateLead = Partial<Pick<Lead, "name" | "contact" | "kanban_column" | "tags" | "notes" | "deal_value" | "entered_at" | "assigned_to" | "iq_score">>;
 
 export interface LeadMovement {
   id: string;
@@ -907,7 +915,12 @@ export type FormStepType =
   | "date"
   | "file_upload"
   | "statement"
-  | "redirect";
+  | "redirect"
+  | "calendar";
+
+// Peso da pergunta no cálculo de IQ — o usuário escolhe uma destas opções,
+// nunca um número. Ver src/lib/crm/lead-score-engine.ts pela escala interna.
+export type QuestionWeight = "ignore" | "low" | "medium" | "high" | "critical";
 
 export interface FormStep {
   id: string;
@@ -917,7 +930,11 @@ export interface FormStep {
   required: boolean;
   placeholder?: string;
   // multiple_choice / single_choice
-  choices?: Array<{ id: string; label: string; value: string }>;
+  // score = classificação da resposta em estrelas (1-5), usada no cálculo de
+  // IQ — só single_choice participa do IQ na v1 (mesmo recorte do Logic Engine).
+  choices?: Array<{ id: string; label: string; value: string; score?: 1 | 2 | 3 | 4 | 5 }>;
+  // Peso desta pergunta no IQ. Ausente/"ignore" = não entra no cálculo.
+  weight?: QuestionWeight;
   // rating
   maxRating?: number;
   // file_upload
@@ -925,6 +942,11 @@ export interface FormStep {
   maxFileSizeMb?: number;
   // redirect / statement
   content?: string;
+  // calendar — calendarId é a referência estável; slug/name são cache de
+  // exibição (mesmo padrão de owner_id/owner_name em CrmSettings).
+  calendarId?: string;
+  calendarSlug?: string;
+  calendarName?: string;
 }
 
 // ── Logic ─────────────────────────────────────────────────────────────────────
@@ -943,7 +965,7 @@ export type LogicOperator =
   | "in"
   | "not_in";
 
-export type LogicActionType = "jump" | "end" | "disqualify" | "redirect";
+export type LogicActionType = "jump" | "end" | "disqualify" | "redirect" | "complete";
 
 export interface LogicCondition {
   step: string;

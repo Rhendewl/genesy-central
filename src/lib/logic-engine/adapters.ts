@@ -44,6 +44,9 @@ function adaptLegacyAction(action: LogicRule["action"]): RuleAction {
       if (!action.url) return { type: "continue" };
       return { type: "redirect", url: action.url };
 
+    case "complete":
+      return { type: "complete" };
+
     default:
       return { type: "continue" };
   }

@@ -11,7 +11,7 @@ import type {
 const MASKED = "__masked__";
 
 const INPUT_STYLE = {
-  background: "rgba(255,255,255,0.04)",
+  background: "var(--hover)",
   border:     "1px solid var(--border)",
   color:      "var(--text-title)",
 } as const;
@@ -46,7 +46,7 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: () => void 
       aria-checked={checked}
       onClick={onChange}
       className="relative flex-shrink-0 w-9 h-5 rounded-full transition-colors"
-      style={{ background: checked ? "var(--primary)" : "rgba(255,255,255,0.12)" }}
+      style={{ background: checked ? "var(--primary)" : "var(--border-card-hover)" }}
     >
       <span
         className="absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform"
@@ -103,7 +103,7 @@ function SourceForm({ source, onBack, onSave }: FormProps) {
     <div className="flex flex-col h-full">
       <div
         className="flex items-center gap-3 px-5 py-3 flex-shrink-0"
-        style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}
+        style={{ borderBottom: "1px solid var(--border-card)" }}
       >
         <button
           type="button"
@@ -225,7 +225,7 @@ function SourceForm({ source, onBack, onSave }: FormProps) {
         >
           <div
             className="flex items-center justify-between px-4 py-3"
-            style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}
+            style={{ borderBottom: "1px solid var(--border-card)" }}
           >
             <div>
               <p className="text-xs font-medium" style={{ color: "var(--text-title)" }}>Origem padrão</p>
@@ -338,7 +338,7 @@ export function OrigensTab({ pipelineId, sources, onCreate, onUpdate, onDelete }
       {/* Toolbar */}
       <div
         className="flex items-center justify-between px-5 py-4"
-        style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}
+        style={{ borderBottom: "1px solid var(--border-card)" }}
       >
         <p className="text-xs" style={{ color: "var(--muted-foreground)" }}>
           {sources.length === 0
@@ -372,12 +372,12 @@ export function OrigensTab({ pipelineId, sources, onCreate, onUpdate, onDelete }
             <div
               key={source.id}
               className="flex items-center gap-3 px-5 py-3.5 group"
-              style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}
+              style={{ borderBottom: "1px solid var(--border-card)" }}
             >
               {/* Status dot */}
               <span
                 className="w-2 h-2 flex-shrink-0 rounded-full"
-                style={{ background: source.is_active ? "#22c55e" : "rgba(255,255,255,0.2)" }}
+                style={{ background: source.is_active ? "#22c55e" : "var(--text-empty)" }}
               />
 
               {/* Info */}
@@ -397,7 +397,7 @@ export function OrigensTab({ pipelineId, sources, onCreate, onUpdate, onDelete }
                   {!source.is_active && (
                     <span
                       className="text-[10px] font-medium px-1.5 py-0.5 rounded-full flex-shrink-0"
-                      style={{ background: "rgba(255,255,255,0.06)", color: "var(--muted-foreground)" }}
+                      style={{ background: "var(--hover)", color: "var(--muted-foreground)" }}
                     >
                       inativa
                     </span>
@@ -414,7 +414,7 @@ export function OrigensTab({ pipelineId, sources, onCreate, onUpdate, onDelete }
               {/* Provider badge */}
               <span
                 className="text-[10px] font-medium px-2 py-0.5 rounded-full flex-shrink-0"
-                style={{ background: "rgba(255,255,255,0.06)", color: "var(--muted-foreground)" }}
+                style={{ background: "var(--hover)", color: "var(--muted-foreground)" }}
               >
                 Meta Pixel
               </span>
@@ -425,7 +425,7 @@ export function OrigensTab({ pipelineId, sources, onCreate, onUpdate, onDelete }
                   type="button"
                   onClick={() => setEditing(source)}
                   title="Editar"
-                  className="p-1.5 rounded-lg hover:bg-white/5 transition-colors"
+                  className="p-1.5 rounded-lg hover:bg-[var(--hover)] transition-colors"
                   style={{ color: "var(--muted-foreground)" }}
                 >
                   <Pencil size={12} />
@@ -435,7 +435,7 @@ export function OrigensTab({ pipelineId, sources, onCreate, onUpdate, onDelete }
                   onClick={() => handleDelete(source.id)}
                   disabled={deletingId === source.id}
                   title="Remover"
-                  className="p-1.5 rounded-lg hover:bg-white/5 transition-colors disabled:opacity-40"
+                  className="p-1.5 rounded-lg hover:bg-[var(--hover)] transition-colors disabled:opacity-40"
                   style={{ color: "#ef4444" }}
                 >
                   {deletingId === source.id

@@ -17,8 +17,8 @@ import { useAsaasIntegration, type AsaasEnv } from "@/hooks/useAsaasIntegration"
 type BadgeStatus = "disconnected" | "connected" | "error" | "idle";
 
 const STATUS_CFG: Record<BadgeStatus, { label: string; color: string; icon: React.ReactNode }> = {
-  idle:         { label: "Verificando…",  color: "text-[#b4b4b4] bg-[#b4b4b4]/10 border-[#b4b4b4]/25",    icon: <Loader2 size={12} className="animate-spin" /> },
-  disconnected: { label: "Não conectado", color: "text-[#b4b4b4] bg-[#b4b4b4]/10 border-[#b4b4b4]/25",    icon: <Unplug size={12} /> },
+  idle:         { label: "Verificando…",  color: "text-[var(--silver)] bg-[var(--silver)]/10 border-[var(--silver)]/25",    icon: <Loader2 size={12} className="animate-spin" /> },
+  disconnected: { label: "Não conectado", color: "text-[var(--silver)] bg-[var(--silver)]/10 border-[var(--silver)]/25",    icon: <Unplug size={12} /> },
   connected:    { label: "Conectado",     color: "text-emerald-400 bg-emerald-400/10 border-emerald-400/25", icon: <CheckCircle2 size={12} /> },
   error:        { label: "Erro",          color: "text-red-400 bg-red-400/10 border-red-400/25",            icon: <XCircle size={12} /> },
 };
@@ -67,11 +67,11 @@ function ConnectModal({ isConnecting, connectError, onClose, onConnect }: Connec
         className="relative w-full sm:max-w-md z-10 rounded-t-2xl sm:rounded-2xl lc-modal-panel overflow-hidden"
       >
         {/* Header */}
-        <div className="px-6 pt-6 pb-5" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
+        <div className="px-6 pt-6 pb-5" style={{ borderBottom: "1px solid var(--border)" }}>
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-center gap-3">
               <div
-                className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 font-bold text-white text-sm"
+                className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 font-bold text-[var(--text-title)] text-sm"
                 style={{
                   background: "linear-gradient(135deg, #00c2ff 0%, #0070ff 100%)",
                   boxShadow: "0 4px 12px rgba(0,112,255,0.30)",
@@ -80,14 +80,14 @@ function ConnectModal({ isConnecting, connectError, onClose, onConnect }: Connec
                 A
               </div>
               <div>
-                <h3 className="text-white font-semibold text-base">Conectar Asaas</h3>
-                <p className="text-[#b4b4b4] text-xs mt-0.5">Configure sua integração de pagamentos</p>
+                <h3 className="text-[var(--text-title)] font-semibold text-base">Conectar Asaas</h3>
+                <p className="text-[var(--silver)] text-xs mt-0.5">Configure sua integração de pagamentos</p>
               </div>
             </div>
             <button
               onClick={!isConnecting ? onClose : undefined}
               disabled={isConnecting}
-              className="p-1.5 rounded-lg text-[#b4b4b4] hover:text-white hover:bg-white/8 transition-colors disabled:opacity-40"
+              className="p-1.5 rounded-lg text-[var(--silver)] hover:text-[var(--text-title)] hover:bg-[var(--hover)] transition-colors disabled:opacity-40"
             >
               <X size={16} />
             </button>
@@ -98,7 +98,7 @@ function ConnectModal({ isConnecting, connectError, onClose, onConnect }: Connec
         <div className="px-6 py-5 space-y-4">
           {/* API Key */}
           <div>
-            <label className="block text-[10px] font-semibold text-[#5a5a5a] uppercase tracking-widest mb-2">
+            <label className="block text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-widest mb-2">
               API Key
             </label>
             <input
@@ -107,14 +107,14 @@ function ConnectModal({ isConnecting, connectError, onClose, onConnect }: Connec
               onChange={e => setApiKey(e.target.value)}
               placeholder="$aact_…"
               disabled={isConnecting}
-              className="w-full px-3.5 py-2.5 rounded-xl text-sm text-white placeholder-[#5a5a5a] outline-none lc-filter-control disabled:opacity-50"
+              className="w-full px-3.5 py-2.5 rounded-xl text-sm text-[var(--text-title)] placeholder-[var(--text-muted)] outline-none lc-filter-control disabled:opacity-50"
               onKeyDown={e => { if (e.key === "Enter") handleSubmit(); }}
             />
           </div>
 
           {/* Environment */}
           <div>
-            <label className="block text-[10px] font-semibold text-[#5a5a5a] uppercase tracking-widest mb-2">
+            <label className="block text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-widest mb-2">
               Ambiente
             </label>
             <div className="grid grid-cols-2 gap-2">
@@ -125,13 +125,13 @@ function ConnectModal({ isConnecting, connectError, onClose, onConnect }: Connec
                   disabled={isConnecting}
                   className={cn(
                     "py-2.5 rounded-xl text-sm font-medium transition-all disabled:opacity-50",
-                    env === e ? "text-white" : "text-[#b4b4b4] hover:text-white",
+                    env === e ? "text-[var(--text-title)]" : "text-[var(--silver)] hover:text-[var(--text-title)]",
                   )}
                   style={{
-                    background: env === e ? "rgba(74,143,212,0.15)" : "rgba(255,255,255,0.04)",
+                    background: env === e ? "rgba(74,143,212,0.15)" : "var(--hover)",
                     border: env === e
                       ? "1px solid rgba(74,143,212,0.40)"
-                      : "1px solid rgba(255,255,255,0.07)",
+                      : "1px solid var(--border)",
                   }}
                 >
                   {e === "sandbox" ? "Sandbox" : "Produção"}
@@ -158,7 +158,7 @@ function ConnectModal({ isConnecting, connectError, onClose, onConnect }: Connec
             style={{ background: "rgba(74,143,212,0.06)", border: "1px solid rgba(74,143,212,0.15)" }}
           >
             <ShieldCheck size={14} className="text-[#4a8fd4] shrink-0 mt-0.5" />
-            <p className="text-xs text-[#b4b4b4]">
+            <p className="text-xs text-[var(--silver)]">
               Sua chave é armazenada de forma segura e usada apenas no servidor.
             </p>
           </div>
@@ -167,13 +167,13 @@ function ConnectModal({ isConnecting, connectError, onClose, onConnect }: Connec
         {/* Footer */}
         <div
           className="px-6 pb-6 pt-5 flex gap-2.5"
-          style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}
+          style={{ borderTop: "1px solid var(--border)" }}
         >
           <button
             onClick={onClose}
             disabled={isConnecting}
-            className="flex-1 py-2.5 rounded-xl text-sm font-medium text-[#b4b4b4] hover:text-white transition-colors disabled:opacity-40"
-            style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.08)" }}
+            className="flex-1 py-2.5 rounded-xl text-sm font-medium text-[var(--silver)] hover:text-[var(--text-title)] transition-colors disabled:opacity-40"
+            style={{ background: "var(--hover)", border: "1px solid var(--glass-border)" }}
           >
             Cancelar
           </button>
@@ -207,21 +207,21 @@ function ComingSoonCard({ name, icon, desc, delay = 0 }: ComingSoonCardProps) {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.25, delay }}
       className="relative rounded-2xl p-4 flex items-center gap-4 overflow-hidden"
-      style={{ background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.05)" }}
+      style={{ background: "var(--hover)", border: "1px solid var(--border)" }}
     >
       <div
         className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 opacity-35"
-        style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.06)" }}
+        style={{ background: "var(--hover)", border: "1px solid var(--border)" }}
       >
         {icon}
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-[#5a5a5a] font-medium text-sm">{name}</p>
-        <p className="text-[#3a3a3a] text-xs mt-0.5">{desc}</p>
+        <p className="text-[var(--text-muted)] font-medium text-sm">{name}</p>
+        <p className="text-[var(--text-muted)] text-xs mt-0.5">{desc}</p>
       </div>
       <span
-        className="shrink-0 px-2.5 py-1 rounded-full text-[10px] font-semibold text-[#4a4a4a] uppercase tracking-widest"
-        style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}
+        className="shrink-0 px-2.5 py-1 rounded-full text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-widest"
+        style={{ background: "var(--hover)", border: "1px solid var(--border)" }}
       >
         Em breve
       </span>
@@ -235,10 +235,10 @@ function StatCard({ label, value }: { label: string; value: string }) {
   return (
     <div
       className="rounded-xl p-3.5"
-      style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)" }}
+      style={{ background: "var(--hover)", border: "1px solid var(--border)" }}
     >
-      <p className="text-[#5a5a5a] text-[10px] font-semibold uppercase tracking-widest mb-1">{label}</p>
-      <p className="text-white font-semibold text-sm truncate">{value}</p>
+      <p className="text-[var(--text-muted)] text-[10px] font-semibold uppercase tracking-widest mb-1">{label}</p>
+      <p className="text-[var(--text-title)] font-semibold text-sm truncate">{value}</p>
     </div>
   );
 }
@@ -287,8 +287,8 @@ export function IntegracoesFinanceiras() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.25 }}
         >
-          <h2 className="text-white font-bold text-xl tracking-tight">Integrações Financeiras</h2>
-          <p className="text-[#b4b4b4] text-sm mt-1">
+          <h2 className="text-[var(--text-title)] font-bold text-xl tracking-tight">Integrações Financeiras</h2>
+          <p className="text-[var(--silver)] text-sm mt-1">
             Conecte plataformas para automatizar receitas, cobranças e métricas em tempo real.
           </p>
         </motion.div>
@@ -304,7 +304,7 @@ export function IntegracoesFinanceiras() {
           <div className="flex items-center justify-between gap-4 flex-wrap">
             <div className="flex items-center gap-4">
               <div
-                className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 font-bold text-white text-lg"
+                className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 font-bold text-[var(--text-title)] text-lg"
                 style={{
                   background: "linear-gradient(135deg, #00c2ff 0%, #0070ff 100%)",
                   boxShadow: "0 4px 16px rgba(0,112,255,0.28)",
@@ -314,13 +314,13 @@ export function IntegracoesFinanceiras() {
               </div>
               <div>
                 <div className="flex items-center gap-3 flex-wrap">
-                  <p className="text-white font-semibold text-base">Asaas</p>
+                  <p className="text-[var(--text-title)] font-semibold text-base">Asaas</p>
                   <StatusBadge status={badgeStatus} />
                 </div>
-                <p className="text-[#b4b4b4] text-xs mt-1">
+                <p className="text-[var(--silver)] text-xs mt-1">
                   Gateway de pagamentos, assinaturas e cobranças automáticas.
                   {isConnected && integration.accountName && (
-                    <span className="ml-1.5 text-white/60">{integration.accountName}</span>
+                    <span className="ml-1.5 text-[var(--text-body)]">{integration.accountName}</span>
                   )}
                 </p>
               </div>
@@ -346,10 +346,10 @@ export function IntegracoesFinanceiras() {
                       className={cn(
                         "flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium transition-all",
                         showSettings
-                          ? "text-white bg-white/8"
-                          : "text-[#b4b4b4] hover:text-white hover:bg-white/5",
+                          ? "text-[var(--text-title)] bg-[var(--glass-border)]"
+                          : "text-[var(--silver)] hover:text-[var(--text-title)] hover:bg-[var(--hover)]",
                       )}
-                      style={{ border: "1px solid rgba(255,255,255,0.08)" }}
+                      style={{ border: "1px solid var(--glass-border)" }}
                     >
                       <Settings size={13} />
                       Configurações
@@ -357,8 +357,8 @@ export function IntegracoesFinanceiras() {
                     <button
                       onClick={async () => { await disconnect(); setShowSettings(false); }}
                       disabled={isDisconnecting}
-                      className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium text-[#b4b4b4] hover:text-red-400 hover:bg-red-400/10 transition-all disabled:opacity-40"
-                      style={{ border: "1px solid rgba(255,255,255,0.08)" }}
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium text-[var(--silver)] hover:text-red-400 hover:bg-red-400/10 transition-all disabled:opacity-40"
+                      style={{ border: "1px solid var(--glass-border)" }}
                     >
                       {isDisconnecting ? <Loader2 size={13} className="animate-spin" /> : <Unplug size={13} />}
                       Desconectar
@@ -387,7 +387,7 @@ export function IntegracoesFinanceiras() {
                 transition={{ duration: 0.25 }}
                 className="overflow-hidden"
               >
-                <div className="pt-5" style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}>
+                <div className="pt-5" style={{ borderTop: "1px solid var(--border)" }}>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                     <StatCard
                       label="Ambiente"
@@ -406,11 +406,11 @@ export function IntegracoesFinanceiras() {
                   {/* ── Sync area ─────────────────────────────────────── */}
                   <div
                     className="mt-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl"
-                    style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}
+                    style={{ background: "var(--hover)", border: "1px solid var(--border)" }}
                   >
                     <div>
-                      <p className="text-white text-sm font-medium">Sincronizar cobranças</p>
-                      <p className="text-[#5a5a5a] text-xs mt-0.5">
+                      <p className="text-[var(--text-title)] text-sm font-medium">Sincronizar cobranças</p>
+                      <p className="text-[var(--text-muted)] text-xs mt-0.5">
                         Importa pagamentos do Asaas para o módulo financeiro
                       </p>
                     </div>
@@ -468,18 +468,18 @@ export function IntegracoesFinanceiras() {
                 transition={{ duration: 0.22 }}
                 className="overflow-hidden"
               >
-                <div className="pt-4 space-y-3" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
-                  <p className="text-[10px] font-semibold text-[#5a5a5a] uppercase tracking-widest flex items-center gap-2">
+                <div className="pt-4 space-y-3" style={{ borderTop: "1px solid var(--border)" }}>
+                  <p className="text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-widest flex items-center gap-2">
                     <Clock size={11} />
                     Configurações da integração
                   </p>
                   <div
                     className="flex items-center justify-between gap-4 p-3.5 rounded-xl flex-wrap"
-                    style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}
+                    style={{ background: "var(--hover)", border: "1px solid var(--border)" }}
                   >
                     <div>
-                      <p className="text-white text-sm font-medium">Trocar API Key</p>
-                      <p className="text-[#5a5a5a] text-xs mt-0.5">Substitua a chave sem remover a integração</p>
+                      <p className="text-[var(--text-title)] text-sm font-medium">Trocar API Key</p>
+                      <p className="text-[var(--text-muted)] text-xs mt-0.5">Substitua a chave sem remover a integração</p>
                     </div>
                     <button
                       onClick={() => { setShowModal(true); setShowSettings(false); }}
@@ -498,8 +498,8 @@ export function IntegracoesFinanceiras() {
           {/* Skeleton while loading */}
           {isLoading && (
             <div className="flex items-center gap-2 py-2">
-              <Loader2 size={14} className="animate-spin text-[#5a5a5a]" />
-              <p className="text-[#5a5a5a] text-xs">Verificando integração…</p>
+              <Loader2 size={14} className="animate-spin text-[var(--text-muted)]" />
+              <p className="text-[var(--text-muted)] text-xs">Verificando integração…</p>
             </div>
           )}
         </motion.div>
@@ -512,40 +512,40 @@ export function IntegracoesFinanceiras() {
           className="space-y-4"
         >
           <div className="flex items-center gap-3">
-            <p className="text-[#5a5a5a] text-xs font-semibold uppercase tracking-widest whitespace-nowrap">
+            <p className="text-[var(--text-muted)] text-xs font-semibold uppercase tracking-widest whitespace-nowrap">
               Em breve
             </p>
-            <div className="flex-1 h-px" style={{ background: "rgba(255,255,255,0.05)" }} />
+            <div className="flex-1 h-px" style={{ background: "var(--border)" }} />
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <ComingSoonCard
               name="Kommo"
-              icon={<Users size={18} className="text-[#5a5a5a]" />}
+              icon={<Users size={18} className="text-[var(--text-muted)]" />}
               desc="CRM e automação de vendas"
               delay={0.18}
             />
             <ComingSoonCard
               name="Stripe"
-              icon={<CreditCard size={18} className="text-[#5a5a5a]" />}
+              icon={<CreditCard size={18} className="text-[var(--text-muted)]" />}
               desc="Pagamentos internacionais"
               delay={0.22}
             />
             <ComingSoonCard
               name="Mercado Pago"
-              icon={<BarChart3 size={18} className="text-[#5a5a5a]" />}
+              icon={<BarChart3 size={18} className="text-[var(--text-muted)]" />}
               desc="Gateway brasileiro de pagamentos"
               delay={0.26}
             />
             <ComingSoonCard
               name="Conta bancária"
-              icon={<Landmark size={18} className="text-[#5a5a5a]" />}
+              icon={<Landmark size={18} className="text-[var(--text-muted)]" />}
               desc="OFX, Open Finance e extrato automático"
               delay={0.30}
             />
             <ComingSoonCard
               name="ERP"
-              icon={<Building2 size={18} className="text-[#5a5a5a]" />}
+              icon={<Building2 size={18} className="text-[var(--text-muted)]" />}
               desc="Importação de dados de sistemas ERP"
               delay={0.34}
             />

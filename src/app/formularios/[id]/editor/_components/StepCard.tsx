@@ -51,8 +51,8 @@ export function StepCard({
           "group flex items-center gap-2 px-3 py-2.5 rounded-xl border cursor-pointer transition-all select-none",
         )}
         style={{
-          background: isSelected ? "rgba(255,255,255,0.07)" : "rgba(255,255,255,0.03)",
-          borderColor: isSelected ? "rgba(255,255,255,0.18)" : "rgba(255,255,255,0.07)",
+          background: isSelected ? "var(--glass-bg-soft)" : "var(--hover)",
+          borderColor: isSelected ? "var(--accent-blue)" : "var(--glass-border)",
           boxShadow: isSelected ? "0 0 0 1px rgba(255,255,255,0.08), 0 2px 10px rgba(0,0,0,0.30)" : undefined,
         }}
         role="button"
@@ -101,7 +101,7 @@ export function StepCard({
         >
           <button
             onClick={e => { e.stopPropagation(); onDuplicate(); }}
-            className="p-1 rounded transition-colors hover:bg-white/10"
+            className="p-1 rounded transition-colors hover:bg-[var(--hover)]"
             aria-label={`Duplicar pergunta ${index + 1}`}
             title="Duplicar"
           >

@@ -27,9 +27,9 @@ function ProgressBar({ value, goal, color }: ProgressBarProps) {
     <div className="space-y-1.5">
       <div className="flex items-center justify-between text-xs">
         <span style={{ color: statusColor }} className="font-semibold">{pct.toFixed(1)}%</span>
-        <span className="text-[#b4b4b4]">{pct >= 100 ? "Meta atingida!" : `Faltam ${fmt(Math.max(0, goal - value))}`}</span>
+        <span className="text-[var(--silver)]">{pct >= 100 ? "Meta atingida!" : `Faltam ${fmt(Math.max(0, goal - value))}`}</span>
       </div>
-      <div className="h-2 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.08)" }}>
+      <div className="h-2 rounded-full overflow-hidden" style={{ background: "var(--border)" }}>
         <motion.div
           initial={{ width: 0 }}
           animate={{ width: `${pct}%` }}
@@ -70,17 +70,17 @@ function GoalCard({ title, icon, accent, current, goal, isPercent, isCount, dela
     >
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ color: "#ffffff" }}>
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ color: "var(--text-title)" }}>
             {icon}
           </div>
           <div>
-            <p className="text-xs font-medium uppercase tracking-wider" style={{ color: "#b4b4b4" }}>{title}</p>
-            <p className="text-xl font-bold text-white mt-0.5">{fmt2(current)}</p>
+            <p className="text-xs font-medium uppercase tracking-wider" style={{ color: "var(--silver)" }}>{title}</p>
+            <p className="text-xl font-bold text-[var(--text-title)] mt-0.5">{fmt2(current)}</p>
           </div>
         </div>
         <div className="text-right">
-          <p className="text-xs text-[#b4b4b4]">Meta</p>
-          <p className="text-sm font-semibold text-white/60">{fmt2(goal)}</p>
+          <p className="text-xs text-[var(--silver)]">Meta</p>
+          <p className="text-sm font-semibold text-[var(--text-body)]">{fmt2(goal)}</p>
         </div>
       </div>
       <ProgressBar value={current} goal={goal} color={accent} />
@@ -128,10 +128,10 @@ function MetaModal({ current, onClose, onSave, year, month }: MetaModalProps) {
       >
         <div className="flex items-center justify-between mb-2">
           <div>
-            <h2 className="text-lg font-bold text-white">Metas Financeiras</h2>
-            <p className="text-xs text-[#b4b4b4] capitalize">{monthName}</p>
+            <h2 className="text-lg font-bold text-[var(--text-title)]">Metas Financeiras</h2>
+            <p className="text-xs text-[var(--silver)] capitalize">{monthName}</p>
           </div>
-          <button onClick={onClose} className="text-[#b4b4b4] hover:text-white transition-colors"><X size={20} /></button>
+          <button onClick={onClose} className="text-[var(--silver)] hover:text-[var(--text-title)] transition-colors"><X size={20} /></button>
         </div>
 
         {error && (
@@ -145,26 +145,26 @@ function MetaModal({ current, onClose, onSave, year, month }: MetaModalProps) {
             { key: "mrr_goal", label: "Meta de MRR (R$)" },
           ] as const).map(f => (
             <div key={f.key}>
-              <label className="block text-xs text-[#b4b4b4] mb-1.5 font-medium">{f.label}</label>
+              <label className="block text-xs text-[var(--silver)] mb-1.5 font-medium">{f.label}</label>
               <MoneyInput value={form[f.key] ?? 0} onChange={v => set(f.key, v)} />
             </div>
           ))}
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs text-[#b4b4b4] mb-1.5 font-medium">Meta de Novos Contratos</label>
+              <label className="block text-xs text-[var(--silver)] mb-1.5 font-medium">Meta de Novos Contratos</label>
               <input type="number" value={form.new_contracts_goal ?? ""}
                 onChange={e => set("new_contracts_goal", parseInt(e.target.value) || 0)}
                 placeholder="Ex: 3"
-                className="w-full rounded-xl bg-white/5 border text-white text-sm px-3 py-2.5 outline-none placeholder:text-[#b4b4b4]/50"
+                className="w-full rounded-xl bg-[var(--hover)] border text-[var(--text-title)] text-sm px-3 py-2.5 outline-none placeholder:text-[var(--silver)]/50"
                 style={{ border: "none" }} />
             </div>
             <div>
-              <label className="block text-xs text-[#b4b4b4] mb-1.5 font-medium">Meta de Margem (%)</label>
+              <label className="block text-xs text-[var(--silver)] mb-1.5 font-medium">Meta de Margem (%)</label>
               <input type="number" value={form.margin_goal ?? ""}
                 onChange={e => set("margin_goal", parseFloat(e.target.value) || 0)}
                 placeholder="Ex: 40"
-                className="w-full rounded-xl bg-white/5 border text-white text-sm px-3 py-2.5 outline-none placeholder:text-[#b4b4b4]/50"
+                className="w-full rounded-xl bg-[var(--hover)] border text-[var(--text-title)] text-sm px-3 py-2.5 outline-none placeholder:text-[var(--silver)]/50"
                 style={{ border: "none" }} />
             </div>
           </div>
@@ -172,7 +172,7 @@ function MetaModal({ current, onClose, onSave, year, month }: MetaModalProps) {
 
         <div className="flex gap-3 pt-2">
           <button onClick={onClose}
-            className="flex-1 rounded-xl border py-2.5 text-sm font-medium text-[#b4b4b4] hover:text-white"
+            className="flex-1 rounded-xl border py-2.5 text-sm font-medium text-[var(--silver)] hover:text-[var(--text-title)]"
             style={{ border: "none" }}>
             Cancelar
           </button>
@@ -225,7 +225,7 @@ export function MetasFinanceiras({ year, month }: Props) {
     {
       title: "Lucro",
       icon: <TrendingUp size={18} />,
-      accent: "#b4b4b4",
+      accent: "var(--silver)",
       current: data?.lucro_liquido ?? 0,
       goal: goalData.profit_goal ?? 0,
       isCurrency: true,
@@ -261,9 +261,9 @@ export function MetasFinanceiras({ year, month }: Props) {
       <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
         {Array.from({ length: 5 }).map((_, i) => (
           <div key={i} className="lc-card p-6 h-36 animate-pulse">
-            <div className="w-10 h-10 rounded-xl bg-white/5 mb-4" />
-            <div className="h-3 bg-white/5 rounded w-1/2 mb-2" />
-            <div className="h-2 bg-white/5 rounded w-full" />
+            <div className="w-10 h-10 rounded-xl bg-[var(--shimmer-base)] mb-4" />
+            <div className="h-3 bg-[var(--shimmer-base)] rounded w-1/2 mb-2" />
+            <div className="h-2 bg-[var(--shimmer-base)] rounded w-full" />
           </div>
         ))}
       </div>
@@ -274,8 +274,8 @@ export function MetasFinanceiras({ year, month }: Props) {
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-white font-semibold">Metas de {monthName}</h3>
-          <p className="text-xs text-[#b4b4b4] mt-0.5">
+          <h3 className="text-[var(--text-title)] font-semibold">Metas de {monthName}</h3>
+          <p className="text-xs text-[var(--silver)] mt-0.5">
             {goal ? "Progresso em relação às metas definidas" : "Nenhuma meta definida para este mês"}
           </p>
         </div>
@@ -291,9 +291,9 @@ export function MetasFinanceiras({ year, month }: Props) {
           animate={{ opacity: 1, scale: 1 }}
           className="lc-card p-16 text-center"
         >
-          <Target size={40} className="text-[#b4b4b4]/30 mx-auto mb-4" />
-          <p className="text-white font-semibold mb-2">Defina suas metas financeiras</p>
-          <p className="text-[#b4b4b4] text-sm mb-6 max-w-xs mx-auto">
+          <Target size={40} className="text-[var(--silver)]/30 mx-auto mb-4" />
+          <p className="text-[var(--text-title)] font-semibold mb-2">Defina suas metas financeiras</p>
+          <p className="text-[var(--silver)] text-sm mb-6 max-w-xs mx-auto">
             Configure metas mensais para acompanhar o desempenho e tomar decisões estratégicas
           </p>
           <PrimaryButton onClick={() => setModalOpen(true)} className="px-6 py-2.5 text-sm">

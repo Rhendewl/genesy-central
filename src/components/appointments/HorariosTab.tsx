@@ -83,7 +83,7 @@ function hasError(intervals: TimeInterval[]): boolean {
 
 const inputCls   = "px-2 py-1.5 rounded-lg text-xs outline-none w-24";
 const inputStyle = {
-  background: "rgba(255,255,255,0.06)",
+  background: "var(--input)",
   border:     "1px solid var(--border)",
   color:      "var(--text-title)",
 };
@@ -120,7 +120,7 @@ function IntervalRow({
         <button
           type="button"
           onClick={onRemove}
-          className="p-1 rounded hover:bg-white/10 transition-colors"
+          className="p-1 rounded hover:bg-[var(--hover)] transition-colors"
         >
           <Trash2 size={12} style={{ color: "var(--muted-foreground)" }} />
         </button>
@@ -186,7 +186,7 @@ function SlotPreview({
                 <span
                   key={s.startsAt}
                   className="px-2.5 py-1.5 rounded-lg text-xs font-medium"
-                  style={{ background: "rgba(255,255,255,0.06)", border: "1px solid var(--border)", color: "var(--text-title)" }}
+                  style={{ background: "var(--hover)", border: "1px solid var(--border)", color: "var(--text-title)" }}
                 >
                   {s.startsAtLocal}
                 </span>
@@ -296,7 +296,7 @@ export function HorariosTab({
             key={index}
             className="rounded-xl px-4 py-3"
             style={{
-              background:   enabled ? "rgba(255,255,255,0.03)" : "transparent",
+              background:   enabled ? "var(--hover)" : "transparent",
               border:       `1px solid ${error ? "rgba(239,68,68,0.3)" : "var(--border)"}`,
               borderRadius: "12px",
             }}
@@ -308,13 +308,13 @@ export function HorariosTab({
                 type="button"
                 onClick={() => toggle(index)}
                 className="relative w-9 h-5 rounded-full transition-colors shrink-0"
-                style={{ background: enabled ? "var(--primary)" : "rgba(255,255,255,0.12)" }}
+                style={{ background: enabled ? "var(--primary)" : "var(--hover)" }}
               >
                 <span
                   className="absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform"
                   style={{
                     left:      enabled ? "calc(100% - 18px)" : "2px",
-                    boxShadow: "0 1px 3px rgba(0,0,0,0.3)",
+                    boxShadow: "0 1px 3px var(--shadow-sm)",
                   }}
                 />
               </button>

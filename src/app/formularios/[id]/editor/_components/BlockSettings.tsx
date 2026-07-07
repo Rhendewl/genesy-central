@@ -1,14 +1,23 @@
 "use client";
 
-import { Plus, Trash2, GripVertical } from "lucide-react";
+import { Plus, Trash2, GripVertical, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { FormStep } from "@/types";
+import type { FormStep, FormEnding, LogicRule, QuestionWeight } from "@/types";
+import { useCalendars } from "@/hooks/useCalendars";
 import { getBlockDef } from "./blocks";
 import { Toggle, Field, StyledInput, StyledTextarea, inputBaseClass } from "./primitives";
+import { LogicEditor } from "./LogicEditor";
 
 interface BlockSettingsProps {
   step: FormStep;
   onChange: (patch: Partial<FormStep>) => void;
+}
+
+// ── Merge de regras de lógica ─────────────────────────────────────────────────
+// LogicEditor edita só as regras da pergunta atual; esta função devolve o
+// array completo de form.logic_rules com as regras dessa pergunta substituídas.
+function replaceRulesForStep(all: LogicRule[], stepId: string, next: LogicRule[]): LogicRule[] {
+  return [...all.filter(r => r.condition.step !== stepId), ...next];
 }
 
 // ── Campos comuns ─────────────────────────────────────────────────────────────
@@ -62,16 +71,59 @@ function PlaceholderField({ step, onChange }: BlockSettingsProps) {
   );
 }
 
+// ── Classificação da resposta (estrelas) ──────────────────────────────────────
+// Usada só por single_choice — insumo do IQ (peso da pergunta × estrelas da
+// alternativa escolhida). O usuário só clica estrelas, nunca vê um número.
+
+function StarPicker({
+  value,
+  onChange,
+}: {
+  value?: 1 | 2 | 3 | 4 | 5;
+  onChange: (score: 1 | 2 | 3 | 4 | 5) => void;
+}) {
+  const current = value ?? 3;
+  return (
+    <div className="flex items-center gap-0.5 flex-shrink-0" role="group" aria-label="Classificação da resposta">
+      {([1, 2, 3, 4, 5] as const).map(n => (
+        <button
+          key={n}
+          type="button"
+          onClick={() => onChange(n)}
+          aria-label={`${n} estrela${n !== 1 ? "s" : ""}`}
+          aria-pressed={n <= current}
+          className="p-0.5 hover:scale-110 transition-transform"
+        >
+          <Star
+            size={11}
+            aria-hidden="true"
+            style={{
+              color: n <= current ? "#f59e0b" : "var(--border)",
+              fill:  n <= current ? "#f59e0b" : "transparent",
+            }}
+          />
+        </button>
+      ))}
+    </div>
+  );
+}
+
 // ── Editor de opções ──────────────────────────────────────────────────────────
 
 function ChoicesEditor({ step, onChange }: BlockSettingsProps) {
   const choices = step.choices ?? [];
+  const showStars = step.type === "single_choice";
 
   const updateChoice = (id: string, label: string) =>
     onChange({
       choices: choices.map(c =>
         c.id === id ? { ...c, label, value: label.toLowerCase().replace(/\s+/g, "_") } : c
       ),
+    });
+
+  const updateChoiceScore = (id: string, score: 1 | 2 | 3 | 4 | 5) =>
+    onChange({
+      choices: choices.map(c => c.id === id ? { ...c, score } : c),
     });
 
   const addChoice = () =>
@@ -109,6 +161,12 @@ function ChoicesEditor({ step, onChange }: BlockSettingsProps) {
               aria-label={`Opção ${i + 1}`}
               onChange={e => updateChoice(choice.id, e.target.value)}
             />
+            {showStars && (
+              <StarPicker
+                value={choice.score}
+                onChange={score => updateChoiceScore(choice.id, score)}
+              />
+            )}
             <button
               onClick={() => removeChoice(choice.id)}
               className="flex-shrink-0 p-1 rounded hover:bg-red-500/10 transition-colors"
@@ -126,7 +184,7 @@ function ChoicesEditor({ step, onChange }: BlockSettingsProps) {
 
         <button
           onClick={addChoice}
-          className="flex items-center gap-1.5 text-xs py-2 px-3 rounded-lg transition-all hover:bg-white/5 mt-1"
+          className="flex items-center gap-1.5 text-xs py-2 px-3 rounded-lg transition-all hover:bg-[var(--hover)] mt-1"
           style={{ color: "var(--primary)", border: "1px dashed var(--border)" }}
         >
           <Plus size={11} aria-hidden="true" />
@@ -152,15 +210,87 @@ function RatingSettings({ step, onChange }: BlockSettingsProps) {
             aria-pressed={max === n}
             className="flex-1 py-1.5 rounded-lg text-xs font-medium transition-all"
             style={{
-              background: max === n ? "rgba(64,69,73,0.20)" : "rgba(0,0,0,0.30)",
-              color: max === n ? "#404549" : "var(--muted-foreground)",
-              border: `1px solid ${max === n ? "rgba(64,69,73,0.35)" : "rgba(255,255,255,0.07)"}`,
+              background: max === n ? "color-mix(in srgb, var(--primary) 20%, transparent)" : "var(--hover)",
+              color: max === n ? "var(--primary)" : "var(--muted-foreground)",
+              border: `1px solid ${max === n ? "color-mix(in srgb, var(--primary) 35%, transparent)" : "var(--glass-border)"}`,
             }}
           >
             {n}
           </button>
         ))}
       </div>
+    </Field>
+  );
+}
+
+// ── Peso da pergunta (IQ) ──────────────────────────────────────────────────────
+// O usuário só escolhe uma destas 5 opções — nunca um número. Ver
+// src/lib/crm/lead-score-engine.ts pela escala interna peso→multiplicador.
+
+const WEIGHT_OPTIONS: Array<{ value: QuestionWeight; label: string }> = [
+  { value: "ignore",   label: "Ignorar" },
+  { value: "low",      label: "Baixo" },
+  { value: "medium",   label: "Médio" },
+  { value: "high",     label: "Alto" },
+  { value: "critical", label: "Crítico" },
+];
+
+function WeightSettings({ step, onChange }: BlockSettingsProps) {
+  const current = step.weight ?? "ignore";
+  return (
+    <Field label="Peso da pergunta (IQ)">
+      <div className="flex gap-1" role="group" aria-label="Selecionar peso da pergunta no cálculo de IQ">
+        {WEIGHT_OPTIONS.map(opt => (
+          <button
+            key={opt.value}
+            type="button"
+            onClick={() => onChange({ weight: opt.value })}
+            aria-pressed={current === opt.value}
+            className="flex-1 py-1.5 rounded-lg text-[9px] font-medium transition-all"
+            style={{
+              background: current === opt.value ? "rgba(99,102,241,0.18)" : "var(--hover)",
+              color: current === opt.value ? "#8b8fed" : "var(--muted-foreground)",
+              border: `1px solid ${current === opt.value ? "rgba(139,143,237,0.35)" : "var(--glass-border)"}`,
+            }}
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
+    </Field>
+  );
+}
+
+// ── Calendário ────────────────────────────────────────────────────────────────
+
+function CalendarBlockSettings({ step, onChange }: BlockSettingsProps) {
+  const { calendars, isLoading } = useCalendars();
+
+  return (
+    <Field label="Calendário" htmlFor={`bs-calendar-${step.id}`}>
+      <select
+        id={`bs-calendar-${step.id}`}
+        className={cn(inputBaseClass)}
+        style={{ background: "var(--background)", border: "1px solid var(--border)", color: "var(--text-title)" }}
+        value={step.calendarId ?? ""}
+        disabled={isLoading}
+        onChange={e => {
+          const cal = calendars.find(c => c.id === e.target.value);
+          onChange(cal
+            ? { calendarId: cal.id, calendarSlug: cal.slug, calendarName: cal.name }
+            : { calendarId: undefined, calendarSlug: undefined, calendarName: undefined });
+        }}
+      >
+        <option value="">{isLoading ? "Carregando..." : "Selecionar calendário"}</option>
+        {calendars.map(cal => (
+          <option key={cal.id} value={cal.id}>{cal.name}</option>
+        ))}
+      </select>
+      {!isLoading && calendars.length === 0 && (
+        <p className="text-[10px]" style={{ color: "var(--muted-foreground)" }}>
+          Nenhum calendário cadastrado na Agenda ainda.
+        </p>
+      )}
     </Field>
   );
 }
@@ -189,7 +319,21 @@ function ContentField({
 
 // ── Componente principal ──────────────────────────────────────────────────────
 
-export function BlockSettings({ step, onChange }: BlockSettingsProps) {
+interface BlockSettingsFullProps extends BlockSettingsProps {
+  allSteps?: FormStep[];
+  endings?: FormEnding[];
+  logicRules?: LogicRule[];
+  onChangeLogic?: (rules: LogicRule[]) => void;
+}
+
+export function BlockSettings({
+  step,
+  onChange,
+  allSteps = [],
+  endings = [],
+  logicRules = [],
+  onChangeLogic,
+}: BlockSettingsFullProps) {
   const def   = getBlockDef(step.type);
   const color = def?.color ?? "var(--primary)";
   const Icon  = def?.icon;
@@ -233,6 +377,10 @@ export function BlockSettings({ step, onChange }: BlockSettingsProps) {
         <ChoicesEditor step={step} onChange={onChange} />
       )}
 
+      {step.type === "single_choice" && (
+        <WeightSettings step={step} onChange={onChange} />
+      )}
+
       {step.type === "rating" && (
         <RatingSettings step={step} onChange={onChange} />
       )}
@@ -255,6 +403,23 @@ export function BlockSettings({ step, onChange }: BlockSettingsProps) {
           placeholder="https://..."
           fieldId={`bs-redirect-${step.id}`}
         />
+      )}
+
+      {step.type === "calendar" && (
+        <CalendarBlockSettings step={step} onChange={onChange} />
+      )}
+
+      {step.type === "single_choice" && onChangeLogic && (
+        <>
+          <div style={{ height: "1px", background: "var(--border)" }} role="separator" />
+          <LogicEditor
+            step={step}
+            allSteps={allSteps}
+            endings={endings}
+            rules={logicRules.filter(r => r.condition.step === step.id)}
+            onChange={next => onChangeLogic(replaceRulesForStep(logicRules, step.id, next))}
+          />
+        </>
       )}
 
       {step.type === "file_upload" && (

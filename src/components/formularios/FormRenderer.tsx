@@ -277,6 +277,9 @@ export const FormRenderer = React.memo(function FormRenderer({
                   stepIndex={currentStepIndex}
                   totalSteps={totalSteps}
                   canGoBack={canGoBack}
+                  mode={mode}
+                  formSteps={steps}
+                  formAnswers={answers}
                 />
               </div>
             )}

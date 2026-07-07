@@ -28,9 +28,9 @@ const TABS = [
 // ── Badge de status ────────────────────────────────────────────────────────────
 
 const STATUS_STYLE: Record<FormStatus, { label: string; bg: string; color: string }> = {
-  draft:     { label: "Rascunho",   bg: "rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.50)" },
+  draft:     { label: "Rascunho",   bg: "rgba(255,255,255,0.08)", color: "color-mix(in srgb, var(--text-title) 50%, transparent)" },
   published: { label: "Publicado",  bg: "rgba(34,197,94,0.12)",   color: "#22c55e" },
-  archived:  { label: "Arquivado",  bg: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.30)" },
+  archived:  { label: "Arquivado",  bg: "rgba(255,255,255,0.06)", color: "color-mix(in srgb, var(--text-title) 30%, transparent)" },
   disabled:  { label: "Desativado", bg: "rgba(239,68,68,0.12)",   color: "#ef4444" },
 };
 
@@ -82,7 +82,7 @@ export function FormularioShell({ id, children }: FormularioShellProps) {
 
   return (
     <div
-      className="flex flex-col min-h-screen pb-24"
+      className="flex flex-col pb-24"
       style={{ backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)" }}
     >
 
@@ -105,7 +105,7 @@ export function FormularioShell({ id, children }: FormularioShellProps) {
             <span className="hidden sm:inline">Formulários</span>
           </button>
 
-          <div className="w-px h-4 flex-shrink-0" style={{ background: "rgba(255,255,255,0.10)" }} aria-hidden="true" />
+          <div className="w-px h-4 flex-shrink-0" style={{ background: "var(--glass-bg-soft)" }} aria-hidden="true" />
 
           {meta ? (
             <h1
@@ -153,9 +153,9 @@ export function FormularioShell({ id, children }: FormularioShellProps) {
               disabled={isPublishing}
               className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg transition-all hover:opacity-90 disabled:opacity-50 flex-shrink-0"
               style={{
-                background: "rgba(64,69,73,0.12)",
-                color: "#404549",
-                border: "1px solid rgba(64,69,73,0.22)",
+                background: "color-mix(in srgb, var(--primary) 12%, transparent)",
+                color: "var(--primary)",
+                border: "1px solid color-mix(in srgb, var(--primary) 22%, transparent)",
               }}
               aria-label="Publicar formulário"
             >

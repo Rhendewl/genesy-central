@@ -116,7 +116,7 @@ function SectionCard({
     <div className="rounded-xl overflow-hidden" style={{ border: "1px solid var(--border)", background: "var(--card)" }}>
       <div className="flex items-start gap-3 px-5 py-4" style={{ borderBottom: "1px solid var(--border)" }}>
         {Icon && (
-          <div className="mt-0.5 p-1.5 rounded-lg" style={{ background: "rgba(255,255,255,0.06)" }}>
+          <div className="mt-0.5 p-1.5 rounded-lg" style={{ background: "var(--glass-bg-soft)" }}>
             <Icon size={13} style={{ color: "var(--muted-foreground)" }} />
           </div>
         )}
@@ -169,7 +169,7 @@ function TextInput({
         disabled={disabled}
         className="w-full rounded-lg px-3 py-2 text-sm outline-none transition-all disabled:opacity-50"
         style={{
-          background:    "rgba(255,255,255,0.04)",
+          background: "var(--hover)",
           border:        `1px solid ${hasError ? "#ef4444" : "var(--border)"}`,
           color:         "var(--text-title)",
           paddingRight:  suffix ? "2.5rem" : "0.75rem",
@@ -192,7 +192,7 @@ function Textarea({
       placeholder={placeholder}
       rows={rows}
       className="w-full rounded-lg px-3 py-2 text-sm outline-none resize-none"
-      style={{ background: "rgba(255,255,255,0.04)", border: "1px solid var(--border)", color: "var(--text-title)" }}
+      style={{ background: "var(--hover)", border: "1px solid var(--border)", color: "var(--text-title)" }}
     />
   );
 }
@@ -211,10 +211,10 @@ function SelectField<T extends string>({
         onChange={e => onChange(e.target.value as T)}
         disabled={disabled}
         className="w-full appearance-none rounded-lg px-3 py-2 text-sm outline-none pr-8 disabled:opacity-50"
-        style={{ background: "rgba(255,255,255,0.04)", border: "1px solid var(--border)", color: "var(--text-title)" }}
+        style={{ background: "var(--hover)", border: "1px solid var(--border)", color: "var(--text-title)" }}
       >
         {options.map(o => (
-          <option key={o.value} value={o.value} style={{ background: "#17172a" }}>{o.label}</option>
+          <option key={o.value} value={o.value} style={{ background: "var(--popover)" }}>{o.label}</option>
         ))}
       </select>
       <ChevronDown size={12} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: "var(--muted-foreground)" }} />
@@ -687,7 +687,7 @@ export default function FormularioConfiguracoesPage() {
 
                   <div
                     className="flex items-center justify-between py-2 px-3 rounded-lg"
-                    style={{ background: "rgba(255,255,255,0.03)", border: "1px solid var(--border)" }}
+                    style={{ background: "var(--hover)", border: "1px solid var(--border)" }}
                   >
                     <div>
                       <p className="text-xs font-medium" style={{ color: "var(--text-title)" }}>Método</p>
@@ -695,7 +695,7 @@ export default function FormularioConfiguracoesPage() {
                     </div>
                     <span
                       className="px-2 py-0.5 rounded text-[11px] font-mono font-semibold"
-                      style={{ background: "rgba(64,69,73,0.12)", color: "#404549" }}
+                      style={{ background: "color-mix(in srgb, var(--primary) 12%, transparent)", color: "var(--primary)" }}
                     >
                       POST
                     </span>
@@ -738,11 +738,11 @@ export default function FormularioConfiguracoesPage() {
             <SectionCard title="Após o envio">
               <div
                 className="flex items-start gap-3 p-3 rounded-lg"
-                style={{ background: "rgba(64,69,73,0.07)", border: "1px solid rgba(64,69,73,0.15)" }}
+                style={{ background: "color-mix(in srgb, var(--primary) 7%, transparent)", border: "1px solid color-mix(in srgb, var(--primary) 15%, transparent)" }}
               >
-                <AlertTriangle size={14} className="mt-0.5 flex-shrink-0" style={{ color: "#404549" }} />
+                <AlertTriangle size={14} className="mt-0.5 flex-shrink-0" style={{ color: "var(--primary)" }} />
                 <div>
-                  <p className="text-xs font-medium mb-0.5" style={{ color: "#404549" }}>Configurado no Editor Visual</p>
+                  <p className="text-xs font-medium mb-0.5" style={{ color: "var(--primary)" }}>Configurado no Editor Visual</p>
                   <p className="text-[11px]" style={{ color: "var(--muted-foreground)" }}>
                     O redirecionamento, mensagem de agradecimento e tela de encerramento são configurados
                     na seção <strong style={{ color: "var(--text-title)" }}>Ending</strong> do Editor Visual.
@@ -751,7 +751,7 @@ export default function FormularioConfiguracoesPage() {
                     type="button"
                     onClick={() => router.push(`/formularios/${id}/editor`)}
                     className="inline-flex items-center gap-1 mt-2 text-[11px] font-medium hover:underline"
-                    style={{ color: "#404549" }}
+                    style={{ color: "var(--primary)" }}
                   >
                     Ir para o Editor <ExternalLink size={9} />
                   </button>
@@ -797,7 +797,7 @@ export default function FormularioConfiguracoesPage() {
                 onClick={() => toast.info("Lead Scoring estará disponível em breve!")}
                 className="flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium self-start transition-colors hover:opacity-80"
                 style={{
-                  background: "rgba(255,255,255,0.06)",
+                  background: "var(--glass-bg-soft)",
                   border:     "1px solid var(--border)",
                   color:      "var(--text-title)",
                 }}

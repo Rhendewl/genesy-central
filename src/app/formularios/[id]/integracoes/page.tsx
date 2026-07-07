@@ -49,7 +49,7 @@ export default function FormularioIntegracoesPage() {
   }, [remove, reload]);
 
   return (
-    <div className="flex flex-col min-h-screen pb-24" style={{ background: "var(--background)" }}>
+    <div className="flex flex-col pb-24" style={{ background: "var(--background)" }}>
       <Header
         title="Integrações"
         subtitle={form?.name ?? ""}

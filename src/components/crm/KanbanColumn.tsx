@@ -38,16 +38,16 @@ export function KanbanColumn({ stage, leads, totalValue, onEditLead }: KanbanCol
       className="flex w-72 flex-shrink-0 flex-col rounded-[20px] transition-all duration-200"
       style={{
         background: isOver
-          ? "rgba(255, 255, 255, 0.06)"
-          : "rgba(0, 0, 0, 0.32)",
+          ? "var(--hover)"
+          : "var(--glass-bg-soft)",
         backdropFilter: "blur(14px) saturate(140%)",
         WebkitBackdropFilter: "blur(14px) saturate(140%)",
         border: isOver
-          ? "1px solid rgba(255, 255, 255, 0.14)"
-          : "1px solid rgba(255, 255, 255, 0.07)",
+          ? "1px solid var(--border-card-hover)"
+          : "1px solid var(--border-card)",
         boxShadow: isOver
-          ? "0 8px 32px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.08)"
-          : "0 4px 20px rgba(0,0,0,0.30), inset 0 1px 0 rgba(255,255,255,0.04)",
+          ? "0 8px 32px var(--shadow-md), inset 0 1px 0 var(--glass-border)"
+          : "0 4px 20px var(--shadow-sm), inset 0 1px 0 var(--hover)",
         minHeight: 660,
       }}
     >
@@ -57,11 +57,11 @@ export function KanbanColumn({ stage, leads, totalValue, onEditLead }: KanbanCol
         <div className="flex items-center gap-2.5">
           <span
             className="h-1.5 w-1.5 flex-shrink-0 rounded-full"
-            style={{ background: stage.color ?? "rgba(255,255,255,0.35)" }}
+            style={{ background: stage.color ?? "var(--icon)" }}
           />
           <span
             className="flex-1 truncate text-[11px] font-semibold uppercase tracking-widest"
-            style={{ color: "rgba(255,255,255,0.55)" }}
+            style={{ color: "var(--text-card-secondary)" }}
           >
             {stage.name}
           </span>
@@ -72,8 +72,8 @@ export function KanbanColumn({ stage, leads, totalValue, onEditLead }: KanbanCol
             transition={{ type: "spring", stiffness: 500, damping: 25 }}
             className="min-w-[22px] rounded-full px-2 py-0.5 text-center text-xs font-semibold tabular-nums"
             style={{
-              background: "rgba(255,255,255,0.06)",
-              color: "rgba(255,255,255,0.45)",
+              background: "var(--hover)",
+              color: "var(--text-card-subtle)",
             }}
           >
             {leads.length}
@@ -87,7 +87,7 @@ export function KanbanColumn({ stage, leads, totalValue, onEditLead }: KanbanCol
           animate={{ opacity: 1 }}
           transition={{ duration: 0.25 }}
           className="mt-1.5 text-[11px] font-semibold tabular-nums"
-          style={{ color: totalValue > 0 ? "rgba(255,255,255,0.42)" : "rgba(255,255,255,0.18)" }}
+          style={{ color: totalValue > 0 ? "var(--text-card-subtle)" : "var(--text-empty)" }}
         >
           {fmtBRL(totalValue)}
         </motion.p>
@@ -124,9 +124,9 @@ export function KanbanColumn({ stage, leads, totalValue, onEditLead }: KanbanCol
             animate={{ opacity: 1 }}
             className="flex flex-1 items-center justify-center rounded-2xl py-10 text-xs transition-all duration-200"
             style={{
-              border: "1.5px dashed rgba(255,255,255,0.10)",
-              color: isOver ? "rgba(255,255,255,0.65)" : "rgba(255,255,255,0.25)",
-              background: isOver ? "rgba(255,255,255,0.04)" : "transparent",
+              border: "1.5px dashed var(--border-card-drag)",
+              color: isOver ? "var(--text-card-secondary)" : "var(--text-empty)",
+              background: isOver ? "var(--hover)" : "transparent",
             }}
           >
             {isOver ? "↓ Soltar aqui" : "Sem leads"}

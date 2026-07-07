@@ -64,15 +64,7 @@ function ErrorState({ message, onRetry, loading }: {
   loading: boolean;
 }) {
   return (
-    <div
-      className="rounded-3xl p-6 flex flex-col sm:flex-row items-center gap-4"
-      style={{
-        background: "rgba(0,0,0,0.07)",
-        backdropFilter: "blur(28px) saturate(180%)",
-        WebkitBackdropFilter: "blur(28px) saturate(180%)",
-        border: "1px solid rgba(255,255,255,0.08)",
-      }}
-    >
+    <div className="lc-portal-card rounded-3xl p-6 flex flex-col sm:flex-row items-center gap-4">
       <div
         className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0"
         style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.2)" }}
@@ -80,8 +72,8 @@ function ErrorState({ message, onRetry, loading }: {
         <WifiOff size={18} className="text-red-400" strokeWidth={1.6} />
       </div>
       <div className="flex-1 text-center sm:text-left">
-        <p className="text-white/70 text-sm font-medium">{message}</p>
-        <p className="text-white/30 text-xs mt-0.5">Verifique a conexão com a conta Meta.</p>
+        <p className="text-[color-mix(in_srgb,var(--text-title)_70%,transparent)] text-sm font-medium">{message}</p>
+        <p className="text-[color-mix(in_srgb,var(--text-title)_30%,transparent)] text-xs mt-0.5">Verifique a conexão com a conta Meta.</p>
       </div>
       <RefreshButton loading={loading} onClick={onRetry} />
     </div>
@@ -101,7 +93,7 @@ function RefreshButton({ loading, onClick }: { loading: boolean; onClick: () => 
       )}
       style={{
         background: loading
-          ? "rgba(255,255,255,0.05)"
+          ? "var(--shimmer-base)"
           : "rgba(39,163,255,0.12)",
         border: "1px solid rgba(39,163,255,0.22)",
         color: "#27a3ff",
@@ -126,27 +118,19 @@ function RefreshButton({ loading, onClick }: { loading: boolean; onClick: () => 
 
 function Skeleton() {
   return (
-    <div
-      className="rounded-3xl p-5 sm:p-6"
-      style={{
-        background: "rgba(0,0,0,0.07)",
-        backdropFilter: "blur(28px) saturate(180%)",
-        WebkitBackdropFilter: "blur(28px) saturate(180%)",
-        border: "1px solid rgba(255,255,255,0.08)",
-      }}
-    >
+    <div className="lc-portal-card rounded-3xl p-5 sm:p-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5">
         {/* Icon placeholder */}
-        <div className="w-12 h-12 rounded-2xl bg-white/[0.05] animate-pulse shrink-0" />
+        <div className="w-12 h-12 rounded-2xl bg-[var(--shimmer-light)] animate-pulse shrink-0" />
         {/* Text placeholders */}
         <div className="flex-1 space-y-2.5">
-          <div className="h-3.5 bg-white/[0.07] rounded-full animate-pulse w-40" />
-          <div className="h-2.5 bg-white/[0.04] rounded-full animate-pulse w-28" />
+          <div className="h-3.5 bg-[var(--shimmer-base)] rounded-full animate-pulse w-40" />
+          <div className="h-2.5 bg-[var(--shimmer-light)] rounded-full animate-pulse w-28" />
         </div>
         {/* Balance placeholder */}
         <div className="space-y-1.5 text-right">
-          <div className="h-7 bg-white/[0.07] rounded-full animate-pulse w-32" />
-          <div className="h-2.5 bg-white/[0.04] rounded-full animate-pulse w-24 ml-auto" />
+          <div className="h-7 bg-[var(--shimmer-base)] rounded-full animate-pulse w-32" />
+          <div className="h-2.5 bg-[var(--shimmer-light)] rounded-full animate-pulse w-24 ml-auto" />
         </div>
       </div>
     </div>
@@ -166,14 +150,7 @@ function AccountCard({ bal, index }: { bal: PortalAccountBalance; index: number 
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.07 }}
-      className="rounded-3xl overflow-hidden"
-      style={{
-        background: "rgba(0,0,0,0.07)",
-        backdropFilter: "blur(28px) saturate(180%)",
-        WebkitBackdropFilter: "blur(28px) saturate(180%)",
-        border: "1px solid rgba(255,255,255,0.08)",
-        boxShadow: "0 4px 24px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.05)",
-      }}
+      className="lc-portal-card rounded-3xl overflow-hidden"
     >
       {/* Top accent line if active */}
       {bal.account_status === 1 && (
@@ -204,10 +181,10 @@ function AccountCard({ bal, index }: { bal: PortalAccountBalance; index: number 
             </div>
 
             <div className="min-w-0">
-              <p className="text-white text-sm font-semibold leading-tight truncate">
+              <p className="text-[var(--text-title)] text-sm font-semibold leading-tight truncate">
                 {bal.account_name}
               </p>
-              <p className="text-white/35 text-[11px] mt-0.5 font-mono">
+              <p className="text-[color-mix(in_srgb,var(--text-title)_35%,transparent)] text-[11px] mt-0.5 font-mono">
                 {bal.account_id}
               </p>
             </div>
@@ -219,13 +196,13 @@ function AccountCard({ bal, index }: { bal: PortalAccountBalance; index: number 
               <div className="flex sm:flex-col sm:items-end gap-2 sm:gap-0.5">
                 {/* Net balance — hero number */}
                 <div>
-                  <p className="text-[10px] text-white/30 uppercase tracking-wider mb-0.5 hidden sm:block">
+                  <p className="text-[10px] text-[color-mix(in_srgb,var(--text-title)_30%,transparent)] uppercase tracking-wider mb-0.5 hidden sm:block">
                     Saldo disponível
                   </p>
                   <p
                     className={cn(
                       "text-2xl sm:text-3xl font-black tabular-nums leading-none",
-                      bal.balance_net > 0 ? "text-emerald-400" : "text-white/50"
+                      bal.balance_net > 0 ? "text-emerald-400" : "text-[color-mix(in_srgb,var(--text-title)_50%,transparent)]"
                     )}
                     style={{
                       textShadow: bal.balance_net > 0 ? "0 0 20px rgba(34,197,94,0.3)" : "none",
@@ -237,10 +214,10 @@ function AccountCard({ bal, index }: { bal: PortalAccountBalance; index: number 
 
                 {/* Gross in parens */}
                 {bal.is_prepay && (
-                  <p className="text-white/28 text-xs">
-                    <span className="text-white/20">(Bruto: </span>
+                  <p className="text-[color-mix(in_srgb,var(--text-title)_28%,transparent)] text-xs">
+                    <span className="text-[color-mix(in_srgb,var(--text-title)_20%,transparent)]">(Bruto: </span>
                     {fmtCurrency(bal.balance_gross, bal.currency)}
-                    <span className="text-white/20">)</span>
+                    <span className="text-[color-mix(in_srgb,var(--text-title)_20%,transparent)]">)</span>
                   </p>
                 )}
               </div>
@@ -248,13 +225,13 @@ function AccountCard({ bal, index }: { bal: PortalAccountBalance; index: number 
           ) : (
             <div className="sm:text-right">
               <p className="text-red-400/70 text-sm font-medium">Saldo indisponível</p>
-              <p className="text-white/25 text-xs mt-0.5">Erro ao consultar a API</p>
+              <p className="text-[color-mix(in_srgb,var(--text-title)_25%,transparent)] text-xs mt-0.5">Erro ao consultar a API</p>
             </div>
           )}
         </div>
 
         {/* ── Divider ──────────────────────────────────────────── */}
-        <div className="h-px bg-white/[0.06] my-4" />
+        <div className="h-px bg-[color-mix(in_srgb,var(--text-title)_6%,transparent)] my-4" />
 
         {/* ── Row 2: badges + meta info ────────────────────────── */}
         <div className="flex flex-wrap items-center gap-2 justify-between">
@@ -278,8 +255,8 @@ function AccountCard({ bal, index }: { bal: PortalAccountBalance; index: number 
               <span
                 className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[11px] font-medium"
                 style={{
-                  background: "rgba(255,255,255,0.05)",
-                  border: "1px solid rgba(255,255,255,0.10)",
+                  background: "var(--shimmer-base)",
+                  border: "1px solid var(--glass-border)",
                   color: "rgba(255,255,255,0.55)",
                 }}
               >
@@ -292,9 +269,9 @@ function AccountCard({ bal, index }: { bal: PortalAccountBalance; index: number 
             <span
               className="px-2.5 py-1 rounded-xl text-[11px] font-mono font-medium"
               style={{
-                background: "rgba(255,255,255,0.04)",
-                border: "1px solid rgba(255,255,255,0.08)",
-                color: "rgba(255,255,255,0.35)",
+                background: "var(--shimmer-light)",
+                border: "1px solid var(--glass-border)",
+                color: "var(--icon)",
               }}
             >
               {bal.currency}
@@ -302,7 +279,7 @@ function AccountCard({ bal, index }: { bal: PortalAccountBalance; index: number 
           </div>
 
           {/* Fetch time */}
-          <span className="text-white/20 text-[10px] flex items-center gap-1">
+          <span className="text-[color-mix(in_srgb,var(--text-title)_20%,transparent)] text-[10px] flex items-center gap-1">
             <Clock size={9} />
             Consultado às {fetchedTime}
           </span>
@@ -310,7 +287,7 @@ function AccountCard({ bal, index }: { bal: PortalAccountBalance; index: number 
 
         {/* ── Tax note (only for BRL + prepay + active) ──────── */}
         {bal.is_prepay && bal.currency === "BRL" && bal.account_status === 1 && bal.balance_gross > 0 && (
-          <p className="text-white/22 text-[10px] mt-3 leading-relaxed">
+          <p className="text-[color-mix(in_srgb,var(--text-title)_22%,transparent)] text-[10px] mt-3 leading-relaxed">
             Valor líquido já com desconto de {taxPct}% de impostos da Meta (IOF + taxa de serviço).
           </p>
         )}
@@ -319,13 +296,13 @@ function AccountCard({ bal, index }: { bal: PortalAccountBalance; index: number 
         {bal.amount_spent > 0 && !isError && (
           <div
             className="flex items-center justify-between mt-3 pt-3"
-            style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}
+            style={{ borderTop: "1px solid var(--border-color)" }}
           >
-            <span className="text-white/30 text-[11px] flex items-center gap-1.5">
+            <span className="text-[color-mix(in_srgb,var(--text-title)_30%,transparent)] text-[11px] flex items-center gap-1.5">
               <Wallet size={10} />
               Total gasto (período)
             </span>
-            <span className="text-white/50 text-[11px] font-semibold tabular-nums">
+            <span className="text-[color-mix(in_srgb,var(--text-title)_50%,transparent)] text-[11px] font-semibold tabular-nums">
               {fmtCurrency(bal.amount_spent, bal.currency)}
             </span>
           </div>
@@ -378,8 +355,8 @@ export function SaldoContaMeta({ slug }: SaldoContaMetaProps) {
       {/* Header row */}
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h3 className="text-white font-semibold text-sm">Saldo da Conta</h3>
-          <p className="text-white/35 text-xs mt-0.5">
+          <h3 className="text-[var(--text-title)] font-semibold text-sm">Saldo da Conta</h3>
+          <p className="text-[color-mix(in_srgb,var(--text-title)_35%,transparent)] text-xs mt-0.5">
             Saldo em tempo real da conta de anúncios Meta.
           </p>
         </div>
@@ -404,17 +381,9 @@ export function SaldoContaMeta({ slug }: SaldoContaMetaProps) {
           </motion.div>
         ) : balances.length === 0 ? (
           <motion.div key="empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-            <div
-              className="rounded-3xl p-8 text-center"
-              style={{
-                background: "rgba(0,0,0,0.07)",
-                backdropFilter: "blur(28px) saturate(180%)",
-                WebkitBackdropFilter: "blur(28px) saturate(180%)",
-                border: "1px solid rgba(255,255,255,0.08)",
-              }}
-            >
-              <Wallet size={24} className="text-white/15 mx-auto mb-3" strokeWidth={1.3} />
-              <p className="text-white/30 text-sm">Nenhuma conta Meta conectada.</p>
+            <div className="lc-portal-card rounded-3xl p-8 text-center">
+              <Wallet size={24} className="text-[color-mix(in_srgb,var(--text-title)_15%,transparent)] mx-auto mb-3" strokeWidth={1.3} />
+              <p className="text-[color-mix(in_srgb,var(--text-title)_30%,transparent)] text-sm">Nenhuma conta Meta conectada.</p>
             </div>
           </motion.div>
         ) : (

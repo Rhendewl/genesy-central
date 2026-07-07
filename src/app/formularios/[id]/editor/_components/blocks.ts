@@ -1,7 +1,7 @@
 import type { ComponentType } from "react";
 import type { FormStep, FormStepType } from "@/types";
 import {
-  Type, AlignLeft, Mail, Phone, Hash, Calendar,
+  Type, AlignLeft, Mail, Phone, Hash, Calendar, CalendarClock,
   CheckSquare, List, Star, FileText, ArrowRight, Upload, User,
   LucideProps,
 } from "lucide-react";
@@ -127,6 +127,14 @@ export const BLOCK_DEFINITIONS: BlockDefinition[] = [
     category: "special",
     color: "#ef4444",
   },
+  {
+    type: "calendar",
+    label: "Calendário",
+    description: "Agendamento inline de um calendário da Agenda",
+    icon: CalendarClock,
+    category: "special",
+    color: "#6366f1",
+  },
 ];
 
 export const BLOCK_CATEGORIES: Array<{ key: BlockDefinition["category"]; label: string }> = [
@@ -174,6 +182,8 @@ export function createDefaultStep(type: FormStepType): FormStep {
       return { ...base, content: "" };
     case "file_upload":
       return base as FormStep;
+    case "calendar":
+      return { ...base, calendarId: undefined };
     default:
       return base as FormStep;
   }
@@ -194,6 +204,7 @@ function getDefaultTitle(type: FormStepType): string {
     file_upload:     "Envie um arquivo",
     statement:       "Informação importante",
     redirect:        "Redirecionamento",
+    calendar:        "Escolha um horário",
   };
   return map[type] ?? "Nova pergunta";
 }

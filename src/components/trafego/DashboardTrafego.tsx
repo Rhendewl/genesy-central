@@ -77,7 +77,7 @@ function TrendBadge({
     return (
       <span
         className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
-        style={{ color: "#b4b4b4", background: "rgba(180,180,180,0.10)" }}
+        style={{ color: "var(--silver)", background: "var(--hover)" }}
         title="Comparado ao período anterior equivalente"
       >
         estável
@@ -123,8 +123,8 @@ function PeriodSelector({
   return (
     <div className="flex items-center gap-0.5 p-0.5 rounded-lg"
       style={{
-        background: "rgba(0,0,0,0.10)",
-        border: "1px solid rgba(255,255,255,0.10)",
+        background: "var(--hover)",
+        border: "1px solid var(--border)",
         backdropFilter: "blur(20px)",
         WebkitBackdropFilter: "blur(20px)",
       }}>
@@ -134,8 +134,8 @@ function PeriodSelector({
             "rounded-md font-medium transition-all",
             size === "xs" ? "px-2 py-0.5 text-[10px]" : "px-2.5 py-1 text-[11px]",
             value === p.key
-              ? "text-white"
-              : "text-[#b4b4b4] hover:text-white"
+              ? "text-[var(--text-title)]"
+              : "text-[var(--silver)] hover:text-[var(--text-title)]"
           )}
           style={value === p.key ? {
             background: "rgba(74,143,212,0.20)",
@@ -206,13 +206,13 @@ function KpiCardPremium({
             <div style={{ color: accent }}>{icon}</div>
           </div>
           <p className="text-[10px] font-semibold uppercase tracking-widest"
-            style={{ color: "#7a7a8a" }}>{title}</p>
+            style={{ color: "var(--muted-foreground)" }}>{title}</p>
         </div>
         <TrendBadge change={change ?? null} metricType={metricType} />
       </div>
 
-      <p className="text-[28px] font-bold text-white leading-none tracking-tight">{value}</p>
-      {sub && <p className="text-xs mt-0.5" style={{ color: "#7a7a8a" }}>{sub}</p>}
+      <p className="text-[28px] font-bold text-[var(--text-title)] leading-none tracking-tight">{value}</p>
+      {sub && <p className="text-xs mt-0.5" style={{ color: "var(--muted-foreground)" }}>{sub}</p>}
 
       {sparklineData && sparklineKey && (
         <div className="mt-3 -mx-1">
@@ -238,19 +238,19 @@ const CustomTooltip = ({
   return (
     <div className="rounded-xl px-4 py-3 text-sm"
       style={{
-        background: "rgba(0,0,0,0.10)",
-        border: "1px solid rgba(255,255,255,0.10)",
+        background: "var(--hover)",
+        border: "1px solid var(--border)",
         backdropFilter: "blur(20px)",
         WebkitBackdropFilter: "blur(20px)",
       }}>
-      <p className="text-[#7a7a8a] text-[11px] mb-2 font-medium">{label}</p>
+      <p className="text-[var(--muted-foreground)] text-[11px] mb-2 font-medium">{label}</p>
       {payload.map(p => {
         const fmt = formatters[p.name] ?? ((v: number) => String(v));
         return (
           <div key={p.name} className="flex items-center gap-2 mb-1 last:mb-0">
             <span className="w-2 h-2 rounded-full shrink-0" style={{ background: p.color }} />
-            <span className="text-[#c7e5ff] text-xs">{p.name}:</span>
-            <span className="text-white font-semibold text-xs">{fmt(p.value)}</span>
+            <span className="text-[color:var(--chart-tooltip-entry)] text-xs">{p.name}:</span>
+            <span className="text-[var(--text-title)] font-semibold text-xs">{fmt(p.value)}</span>
           </div>
         );
       })}
@@ -276,8 +276,8 @@ function HeroChart({
     >
       <div className="flex items-start justify-between mb-5 flex-wrap gap-3">
         <div>
-          <h3 className="text-base font-semibold text-white">Performance no Período</h3>
-          <p className="text-[11px] mt-0.5" style={{ color: "#7a7a8a" }}>
+          <h3 className="text-base font-semibold text-[var(--text-title)]">Performance no Período</h3>
+          <p className="text-[11px] mt-0.5" style={{ color: "var(--muted-foreground)" }}>
             Investimento diário e leads gerados
           </p>
         </div>
@@ -286,11 +286,11 @@ function HeroChart({
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-1.5">
               <div className="w-3 h-0.5 rounded-full bg-emerald-400" />
-              <span className="text-[11px]" style={{ color: "#7a7a8a" }}>Investimento</span>
+              <span className="text-[11px]" style={{ color: "var(--muted-foreground)" }}>Investimento</span>
             </div>
             <div className="flex items-center gap-1.5">
               <div className="w-3 h-0.5 rounded-full bg-[#4a8fd4]" />
-              <span className="text-[11px]" style={{ color: "#7a7a8a" }}>Leads</span>
+              <span className="text-[11px]" style={{ color: "var(--muted-foreground)" }}>Leads</span>
             </div>
           </div>
           <PeriodSelector value={period} onChange={onPeriodChange} size="xs" />
@@ -299,8 +299,8 @@ function HeroChart({
 
       {data.length === 0 || data.every(d => d.valor === 0 && d.leads === 0) ? (
         <div className="h-[200px] flex flex-col items-center justify-center gap-2">
-          <Activity size={28} style={{ color: "#3a3a4a" }} />
-          <p className="text-sm" style={{ color: "#5a5a6a" }}>Sem dados no período</p>
+          <Activity size={28} style={{ color: "var(--icon)" }} />
+          <p className="text-sm" style={{ color: "var(--text-muted)" }}>Sem dados no período</p>
         </div>
       ) : (
         <ResponsiveContainer width="100%" height={220}>
@@ -315,20 +315,20 @@ function HeroChart({
                 <stop offset="100%" stopColor="#4a8fd4" stopOpacity={0} />
               </linearGradient>
             </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" vertical={false} />
             <XAxis dataKey="data"
-              tick={{ fill: "#5a5a6a", fontSize: 10 }}
+              tick={{ fill: "var(--text-muted)", fontSize: 10 }}
               axisLine={false} tickLine={false}
               interval={Math.max(0, Math.floor(data.length / 8) - 1)}
             />
             <YAxis yAxisId="left"
-              tick={{ fill: "#5a5a6a", fontSize: 10 }}
+              tick={{ fill: "var(--text-muted)", fontSize: 10 }}
               axisLine={false} tickLine={false}
               tickFormatter={v => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)}
               width={40}
             />
             <YAxis yAxisId="right" orientation="right"
-              tick={{ fill: "#5a5a6a", fontSize: 10 }}
+              tick={{ fill: "var(--text-muted)", fontSize: 10 }}
               axisLine={false} tickLine={false}
               allowDecimals={false}
               width={30}
@@ -402,8 +402,8 @@ function FunnelStep({
         {/* Outer track */}
         <div className="relative h-12 rounded-xl overflow-hidden"
           style={{
-            background: "rgba(255,255,255,0.06)",
-            border: "1px solid rgba(255,255,255,0.06)",
+            background: "var(--hover)",
+            border: "1px solid var(--border)",
           }}>
           {/* Animated fill */}
           <motion.div
@@ -428,11 +428,11 @@ function FunnelStep({
                 {step.icon}
               </div>
               <div>
-                <p className="text-[12px] font-semibold text-white leading-tight">{step.label}</p>
-                <p className="text-[10px] leading-tight" style={{ color: "#5a5a6a" }}>{step.sub}</p>
+                <p className="text-[12px] font-semibold text-[var(--text-title)] leading-tight">{step.label}</p>
+                <p className="text-[10px] leading-tight" style={{ color: "var(--text-muted)" }}>{step.sub}</p>
               </div>
             </div>
-            <span className="text-[14px] font-bold text-white tabular-nums">{step.display}</span>
+            <span className="text-[14px] font-bold text-[var(--text-title)] tabular-nums">{step.display}</span>
           </div>
         </div>
       </motion.div>
@@ -446,8 +446,8 @@ function FunnelStep({
           className="flex items-center gap-2 py-1.5 pl-4"
         >
           <div className="flex flex-col gap-0.5">
-            <div className="w-px h-2 rounded-full" style={{ background: "rgba(255,255,255,0.08)" }} />
-            <div className="w-px h-2 rounded-full" style={{ background: "rgba(255,255,255,0.08)" }} />
+            <div className="w-px h-2 rounded-full" style={{ background: "var(--hover)" }} />
+            <div className="w-px h-2 rounded-full" style={{ background: "var(--hover)" }} />
           </div>
           <span className="text-[10px] font-medium" style={{ color: micro.color }}>
             {micro.text}
@@ -529,7 +529,7 @@ function FunnelBlock({ year, month, platformAccountId }: FunnelBlockProps) {
       alcToCliRate !== null
         ? {
             text: `${alcToCliRate.toFixed(2)}% do alcance gerou cliques`,
-            color: alcToCliRate >= ctr ? "#10b981" : "#7a7a8a",
+            color: alcToCliRate >= ctr ? "#10b981" : "var(--muted-foreground)",
           }
         : null, // after CTR
       cliToLedRate !== null
@@ -549,15 +549,15 @@ function FunnelBlock({ year, month, platformAccountId }: FunnelBlockProps) {
       <div className="lc-card p-6 flex flex-col gap-3 animate-pulse">
         <div className="flex items-start justify-between mb-2">
           <div className="flex flex-col gap-1.5">
-            <div className="h-4 w-36 bg-white/5 rounded" />
-            <div className="h-2.5 w-28 bg-white/[0.03] rounded" />
+            <div className="h-4 w-36 bg-[color-mix(in_srgb,var(--text-title)_5%,transparent)] rounded" />
+            <div className="h-2.5 w-28 bg-[color-mix(in_srgb,var(--text-title)_3%,transparent)] rounded" />
           </div>
-          <div className="h-7 w-32 bg-white/[0.04] rounded-lg" />
+          <div className="h-7 w-32 bg-[color-mix(in_srgb,var(--text-title)_4%,transparent)] rounded-lg" />
         </div>
         {[100, 68, 50, 34].map((_, i) => (
-          <div key={i} className="h-12 rounded-xl bg-white/[0.03]" style={{ opacity: 1 - i * 0.15 }} />
+          <div key={i} className="h-12 rounded-xl bg-[color-mix(in_srgb,var(--text-title)_3%,transparent)]" style={{ opacity: 1 - i * 0.15 }} />
         ))}
-        <div className="h-12 rounded-xl bg-white/[0.03] mt-1" />
+        <div className="h-12 rounded-xl bg-[color-mix(in_srgb,var(--text-title)_3%,transparent)] mt-1" />
       </div>
     );
   }
@@ -576,8 +576,8 @@ function FunnelBlock({ year, month, platformAccountId }: FunnelBlockProps) {
       {/* Header */}
       <div className="flex items-start justify-between mb-5 gap-3 flex-wrap">
         <div>
-          <h3 className="text-base font-semibold text-white">Funil de Performance</h3>
-          <p className="text-[11px] mt-0.5" style={{ color: "#7a7a8a" }}>
+          <h3 className="text-base font-semibold text-[var(--text-title)]">Funil de Performance</h3>
+          <p className="text-[11px] mt-0.5" style={{ color: "var(--muted-foreground)" }}>
             Do alcance ao resultado financeiro
           </p>
         </div>
@@ -586,9 +586,9 @@ function FunnelBlock({ year, month, platformAccountId }: FunnelBlockProps) {
 
       {!hasData ? (
         <div className="flex-1 flex flex-col items-center justify-center gap-2 py-10">
-          <Radio size={28} style={{ color: "#3a3a4a" }} />
-          <p className="text-sm" style={{ color: "#5a5a6a" }}>Sem dados no período</p>
-          <p className="text-[11px]" style={{ color: "#3a3a4a" }}>
+          <Radio size={28} style={{ color: "var(--icon)" }} />
+          <p className="text-sm" style={{ color: "var(--text-muted)" }}>Sem dados no período</p>
+          <p className="text-[11px]" style={{ color: "var(--icon)" }}>
             Sincronize campanhas para visualizar o funil
           </p>
         </div>
@@ -617,8 +617,8 @@ function FunnelBlock({ year, month, platformAccountId }: FunnelBlockProps) {
                 <DollarSign size={13} style={{ color: "#f59e0b" }} />
               </div>
               <div>
-                <p className="text-[12px] font-semibold text-white leading-tight">CPL Médio</p>
-                <p className="text-[10px]" style={{ color: "#7a7a8a" }}>custo por lead</p>
+                <p className="text-[12px] font-semibold text-[var(--text-title)] leading-tight">CPL Médio</p>
+                <p className="text-[10px]" style={{ color: "var(--muted-foreground)" }}>custo por lead</p>
               </div>
             </div>
             <div className="text-right">
@@ -626,7 +626,7 @@ function FunnelBlock({ year, month, platformAccountId }: FunnelBlockProps) {
                 {cpl > 0 ? fmtBRL(cpl) : "—"}
               </p>
               {leads > 0 && (
-                <p className="text-[10px]" style={{ color: "#7a7a8a" }}>
+                <p className="text-[10px]" style={{ color: "var(--muted-foreground)" }}>
                   {fmtNum(leads)} leads
                 </p>
               )}
@@ -664,14 +664,14 @@ function TopCampanhas({
     >
       <div className="flex items-start justify-between mb-5">
         <div>
-          <h3 className="text-base font-semibold text-white">Top Campanhas</h3>
-          <p className="text-[11px] mt-0.5" style={{ color: "#7a7a8a" }}>
+          <h3 className="text-base font-semibold text-[var(--text-title)]">Top Campanhas</h3>
+          <p className="text-[11px] mt-0.5" style={{ color: "var(--muted-foreground)" }}>
             Por leads gerados no período
           </p>
         </div>
         {onVerTodas && (
           <button onClick={onVerTodas}
-            className="flex items-center gap-1 text-[11px] font-medium transition-colors hover:text-white"
+            className="flex items-center gap-1 text-[11px] font-medium transition-colors hover:text-[var(--text-title)]"
             style={{ color: "#4a8fd4" }}>
             Ver todas <ArrowRight size={10} />
           </button>
@@ -680,14 +680,14 @@ function TopCampanhas({
 
       {campanhas.length === 0 ? (
         <div className="flex-1 flex flex-col items-center justify-center gap-2 py-8">
-          <Megaphone size={28} style={{ color: "#3a3a4a" }} />
-          <p className="text-sm" style={{ color: "#5a5a6a" }}>Sem campanhas com dados</p>
+          <Megaphone size={28} style={{ color: "var(--icon)" }} />
+          <p className="text-sm" style={{ color: "var(--text-muted)" }}>Sem campanhas com dados</p>
         </div>
       ) : (
         <div className="flex flex-col gap-px">
           {/* Header */}
           <div className="grid gap-2 px-2 pb-2 text-[10px] font-semibold uppercase tracking-wider"
-            style={{ color: "#5a5a6a", gridTemplateColumns: "1fr 80px 52px 72px 56px" }}>
+            style={{ color: "var(--text-muted)", gridTemplateColumns: "1fr 80px 52px 72px 56px" }}>
             <span>Campanha</span>
             <span className="text-right">Spend</span>
             <span className="text-right">Leads</span>
@@ -696,24 +696,24 @@ function TopCampanhas({
           </div>
 
           {campanhas.map((c, i) => {
-            const s = STATUS_META[c.status] ?? { label: c.status, color: "#b4b4b4", bg: "rgba(180,180,180,0.10)" };
+            const s = STATUS_META[c.status] ?? { label: c.status, color: "var(--silver)", bg: "var(--hover)" };
             return (
               <motion.div key={c.id}
                 initial={{ opacity: 0, x: -8 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: 0.45 + i * 0.05 }}
-                className="grid gap-2 px-2 py-2.5 rounded-xl items-center group transition-colors hover:bg-white/[0.03]"
+                className="grid gap-2 px-2 py-2.5 rounded-xl items-center group transition-colors hover:bg-[var(--hover)]"
                 style={{ gridTemplateColumns: "1fr 80px 52px 72px 56px" }}>
                 <div className="flex items-center gap-2 min-w-0">
                   <span className="text-[10px] font-bold w-4 text-center shrink-0"
-                    style={{ color: i === 0 ? "#f59e0b" : "#5a5a6a" }}>
+                    style={{ color: i === 0 ? "#f59e0b" : "var(--text-muted)" }}>
                     {i + 1}
                   </span>
-                  <span className="text-[12px] text-white font-medium truncate"
+                  <span className="text-[12px] text-[var(--text-title)] font-medium truncate"
                     title={c.nome}>{c.nome}</span>
                 </div>
                 <span className="text-[12px] font-medium text-right"
-                  style={{ color: "#c7e5ff" }}>{fmtBRL(c.spend)}</span>
+                  style={{ color: "var(--chart-tooltip-entry)" }}>{fmtBRL(c.spend)}</span>
                 <span className="text-[12px] font-bold text-right"
                   style={{ color: "#10b981" }}>{fmtNum(c.leads)}</span>
                 <span className="text-[12px] font-medium text-right"
@@ -852,19 +852,19 @@ function InsightsBlock({ data }: { data: Parameters<typeof useInsights>[0] }) {
           <Activity size={13} style={{ color: "#4a8fd4" }} />
         </div>
         <div>
-          <h3 className="text-base font-semibold text-white leading-none">Insights do Período</h3>
-          <p className="text-[11px] mt-0.5" style={{ color: "#7a7a8a" }}>Análise automática dos dados</p>
+          <h3 className="text-base font-semibold text-[var(--text-title)] leading-none">Insights do Período</h3>
+          <p className="text-[11px] mt-0.5" style={{ color: "var(--muted-foreground)" }}>Análise automática dos dados</p>
         </div>
       </div>
 
       {insights.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-8 gap-2">
           <div className="w-10 h-10 rounded-xl flex items-center justify-center"
-            style={{ background: "rgba(255,255,255,0.08)" }}>
-            <Activity size={18} style={{ color: "#3a3a4a" }} />
+            style={{ background: "var(--hover)" }}>
+            <Activity size={18} style={{ color: "var(--icon)" }} />
           </div>
-          <p className="text-sm" style={{ color: "#5a5a6a" }}>Sem dados suficientes para insights</p>
-          <p className="text-[11px]" style={{ color: "#3a3a4a" }}>
+          <p className="text-sm" style={{ color: "var(--text-muted)" }}>Sem dados suficientes para insights</p>
+          <p className="text-[11px]" style={{ color: "var(--icon)" }}>
             Sincronize suas campanhas para gerar análises
           </p>
         </div>
@@ -884,8 +884,8 @@ function InsightsBlock({ data }: { data: Parameters<typeof useInsights>[0] }) {
                   {ins.icon}
                 </div>
                 <div className="min-w-0">
-                  <p className="text-[12px] font-semibold text-white leading-tight">{ins.title}</p>
-                  <p className="text-[11px] mt-0.5 leading-snug" style={{ color: "#9a9aaa" }}>{ins.desc}</p>
+                  <p className="text-[12px] font-semibold text-[var(--text-title)] leading-tight">{ins.title}</p>
+                  <p className="text-[11px] mt-0.5 leading-snug" style={{ color: "var(--muted-foreground)" }}>{ins.desc}</p>
                 </div>
               </motion.div>
             );
@@ -918,7 +918,7 @@ function SecondaryMetrics({ data }: {
     { label: "Cliques",          value: fmtNum(data.cliques_total),       icon: <MousePointer2 size={13} />, color: "#6b7280" },
     { label: "Conversões",       value: fmtNum(data.conversoes_total),    icon: <Zap size={13} />,          color: "#22c55e" },
     { label: "Taxa de Conv.",    value: fmtPct(data.taxa_conversao),      icon: <Activity size={13} />,     color: "#22c55e" },
-    { label: "CPC Médio",        value: fmtBRL(data.cpc_medio),           icon: <DollarSign size={13} />,   color: "#b4b4b4" },
+    { label: "CPC Médio",        value: fmtBRL(data.cpc_medio),           icon: <DollarSign size={13} />,   color: "var(--silver)" },
     { label: "Campanhas Ativas", value: fmtNum(data.campanhas_ativas),    icon: <Megaphone size={13} />,    color: "#4a8fd4" },
     { label: "Clientes em Mídia",value: fmtNum(data.clientes_ativos_midia), icon: <Radio size={13} />,     color: "#10b981" },
   ];
@@ -932,10 +932,10 @@ function SecondaryMetrics({ data }: {
     >
       <button
         onClick={() => setOpen(o => !o)}
-        className="w-full flex items-center justify-between p-5 text-left transition-colors hover:bg-white/[0.02]"
+        className="w-full flex items-center justify-between p-5 text-left transition-colors hover:bg-[var(--hover)]"
       >
         <div className="flex items-center gap-2">
-          <span className="text-sm font-semibold text-white">Métricas Detalhadas</span>
+          <span className="text-sm font-semibold text-[var(--text-title)]">Métricas Detalhadas</span>
           <span className="text-[10px] font-medium px-2 py-0.5 rounded-full"
             style={{ color: "#4a8fd4", background: "rgba(74,143,212,0.12)" }}>
             {items.length} indicadores
@@ -943,7 +943,7 @@ function SecondaryMetrics({ data }: {
         </div>
         <ChevronDown size={14}
           className={cn("transition-transform", open && "rotate-180")}
-          style={{ color: "#5a5a6a" }} />
+          style={{ color: "var(--text-muted)" }} />
       </button>
 
       <AnimatePresence>
@@ -960,15 +960,15 @@ function SecondaryMetrics({ data }: {
                 <div key={item.label}
                   className="rounded-xl p-3.5"
                   style={{
-                    background: "rgba(255,255,255,0.06)",
-                    border: "1px solid rgba(255,255,255,0.06)",
+                    background: "var(--hover)",
+                    border: "1px solid var(--border)",
                   }}>
                   <div className="flex items-center gap-1.5 mb-1.5" style={{ color: item.color }}>
                     {item.icon}
                     <p className="text-[10px] font-medium uppercase tracking-wider"
-                      style={{ color: "#6a6a7a" }}>{item.label}</p>
+                      style={{ color: "var(--muted-foreground)" }}>{item.label}</p>
                   </div>
-                  <p className="text-lg font-bold text-white">{item.value}</p>
+                  <p className="text-lg font-bold text-[var(--text-title)]">{item.value}</p>
                 </div>
               ))}
             </div>
@@ -988,12 +988,12 @@ function DashboardSkeleton() {
         {Array.from({ length: 4 }).map((_, i) => (
           <div key={i} className="lc-card p-5 h-36 animate-pulse">
             <div className="flex items-center gap-2 mb-3">
-              <div className="w-9 h-9 rounded-xl bg-white/5" />
-              <div className="h-2 bg-white/5 rounded w-20" />
+              <div className="w-9 h-9 rounded-xl bg-[color-mix(in_srgb,var(--text-title)_5%,transparent)]" />
+              <div className="h-2 bg-[color-mix(in_srgb,var(--text-title)_5%,transparent)] rounded w-20" />
             </div>
-            <div className="h-8 bg-white/5 rounded w-28 mb-2" />
-            <div className="h-2 bg-white/5 rounded w-16 mb-3" />
-            <div className="h-9 bg-white/[0.03] rounded" />
+            <div className="h-8 bg-[color-mix(in_srgb,var(--text-title)_5%,transparent)] rounded w-28 mb-2" />
+            <div className="h-2 bg-[color-mix(in_srgb,var(--text-title)_5%,transparent)] rounded w-16 mb-3" />
+            <div className="h-9 bg-[color-mix(in_srgb,var(--text-title)_3%,transparent)] rounded" />
           </div>
         ))}
       </div>
@@ -1063,7 +1063,7 @@ export function DashboardTrafego({ year, month, platformAccountId, onNavigateToC
     <div className="space-y-5">
       {/* Global period filter */}
       <div className="flex items-center justify-between flex-wrap gap-3">
-        <p className="text-[12px]" style={{ color: "#5a5a6a" }}>
+        <p className="text-[12px]" style={{ color: "var(--text-muted)" }}>
           Período de análise
         </p>
         <PeriodSelector value={period} onChange={p => { setPeriod(p); setHeroPeriod(p); }} />

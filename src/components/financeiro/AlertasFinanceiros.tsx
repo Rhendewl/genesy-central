@@ -37,7 +37,7 @@ const SEVERITY_CONFIG: Record<AlertSeverity, {
   },
   info: {
     label: "Informação",
-    containerClass: "border-white/10 bg-white/[0.02]",
+    containerClass: "border-[color-mix(in_srgb,var(--text-title)_10%,transparent)] bg-[color-mix(in_srgb,var(--text-title)_2%,transparent)]",
     iconBg: "bg-[#4a8fd4]/15",
     iconColor: "text-[#4a8fd4]",
     dot: "bg-[#4a8fd4]",
@@ -74,7 +74,7 @@ function AlertCard({ alert, delay = 0 }: AlertCardProps) {
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-1">
-          <p className="text-white font-semibold text-sm">{alert.title}</p>
+          <p className="text-[var(--text-title)] font-semibold text-sm">{alert.title}</p>
           <span className={cn("text-xs px-2 py-0.5 rounded-full font-medium",
             alert.severity === "critical" ? "text-red-400 bg-red-400/10" :
             alert.severity === "warning" ? "text-amber-400 bg-amber-400/10" :
@@ -82,9 +82,9 @@ function AlertCard({ alert, delay = 0 }: AlertCardProps) {
             {sc.label}
           </span>
         </div>
-        <p className="text-[#c7e5ff] text-xs leading-relaxed">{alert.message}</p>
+        <p className="text-[color:var(--chart-tooltip-entry)] text-xs leading-relaxed">{alert.message}</p>
         {alert.client_name && (
-          <p className="text-[#b4b4b4] text-xs mt-1.5">Cliente: {alert.client_name}</p>
+          <p className="text-[var(--silver)] text-xs mt-1.5">Cliente: {alert.client_name}</p>
         )}
         {alert.value !== undefined && (
           <p className="text-xs font-semibold mt-1.5"
@@ -219,7 +219,7 @@ export function AlertasFinanceiros({ year, month }: Props) {
 
   if (!data) {
     return (
-      <div className="lc-card p-8 text-center text-[#b4b4b4] text-sm animate-pulse">
+      <div className="lc-card p-8 text-center text-[var(--silver)] text-sm animate-pulse">
         Analisando dados financeiros...
       </div>
     );
@@ -234,8 +234,8 @@ export function AlertasFinanceiros({ year, month }: Props) {
         style={{ border: "1px solid rgba(34,197,94,0.25)" }}
       >
         <CheckCircle2 size={48} className="text-emerald-400/60 mx-auto mb-4" />
-        <p className="text-white font-bold text-lg mb-2">Tudo em Ordem</p>
-        <p className="text-[#b4b4b4] text-sm max-w-xs mx-auto">
+        <p className="text-[var(--text-title)] font-bold text-lg mb-2">Tudo em Ordem</p>
+        <p className="text-[var(--silver)] text-sm max-w-xs mx-auto">
           Nenhum alerta financeiro identificado. A operação está dentro dos parâmetros saudáveis.
         </p>
       </motion.div>
@@ -247,8 +247,8 @@ export function AlertasFinanceiros({ year, month }: Props) {
       {/* Summary header */}
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-2">
-          <Bell size={16} className="text-[#b4b4b4]" />
-          <p className="text-sm text-[#b4b4b4]">{alerts.length} alerta{alerts.length !== 1 ? "s" : ""} identificado{alerts.length !== 1 ? "s" : ""}</p>
+          <Bell size={16} className="text-[var(--silver)]" />
+          <p className="text-sm text-[var(--silver)]">{alerts.length} alerta{alerts.length !== 1 ? "s" : ""} identificado{alerts.length !== 1 ? "s" : ""}</p>
         </div>
         <div className="flex items-center gap-2 ml-auto">
           {critical.length > 0 && (
@@ -274,7 +274,7 @@ export function AlertasFinanceiros({ year, month }: Props) {
         <div className="space-y-3">
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-red-400" />
-            <p className="text-xs text-[#b4b4b4] font-medium uppercase tracking-wider">Críticos — Ação Imediata</p>
+            <p className="text-xs text-[var(--silver)] font-medium uppercase tracking-wider">Críticos — Ação Imediata</p>
           </div>
           {critical.map((a, i) => <AlertCard key={a.id} alert={a} delay={i * 0.05} />)}
         </div>
@@ -284,7 +284,7 @@ export function AlertasFinanceiros({ year, month }: Props) {
         <div className="space-y-3">
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-amber-400" />
-            <p className="text-xs text-[#b4b4b4] font-medium uppercase tracking-wider">Atenção — Monitorar</p>
+            <p className="text-xs text-[var(--silver)] font-medium uppercase tracking-wider">Atenção — Monitorar</p>
           </div>
           {warning.map((a, i) => <AlertCard key={a.id} alert={a} delay={0.2 + i * 0.05} />)}
         </div>
@@ -294,7 +294,7 @@ export function AlertasFinanceiros({ year, month }: Props) {
         <div className="space-y-3">
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-[#4a8fd4]" />
-            <p className="text-xs text-[#b4b4b4] font-medium uppercase tracking-wider">Informações — Oportunidades</p>
+            <p className="text-xs text-[var(--silver)] font-medium uppercase tracking-wider">Informações — Oportunidades</p>
           </div>
           {info.map((a, i) => <AlertCard key={a.id} alert={a} delay={0.4 + i * 0.05} />)}
         </div>

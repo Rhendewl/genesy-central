@@ -13,10 +13,11 @@ import {
   LogOut,
   User,
   Contact,
-  Sparkles,
   NotepadText,
   Calendar,
   KanbanSquare,
+  Sun,
+  Moon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useGlobalStore } from "@/store";
@@ -31,7 +32,6 @@ const NAV_ITEMS = [
   { href: "/clientes",      label: "Clientes",  icon: Contact,         exactMatch: false, permKey: "clientes" },
   { href: "/financeiro",    label: "Financeiro",icon: Wallet,          exactMatch: false, permKey: "financeiro" },
   { href: "/trafego",       label: "Tráfego",   icon: TrendingUp,      exactMatch: false, permKey: "trafego" },
-  { href: "/criativos",     label: "Criativos",   icon: Sparkles,  exactMatch: false, permKey: "criativos" },
   { href: "/formularios",   label: "Formulários", icon: NotepadText,  exactMatch: false, permKey: "formularios" },
   { href: "/agendamentos",  label: "Agenda",      icon: Calendar,  exactMatch: false, permKey: "agendamentos" },
   { href: "/configuracoes", label: "Config",      icon: Settings,  exactMatch: false, permKey: "configuracoes" },
@@ -50,13 +50,13 @@ function DockTooltip({ label, visible }: { label: string; visible: boolean }) {
           transition={{ duration: 0.15, ease: "easeOut" }}
           className="pointer-events-none absolute left-[calc(100%+10px)] top-1/2 -translate-y-1/2 z-[60] whitespace-nowrap"
           style={{
-            background: "rgba(10,10,12,0.88)",
-            border: "1px solid rgba(255,255,255,0.09)",
+            background: "var(--bg-tooltip)",
+            border: "1px solid var(--border-tooltip)",
             borderRadius: 8,
             padding: "5px 10px",
             fontSize: 11,
             fontWeight: 500,
-            color: "rgba(255,255,255,0.82)",
+            color: "var(--text-tooltip)",
             boxShadow: "0 4px 16px rgba(0,0,0,0.35)",
             letterSpacing: "0.02em",
           }}
@@ -102,10 +102,10 @@ function DockNavItem({
             width:                38,
             height:               38,
             borderRadius:         12,
-            background:           active ? "rgba(255,255,255,0.10)" : "transparent",
+            background:           active ? "var(--hover)" : "transparent",
             backdropFilter:       active ? "blur(12px) saturate(140%)" : "none",
             WebkitBackdropFilter: active ? "blur(12px) saturate(140%)" : "none",
-            border:               active ? "1px solid rgba(255,255,255,0.12)" : "1px solid transparent",
+            border:               active ? "1px solid var(--glass-border)" : "1px solid transparent",
             boxShadow:            active ? "0 2px 12px rgba(0,0,0,0.20), inset 0 1px 0 rgba(255,255,255,0.08)" : "none",
             transition:           "background 0.2s, border 0.2s, box-shadow 0.2s",
           }}
@@ -115,7 +115,7 @@ function DockNavItem({
               layoutId="sidebar-glow"
               className="absolute inset-0 rounded-[11px]"
               style={{
-                background: "radial-gradient(circle at center, rgba(255,255,255,0.07) 0%, transparent 70%)",
+                background: "radial-gradient(circle at center, var(--hover) 0%, transparent 70%)",
               }}
               transition={{ type: "spring", stiffness: 380, damping: 30 }}
             />
@@ -124,7 +124,7 @@ function DockNavItem({
             size={17}
             strokeWidth={active ? 2.1 : 1.7}
             style={{
-              color: active ? "#ffffff" : "rgba(255,255,255,0.38)",
+              color: active ? "var(--text-title)" : "var(--icon)",
               transition: "color 0.2s",
               position: "relative",
               zIndex: 1,
@@ -133,6 +133,56 @@ function DockNavItem({
         </motion.div>
       </Link>
       <DockTooltip label={label} visible={hovered} />
+    </div>
+  );
+}
+
+// ─── Botão de troca de tema ───────────────────────────────────────────────────
+
+function DockThemeToggle() {
+  const theme = useGlobalStore((s) => s.theme);
+  const toggleTheme = useGlobalStore((s) => s.toggleTheme);
+  const [hovered, setHovered] = useState(false);
+  const isLight = theme === "light";
+
+  return (
+    <div
+      className="relative flex items-center justify-center"
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      <motion.button
+        whileHover={{ scale: 1.1 }}
+        whileTap={{ scale: 0.91 }}
+        transition={{ type: "spring", stiffness: 400, damping: 22 }}
+        onClick={toggleTheme}
+        aria-label={isLight ? "Mudar para tema escuro" : "Mudar para tema claro"}
+        className="flex items-center justify-center"
+        style={{
+          width: 38,
+          height: 38,
+          borderRadius: 12,
+          background: "transparent",
+          border: "1px solid transparent",
+          cursor: "pointer",
+          transition: "background 0.2s, border 0.2s",
+        }}
+        onMouseEnter={e => {
+          (e.currentTarget as HTMLElement).style.background = "var(--hover)";
+          (e.currentTarget as HTMLElement).style.border = "1px solid var(--glass-border)";
+        }}
+        onMouseLeave={e => {
+          (e.currentTarget as HTMLElement).style.background = "transparent";
+          (e.currentTarget as HTMLElement).style.border = "1px solid transparent";
+        }}
+      >
+        {isLight ? (
+          <Moon size={17} strokeWidth={1.7} style={{ color: "var(--icon)" }} />
+        ) : (
+          <Sun size={17} strokeWidth={1.7} style={{ color: "rgba(255,255,255,0.35)" }} />
+        )}
+      </motion.button>
+      <DockTooltip label={isLight ? "Tema escuro" : "Tema claro"} visible={hovered} />
     </div>
   );
 }
@@ -181,9 +231,9 @@ function DockLogoutItem({
         }}
       >
         {isSigningOut ? (
-          <User size={17} strokeWidth={1.7} className="animate-pulse" style={{ color: "rgba(255,255,255,0.35)" }} />
+          <User size={17} strokeWidth={1.7} className="animate-pulse" style={{ color: "var(--icon)" }} />
         ) : (
-          <LogOut size={17} strokeWidth={1.7} style={{ color: "rgba(255,255,255,0.35)", transition: "color 0.2s" }} />
+          <LogOut size={17} strokeWidth={1.7} style={{ color: "var(--icon)", transition: "color 0.2s" }} />
         )}
       </motion.button>
       <DockTooltip label="Sair" visible={hovered} />
@@ -235,11 +285,11 @@ export function Dock() {
         aria-label="Navegação principal"
         className="hidden md:flex fixed left-3 top-3 bottom-3 z-50 w-[58px] flex-col items-center rounded-[22px]"
         style={{
-          background:           "rgba(12, 12, 12, 0.10)",
+          background:           "var(--dock-bg)",
           backdropFilter:       "blur(24px) saturate(160%)",
           WebkitBackdropFilter: "blur(24px) saturate(160%)",
-          border:               "1px solid rgba(255, 255, 255, 0.08)",
-          boxShadow:            "0 8px 32px rgba(0, 0, 0, 0.22), inset 0 1px 0 rgba(255,255,255,0.05)",
+          border:               "1px solid var(--glass-border)",
+          boxShadow:            "var(--dock-shadow)",
         }}
       >
         <div className="flex items-center justify-center pt-5 pb-4 shrink-0">
@@ -251,7 +301,7 @@ export function Dock() {
           />
         </div>
 
-        <div style={{ width: 28, height: 1, background: "rgba(255,255,255,0.07)", flexShrink: 0 }} />
+        <div style={{ width: 28, height: 1, background: "var(--glass-border)", flexShrink: 0 }} />
 
         <nav className="flex flex-1 flex-col items-center justify-center gap-1.5 py-4">
           {visibleItems.map((item) => (
@@ -259,9 +309,13 @@ export function Dock() {
           ))}
         </nav>
 
-        <div style={{ width: 28, height: 1, background: "rgba(255,255,255,0.07)", flexShrink: 0 }} />
+        <div style={{ width: 28, height: 1, background: "var(--glass-border)", flexShrink: 0 }} />
 
-        <div className="flex items-center justify-center pt-4 pb-5 shrink-0">
+        <div className="flex items-center justify-center pb-1.5 shrink-0">
+          <DockThemeToggle />
+        </div>
+
+        <div className="flex items-center justify-center pt-1.5 pb-5 shrink-0">
           <DockLogoutItem onSignOut={handleSignOut} isSigningOut={isSigningOut} />
         </div>
       </motion.aside>

@@ -14,7 +14,7 @@ import {
 import { usePipelines } from "@/hooks/usePipelines";
 import type { CrmPipelineWithStages, NewCrmPipeline, UpdateCrmStage } from "@/types/crm";
 import { PipelineFormModal } from "./PipelineFormModal";
-import { StageList } from "./StageList";
+import { StageList, type DeleteStageResult } from "./StageList";
 
 // ── Confirm dialog ────────────────────────────────────────────────────────────
 // Segue o mesmo padrão visual dos modais desta seção (overlay + var(--card)).
@@ -34,7 +34,7 @@ function ConfirmDialog({
   if (!open) return null;
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 lc-scrim"
       style={{ background: "rgba(0,0,0,0.60)" }}
       onClick={e => { if (e.target === e.currentTarget) onCancel(); }}
     >
@@ -82,6 +82,7 @@ function PipelineRow({
   onUpdateStage,
   onCreateStage,
   onReorderStages,
+  onDeleteStage,
 }: {
   pipeline:        CrmPipelineWithStages;
   onEdit:          (p: CrmPipelineWithStages) => void;
@@ -90,6 +91,7 @@ function PipelineRow({
   onUpdateStage:   (pipelineId: string, stageId: string, data: UpdateCrmStage) => Promise<boolean>;
   onCreateStage:   (pipelineId: string, data: { name: string } & UpdateCrmStage) => Promise<boolean>;
   onReorderStages: (pipelineId: string, orderedIds: string[]) => Promise<void>;
+  onDeleteStage:   (pipelineId: string, stageId: string, force?: boolean) => Promise<DeleteStageResult>;
 }) {
   const [expanded,       setExpanded]       = useState(false);
   const [acting,         setActing]         = useState(false);
@@ -133,7 +135,7 @@ function PipelineRow({
           <button
             type="button"
             onClick={() => setExpanded(e => !e)}
-            className="flex-shrink-0 p-0.5 rounded transition-colors hover:bg-white/5"
+            className="flex-shrink-0 p-0.5 rounded transition-colors hover:bg-[var(--hover)]"
             style={{ color: "var(--muted-foreground)" }}
             aria-label={expanded ? "Recolher" : "Expandir"}
           >
@@ -161,7 +163,7 @@ function PipelineRow({
               {!pipeline.is_active && (
                 <span
                   className="text-[10px] font-medium px-1.5 py-0.5 rounded-full"
-                  style={{ background: "rgba(255,255,255,0.06)", color: "var(--muted-foreground)" }}
+                  style={{ background: "var(--hover)", color: "var(--muted-foreground)" }}
                 >
                   arquivado
                 </span>
@@ -182,7 +184,7 @@ function PipelineRow({
                 <button
                   type="button"
                   onClick={() => onEdit(pipeline)}
-                  className="p-1.5 rounded-lg hover:bg-white/5 transition-colors"
+                  className="p-1.5 rounded-lg hover:bg-[var(--hover)] transition-colors"
                   style={{ color: "var(--muted-foreground)" }}
                   title="Editar pipeline"
                 >
@@ -192,7 +194,7 @@ function PipelineRow({
                   <button
                     type="button"
                     onClick={() => setConfirmArchive(true)}
-                    className="p-1.5 rounded-lg hover:bg-white/5 transition-colors"
+                    className="p-1.5 rounded-lg hover:bg-[var(--hover)] transition-colors"
                     style={{ color: "var(--muted-foreground)" }}
                     title="Arquivar pipeline"
                   >
@@ -202,7 +204,7 @@ function PipelineRow({
                   <button
                     type="button"
                     onClick={handleRestore}
-                    className="p-1.5 rounded-lg hover:bg-white/5 transition-colors"
+                    className="p-1.5 rounded-lg hover:bg-[var(--hover)] transition-colors"
                     style={{ color: "var(--muted-foreground)" }}
                     title="Restaurar pipeline"
                   >
@@ -216,13 +218,14 @@ function PipelineRow({
 
         {/* Expanded stage list */}
         {expanded && (
-          <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+          <div style={{ borderTop: "1px solid var(--border-card)" }}>
             <StageList
               pipelineId={pipeline.id}
               stages={[...(pipeline.crm_stages ?? [])].sort((a, b) => a.order_index - b.order_index)}
               onReorder={onReorderStages}
               onUpdate={onUpdateStage}
               onCreate={onCreateStage}
+              onDelete={onDeleteStage}
             />
           </div>
         )}
@@ -254,6 +257,7 @@ export function PipelineAdmin() {
     restorePipeline,
     createStage,
     updateStage,
+    deleteStage,
     reorderStages,
   } = usePipelines();
 
@@ -326,7 +330,7 @@ export function PipelineAdmin() {
                 onClick={() => setShowArchived(v => !v)}
                 className="text-[11px] px-2 py-0.5 rounded-full transition-colors"
                 style={{
-                  background: showArchived ? "rgba(255,255,255,0.10)" : "transparent",
+                  background: showArchived ? "var(--border-card-drag)" : "transparent",
                   color: "var(--muted-foreground)",
                   border: "1px solid var(--border)",
                 }}
@@ -378,6 +382,7 @@ export function PipelineAdmin() {
                 onUpdateStage={updateStage}
                 onCreateStage={handleCreateStage}
                 onReorderStages={reorderStages}
+                onDeleteStage={deleteStage}
               />
             ))}
           </div>

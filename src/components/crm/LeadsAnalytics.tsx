@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useRef, useEffect } from "react";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, PieChart, Pie, Cell,
@@ -9,11 +9,11 @@ import { motion } from "framer-motion";
 import {
   Users, TrendingUp, CalendarDays, PhoneCall,
   CalendarCheck, BadgeDollarSign, Search, ChevronDown,
-  Lightbulb, AlertTriangle, TrendingDown, Zap,
+  Lightbulb, AlertTriangle, TrendingDown, Zap, Trash2, Loader2,
 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { useLeadsAnalytics } from "@/hooks/useLeadsAnalytics";
+import { useLeadsAnalytics, bucketOf } from "@/hooks/useLeadsAnalytics";
 import { useLeadsAnalyticsData } from "@/hooks/useLeadsAnalyticsData";
 import { usePipelineFilter } from "@/hooks/usePipelineFilter";
 import { usePipelines } from "@/hooks/usePipelines";
@@ -32,6 +32,19 @@ const fmtBRL = (v: number) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(v);
 
 const fmtPct = (v: number) => `${v.toFixed(1)}%`;
+
+const fmtHours = (h: number | null) => {
+  if (h === null) return "—";
+  if (h < 24) return `${h}h`;
+  return `${(h / 24).toFixed(1)}d`;
+};
+
+const BUCKET_COLORS: Record<string, string> = {
+  "0-25":   "#ef4444",
+  "26-50":  "#f59e0b",
+  "51-75":  "#6366f1",
+  "76-100": "#10b981",
+};
 
 const PIE_COLORS = ["#6366f1", "#4a8fd4", "#10b981", "#f59e0b", "#f43f5e", "#8b5cf6"];
 
@@ -61,7 +74,7 @@ function MetricCard({ label, value, sub, icon, accent, positive }: MetricCardPro
   return (
     <div
       className="lc-card p-4 flex flex-col gap-2 min-w-0"
-      style={{ background: "rgba(0,0,0,.10)" }}
+      style={{ background: "var(--dock-bg)" }}
     >
       <div className="flex items-center justify-between gap-2">
         <p className="text-xs text-[var(--text-body)] truncate">{label}</p>
@@ -104,7 +117,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 function ChartCard({ title, children, className }: { title: string; children: React.ReactNode; className?: string }) {
   return (
-    <div className={cn("lc-card p-4", className)} style={{ background: "rgba(0,0,0,.10)" }}>
+    <div className={cn("lc-card p-4", className)} style={{ background: "var(--dock-bg)" }}>
       <p className="text-xs font-semibold text-[var(--text-body)] uppercase tracking-widest mb-4">{title}</p>
       {children}
     </div>
@@ -119,13 +132,13 @@ function ChartTooltip({ active, payload, label }: { active?: boolean; payload?: 
     <div
       className="rounded-xl px-3 py-2 text-sm"
       style={{
-        background: "rgba(8,8,12,0.95)",
-        border: "1px solid rgba(255,255,255,0.10)",
-        boxShadow: "0 8px 24px rgba(0,0,0,0.5)",
+        background: "var(--chart-tooltip-bg)",
+        border: "1px solid var(--chart-tooltip-border)",
+        boxShadow: "0 8px 24px var(--shadow-md)",
       }}
     >
-      {label && <p className="text-[#5a5a5a] text-xs mb-1">{label}</p>}
-      <p className="text-white font-semibold">{payload[0].value}</p>
+      {label && <p className="text-xs mb-1" style={{ color: "var(--chart-tooltip-label)" }}>{label}</p>}
+      <p className="font-semibold" style={{ color: "var(--chart-tooltip-text)" }}>{payload[0].value}</p>
     </div>
   );
 }
@@ -144,13 +157,23 @@ const INSIGHT_ICONS: Record<string, React.ReactNode> = {
 export function LeadsAnalytics() {
   const { pipelines }                                   = usePipelines();
   const { value: selectedPipelineIds, onChange: setPipelineFilter } = usePipelineFilter();
-  const { leads, isLoading }                            = useLeadsAnalyticsData(selectedPipelineIds);
-  const analytics                                       = useLeadsAnalytics(leads);
+  const { leads, stageHistory, stages, isLoading, bulkDeleteLeads } = useLeadsAnalyticsData(selectedPipelineIds);
+  const analytics                                       = useLeadsAnalytics(leads, stageHistory, stages);
 
   const [search,       setSearch]       = useState("");
   const [sourceFilter, setSourceFilter] = useState("all");
   const [stageFilter,  setStageFilter]  = useState("all");
   const [showAll,      setShowAll]      = useState(false);
+  const [iqMin, setIqMin] = useState("");
+  const [iqMax, setIqMax] = useState("");
+  const [ieBucketFilter, setIeBucketFilter] = useState("all");
+
+  // ── Seleção em lote ──────────────────────────────────────────────────────
+  const [selectedIds,     setSelectedIds]     = useState<Set<string>>(new Set());
+  const [bulkDeleteArmed, setBulkDeleteArmed] = useState(false);
+  const [isBulkDeleting,  setIsBulkDeleting]  = useState(false);
+  const [bulkDeleteError, setBulkDeleteError] = useState<string | null>(null);
+  const headerCheckboxRef = useRef<HTMLInputElement>(null);
 
   const activePipelines = useMemo(
     () => pipelines.filter(p => p.is_active),
@@ -164,15 +187,57 @@ export function LeadsAnalytics() {
 
   const filteredLeads = useMemo(() => {
     const q = search.toLowerCase();
+    const min = iqMin.trim() === "" ? null : Number(iqMin);
+    const max = iqMax.trim() === "" ? null : Number(iqMax);
     return leads.filter(l => {
       if (q && !l.name.toLowerCase().includes(q) && !(l.contact ?? "").toLowerCase().includes(q)) return false;
       if (sourceFilter !== "all" && (l.source || "manual") !== sourceFilter) return false;
       if (stageFilter  !== "all" && l.kanban_column !== stageFilter)          return false;
+      if (min !== null && (l.iq_score === null || l.iq_score < min)) return false;
+      if (max !== null && (l.iq_score === null || l.iq_score > max)) return false;
+      if (ieBucketFilter !== "all" && (l.ie_score === null || bucketOf(l.ie_score) !== ieBucketFilter)) return false;
       return true;
     });
-  }, [leads, search, sourceFilter, stageFilter]);
+  }, [leads, search, sourceFilter, stageFilter, iqMin, iqMax, ieBucketFilter]);
 
   const visibleLeads = showAll ? filteredLeads : filteredLeads.slice(0, 20);
+
+  const allVisibleSelected  = visibleLeads.length > 0 && visibleLeads.every(l => selectedIds.has(l.id));
+  const someVisibleSelected = visibleLeads.some(l => selectedIds.has(l.id));
+
+  useEffect(() => {
+    if (headerCheckboxRef.current) {
+      headerCheckboxRef.current.indeterminate = someVisibleSelected && !allVisibleSelected;
+    }
+  }, [someVisibleSelected, allVisibleSelected]);
+
+  const toggleOne = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAllVisible = () => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (allVisibleSelected) visibleLeads.forEach(l => next.delete(l.id));
+      else                    visibleLeads.forEach(l => next.add(l.id));
+      return next;
+    });
+  };
+
+  const handleBulkDelete = async () => {
+    if (!bulkDeleteArmed) { setBulkDeleteArmed(true); return; }
+    setIsBulkDeleting(true);
+    setBulkDeleteError(null);
+    const { error: err } = await bulkDeleteLeads(Array.from(selectedIds));
+    setIsBulkDeleting(false);
+    if (err) { setBulkDeleteError(err); return; }
+    setSelectedIds(new Set());
+    setBulkDeleteArmed(false);
+  };
 
   if (isLoading) {
     return (
@@ -195,7 +260,7 @@ export function LeadsAnalytics() {
             onChange={setPipelineFilter}
           />
           {selectedPipelineIds !== null && selectedPipelineIds.length > 0 && (
-            <p className="text-xs text-[#5a5a5a]">
+            <p className="text-xs text-[var(--muted-foreground)]">
               {analytics.totalLeads} lead{analytics.totalLeads !== 1 ? "s" : ""} na seleção
             </p>
           )}
@@ -270,6 +335,112 @@ export function LeadsAnalytics() {
         </div>
       </Section>
 
+      {/* ── Section 1.5: Qualificação (IQ / IE) ─────────────────────────────── */}
+      <Section title="Qualificação (IQ / IE)">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 px-4 sm:px-6 mb-4">
+          <MetricCard
+            label="IQ médio"
+            value={analytics.avgIq ?? "—"}
+            icon={<TrendingUp size={14} />}
+            accent="#8b8fed"
+          />
+          <MetricCard
+            label="IE médio"
+            value={analytics.avgIe ?? "—"}
+            icon={<TrendingUp size={14} />}
+            accent="#34d399"
+          />
+          <MetricCard
+            label="Maior IQ do mês"
+            value={analytics.highestIqThisMonth?.score ?? "—"}
+            sub={analytics.highestIqThisMonth?.name}
+            icon={<TrendingUp size={14} />}
+            accent="#10b981"
+          />
+          <MetricCard
+            label="Menor IQ do mês"
+            value={analytics.lowestIqThisMonth?.score ?? "—"}
+            sub={analytics.lowestIqThisMonth?.name}
+            icon={<TrendingDown size={14} />}
+            accent="#f43f5e"
+          />
+          <MetricCard
+            label="Tempo médio até IE 100"
+            value={fmtHours(analytics.avgTimeToIe100Hours)}
+            icon={<CalendarCheck size={14} />}
+            accent="#6366f1"
+          />
+          <MetricCard
+            label="Tempo médio entre faixas"
+            value={fmtHours(analytics.avgTimeBetweenIeBracketsHours)}
+            icon={<CalendarCheck size={14} />}
+            accent="#f59e0b"
+          />
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 px-4 sm:px-6">
+          <ChartCard title="Leads por faixa de IQ">
+            <div className="space-y-2">
+              {analytics.iqBuckets.map(b => (
+                <div key={b.range}>
+                  <div className="flex items-center justify-between text-xs mb-1">
+                    <span className="text-[var(--text-body)]">IQ {b.range}</span>
+                    <span className="font-semibold text-[var(--text-title)] ml-2 flex-shrink-0">{b.count}</span>
+                  </div>
+                  <div className="h-2 rounded-full" style={{ background: "var(--hover)" }}>
+                    <motion.div
+                      className="h-2 rounded-full"
+                      style={{ background: BUCKET_COLORS[b.range] }}
+                      initial={{ width: 0 }}
+                      animate={{ width: `${Math.max(...analytics.iqBuckets.map(x => x.count), 1) === 0 ? 0 : (b.count / Math.max(...analytics.iqBuckets.map(x => x.count), 1)) * 100}%` }}
+                      transition={{ duration: 0.6, ease: "easeOut" }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </ChartCard>
+
+          <ChartCard title="Leads por faixa de IE (estágio de evolução)">
+            <div className="space-y-2">
+              {analytics.ieBuckets.map(b => (
+                <div key={b.range}>
+                  <div className="flex items-center justify-between text-xs mb-1">
+                    <span className="text-[var(--text-body)]">IE {b.range}</span>
+                    <span className="font-semibold text-[var(--text-title)] ml-2 flex-shrink-0">{b.count}</span>
+                  </div>
+                  <div className="h-2 rounded-full" style={{ background: "var(--hover)" }}>
+                    <motion.div
+                      className="h-2 rounded-full"
+                      style={{ background: BUCKET_COLORS[b.range] }}
+                      initial={{ width: 0 }}
+                      animate={{ width: `${Math.max(...analytics.ieBuckets.map(x => x.count), 1) === 0 ? 0 : (b.count / Math.max(...analytics.ieBuckets.map(x => x.count), 1)) * 100}%` }}
+                      transition={{ duration: 0.6, ease: "easeOut" }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </ChartCard>
+
+          <ChartCard title="IQ médio por origem" className="md:col-span-2">
+            {analytics.avgIqBySource.length === 0 ? (
+              <div className="h-[80px] flex items-center justify-center text-sm text-[var(--muted-foreground)]">Sem dados</div>
+            ) : (
+              <div className="space-y-2">
+                {analytics.avgIqBySource.map(s => (
+                  <div key={s.key} className="flex items-center gap-2 text-xs">
+                    <span className="text-[var(--text-body)] flex-1 truncate">{s.label}</span>
+                    <span className="text-[var(--muted-foreground)]">{s.count} lead{s.count !== 1 ? "s" : ""}</span>
+                    <span className="font-semibold text-[var(--text-title)] w-10 text-right">{s.avg}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </ChartCard>
+        </div>
+      </Section>
+
       {/* ── Section 2: Charts ───────────────────────────────────────────────── */}
       <Section title="Gráficos">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 px-4 sm:px-6">
@@ -278,16 +449,16 @@ export function LeadsAnalytics() {
           <ChartCard title="Leads por dia (últimos 30 dias)">
             <ResponsiveContainer width="100%" height={180}>
               <LineChart data={analytics.leadsPerDay} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" vertical={false} />
                 <XAxis
                   dataKey="date"
-                  tick={{ fontSize: 10, fill: "#5a5a5a" }}
+                  tick={{ fontSize: 10, fill: "var(--muted-foreground)" }}
                   axisLine={false}
                   tickLine={false}
                   interval={6}
                 />
                 <YAxis
-                  tick={{ fontSize: 10, fill: "#5a5a5a" }}
+                  tick={{ fontSize: 10, fill: "var(--muted-foreground)" }}
                   axisLine={false}
                   tickLine={false}
                   allowDecimals={false}
@@ -309,7 +480,7 @@ export function LeadsAnalytics() {
           {/* Distribuição por fonte */}
           <ChartCard title="Distribuição por fonte">
             {analytics.sourceBreakdown.length === 0 ? (
-              <div className="h-[180px] flex items-center justify-center text-sm text-[#5a5a5a]">
+              <div className="h-[180px] flex items-center justify-center text-sm text-[var(--muted-foreground)]">
                 Sem dados
               </div>
             ) : (
@@ -332,8 +503,8 @@ export function LeadsAnalytics() {
                     </Pie>
                     <Tooltip
                       contentStyle={{
-                        background: "rgba(8,8,12,0.95)",
-                        border: "1px solid rgba(255,255,255,0.10)",
+                        background: "var(--chart-tooltip-bg)",
+                        border: "1px solid var(--chart-tooltip-border)",
                         borderRadius: 12,
                         fontSize: 12,
                       }}
@@ -369,7 +540,7 @@ export function LeadsAnalytics() {
                   </div>
                   <div
                     className="h-2 rounded-full"
-                    style={{ background: "rgba(255,255,255,0.06)" }}
+                    style={{ background: "var(--hover)" }}
                   >
                     <motion.div
                       className="h-2 rounded-full"
@@ -387,12 +558,12 @@ export function LeadsAnalytics() {
           {/* Conversão por fonte */}
           <ChartCard title="Conversão por fonte">
             {analytics.conversionBySource.length === 0 ? (
-              <div className="h-[180px] flex items-center justify-center text-sm text-[#5a5a5a]">
+              <div className="h-[180px] flex items-center justify-center text-sm text-[var(--muted-foreground)]">
                 Sem dados
               </div>
             ) : (
               <div className="space-y-3">
-                <div className="grid grid-cols-4 text-[10px] font-semibold text-[#5a5a5a] uppercase tracking-widest pb-2 border-b border-white/[0.06]">
+                <div className="grid grid-cols-4 text-[10px] font-semibold text-[var(--muted-foreground)] uppercase tracking-widest pb-2 border-b border-[var(--border-card)]">
                   <span className="col-span-2">Fonte</span>
                   <span className="text-right">Leads</span>
                   <span className="text-right">Conv.</span>
@@ -413,7 +584,7 @@ export function LeadsAnalytics() {
                           "text-xs font-semibold",
                           src.rate >= 20 ? "text-emerald-400" :
                           src.rate >= 10 ? "text-amber-400" :
-                          src.rate > 0  ? "text-rose-400" : "text-[#5a5a5a]",
+                          src.rate > 0  ? "text-rose-400" : "text-[var(--muted-foreground)]",
                         )}
                       >
                         {src.rate}%
@@ -434,17 +605,17 @@ export function LeadsAnalytics() {
           <div
             className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm flex-1 min-w-[180px]"
             style={{
-              background: "rgba(255,255,255,0.04)",
-              border: "1px solid rgba(255,255,255,0.08)",
+              background: "var(--hover)",
+              border: "1px solid var(--glass-border)",
             }}
           >
-            <Search size={13} className="text-[#5a5a5a] flex-shrink-0" />
+            <Search size={13} className="text-[var(--muted-foreground)] flex-shrink-0" />
             <input
               type="text"
               placeholder="Buscar por nome ou contato..."
               value={search}
               onChange={e => setSearch(e.target.value)}
-              className="bg-transparent outline-none text-sm text-white placeholder:text-[#5a5a5a] w-full"
+              className="bg-transparent outline-none text-sm text-[var(--text-title)] placeholder:text-[var(--muted-foreground)] w-full"
             />
           </div>
 
@@ -459,7 +630,7 @@ export function LeadsAnalytics() {
                 <option key={s} value={s}>{srcLabel(s)}</option>
               ))}
             </select>
-            <ChevronDown size={12} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#5a5a5a] pointer-events-none" />
+            <ChevronDown size={12} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)] pointer-events-none" />
           </div>
 
           <div className="relative">
@@ -473,36 +644,126 @@ export function LeadsAnalytics() {
                 <option key={c.id} value={c.id}>{c.label}</option>
               ))}
             </select>
-            <ChevronDown size={12} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#5a5a5a] pointer-events-none" />
+            <ChevronDown size={12} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)] pointer-events-none" />
+          </div>
+
+          {/* IQ min/max */}
+          <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm" style={{ background: "var(--hover)", border: "1px solid var(--glass-border)" }}>
+            <span className="text-[10px] text-[var(--muted-foreground)] flex-shrink-0">IQ</span>
+            <input
+              type="number" min={0} max={100} placeholder="min"
+              value={iqMin} onChange={e => setIqMin(e.target.value)}
+              className="w-12 bg-transparent outline-none text-sm text-[var(--text-title)] placeholder:text-[var(--muted-foreground)]"
+            />
+            <span className="text-[var(--muted-foreground)]">–</span>
+            <input
+              type="number" min={0} max={100} placeholder="max"
+              value={iqMax} onChange={e => setIqMax(e.target.value)}
+              className="w-12 bg-transparent outline-none text-sm text-[var(--text-title)] placeholder:text-[var(--muted-foreground)]"
+            />
+          </div>
+
+          {/* Faixa de IE */}
+          <div className="relative">
+            <select
+              value={ieBucketFilter}
+              onChange={e => setIeBucketFilter(e.target.value)}
+              className="appearance-none pl-3 pr-8 py-2 rounded-xl text-sm text-[var(--text-body)] outline-none lc-filter-control cursor-pointer"
+            >
+              <option value="all">Todas as faixas de IE</option>
+              <option value="0-25">IE 0-25</option>
+              <option value="26-50">IE 26-50</option>
+              <option value="51-75">IE 51-75</option>
+              <option value="76-100">IE 76-100</option>
+            </select>
+            <ChevronDown size={12} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)] pointer-events-none" />
           </div>
         </div>
+
+        {/* Barra de ação em lote */}
+        {selectedIds.size > 0 && (
+          <div
+            className="flex items-center gap-2 mx-4 sm:mx-6 mb-3 px-3 py-2 rounded-xl"
+            style={{ background: "rgba(239,68,68,0.06)", border: "1px solid rgba(239,68,68,0.2)" }}
+          >
+            <p className="text-xs font-medium" style={{ color: "var(--text-title)" }}>
+              {selectedIds.size} selecionado{selectedIds.size !== 1 ? "s" : ""}
+            </p>
+            <button
+              type="button"
+              onClick={() => { setSelectedIds(new Set()); setBulkDeleteArmed(false); }}
+              className="text-xs px-2.5 py-1 rounded-lg transition-colors"
+              style={{ color: "var(--muted-foreground)" }}
+            >
+              Limpar seleção
+            </button>
+            <div className="flex-1" />
+            {bulkDeleteError && (
+              <p className="text-[11px]" style={{ color: "#ef4444" }}>{bulkDeleteError}</p>
+            )}
+            {bulkDeleteArmed && !isBulkDeleting && (
+              <button
+                type="button"
+                onClick={() => setBulkDeleteArmed(false)}
+                className="text-xs px-2.5 py-1.5 rounded-lg"
+                style={{ background: "var(--hover)", color: "var(--muted-foreground)" }}
+              >
+                Voltar
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => void handleBulkDelete()}
+              disabled={isBulkDeleting}
+              className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-medium transition-all disabled:opacity-50"
+              style={{
+                background: bulkDeleteArmed ? "#ef4444" : "transparent",
+                color: bulkDeleteArmed ? "#fff" : "#ef4444",
+                border: `1px solid rgba(239,68,68,${bulkDeleteArmed ? 0 : 0.3})`,
+              }}
+            >
+              {isBulkDeleting ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
+              {bulkDeleteArmed ? `Confirmar exclusão (${selectedIds.size})` : "Excluir selecionados"}
+            </button>
+          </div>
+        )}
 
         {/* Table */}
         <div className="px-4 sm:px-6">
           <div
             className="rounded-2xl overflow-hidden"
-            style={{ border: "1px solid rgba(255,255,255,0.07)" }}
+            style={{ border: "1px solid var(--border-card)" }}
           >
             {/* Header */}
             <div
-              className="grid text-[10px] font-semibold text-[#5a5a5a] uppercase tracking-widest px-4 py-3"
+              className="grid items-center text-[10px] font-semibold text-[var(--muted-foreground)] uppercase tracking-widest px-4 py-3"
               style={{
-                gridTemplateColumns: "1fr 1fr 1fr 1fr 90px 90px",
-                background: "rgba(255,255,255,0.03)",
-                borderBottom: "1px solid rgba(255,255,255,0.06)",
+                gridTemplateColumns: "24px 1fr 1fr 1fr 1fr 60px 60px 90px 90px",
+                background: "var(--hover)",
+                borderBottom: "1px solid var(--border-card)",
               }}
             >
+              <input
+                ref={headerCheckboxRef}
+                type="checkbox"
+                checked={allVisibleSelected}
+                onChange={toggleSelectAllVisible}
+                aria-label="Selecionar todos os leads exibidos"
+                className="cursor-pointer"
+              />
               <span>Nome</span>
               <span>Contato</span>
               <span>Fonte</span>
               <span>Etapa</span>
+              <span className="text-right">IQ</span>
+              <span className="text-right">IE</span>
               <span className="text-right">Valor</span>
               <span className="text-right">Entrada</span>
             </div>
 
             {/* Rows */}
             {filteredLeads.length === 0 ? (
-              <div className="px-4 py-10 text-center text-sm text-[#5a5a5a]">
+              <div className="px-4 py-10 text-center text-sm text-[var(--muted-foreground)]">
                 Nenhum lead encontrado
               </div>
             ) : (
@@ -512,14 +773,21 @@ export function LeadsAnalytics() {
                   return (
                     <div
                       key={lead.id}
-                      className="grid items-center px-4 py-3 text-sm transition-colors hover:bg-white/[0.03]"
+                      className="grid items-center px-4 py-3 text-sm transition-colors hover:bg-[var(--hover)]"
                       style={{
-                        gridTemplateColumns: "1fr 1fr 1fr 1fr 90px 90px",
+                        gridTemplateColumns: "24px 1fr 1fr 1fr 1fr 60px 60px 90px 90px",
                         borderBottom: i < visibleLeads.length - 1
-                          ? "1px solid rgba(255,255,255,0.05)"
+                          ? "1px solid var(--border-card)"
                           : undefined,
                       }}
                     >
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.has(lead.id)}
+                        onChange={() => toggleOne(lead.id)}
+                        aria-label={`Selecionar lead ${lead.name}`}
+                        className="cursor-pointer"
+                      />
                       <span className="text-[var(--text-title)] font-medium truncate pr-2">{lead.name}</span>
                       <span className="text-[var(--text-body)] truncate pr-2">{lead.contact || "—"}</span>
                       <span className="text-[var(--text-body)] truncate pr-2">{srcLabel(lead.source || "manual")}</span>
@@ -534,6 +802,12 @@ export function LeadsAnalytics() {
                           {col?.label ?? lead.kanban_column}
                         </span>
                       </span>
+                      <span className="text-right text-xs font-semibold" style={{ color: lead.iq_score !== null ? "#8b8fed" : "var(--muted-foreground)" }}>
+                        {lead.iq_score ?? "—"}
+                      </span>
+                      <span className="text-right text-xs font-semibold" style={{ color: lead.ie_score !== null ? "#34d399" : "var(--muted-foreground)" }}>
+                        {lead.ie_score ?? "—"}
+                      </span>
                       <span className="text-right text-[var(--text-body)] text-xs">
                         {lead.deal_value > 0 ? fmtBRL(lead.deal_value) : "—"}
                       </span>
@@ -546,8 +820,8 @@ export function LeadsAnalytics() {
                 {!showAll && filteredLeads.length > 20 && (
                   <button
                     onClick={() => setShowAll(true)}
-                    className="w-full py-3 text-xs text-[#4a8fd4] hover:text-white transition-colors text-center"
-                    style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}
+                    className="w-full py-3 text-xs text-[#4a8fd4] hover:text-[var(--text-title)] transition-colors text-center"
+                    style={{ borderTop: "1px solid var(--border-card)" }}
                   >
                     Ver mais {filteredLeads.length - 20} leads
                   </button>
@@ -557,7 +831,7 @@ export function LeadsAnalytics() {
           </div>
 
           {filteredLeads.length > 0 && (
-            <p className="text-xs text-[#5a5a5a] mt-2">
+            <p className="text-xs text-[var(--muted-foreground)] mt-2">
               {filteredLeads.length} lead{filteredLeads.length > 1 ? "s" : ""} exibido{filteredLeads.length > 1 ? "s" : ""}
             </p>
           )}
@@ -574,7 +848,7 @@ export function LeadsAnalytics() {
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 className="lc-card p-4 flex items-start gap-3"
-                style={{ background: "rgba(0,0,0,.10)" }}
+                style={{ background: "var(--dock-bg)" }}
               >
                 <span
                   className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5"

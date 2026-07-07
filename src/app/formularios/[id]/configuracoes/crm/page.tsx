@@ -68,7 +68,7 @@ function SectionCard({
     <div className="rounded-xl overflow-hidden" style={{ border: "1px solid var(--border)", background: "var(--card)" }}>
       <div className="flex items-start gap-3 px-5 py-4" style={{ borderBottom: "1px solid var(--border)" }}>
         {Icon && (
-          <div className="mt-0.5 p-1.5 rounded-lg flex-shrink-0" style={{ background: "rgba(255,255,255,0.06)" }}>
+          <div className="mt-0.5 p-1.5 rounded-lg flex-shrink-0" style={{ background: "var(--glass-bg-soft)" }}>
             <Icon size={13} style={{ color: "var(--muted-foreground)" }} />
           </div>
         )}
@@ -104,7 +104,7 @@ function SelectField<T extends string>({
         onChange={e => onChange(e.target.value as T)}
         disabled={disabled}
         className="w-full appearance-none rounded-lg px-3 py-2 text-sm outline-none pr-8 disabled:opacity-40"
-        style={{ background: "rgba(255,255,255,0.04)", border: "1px solid var(--border)", color: "var(--text-title)" }}
+        style={{ background: "var(--hover)", border: "1px solid var(--border)", color: "var(--text-title)" }}
       >
         {children}
       </select>
@@ -162,7 +162,7 @@ function TagMultiSelect({
         onClick={() => setOpen(o => !o)}
         className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs text-left w-full transition-colors"
         style={{
-          background: "rgba(255,255,255,0.04)",
+          background: "var(--hover)",
           border:     "1px solid var(--border)",
           color:      selectedTags.length > 0 ? "var(--muted-foreground)" : "var(--muted-foreground)",
         }}
@@ -193,7 +193,7 @@ function TagMultiSelect({
                     key={tag.id}
                     type="button"
                     onClick={() => toggle(tag.id)}
-                    className="flex items-center gap-2.5 w-full px-4 py-2.5 text-xs text-left transition-colors hover:bg-white/5"
+                    className="flex items-center gap-2.5 w-full px-4 py-2.5 text-xs text-left transition-colors hover:bg-[var(--hover)]"
                     style={{ borderBottom: "1px solid var(--border)" }}
                   >
                     <span
@@ -364,11 +364,11 @@ export default function FormularioCrmPage() {
             {/* ── 1. Resumo/Status ─────────────────────────────────────────── */}
             <div
               className="rounded-xl p-4 flex items-start gap-3"
-              style={{ background: "rgba(64,69,73,0.06)", border: "1px solid rgba(64,69,73,0.15)" }}
+              style={{ background: "color-mix(in srgb, var(--primary) 6%, transparent)", border: "1px solid color-mix(in srgb, var(--primary) 15%, transparent)" }}
             >
-              <Info size={14} className="mt-0.5 flex-shrink-0" style={{ color: "#404549" }} />
+              <Info size={14} className="mt-0.5 flex-shrink-0" style={{ color: "var(--primary)" }} />
               <div>
-                <p className="text-xs font-semibold mb-1" style={{ color: "#404549" }}>Como funciona</p>
+                <p className="text-xs font-semibold mb-1" style={{ color: "var(--primary)" }}>Como funciona</p>
                 <p className="text-[11px] leading-relaxed" style={{ color: "var(--muted-foreground)" }}>
                   Todo lead enviado por este formulário será criado automaticamente no CRM utilizando
                   a <strong style={{ color: "var(--text-title)" }}>origem</strong>,{" "}
@@ -377,7 +377,7 @@ export default function FormularioCrmPage() {
                   e <strong style={{ color: "var(--text-title)" }}>tags</strong> configurados abaixo.
                 </p>
                 {configId && (
-                  <p className="text-[11px] mt-2 font-medium" style={{ color: "#404549" }}>
+                  <p className="text-[11px] mt-2 font-medium" style={{ color: "var(--primary)" }}>
                     ✓ Integração ativa — origem: {sourceName} · pipeline: {pipelineName} · etapa: {stageName}
                     {config.owner_name && ` · responsável: ${ownerLabel}`}
                     {tagCount > 0 && ` · ${tagCount} tag${tagCount > 1 ? "s" : ""}`}
@@ -394,7 +394,7 @@ export default function FormularioCrmPage() {
                   onChange={v => patch("source", v)}
                 >
                   {CRM_SOURCES.map(s => (
-                    <option key={s.id} value={s.id} style={{ background: "#17172a" }}>
+                    <option key={s.id} value={s.id} style={{ background: "var(--popover)" }}>
                       {s.label}{s.isDefault ? " (Padrão)" : ""}
                     </option>
                   ))}
@@ -413,9 +413,9 @@ export default function FormularioCrmPage() {
                   }}
                   disabled={activePipelines.length === 0}
                 >
-                  <option value="" style={{ background: "#17172a" }}>Selecionar pipeline…</option>
+                  <option value="" style={{ background: "var(--popover)" }}>Selecionar pipeline…</option>
                   {activePipelines.map(p => (
-                    <option key={p.id} value={p.id} style={{ background: "#17172a" }}>
+                    <option key={p.id} value={p.id} style={{ background: "var(--popover)" }}>
                       {p.name}
                     </option>
                   ))}
@@ -428,9 +428,9 @@ export default function FormularioCrmPage() {
                   onChange={v => patch("stage_id", v || null)}
                   disabled={!config.pipeline_id || availableStages.length === 0}
                 >
-                  <option value="" style={{ background: "#17172a" }}>Selecionar etapa…</option>
+                  <option value="" style={{ background: "var(--popover)" }}>Selecionar etapa…</option>
                   {availableStages.map(s => (
-                    <option key={s.id} value={s.id} style={{ background: "#17172a" }}>
+                    <option key={s.id} value={s.id} style={{ background: "var(--popover)" }}>
                       {s.name}
                     </option>
                   ))}
@@ -450,9 +450,9 @@ export default function FormularioCrmPage() {
                     patch("owner_name", u?.full_name ?? null);
                   }}
                 >
-                  <option value="" style={{ background: "#17172a" }}>Sem responsável</option>
+                  <option value="" style={{ background: "var(--popover)" }}>Sem responsável</option>
                   {activeUsers.map(u => (
-                    <option key={u.id} value={u.id} style={{ background: "#17172a" }}>
+                    <option key={u.id} value={u.id} style={{ background: "var(--popover)" }}>
                       {u.full_name}
                       {u.job_title ? ` — ${u.job_title}` : ""}
                     </option>
@@ -514,7 +514,7 @@ export default function FormularioCrmPage() {
                       placeholder="0,00"
                       className="w-full rounded-lg pl-9 pr-3 py-2 text-sm outline-none"
                       style={{
-                        background: "rgba(255,255,255,0.04)",
+                        background: "var(--hover)",
                         border: "1px solid var(--border)",
                         color: "var(--text-title)",
                       }}
@@ -533,9 +533,9 @@ export default function FormularioCrmPage() {
                     onChange={v => patch("value_field_id", v || null)}
                     disabled={valueSteps.length === 0}
                   >
-                    <option value="" style={{ background: "#17172a" }}>Não mapear</option>
+                    <option value="" style={{ background: "var(--popover)" }}>Não mapear</option>
                     {valueSteps.map((step: FormStep) => (
-                      <option key={step.id} value={step.id} style={{ background: "#17172a" }}>
+                      <option key={step.id} value={step.id} style={{ background: "var(--popover)" }}>
                         {step.title}
                       </option>
                     ))}

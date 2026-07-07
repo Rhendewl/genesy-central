@@ -99,7 +99,7 @@ export function ObjectiveDetailPanel({ objectiveId, objectivesHook, onClose }: O
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="flex-1"
+        className="flex-1 lc-scrim"
         style={{ background: "rgba(0,0,0,0.55)", backdropFilter: "blur(4px)" }}
         onClick={onClose}
       />
@@ -110,11 +110,11 @@ export function ObjectiveDetailPanel({ objectiveId, objectivesHook, onClose }: O
         exit={{ x: "100%" }}
         transition={{ type: "spring", damping: 28, stiffness: 280 }}
         className="lc-modal-panel flex h-full w-full max-w-md flex-shrink-0 flex-col"
-        style={{ borderLeft: "1px solid rgba(255,255,255,0.08)" }}
+        style={{ borderLeft: "1px solid var(--border-modal)" }}
       >
         <div
           className="sticky top-0 z-10 flex flex-shrink-0 items-center gap-3 px-5 py-4"
-          style={{ background: "rgba(0,0,0,0.78)", borderBottom: "1px solid rgba(255,255,255,0.08)" }}
+          style={{ background: "var(--bg-modal)", borderBottom: "1px solid var(--border-modal)" }}
         >
           <p className="flex-1 text-sm font-semibold" style={{ color: "var(--text-title)" }}>
             {isCreating ? "Novo objetivo" : "Detalhes do objetivo"}
@@ -174,9 +174,9 @@ export function ObjectiveDetailPanel({ objectiveId, objectivesHook, onClose }: O
                     onClick={() => { setPriority(p.id); if (!isCreating) saveField({ priority: p.id }); }}
                     className="rounded-full px-2.5 py-1 text-[11px] font-medium transition-all"
                     style={{
-                      background: priority === p.id ? `${p.color}30` : "rgba(255,255,255,0.04)",
+                      background: priority === p.id ? `${p.color}30` : "var(--hover)",
                       color:      priority === p.id ? p.color : "var(--muted-foreground)",
-                      border:     `1px solid ${priority === p.id ? p.color + "50" : "rgba(255,255,255,0.08)"}`,
+                      border:     `1px solid ${priority === p.id ? p.color + "50" : "var(--glass-border)"}`,
                     }}
                   >
                     {p.label}
@@ -234,9 +234,9 @@ export function ObjectiveDetailPanel({ objectiveId, objectivesHook, onClose }: O
                         onClick={() => toggleTag(tag.id)}
                         className="rounded-full px-2.5 py-1 text-[11px] font-medium transition-all"
                         style={{
-                          background: active ? `${tag.color}30` : "rgba(255,255,255,0.04)",
+                          background: active ? `${tag.color}30` : "var(--hover)",
                           color:      active ? tag.color : "var(--muted-foreground)",
-                          border:     `1px solid ${active ? tag.color + "50" : "rgba(255,255,255,0.08)"}`,
+                          border:     `1px solid ${active ? tag.color + "50" : "var(--glass-border)"}`,
                         }}
                       >
                         {tag.name}
@@ -302,7 +302,7 @@ export function ObjectiveDetailPanel({ objectiveId, objectivesHook, onClose }: O
 
       {confirmDelete && (
         <div
-          className="fixed inset-0 z-[60] flex items-center justify-center p-4"
+          className="fixed inset-0 z-[60] flex items-center justify-center p-4 lc-scrim"
           style={{ background: "rgba(0,0,0,0.60)", backdropFilter: "blur(6px)" }}
         >
           <motion.div
@@ -310,7 +310,7 @@ export function ObjectiveDetailPanel({ objectiveId, objectivesHook, onClose }: O
             animate={{ opacity: 1, scale: 1, y: 0 }}
             transition={{ type: "spring", stiffness: 440, damping: 34 }}
             className="w-full max-w-sm overflow-hidden rounded-2xl"
-            style={{ background: "rgba(8,8,12,0.96)", border: "1px solid rgba(255,255,255,0.09)", boxShadow: "0 24px 64px rgba(0,0,0,0.65)" }}
+            style={{ background: "var(--bg-modal)", border: "1px solid var(--border-modal)", boxShadow: "0 24px 64px var(--shadow-modal)" }}
           >
             <div className="flex flex-col gap-2 px-5 pb-4 pt-5">
               <p className="text-sm font-semibold" style={{ color: "var(--text-title)" }}>Excluir objetivo</p>
@@ -318,12 +318,12 @@ export function ObjectiveDetailPanel({ objectiveId, objectivesHook, onClose }: O
                 Esta ação não pode ser desfeita. Etapas, comentários e anexos serão removidos.
               </p>
             </div>
-            <div className="flex justify-end gap-2 px-5 py-4" style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}>
+            <div className="flex justify-end gap-2 px-5 py-4" style={{ borderTop: "1px solid var(--glass-border)" }}>
               <button
                 onClick={() => setConfirmDelete(false)}
                 disabled={isSaving}
                 className="rounded-full px-4 py-1.5 text-xs disabled:opacity-40"
-                style={{ background: "rgba(255,255,255,0.05)", color: "var(--muted-foreground)", border: "1px solid rgba(255,255,255,0.08)" }}
+                style={{ background: "var(--hover)", color: "var(--muted-foreground)", border: "1px solid var(--glass-border)" }}
               >
                 Cancelar
               </button>

@@ -19,7 +19,7 @@ export function WorkspaceViewSwitcher({ view, onChange }: WorkspaceViewSwitcherP
   return (
     <div
       className="inline-flex items-center gap-0.5 rounded-full p-0.5"
-      style={{ background: "rgba(0,0,0,0.32)", border: "1px solid rgba(255,255,255,0.07)" }}
+      style={{ background: "var(--glass-bg-soft)", border: "1px solid var(--border-card)" }}
     >
       {OPTIONS.map((opt) => {
         const Icon = opt.icon;
@@ -30,9 +30,9 @@ export function WorkspaceViewSwitcher({ view, onChange }: WorkspaceViewSwitcherP
             onClick={() => onChange(opt.id)}
             className={cn(
               "flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors",
-              active ? "text-white" : "text-[var(--muted-foreground)]"
+              active ? "text-[var(--text-title)]" : "text-[var(--muted-foreground)]"
             )}
-            style={{ background: active ? "var(--primary)" : "transparent" }}
+            style={{ background: active ? "var(--tab-active-bg)" : "transparent" }}
           >
             <Icon size={13} />
             {opt.label}

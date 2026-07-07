@@ -80,7 +80,7 @@ function locationModeToFields(
 
 const inputCls = "w-full px-3 py-2 rounded-xl text-sm outline-none";
 const inputStyle = {
-  background: "rgba(255,255,255,0.05)",
+  background: "var(--input)",
   border:     "1px solid var(--border)",
   color:      "var(--text-title)",
 };
@@ -366,7 +366,7 @@ export function BasicInfoTab({ calendar, onSave }: BasicInfoTabProps) {
                 style={{
                   background: locationMode === opt.value
                     ? "rgba(var(--primary-rgb, 99 102 241) / 0.15)"
-                    : "rgba(255,255,255,0.04)",
+                    : "var(--hover)",
                   border: locationMode === opt.value
                     ? "1px solid var(--primary)"
                     : "1px solid var(--border)",
@@ -382,7 +382,7 @@ export function BasicInfoTab({ calendar, onSave }: BasicInfoTabProps) {
                 {opt.soon && (
                   <span
                     className="text-xs px-1.5 py-0.5 rounded-md font-medium"
-                    style={{ background: "rgba(255,255,255,0.08)", color: "var(--muted-foreground)" }}
+                    style={{ background: "var(--border)", color: "var(--muted-foreground)" }}
                   >
                     Em breve
                   </span>

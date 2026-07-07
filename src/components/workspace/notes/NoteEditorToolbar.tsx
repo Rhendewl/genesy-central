@@ -23,8 +23,8 @@ function ToolbarBtn({
       onMouseDown={(e) => { e.preventDefault(); onClick(); }}
       className="rounded p-1 transition-all hover:opacity-90"
       style={{
-        background: active ? "rgba(74,143,212,0.22)" : "rgba(255,255,255,0.06)",
-        color:      active ? "var(--primary)" : "rgba(255,255,255,0.60)",
+        background: active ? "rgba(74,143,212,0.22)" : "var(--hover)",
+        color:      active ? "var(--primary)" : "var(--text-card-secondary)",
       }}
       aria-pressed={active}
       aria-label={title}
@@ -35,7 +35,7 @@ function ToolbarBtn({
 }
 
 function Sep() {
-  return <div className="mx-0.5 h-4 w-px" style={{ background: "rgba(255,255,255,0.10)" }} />;
+  return <div className="mx-0.5 h-4 w-px" style={{ background: "var(--border)" }} />;
 }
 
 interface NoteEditorToolbarProps {
@@ -48,7 +48,7 @@ export function NoteEditorToolbar({ editor, onRequestImage, onRequestAttachment 
   return (
     <div
       className="flex flex-wrap items-center gap-0.5 px-2 py-1.5"
-      style={{ borderBottom: "1px solid rgba(255,255,255,0.07)", background: "rgba(0,0,0,0.25)" }}
+      style={{ borderBottom: "1px solid var(--border)", background: "var(--glass-bg-soft)" }}
     >
       <ToolbarBtn active={editor.isActive("heading", { level: 1 })} onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()} title="Título 1">H1</ToolbarBtn>
       <ToolbarBtn active={editor.isActive("heading", { level: 2 })} onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} title="Título 2">H2</ToolbarBtn>

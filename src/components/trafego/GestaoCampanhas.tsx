@@ -40,14 +40,14 @@ const PLATFORM_CONFIG: Record<CampaignPlatform, { label: string; color: string }
   meta:     { label: "Meta Ads",     color: "text-blue-400 bg-blue-400/10 border-blue-400/20" },
   google:   { label: "Google Ads",   color: "text-red-400 bg-red-400/10 border-red-400/20" },
   tiktok:   { label: "TikTok Ads",   color: "text-pink-400 bg-pink-400/10 border-pink-400/20" },
-  linkedin: { label: "LinkedIn Ads", color: "text-[#b4b4b4] bg-[#b4b4b4]/10 border-[#b4b4b4]/20" },
+  linkedin: { label: "LinkedIn Ads", color: "text-[var(--silver)] bg-[var(--silver)]/10 border-[var(--silver)]/20" },
   outro:    { label: "Outro",        color: "text-slate-400 bg-slate-400/10 border-slate-400/20" },
 };
 
 const STATUS_CONFIG: Record<CampaignStatus, { label: string; color: string; icon: React.ReactNode }> = {
   ativa:      { label: "Ativa",      color: "text-emerald-400 bg-emerald-400/10 border-emerald-400/20", icon: <Play size={11} /> },
   pausada:    { label: "Pausada",    color: "text-amber-400 bg-amber-400/10 border-amber-400/20",       icon: <Pause size={11} /> },
-  finalizada: { label: "Finalizada", color: "text-[#b4b4b4] bg-[#b4b4b4]/10 border-[#b4b4b4]/20",     icon: <CheckCircle2 size={11} /> },
+  finalizada: { label: "Finalizada", color: "text-[var(--silver)] bg-[var(--silver)]/10 border-[var(--silver)]/20",     icon: <CheckCircle2 size={11} /> },
   em_revisao: { label: "Em Revisão", color: "text-orange-400 bg-orange-400/10 border-orange-400/20",   icon: <AlertTriangle size={11} /> },
   rascunho:   { label: "Rascunho",   color: "text-slate-400 bg-slate-400/10 border-slate-400/20",      icon: <Clock size={11} /> },
 };
@@ -252,13 +252,13 @@ function PeriodPicker({ since, until, label, onApply }: PeriodPickerProps) {
       {/* Trigger */}
       <button
         onClick={openPicker}
-        className="lc-card flex items-center gap-2 px-3.5 py-2 text-sm transition-all hover:bg-white/[0.03]"
+        className="lc-card flex items-center gap-2 px-3.5 py-2 text-sm transition-all hover:bg-[var(--hover)]"
       >
-        <Calendar size={13} className="text-white/40 shrink-0" />
-        <span className="text-white font-medium truncate max-w-[200px]">{label}</span>
+        <Calendar size={13} className="text-[color-mix(in_srgb,var(--text-title)_40%,transparent)] shrink-0" />
+        <span className="text-[var(--text-title)] font-medium truncate max-w-[200px]">{label}</span>
         <ChevronDown
           size={12}
-          className="text-[#b4b4b4] shrink-0 transition-transform"
+          className="text-[var(--silver)] shrink-0 transition-transform"
           style={open ? { transform: "rotate(180deg)" } : {}}
         />
       </button>
@@ -278,22 +278,22 @@ function PeriodPicker({ since, until, label, onApply }: PeriodPickerProps) {
               className="relative w-full max-w-[520px] rounded-2xl overflow-hidden"
               style={{
                 background: "rgba(0,0,0,0.07)",
-                border: "1px solid rgba(255,255,255,0.10)",
+                border: "1px solid var(--border)",
                 boxShadow: "0 24px 64px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.08)",
               }}
             >
               {/* Header */}
               <div
                 className="flex items-center justify-between px-4 py-3 border-b"
-                style={{ borderColor: "rgba(255,255,255,0.07)" }}
+                style={{ borderColor: "var(--glass-border)" }}
               >
                 <div className="flex items-center gap-2">
-                  <Calendar size={13} className="text-white/40" />
-                  <span className="text-sm font-medium text-white/80">Selecionar Período</span>
+                  <Calendar size={13} className="text-[color-mix(in_srgb,var(--text-title)_40%,transparent)]" />
+                  <span className="text-sm font-medium text-[color-mix(in_srgb,var(--text-title)_80%,transparent)]">Selecionar Período</span>
                 </div>
                 <button
                   onClick={() => setOpen(false)}
-                  className="text-[#b4b4b4] hover:text-white transition-colors p-1"
+                  className="text-[var(--silver)] hover:text-[var(--text-title)] transition-colors p-1"
                 >
                   <X size={15} />
                 </button>
@@ -305,7 +305,7 @@ function PeriodPicker({ since, until, label, onApply }: PeriodPickerProps) {
                 {/* Quick options */}
                 <div
                   className="sm:w-44 shrink-0 border-b sm:border-b-0 sm:border-r"
-                  style={{ borderColor: "rgba(255,255,255,0.07)" }}
+                  style={{ borderColor: "var(--glass-border)" }}
                 >
                   <div className="p-2.5 space-y-0.5">
                     {QUICK_OPTIONS.map(opt => (
@@ -315,12 +315,12 @@ function PeriodPicker({ since, until, label, onApply }: PeriodPickerProps) {
                         className={cn(
                           "w-full text-left px-2.5 py-1.5 rounded-lg text-sm transition-all",
                           activeQuick === opt.id
-                            ? "text-white font-medium"
-                            : "text-[#6a6a6a] hover:bg-white/5 hover:text-white/80"
+                            ? "text-[var(--text-title)] font-medium"
+                            : "text-[#6a6a6a] hover:bg-[var(--hover)] hover:text-[color-mix(in_srgb,var(--text-title)_80%,transparent)]"
                         )}
                         style={activeQuick === opt.id ? {
-                          background: "rgba(255,255,255,0.08)",
-                          border: "1px solid rgba(255,255,255,0.10)",
+                          background: "var(--hover)",
+                          border: "1px solid var(--border)",
                         } : { border: "1px solid transparent" }}
                       >
                         {opt.label}
@@ -335,17 +335,17 @@ function PeriodPicker({ since, until, label, onApply }: PeriodPickerProps) {
                   <div className="flex items-center justify-between mb-2.5">
                     <button
                       onClick={() => setCalMonth(m => subMonths(m, 1))}
-                      className="w-7 h-7 flex items-center justify-center rounded-lg text-[#b4b4b4] hover:text-white hover:bg-white/5 transition-colors"
+                      className="w-7 h-7 flex items-center justify-center rounded-lg text-[var(--silver)] hover:text-[var(--text-title)] hover:bg-[var(--hover)] transition-colors"
                     >
                       <ChevronLeft size={15} />
                     </button>
-                    <span className="text-sm font-semibold text-white capitalize">
+                    <span className="text-sm font-semibold text-[var(--text-title)] capitalize">
                       {format(calMonth, "MMMM yyyy", { locale: ptBR })}
                     </span>
                     <button
                       onClick={() => setCalMonth(m => addMonths(m, 1))}
                       disabled={!isBefore(calMonth, maxCalMonth)}
-                      className="w-7 h-7 flex items-center justify-center rounded-lg text-[#b4b4b4] hover:text-white hover:bg-white/5 transition-colors disabled:opacity-25 disabled:cursor-not-allowed"
+                      className="w-7 h-7 flex items-center justify-center rounded-lg text-[var(--silver)] hover:text-[var(--text-title)] hover:bg-[var(--hover)] transition-colors disabled:opacity-25 disabled:cursor-not-allowed"
                     >
                       <ChevronRight size={15} />
                     </button>
@@ -354,7 +354,7 @@ function PeriodPicker({ since, until, label, onApply }: PeriodPickerProps) {
                   {/* Day headers */}
                   <div className="grid grid-cols-7 mb-1">
                     {CAL_HEADERS.map(h => (
-                      <div key={h} className="text-center text-[10px] text-[#5a5a5a] font-medium py-1">
+                      <div key={h} className="text-center text-[10px] text-[var(--text-muted)] font-medium py-1">
                         {h}
                       </div>
                     ))}
@@ -430,9 +430,9 @@ function PeriodPicker({ since, until, label, onApply }: PeriodPickerProps) {
                               isFuture && "opacity-20 cursor-not-allowed",
                               !isFuture && (isOutside ? "cursor-pointer text-[#3a3a3a]" : "cursor-pointer"),
                               !isStart && !isEnd && !isOutside && !isFuture && "text-[#8a8a8a]",
-                              !isStart && !isEnd && isInRange && "!text-white/75",
-                              isToday && !isStart && !isEnd && "border border-white/20",
-                              !isStart && !isEnd && !isFuture && !isOutside && "hover:bg-white/[0.10]",
+                              !isStart && !isEnd && isInRange && "!text-[color-mix(in_srgb,var(--text-title)_75%,transparent)]",
+                              isToday && !isStart && !isEnd && "border border-[color-mix(in_srgb,var(--text-title)_20%,transparent)]",
+                              !isStart && !isEnd && !isFuture && !isOutside && "hover:bg-[var(--hover)]",
                             )}
                             style={(isStart || isEnd) ? {
                               background: "linear-gradient(145deg, #c4c4c4 0%, #ffffff 50%, #c4c4c4 100%)",
@@ -460,31 +460,31 @@ function PeriodPicker({ since, until, label, onApply }: PeriodPickerProps) {
               {/* Footer */}
               <div
                 className="flex items-center justify-between px-4 py-2.5 border-t"
-                style={{ borderColor: "rgba(255,255,255,0.07)" }}
+                style={{ borderColor: "var(--glass-border)" }}
               >
                 <div className="text-xs">
                   {tempSince && tempUntil ? (
-                    <span className="text-white/50">
-                      <span className="text-white/80 font-medium tabular-nums">
+                    <span className="text-[color-mix(in_srgb,var(--text-title)_50%,transparent)]">
+                      <span className="text-[color-mix(in_srgb,var(--text-title)_80%,transparent)] font-medium tabular-nums">
                         {format(parseISO(tempSince), "dd/MM/yyyy")}
                       </span>
                       {tempSince !== tempUntil && (
                         <>
-                          <span className="mx-1 text-white/25">→</span>
-                          <span className="text-white/80 font-medium tabular-nums">
+                          <span className="mx-1 text-[color-mix(in_srgb,var(--text-title)_25%,transparent)]">→</span>
+                          <span className="text-[color-mix(in_srgb,var(--text-title)_80%,transparent)] font-medium tabular-nums">
                             {format(parseISO(tempUntil), "dd/MM/yyyy")}
                           </span>
                         </>
                       )}
                     </span>
                   ) : (
-                    <span className="text-white/20">Selecione o período</span>
+                    <span className="text-[color-mix(in_srgb,var(--text-title)_20%,transparent)]">Selecione o período</span>
                   )}
                 </div>
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => setOpen(false)}
-                    className="px-3.5 py-1.5 rounded-lg text-xs text-white/30 hover:text-white/60 hover:bg-white/5 transition-colors"
+                    className="px-3.5 py-1.5 rounded-lg text-xs text-[color-mix(in_srgb,var(--text-title)_30%,transparent)] hover:text-[color-mix(in_srgb,var(--text-title)_60%,transparent)] hover:bg-[var(--hover)] transition-colors"
                   >
                     Cancelar
                   </button>
@@ -550,81 +550,81 @@ function CampaignModal({ campaign, clients, onClose, onSave }: CampaignModalProp
         onClick={e => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-1">
-          <h2 className="text-lg font-bold text-white">{campaign ? "Editar Campanha" : "Nova Campanha"}</h2>
-          <button onClick={onClose} className="text-[#b4b4b4] hover:text-white transition-colors"><X size={20} /></button>
+          <h2 className="text-lg font-bold text-[var(--text-title)]">{campaign ? "Editar Campanha" : "Nova Campanha"}</h2>
+          <button onClick={onClose} className="text-[var(--silver)] hover:text-[var(--text-title)] transition-colors"><X size={20} /></button>
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div className="col-span-2">
-            <label className="block text-xs text-[#b4b4b4] mb-1.5 font-medium">Nome da Campanha *</label>
+            <label className="block text-xs text-[var(--silver)] mb-1.5 font-medium">Nome da Campanha *</label>
             <input value={form.name ?? ""} onChange={e => set("name", e.target.value)}
               placeholder="Ex: Leads Imobiliária X — Maio"
-              className="w-full rounded-xl bg-white/5 text-white text-sm px-3 py-2.5 outline-none placeholder:text-[#b4b4b4]/50"
+              className="w-full rounded-xl bg-[color-mix(in_srgb,var(--text-title)_5%,transparent)] text-[var(--text-title)] text-sm px-3 py-2.5 outline-none placeholder:text-[var(--silver)]/50"
               style={{ border: "none" }} />
           </div>
           <div>
-            <label className="block text-xs text-[#b4b4b4] mb-1.5 font-medium">Cliente</label>
+            <label className="block text-xs text-[var(--silver)] mb-1.5 font-medium">Cliente</label>
             <select value={form.client_id ?? ""} onChange={e => set("client_id", e.target.value || null)}
-              className="w-full rounded-xl bg-white/5 text-white text-sm px-3 py-2.5 outline-none"
+              className="w-full rounded-xl bg-[color-mix(in_srgb,var(--text-title)_5%,transparent)] text-[var(--text-title)] text-sm px-3 py-2.5 outline-none"
               style={{ border: "none" }}>
               <option value="">Sem cliente</option>
               {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           </div>
           <div>
-            <label className="block text-xs text-[#b4b4b4] mb-1.5 font-medium">Plataforma</label>
+            <label className="block text-xs text-[var(--silver)] mb-1.5 font-medium">Plataforma</label>
             <select value={form.platform ?? "meta"} onChange={e => set("platform", e.target.value as CampaignPlatform)}
-              className="w-full rounded-xl bg-white/5 text-white text-sm px-3 py-2.5 outline-none"
+              className="w-full rounded-xl bg-[color-mix(in_srgb,var(--text-title)_5%,transparent)] text-[var(--text-title)] text-sm px-3 py-2.5 outline-none"
               style={{ border: "none" }}>
               {Object.entries(PLATFORM_CONFIG).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
             </select>
           </div>
           <div>
-            <label className="block text-xs text-[#b4b4b4] mb-1.5 font-medium">Objetivo</label>
+            <label className="block text-xs text-[var(--silver)] mb-1.5 font-medium">Objetivo</label>
             <select value={form.objective ?? "leads"} onChange={e => set("objective", e.target.value as CampaignObjective)}
-              className="w-full rounded-xl bg-white/5 text-white text-sm px-3 py-2.5 outline-none"
+              className="w-full rounded-xl bg-[color-mix(in_srgb,var(--text-title)_5%,transparent)] text-[var(--text-title)] text-sm px-3 py-2.5 outline-none"
               style={{ border: "none" }}>
               {Object.entries(OBJECTIVE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
             </select>
           </div>
           <div>
-            <label className="block text-xs text-[#b4b4b4] mb-1.5 font-medium">Status</label>
+            <label className="block text-xs text-[var(--silver)] mb-1.5 font-medium">Status</label>
             <select value={form.status ?? "ativa"} onChange={e => set("status", e.target.value as CampaignStatus)}
-              className="w-full rounded-xl bg-white/5 text-white text-sm px-3 py-2.5 outline-none"
+              className="w-full rounded-xl bg-[color-mix(in_srgb,var(--text-title)_5%,transparent)] text-[var(--text-title)] text-sm px-3 py-2.5 outline-none"
               style={{ border: "none" }}>
               {Object.entries(STATUS_CONFIG).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
             </select>
           </div>
           <div>
-            <label className="block text-xs text-[#b4b4b4] mb-1.5 font-medium">Budget Diário (R$)</label>
+            <label className="block text-xs text-[var(--silver)] mb-1.5 font-medium">Budget Diário (R$)</label>
             <MoneyInput value={form.daily_budget ?? 0} onChange={v => set("daily_budget", v)} />
           </div>
           <div>
-            <label className="block text-xs text-[#b4b4b4] mb-1.5 font-medium">Budget Total (R$)</label>
+            <label className="block text-xs text-[var(--silver)] mb-1.5 font-medium">Budget Total (R$)</label>
             <MoneyInput value={form.total_budget ?? 0} onChange={v => set("total_budget", v)} />
           </div>
           <div>
-            <label className="block text-xs text-[#b4b4b4] mb-1.5 font-medium">Data de Início *</label>
+            <label className="block text-xs text-[var(--silver)] mb-1.5 font-medium">Data de Início *</label>
             <input type="date" value={form.start_date ?? ""} onChange={e => set("start_date", e.target.value)}
-              className="w-full rounded-xl bg-white/5 text-white text-sm px-3 py-2.5 outline-none"
+              className="w-full rounded-xl bg-[color-mix(in_srgb,var(--text-title)_5%,transparent)] text-[var(--text-title)] text-sm px-3 py-2.5 outline-none"
               style={{ border: "none" }} />
           </div>
           <div>
-            <label className="block text-xs text-[#b4b4b4] mb-1.5 font-medium">Data de Fim</label>
+            <label className="block text-xs text-[var(--silver)] mb-1.5 font-medium">Data de Fim</label>
             <input type="date" value={form.end_date ?? ""} onChange={e => set("end_date", e.target.value || null)}
-              className="w-full rounded-xl bg-white/5 text-white text-sm px-3 py-2.5 outline-none"
+              className="w-full rounded-xl bg-[color-mix(in_srgb,var(--text-title)_5%,transparent)] text-[var(--text-title)] text-sm px-3 py-2.5 outline-none"
               style={{ border: "none" }} />
           </div>
           <div className="col-span-2">
-            <label className="block text-xs text-[#b4b4b4] mb-1.5 font-medium">ID Externo (plataforma)</label>
+            <label className="block text-xs text-[var(--silver)] mb-1.5 font-medium">ID Externo (plataforma)</label>
             <input value={form.external_id ?? ""} onChange={e => set("external_id", e.target.value || null)}
               placeholder="ID da campanha no Meta/Google..."
-              className="w-full rounded-xl bg-white/5 text-white text-sm px-3 py-2.5 outline-none placeholder:text-[#b4b4b4]/50"
+              className="w-full rounded-xl bg-[color-mix(in_srgb,var(--text-title)_5%,transparent)] text-[var(--text-title)] text-sm px-3 py-2.5 outline-none placeholder:text-[var(--silver)]/50"
               style={{ border: "none" }} />
           </div>
         </div>
         <div className="flex gap-3 pt-2">
           <button onClick={onClose}
-            className="flex-1 rounded-xl py-2.5 text-sm font-medium text-[#b4b4b4] hover:text-white bg-white/5 hover:bg-white/10 transition-colors">
+            className="flex-1 rounded-xl py-2.5 text-sm font-medium text-[var(--silver)] hover:text-[var(--text-title)] bg-[color-mix(in_srgb,var(--text-title)_5%,transparent)] hover:bg-[var(--hover)] transition-colors">
             Cancelar
           </button>
           <PrimaryButton onClick={handleSave} disabled={saving || !form.name} className="flex-1 py-2.5 text-sm">
@@ -680,15 +680,15 @@ function MetricsModal({ campaign, onClose, onSave }: MetricsModalProps) {
       >
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-lg font-bold text-white">Lançar Métricas</h2>
-            <p className="text-xs text-[#b4b4b4] mt-0.5">{campaign.name}</p>
+            <h2 className="text-lg font-bold text-[var(--text-title)]">Lançar Métricas</h2>
+            <p className="text-xs text-[var(--silver)] mt-0.5">{campaign.name}</p>
           </div>
-          <button onClick={onClose} className="text-[#b4b4b4] hover:text-white"><X size={20} /></button>
+          <button onClick={onClose} className="text-[var(--silver)] hover:text-[var(--text-title)]"><X size={20} /></button>
         </div>
         <div>
-          <label className="block text-xs text-[#b4b4b4] mb-1.5 font-medium">Data *</label>
+          <label className="block text-xs text-[var(--silver)] mb-1.5 font-medium">Data *</label>
           <input type="date" value={form.date ?? ""} onChange={e => set("date", e.target.value)}
-            className="w-full rounded-xl bg-white/5 text-white text-sm px-3 py-2.5 outline-none"
+            className="w-full rounded-xl bg-[color-mix(in_srgb,var(--text-title)_5%,transparent)] text-[var(--text-title)] text-sm px-3 py-2.5 outline-none"
             style={{ border: "none" }} />
         </div>
         <div className="grid grid-cols-2 gap-3">
@@ -702,28 +702,28 @@ function MetricsModal({ campaign, onClose, onSave }: MetricsModalProps) {
             { k: "video_views", label: "Visualizações de Vídeo" },
           ].map(({ k, label, step }) => (
             <div key={k}>
-              <label className="block text-xs text-[#b4b4b4] mb-1.5">{label}</label>
+              <label className="block text-xs text-[var(--silver)] mb-1.5">{label}</label>
               <input type="number" step={step ?? "1"}
                 value={(form as Record<string, number | undefined>)[k] ?? 0}
                 onChange={e => set(k as keyof NewCampaignMetric, parseFloat(e.target.value) || 0)}
-                className="w-full rounded-xl bg-white/5 text-white text-sm px-3 py-2.5 outline-none"
+                className="w-full rounded-xl bg-[color-mix(in_srgb,var(--text-title)_5%,transparent)] text-[var(--text-title)] text-sm px-3 py-2.5 outline-none"
                 style={{ border: "none" }} />
             </div>
           ))}
           <div>
-            <label className="block text-xs text-[#b4b4b4] mb-1.5">Investimento (R$)</label>
+            <label className="block text-xs text-[var(--silver)] mb-1.5">Investimento (R$)</label>
             <MoneyInput value={form.spend ?? 0} onChange={v => set("spend", v)} />
           </div>
         </div>
         {(cpl > 0 || ctr > 0) && (
-          <div className="flex gap-3 p-3 rounded-xl bg-white/5">
-            {cpl > 0 && <div className="text-center flex-1"><p className="text-xs text-[#b4b4b4]">CPL</p><p className="text-emerald-400 font-bold">{fmtBRL(cpl)}</p></div>}
-            {ctr > 0 && <div className="text-center flex-1"><p className="text-xs text-[#b4b4b4]">CTR</p><p className="text-[#4a8fd4] font-bold">{ctr.toFixed(2)}%</p></div>}
+          <div className="flex gap-3 p-3 rounded-xl bg-[color-mix(in_srgb,var(--text-title)_5%,transparent)]">
+            {cpl > 0 && <div className="text-center flex-1"><p className="text-xs text-[var(--silver)]">CPL</p><p className="text-emerald-400 font-bold">{fmtBRL(cpl)}</p></div>}
+            {ctr > 0 && <div className="text-center flex-1"><p className="text-xs text-[var(--silver)]">CTR</p><p className="text-[#4a8fd4] font-bold">{ctr.toFixed(2)}%</p></div>}
           </div>
         )}
         <div className="flex gap-3">
           <button onClick={onClose}
-            className="flex-1 rounded-xl py-2.5 text-sm font-medium text-[#b4b4b4] hover:text-white bg-white/5 hover:bg-white/10 transition-colors">
+            className="flex-1 rounded-xl py-2.5 text-sm font-medium text-[var(--silver)] hover:text-[var(--text-title)] bg-[color-mix(in_srgb,var(--text-title)_5%,transparent)] hover:bg-[var(--hover)] transition-colors">
             Cancelar
           </button>
           <PrimaryButton onClick={handleSave} disabled={saving} className="flex-1 py-2.5 text-sm">
@@ -742,7 +742,7 @@ type StatusSortDir = "asc" | "desc" | null;
 function StatusSortIcon({ dir }: { dir: StatusSortDir }) {
   if (dir === "asc")  return <ArrowUp   size={11} className="text-[#4a8fd4]" />;
   if (dir === "desc") return <ArrowDown size={11} className="text-[#4a8fd4]" />;
-  return <ArrowUpDown size={11} className="text-[#5a5a5a]" />;
+  return <ArrowUpDown size={11} className="text-[var(--text-muted)]" />;
 }
 
 // ── Main Component ────────────────────────────────────────────────────────────
@@ -944,7 +944,7 @@ export function GestaoCampanhas({ platformAccountId }: Props) {
 
           {/* Search */}
           <div className="relative">
-            <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#b4b4b4]" />
+            <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--silver)]" />
             <input
               value={search}
               onChange={e => setSearch(e.target.value)}
@@ -955,7 +955,7 @@ export function GestaoCampanhas({ platformAccountId }: Props) {
 
           {/* Status filter */}
           <div className="relative">
-            <Filter size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#b4b4b4]" />
+            <Filter size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--silver)]" />
             <select
               value={filterStatus}
               onChange={e => setFilterStatus(e.target.value as CampaignStatus | "todos")}
@@ -970,7 +970,7 @@ export function GestaoCampanhas({ platformAccountId }: Props) {
 
           {/* Platform filter */}
           <div className="relative">
-            <Filter size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#b4b4b4]" />
+            <Filter size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--silver)]" />
             <select
               value={filterPlatform}
               onChange={e => setFilterPlatform(e.target.value as CampaignPlatform | "todos")}
@@ -1006,11 +1006,11 @@ export function GestaoCampanhas({ platformAccountId }: Props) {
       {/* Table */}
       <div className="lc-card overflow-hidden">
         {isLoading ? (
-          <div className="p-8 text-center text-[#b4b4b4] text-sm">Carregando campanhas...</div>
+          <div className="p-8 text-center text-[var(--silver)] text-sm">Carregando campanhas...</div>
         ) : displayCampaigns.length === 0 ? (
           <div className="p-12 text-center">
-            <BarChart2 size={40} className="text-[#b4b4b4]/30 mx-auto mb-3" />
-            <p className="text-[#b4b4b4] text-sm mb-3">Nenhuma campanha encontrada</p>
+            <BarChart2 size={40} className="text-[var(--silver)]/30 mx-auto mb-3" />
+            <p className="text-[var(--silver)] text-sm mb-3">Nenhuma campanha encontrada</p>
             <button
               onClick={() => setCampaignModal({ open: true })}
               className="text-[#4a8fd4] text-sm hover:underline"
@@ -1024,19 +1024,19 @@ export function GestaoCampanhas({ platformAccountId }: Props) {
               <thead>
                 <tr>
                   {/* Campanha */}
-                  <th className="text-left text-xs text-[#b4b4b4] font-medium px-3 py-3 whitespace-nowrap">
+                  <th className="text-left text-xs text-[var(--silver)] font-medium px-3 py-3 whitespace-nowrap">
                     Campanha
                   </th>
                   {/* Cliente */}
-                  <th className="text-left text-xs text-[#b4b4b4] font-medium px-3 py-3 whitespace-nowrap">
+                  <th className="text-left text-xs text-[var(--silver)] font-medium px-3 py-3 whitespace-nowrap">
                     Cliente
                   </th>
                   {/* Plataforma */}
-                  <th className="text-left text-xs text-[#b4b4b4] font-medium px-3 py-3 whitespace-nowrap">
+                  <th className="text-left text-xs text-[var(--silver)] font-medium px-3 py-3 whitespace-nowrap">
                     Plataforma
                   </th>
                   {/* Objetivo */}
-                  <th className="text-left text-xs text-[#b4b4b4] font-medium px-3 py-3 whitespace-nowrap">
+                  <th className="text-left text-xs text-[var(--silver)] font-medium px-3 py-3 whitespace-nowrap">
                     Objetivo
                   </th>
                   {/* Status — clicável */}
@@ -1047,7 +1047,7 @@ export function GestaoCampanhas({ platformAccountId }: Props) {
                         "flex items-center gap-1.5 transition-colors group",
                         statusSort
                           ? "text-[#4a8fd4]"
-                          : "text-[#b4b4b4] hover:text-white"
+                          : "text-[var(--silver)] hover:text-[var(--text-title)]"
                       )}
                       title={
                         statusSort === "asc"  ? "Ativas primeiro — clique para inverter" :
@@ -1064,7 +1064,7 @@ export function GestaoCampanhas({ platformAccountId }: Props) {
                     "Orçamento", "Investido", "Impressões", "Cliques (Link)",
                     "CTR Único", "Leads", "CPL", "Resultados", "Início", "",
                   ].map(h => (
-                    <th key={h} className="text-left text-xs text-[#b4b4b4] font-medium px-3 py-3 whitespace-nowrap">
+                    <th key={h} className="text-left text-xs text-[var(--silver)] font-medium px-3 py-3 whitespace-nowrap">
                       {h}
                     </th>
                   ))}
@@ -1083,13 +1083,13 @@ export function GestaoCampanhas({ platformAccountId }: Props) {
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
                         transition={{ delay: i * 0.02 }}
-                        className="border-b hover:bg-white/[0.02] transition-colors"
-                        style={{ borderColor: "rgba(255,255,255,0.06)" }}
+                        className="border-b hover:bg-[var(--hover)] transition-colors"
+                        style={{ borderColor: "var(--glass-border)" }}
                       >
                         <td className="px-3 py-3 max-w-[180px]">
-                          <p className="text-white font-medium truncate">{c.name}</p>
+                          <p className="text-[var(--text-title)] font-medium truncate">{c.name}</p>
                         </td>
-                        <td className="px-3 py-3 text-[#c7e5ff] whitespace-nowrap max-w-[120px] truncate">
+                        <td className="px-3 py-3 text-[color:var(--chart-tooltip-entry)] whitespace-nowrap max-w-[120px] truncate">
                           {(c.client as { name?: string } | undefined)?.name ?? "—"}
                         </td>
                         <td className="px-3 py-3 whitespace-nowrap">
@@ -1097,7 +1097,7 @@ export function GestaoCampanhas({ platformAccountId }: Props) {
                             {pc.label}
                           </span>
                         </td>
-                        <td className="px-3 py-3 text-[#b4b4b4] whitespace-nowrap">
+                        <td className="px-3 py-3 text-[var(--silver)] whitespace-nowrap">
                           {OBJECTIVE_LABELS[c.objective]}
                         </td>
                         <td className="px-3 py-3 whitespace-nowrap">
@@ -1105,16 +1105,16 @@ export function GestaoCampanhas({ platformAccountId }: Props) {
                             {sc.icon}{sc.label}
                           </span>
                         </td>
-                        <td className="px-3 py-3 text-[#b4b4b4] whitespace-nowrap">
+                        <td className="px-3 py-3 text-[var(--silver)] whitespace-nowrap">
                           {c.total_budget > 0 ? fmtBRL(c.total_budget) : `${fmtBRL(c.daily_budget)}/d`}
                         </td>
-                        <td className="px-3 py-3 font-semibold whitespace-nowrap text-white">
+                        <td className="px-3 py-3 font-semibold whitespace-nowrap text-[var(--text-title)]">
                           {m ? fmtBRL(m.spend) : "—"}
                         </td>
-                        <td className="px-3 py-3 text-[#b4b4b4] whitespace-nowrap">
+                        <td className="px-3 py-3 text-[var(--silver)] whitespace-nowrap">
                           {m ? fmtNum(m.impressions) : "—"}
                         </td>
-                        <td className="px-3 py-3 text-[#b4b4b4] whitespace-nowrap">
+                        <td className="px-3 py-3 text-[var(--silver)] whitespace-nowrap">
                           {m ? fmtNum(m.clicks) : "—"}
                         </td>
                         <td className="px-3 py-3 whitespace-nowrap">
@@ -1135,31 +1135,31 @@ export function GestaoCampanhas({ platformAccountId }: Props) {
                         </td>
                         <td className="px-3 py-3 whitespace-nowrap">
                           {m && m.cpl > 0
-                            ? <span className="text-white font-semibold">{fmtBRL(m.cpl)}</span>
+                            ? <span className="text-[var(--text-title)] font-semibold">{fmtBRL(m.cpl)}</span>
                             : "—"}
                         </td>
                         <td className="px-3 py-3 text-emerald-400 font-semibold whitespace-nowrap">
                           {m
                             ? m.conversions > 0
                               ? fmtNum(m.conversions)
-                              : <span className="text-[#5a5a5a] font-normal">—</span>
+                              : <span className="text-[var(--text-muted)] font-normal">—</span>
                             : "—"}
                         </td>
-                        <td className="px-3 py-3 text-[#b4b4b4] whitespace-nowrap">
+                        <td className="px-3 py-3 text-[var(--silver)] whitespace-nowrap">
                           {format(parseISO(c.start_date), "dd/MM/yy", { locale: ptBR })}
                         </td>
                         <td className="px-3 py-3 whitespace-nowrap">
                           <div className="flex items-center gap-1">
                             <button
                               onClick={() => setMetricsModal({ open: true, campaign: c })}
-                              className="p-1.5 rounded-lg text-[#b4b4b4] hover:text-[#4a8fd4] hover:bg-[#4a8fd4]/10 transition-colors"
+                              className="p-1.5 rounded-lg text-[var(--silver)] hover:text-[#4a8fd4] hover:bg-[#4a8fd4]/10 transition-colors"
                               title="Lançar métricas"
                             >
                               <BarChart2 size={13} />
                             </button>
                             <button
                               onClick={() => setCampaignModal({ open: true, campaign: c })}
-                              className="p-1.5 rounded-lg text-[#b4b4b4] hover:text-white hover:bg-white/5 transition-colors"
+                              className="p-1.5 rounded-lg text-[var(--silver)] hover:text-[var(--text-title)] hover:bg-[var(--hover)] transition-colors"
                             >
                               <Edit2 size={13} />
                             </button>
@@ -1169,7 +1169,7 @@ export function GestaoCampanhas({ platformAccountId }: Props) {
                                 "p-1.5 rounded-lg transition-colors",
                                 deleting === c.id
                                   ? "text-red-400 bg-red-400/10"
-                                  : "text-[#b4b4b4] hover:text-red-400 hover:bg-red-400/10"
+                                  : "text-[var(--silver)] hover:text-red-400 hover:bg-red-400/10"
                               )}
                             >
                               <Trash2 size={13} />

@@ -17,13 +17,13 @@ const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?:
   if (!active || !payload?.length) return null;
   return (
     <div className="rounded-xl border px-4 py-3 shadow-xl"
-      style={{ background: "rgba(0,0,0,0.72)", border: "none" }}>
-      <p className="text-[#b4b4b4] text-xs mb-2 font-medium">{label}</p>
+      style={{ background: "var(--chart-tooltip-bg)", border: "1px solid var(--chart-tooltip-border)" }}>
+      <p className="text-xs mb-2 font-medium" style={{ color: "var(--chart-tooltip-label)" }}>{label}</p>
       {payload.map(p => (
         <div key={p.name} className="flex items-center gap-2 mb-1">
           <span className="w-2 h-2 rounded-full" style={{ background: p.color }} />
-          <span className="text-[#c7e5ff] text-xs">{p.name}:</span>
-          <span className="text-white font-semibold text-xs">{fmt(p.value)}</span>
+          <span className="text-xs" style={{ color: "var(--chart-tooltip-entry)" }}>{p.name}:</span>
+          <span className="font-semibold text-xs" style={{ color: "var(--chart-tooltip-text)" }}>{fmt(p.value)}</span>
         </div>
       ))}
     </div>
@@ -48,15 +48,15 @@ function SummaryCard({ label, value, icon, accent, sub, delay = 0 }: SummaryCard
       className="lc-card p-5 flex flex-col gap-3"
     >
       <div className="flex items-center gap-3">
-        <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ color: "#ffffff" }}>
+        <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ color: "var(--text-title)" }}>
           {icon}
         </div>
-        <p className="text-xs font-medium" style={{ color: "#b4b4b4" }}>{label}</p>
+        <p className="text-xs font-medium" style={{ color: "var(--silver)" }}>{label}</p>
       </div>
-      <p className="text-2xl font-bold" style={{ color: value >= 0 ? "white" : "#ef4444" }}>
+      <p className="text-2xl font-bold" style={{ color: value >= 0 ? "var(--text-title)" : "#ef4444" }}>
         {fmt(value)}
       </p>
-      {sub && <p className="text-xs text-[#b4b4b4]">{sub}</p>}
+      {sub && <p className="text-xs text-[var(--silver)]">{sub}</p>}
     </motion.div>
   );
 }
@@ -74,9 +74,9 @@ export function FluxoCaixa({ year, month }: Props) {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {Array.from({ length: 8 }).map((_, i) => (
           <div key={i} className="lc-card p-5 h-32 animate-pulse">
-            <div className="w-9 h-9 rounded-xl bg-white/5 mb-3" />
-            <div className="h-3 bg-white/5 rounded w-2/3 mb-2" />
-            <div className="h-6 bg-white/5 rounded w-1/2" />
+            <div className="w-9 h-9 rounded-xl bg-[var(--shimmer-base)] mb-3" />
+            <div className="h-3 bg-[var(--shimmer-base)] rounded w-2/3 mb-2" />
+            <div className="h-6 bg-[var(--shimmer-base)] rounded w-1/2" />
           </div>
         ))}
       </div>
@@ -107,7 +107,7 @@ export function FluxoCaixa({ year, month }: Props) {
             style={{ background: summary.saldo_atual >= 0 ? "rgba(34,197,94,0.15)" : "rgba(239,68,68,0.15)" }}>
             <Wallet size={22} style={{ color: summary.saldo_atual >= 0 ? "#22c55e" : "#ef4444" }} />
           </div>
-          <p className="text-xs text-[#b4b4b4] font-medium">Saldo Atual</p>
+          <p className="text-xs text-[var(--silver)] font-medium">Saldo Atual</p>
           <p className="text-3xl font-black" style={{ color: summary.saldo_atual >= 0 ? "#22c55e" : "#ef4444" }}>
             {fmt(summary.saldo_atual)}
           </p>
@@ -130,7 +130,7 @@ export function FluxoCaixa({ year, month }: Props) {
                 style={{ background: `${projColor(p.value)}22`, color: projColor(p.value) }}>
                 {p.icon}
               </div>
-              <p className="text-xs text-[#b4b4b4]">{p.label}</p>
+              <p className="text-xs text-[var(--silver)]">{p.label}</p>
               <p className="text-xl font-bold" style={{ color: projColor(p.value) }}>{fmt(p.value)}</p>
             </motion.div>
           ))}
@@ -144,8 +144,8 @@ export function FluxoCaixa({ year, month }: Props) {
         transition={{ delay: 0.4 }}
         className="lc-card p-6"
       >
-        <h3 className="text-sm font-semibold text-white mb-1">Fluxo por Semana</h3>
-        <p className="text-xs text-[#b4b4b4] mb-5">Entradas vs saídas no mês</p>
+        <h3 className="text-sm font-semibold text-[var(--text-title)] mb-1">Fluxo por Semana</h3>
+        <p className="text-xs text-[var(--silver)] mb-5">Entradas vs saídas no mês</p>
         <ResponsiveContainer width="100%" height={200}>
           <AreaChart data={chartData}>
             <defs>
@@ -158,11 +158,11 @@ export function FluxoCaixa({ year, month }: Props) {
                 <stop offset="100%" stopColor="#ef4444" stopOpacity={0} />
               </linearGradient>
             </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
-            <XAxis dataKey="data" tick={{ fill: "#b4b4b4", fontSize: 11 }} axisLine={false} tickLine={false} />
-            <YAxis tick={{ fill: "#b4b4b4", fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={v => fmt(v)} />
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" vertical={false} />
+            <XAxis dataKey="data" tick={{ fill: "var(--icon)", fontSize: 11 }} axisLine={false} tickLine={false} />
+            <YAxis tick={{ fill: "var(--icon)", fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={v => fmt(v)} />
             <Tooltip content={<CustomTooltip />} />
-            <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12, color: "#b4b4b4" }} />
+            <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12, color: "var(--icon)" }} />
             <Area type="monotone" dataKey="entradas" name="Entradas" stroke="#22c55e" strokeWidth={2} fill="url(#gradEnt)" />
             <Area type="monotone" dataKey="saidas" name="Saídas" stroke="#ef4444" strokeWidth={2} fill="url(#gradSai)" />
           </AreaChart>
@@ -177,24 +177,24 @@ export function FluxoCaixa({ year, month }: Props) {
         className="lc-card overflow-hidden"
       >
         <div className="px-5 py-4 border-b" style={{ border: "none" }}>
-          <h3 className="text-sm font-semibold text-white">Movimentações do Período</h3>
+          <h3 className="text-sm font-semibold text-[var(--text-title)]">Movimentações do Período</h3>
         </div>
         {entries.length === 0 ? (
-          <div className="p-8 text-center text-[#b4b4b4] text-sm">Nenhuma movimentação no período</div>
+          <div className="p-8 text-center text-[var(--silver)] text-sm">Nenhuma movimentação no período</div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
+                <tr className="border-b" style={{ borderColor: "var(--border)" }}>
                   {["Tipo", "Descrição", "Cliente", "Data", "Valor", "Status"].map(h => (
-                    <th key={h} className="text-left text-xs text-[#b4b4b4] font-medium px-4 py-3 whitespace-nowrap">{h}</th>
+                    <th key={h} className="text-left text-xs text-[var(--silver)] font-medium px-4 py-3 whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {entries.slice(0, 30).map(e => (
-                  <tr key={e.id} className="border-b hover:bg-white/[0.02] transition-colors"
-                    style={{ borderColor: "rgba(255,255,255,0.06)" }}>
+                  <tr key={e.id} className="border-b hover:bg-[var(--hover)] transition-colors"
+                    style={{ borderColor: "var(--border)" }}>
                     <td className="px-4 py-3 whitespace-nowrap">
                       <span className={cn("flex items-center gap-1 w-fit text-xs font-medium px-2.5 py-1 rounded-full",
                         e.type === "entrada"
@@ -204,9 +204,9 @@ export function FluxoCaixa({ year, month }: Props) {
                         {e.type === "entrada" ? "Entrada" : "Saída"}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-white max-w-[200px] truncate">{e.description}</td>
-                    <td className="px-4 py-3 text-[#b4b4b4] whitespace-nowrap">{e.client_name ?? "—"}</td>
-                    <td className="px-4 py-3 text-[#b4b4b4] whitespace-nowrap">
+                    <td className="px-4 py-3 text-[var(--text-title)] max-w-[200px] truncate">{e.description}</td>
+                    <td className="px-4 py-3 text-[var(--silver)] whitespace-nowrap">{e.client_name ?? "—"}</td>
+                    <td className="px-4 py-3 text-[var(--silver)] whitespace-nowrap">
                       {format(parseISO(e.date), "dd/MM/yy", { locale: ptBR })}
                     </td>
                     <td className={cn("px-4 py-3 font-semibold whitespace-nowrap",

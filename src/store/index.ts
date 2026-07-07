@@ -7,6 +7,35 @@ import type { Theme, PeriodFilter } from "@/types";
 // Data-fetching state lives in each module's hook (useLeads, useLancamentos, etc.)
 // ─────────────────────────────────────────────────────────────────────────────
 
+export const THEME_STORAGE_KEY = "genesy-theme";
+
+// Aplica a classe no <html> e persiste localmente — mesma lógica do script
+// anti-flash em app/layout.tsx, chamada aqui em toda troca feita já hidratado.
+function applyTheme(theme: Theme) {
+  if (typeof document !== "undefined") {
+    document.documentElement.classList.remove("dark", "light");
+    document.documentElement.classList.add(theme);
+  }
+  if (typeof window !== "undefined") {
+    window.localStorage.setItem(THEME_STORAGE_KEY, theme);
+  }
+}
+
+function getInitialTheme(): Theme {
+  if (typeof window === "undefined") return "dark";
+  return window.localStorage.getItem(THEME_STORAGE_KEY) === "light" ? "light" : "dark";
+}
+
+// Sincroniza a troca com o perfil do usuário (segue a conta entre dispositivos).
+// Fire-and-forget: nunca bloqueia a troca visual, que já aconteceu via applyTheme.
+function persistThemeToProfile(theme: Theme) {
+  fetch("/api/profile/me", {
+    method:  "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body:    JSON.stringify({ theme }),
+  }).catch(() => {});
+}
+
 interface GlobalStore {
   // Canvas mode — esconde o Dock quando o editor de canvas está aberto
   canvasMode: boolean;
@@ -16,6 +45,8 @@ interface GlobalStore {
   theme: Theme;
   setTheme: (theme: Theme) => void;
   toggleTheme: () => void;
+  // Aplica o tema vindo do perfil (login/troca de dispositivo) sem re-persistir no banco
+  hydrateThemeFromProfile: (theme: Theme) => void;
 
   // Global period filter (dashboard)
   dashboardPeriod: PeriodFilter;
@@ -41,23 +72,23 @@ export const useGlobalStore = create<GlobalStore>((set) => ({
   setCanvasMode: (v) => set({ canvasMode: v }),
 
   // ── Theme ──
-  theme: "dark",
+  theme: getInitialTheme(),
   setTheme: (theme) => {
     set({ theme });
-    if (typeof document !== "undefined") {
-      document.documentElement.classList.remove("dark", "light");
-      document.documentElement.classList.add(theme);
-    }
+    applyTheme(theme);
+    persistThemeToProfile(theme);
   },
   toggleTheme: () =>
     set((state) => {
       const next = state.theme === "dark" ? "light" : "dark";
-      if (typeof document !== "undefined") {
-        document.documentElement.classList.remove("dark", "light");
-        document.documentElement.classList.add(next);
-      }
+      applyTheme(next);
+      persistThemeToProfile(next);
       return { theme: next };
     }),
+  hydrateThemeFromProfile: (theme) => {
+    set({ theme });
+    applyTheme(theme);
+  },
 
   // ── Dashboard period ──
   dashboardPeriod: "mes",

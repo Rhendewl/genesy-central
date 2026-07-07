@@ -52,7 +52,7 @@ function ColorSwatch({
         <button
           type="button"
           onClick={onClear}
-          className="w-7 h-7 flex items-center justify-center rounded text-sm hover:bg-white/10 transition-colors flex-shrink-0"
+          className="w-7 h-7 flex items-center justify-center rounded text-sm hover:bg-[var(--hover)] transition-colors flex-shrink-0"
           style={{ color: "var(--muted-foreground)" }}
           title="Restaurar automático"
           aria-label="Remover cor personalizada"

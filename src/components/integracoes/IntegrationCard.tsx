@@ -41,7 +41,7 @@ function getStatus(row: FormIntegrationRow | undefined): CardStatus {
 function StatusBadge({ status }: { status: CardStatus }) {
   const config = {
     connected:    { label: "Conectado",    color: "#22c55e", bg: "#22c55e15" },
-    disconnected: { label: "Desconectado", color: "rgba(255,255,255,0.35)", bg: "rgba(255,255,255,0.06)" },
+    disconnected: { label: "Desconectado", color: "var(--icon)", bg: "var(--shimmer-base)" },
     error:        { label: "Erro",         color: "#ef4444", bg: "#ef444415" },
     pending:      { label: "Pendente",     color: "#f59e0b", bg: "#f59e0b15" },
   }[status];

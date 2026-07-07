@@ -20,17 +20,18 @@ export function AgendaDayCell({ day, events, onDayClick, onEventClick }: AgendaD
     <button
       type="button"
       onClick={() => onDayClick(day)}
-      className="flex h-full w-full min-w-0 flex-col rounded-lg p-1.5 text-left transition-colors"
+      className="agenda-day-cell flex h-full w-full min-w-0 flex-col rounded-lg p-1.5 text-left transition-colors"
+      data-today={today || undefined}
       style={{
         background:      today ? "rgba(124,135,141,0.32)" : "rgba(124,135,141,0.2)",
         border:          `1px solid ${today ? "rgba(124,135,141,0.5)" : "rgba(124,135,141,0.2)"}`,
         boxShadow:       today
-          ? "0 0 0 1px rgba(255,255,255,0.06), 0 4px 20px rgba(255,255,255,0.04)"
+          ? "0 0 0 1px var(--border-card-hover), 0 4px 20px rgba(0,0,0,0.04)"
           : undefined,
       }}
     >
       <div className="mb-1 flex flex-shrink-0 items-baseline justify-between">
-        <span className="text-sm font-semibold leading-none" style={{ color: today ? "#ffffff" : "#e5e5e5" }}>
+        <span className="text-sm font-semibold leading-none" style={{ color: today ? "var(--text-title)" : "var(--text-body)" }}>
           {format(day, "d")}
         </span>
       </div>

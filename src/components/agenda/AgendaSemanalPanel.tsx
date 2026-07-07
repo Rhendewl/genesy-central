@@ -60,7 +60,7 @@ export function AgendaSemanalPanel() {
     <div className="flex h-full min-h-0 flex-col">
       <div className="mb-4 flex flex-shrink-0 items-center justify-between">
         <div>
-          <p className="text-[13px] font-semibold leading-tight" style={{ color: "#b4b4b4" }}>
+          <p className="text-[13px] font-semibold leading-tight" style={{ color: "var(--silver)" }}>
             Agenda Semanal
           </p>
           <p className="text-[10px] capitalize text-[var(--muted-foreground)]">{periodLabel}</p>
@@ -70,14 +70,14 @@ export function AgendaSemanalPanel() {
             <button
               onClick={handlePrev}
               aria-label="Período anterior"
-              className="flex h-7 w-7 items-center justify-center rounded-lg transition-colors hover:bg-white/[0.06]"
+              className="flex h-7 w-7 items-center justify-center rounded-lg transition-colors hover:bg-[var(--hover)]"
             >
               <ChevronLeft size={16} style={{ color: "var(--muted-foreground)" }} />
             </button>
             <button
               onClick={handleNext}
               aria-label="Próximo período"
-              className="flex h-7 w-7 items-center justify-center rounded-lg transition-colors hover:bg-white/[0.06]"
+              className="flex h-7 w-7 items-center justify-center rounded-lg transition-colors hover:bg-[var(--hover)]"
             >
               <ChevronRight size={16} style={{ color: "var(--muted-foreground)" }} />
             </button>

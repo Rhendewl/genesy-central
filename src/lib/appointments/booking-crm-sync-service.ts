@@ -26,6 +26,11 @@ export interface CrmSyncPayload {
   startsAt:     string;
   attribution:  Record<string, unknown>;
   correlationId: string | null;
+  /** IQ já calculado pelo bloco Calendário do formulário (LeadScoreEngine),
+   *  quando o agendamento aconteceu dentro de um formulário com pergunta
+   *  ponderada. `null` = agendamento fora de um formulário, ou formulário
+   *  sem pergunta ponderada — não há o que propagar. */
+  iqScore:      number | null;
 }
 
 export class BookingCrmSyncService {
@@ -84,6 +89,19 @@ export class BookingCrmSyncService {
         throw new Error(`moveLead failed: ${moveResult.error}`);
       }
 
+      // Backfill de IQ: só se o lead existente ainda não tiver um (nunca
+      // sobrescreve um IQ já calculado — "nunca muda depois de calculado").
+      if (payload.iqScore !== null) {
+        const { data: existingLead } = await this.db
+          .from("leads")
+          .select("iq_score")
+          .eq("id", existingLeadId)
+          .maybeSingle();
+        if (existingLead && existingLead.iq_score === null) {
+          await this.db.from("leads").update({ iq_score: payload.iqScore }).eq("id", existingLeadId);
+        }
+      }
+
       // Link booking → lead
       await this.db
         .from("appointment_bookings")
@@ -117,6 +135,7 @@ export class BookingCrmSyncService {
         source:   "Agenda",
         notes:    notes || null,
         entered_at: new Date(payload.startsAt).toISOString().split("T")[0],
+        iq_score: payload.iqScore,
       });
 
       if (!createResult.ok || !createResult.leadId) {

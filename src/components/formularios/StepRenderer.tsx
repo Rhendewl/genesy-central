@@ -7,10 +7,12 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useState, useCallback, useId, useRef, useEffect } from "react";
-import { Star } from "lucide-react";
+import { Star, CalendarClock } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import type { FormStep, FormTheme } from "@/types";
+import { CalendarStepField } from "./CalendarStepField";
+import { resolveThemeColors } from "@/lib/forms/theme-colors";
 
 export interface StepRendererProps {
   step: FormStep;
@@ -22,19 +24,13 @@ export interface StepRendererProps {
   stepIndex?: number;
   totalSteps?: number;
   canGoBack?: boolean;
-}
-
-// ── Utilitário: detecta fundo claro a partir de hex ───────────────────────────
-
-function isLightBg(bg?: string): boolean {
-  if (!bg || bg.startsWith("var(")) return false;
-  const hex = bg.replace(/^#/, "");
-  const full = hex.length === 3 ? hex.split("").map(c => c + c).join("") : hex;
-  if (full.length !== 6) return false;
-  const r = parseInt(full.slice(0, 2), 16);
-  const g = parseInt(full.slice(2, 4), 16);
-  const b = parseInt(full.slice(4, 6), 16);
-  return (0.299 * r + 0.587 * g + 0.114 * b) / 255 > 0.5;
+  /** "public" habilita o widget real do bloco Calendário (chamadas de rede);
+   *  "preview" (editor) mostra só um placeholder estático, sem rede. */
+  mode?: "public" | "preview";
+  /** Steps/respostas do formulário inteiro — usados só pelo bloco Calendário
+   *  para extrair nome/e-mail/telefone já coletados em steps anteriores. */
+  formSteps?: FormStep[];
+  formAnswers?: Record<string, unknown>;
 }
 
 // ── Máscara de telefone ────────────────────────────────────────────────────────
@@ -92,6 +88,11 @@ export function validateStep(step: FormStep, value: unknown): string | null {
     case "file_upload":
       return "Faça upload de um arquivo";
 
+    case "calendar":
+      // Avanço acontece via confirmação do agendamento (CalendarStepField),
+      // nunca pelo botão "Próximo" genérico — ver showNextBtn abaixo.
+      return null;
+
     default:
       return null;
   }
@@ -109,6 +110,9 @@ export function StepRenderer({
   stepIndex,
   totalSteps,
   canGoBack,
+  mode = "public",
+  formSteps = [],
+  formAnswers = {},
 }: StepRendererProps) {
   const [error,     setError]     = useState<string | null>(null);
   const [isFocused, setIsFocused] = useState(false);
@@ -128,14 +132,8 @@ export function StepRenderer({
     };
   }, []);
 
-  const primary   = theme?.primaryColor ?? "var(--primary)";
-  const light     = isLightBg(theme?.backgroundColor);
-  // textColor explícito do tema tem prioridade sobre detecção de luminosidade
-  const textColor = theme?.textColor ?? (light ? "#111827" : "var(--text-title)");
-  const muted     = light ? "#6b7280" : "var(--muted-foreground)";
-  const cardBg    = light ? "rgba(0,0,0,0.04)" : "var(--card)";
-  const borderC   = light ? "rgba(0,0,0,0.12)"  : "var(--border)";
-  const align     = (theme?.textAlign ?? "left") as React.CSSProperties["textAlign"];
+  const { primary, light, textColor, muted, cardBg, borderC } = resolveThemeColors(theme);
+  const align = (theme?.textAlign ?? "left") as React.CSSProperties["textAlign"];
 
   const btnRadius =
     theme?.buttonStyle === "pill"   ? "9999px" :
@@ -446,6 +444,42 @@ export function StepRenderer({
           </div>
         );
 
+      case "calendar":
+        if (mode !== "public") {
+          // Editor: placeholder estático, sem nenhuma chamada de rede.
+          return (
+            <div
+              className="flex items-center gap-3 px-4 py-5 rounded-xl"
+              style={{ background: cardBg, border: `1px dashed ${borderC}` }}
+            >
+              <div
+                className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
+                style={{ background: `${primary}18` }}
+              >
+                <CalendarClock size={16} style={{ color: primary }} />
+              </div>
+              <div>
+                <p className="text-sm font-medium" style={{ color: textColor }}>
+                  {step.calendarName ?? "Nenhum calendário selecionado"}
+                </p>
+                <p className="text-xs" style={{ color: muted }}>
+                  {step.calendarName ? "Bloco Calendário" : "Configure um calendário no painel ao lado"}
+                </p>
+              </div>
+            </div>
+          );
+        }
+        return (
+          <CalendarStepField
+            step={step}
+            formSteps={formSteps}
+            formAnswers={formAnswers}
+            theme={theme}
+            onChange={handleChange}
+            onNext={() => onNextRef.current?.()}
+          />
+        );
+
       case "file_upload":
         return (
           <label
@@ -473,7 +507,7 @@ export function StepRenderer({
     }
   }
 
-  const showNextBtn = step.type !== "redirect" && step.type !== "single_choice" && step.type !== "rating";
+  const showNextBtn = step.type !== "redirect" && step.type !== "single_choice" && step.type !== "rating" && step.type !== "calendar";
   const showBackBtn = false;
   const btnLabel =
     step.type === "statement"   ? "Continuar" :

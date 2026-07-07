@@ -33,7 +33,7 @@ export function DayDetailDrawer({ day, events, initialFocusEvent, onClose }: Day
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="flex-1"
+        className="flex-1 lc-scrim"
         style={{ background: "rgba(0,0,0,0.55)", backdropFilter: "blur(4px)" }}
         onClick={onClose}
       />
@@ -45,12 +45,12 @@ export function DayDetailDrawer({ day, events, initialFocusEvent, onClose }: Day
         exit={{ x: "100%" }}
         transition={{ type: "spring", damping: 28, stiffness: 280 }}
         className="lc-modal-panel flex h-full w-full max-w-md flex-shrink-0 flex-col"
-        style={{ borderLeft: "1px solid rgba(255,255,255,0.08)" }}
+        style={{ borderLeft: "1px solid var(--border-modal)" }}
       >
         {/* Header */}
         <div
           className="sticky top-0 z-10 flex flex-shrink-0 items-center gap-3 px-5 py-4"
-          style={{ background: "rgba(0,0,0,0.78)", borderBottom: "1px solid rgba(255,255,255,0.08)" }}
+          style={{ background: "var(--bg-modal)", borderBottom: "1px solid var(--border-modal)" }}
         >
           {focusEvent ? (
             <button onClick={() => setFocusEvent(null)} aria-label="Voltar">
@@ -96,7 +96,7 @@ export function DayDetailDrawer({ day, events, initialFocusEvent, onClose }: Day
                   <button
                     key={event.id}
                     onClick={() => setFocusEvent(event)}
-                    className="flex flex-col gap-0.5 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-white/[0.04]"
+                    className="flex flex-col gap-0.5 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-[var(--hover)]"
                   >
                     <span className="text-[11px]" style={{ color: "var(--muted-foreground)" }}>
                       {event.isAllDay ? "Dia inteiro" : format(parseISO(event.start), "HH:mm")}
@@ -114,7 +114,7 @@ export function DayDetailDrawer({ day, events, initialFocusEvent, onClose }: Day
         {/* Footer */}
         <div
           className="flex-shrink-0 px-5 py-4"
-          style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}
+          style={{ borderTop: "1px solid var(--border-modal)" }}
         >
           <button
             onClick={openInAgenda}

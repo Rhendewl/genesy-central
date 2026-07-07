@@ -16,6 +16,7 @@ import type { DomainEventType } from "@/lib/event-bus/domain-events";
 import { getPlatformEventBus } from "@/lib/event-bus/platform";
 import { LeadRepository, type CreateLeadParams } from "./repositories/lead-repository";
 import { PipelineRepository } from "./repositories/pipeline-repository";
+import { LeadScoreEngine } from "./lead-score-engine";
 
 export interface MoveLeadOptions {
   note?:    string;
@@ -28,7 +29,7 @@ export interface MoveLeadResult {
   fromStageId: string | null;
 }
 
-export type CreateLeadInput = Omit<CreateLeadParams, "pipeline_id" | "stage_id" | "kanban_column"> & {
+export type CreateLeadInput = Omit<CreateLeadParams, "pipeline_id" | "stage_id" | "kanban_column" | "ie_score"> & {
   stageId: string;
 };
 
@@ -60,11 +61,22 @@ export class LeadService {
     }
 
     try {
+      // IE (Índice de Evolução) — posição da etapa ÷ total de etapas ativas
+      // da pipeline. Calculado aqui (não em LeadRepository) porque só o
+      // LeadService tem acesso tanto ao PipelineRepository quanto ao
+      // LeadScoreEngine — nenhuma lógica de fórmula fica espalhada.
+      const totalActiveStages = await this.pipelines.countActiveStages(stage.pipeline_id);
+      const ieScore = LeadScoreEngine.calculateIE(stage.order_index, totalActiveStages);
+
       const leadId = await this.leads.createLead({
         ...input,
         pipeline_id:   stage.pipeline_id,
         stage_id:      input.stageId,
-        kanban_column: stage.legacy_column,
+        // kanban_column é NOT NULL na tabela; etapas de pipelines criados
+        // direto no sistema novo não têm coluna legada mapeada (legacy_column
+        // null) — cai no valor padrão da própria coluna nesse caso.
+        kanban_column: stage.legacy_column ?? "abordados",
+        ie_score:      ieScore,
       });
 
       this.bus.publish("lead.stage.entered", {
@@ -116,7 +128,14 @@ export class LeadService {
       return { ok: false, error: msg, fromStageId: null };
     }
 
-    // 4. Publish domain events — strictly after commit (RPC only resolves post-commit).
+    // 4. IE (Índice de Evolução) — recalculado a cada movimentação. Gravado
+    //    via UPDATE separado (mais simples que estender a RPC crm_move_lead
+    //    para calcular isso na mesma transação).
+    const totalActiveStages = await this.pipelines.countActiveStages(result.pipeline_id);
+    const ieScore = LeadScoreEngine.calculateIE(targetStage.order_index, totalActiveStages);
+    await this.leads.updateIeScore(leadId, ieScore);
+
+    // 5. Publish domain events — strictly after commit (RPC only resolves post-commit).
     //    Fire-and-forget: failures do not roll back the already-committed move.
     // userId aqui é quem executou o move (mesmo valor que já era passado antes
     // desta correção — nunca foi usado para ownership, só para notificação).
@@ -140,6 +159,26 @@ export class LeadService {
       fromStageId: fromStageId ?? null,
       userId,
     });
+
+    // Workflow Engine — gatilhos "lead ganhou venda"/"lead perdeu venda".
+    // "Ganhar"/"perder" não é um conceito à parte: é simplesmente entrar numa
+    // etapa marcada is_won/is_lost, reaproveitando o fluxo de move já existente.
+    if (targetStage.is_won) {
+      this.bus.publish("lead.deal.won", {
+        leadId,
+        pipelineId: result.pipeline_id,
+        stageId:    targetStageId,
+        dealValue:  null,
+        userId,
+      });
+    } else if (targetStage.is_lost) {
+      this.bus.publish("lead.deal.lost", {
+        leadId,
+        pipelineId: result.pipeline_id,
+        stageId:    targetStageId,
+        userId,
+      });
+    }
 
     return { ok: true, error: null, fromStageId: fromStageId ?? null };
   }

@@ -32,7 +32,7 @@ export function TodoListCard({ tasksHook, delay = 0 }: TodoListCardProps) {
   return (
     <motion.div
       className="lc-card p-6"
-      style={{ background: "rgba(0,0,0,0.31)" }}
+      style={{ background: "var(--glass-bg-soft)" }}
       initial={{ opacity: 0, y: 18 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay, ease: "easeOut" }}
@@ -40,14 +40,14 @@ export function TodoListCard({ tasksHook, delay = 0 }: TodoListCardProps) {
       <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="flex h-9 w-9 items-center justify-center rounded-xl">
-            <ListTodo size={17} style={{ color: "#ffffff" }} />
+            <ListTodo size={17} style={{ color: "var(--text-title)" }} />
           </div>
           <div>
-            <p className="text-[13px] font-semibold leading-tight" style={{ color: "#b4b4b4" }}>To-do List</p>
+            <p className="text-[13px] font-semibold leading-tight" style={{ color: "var(--silver)" }}>To-do List</p>
             <p className="text-[10px] text-[var(--muted-foreground)]">{pending.length} pendente{pending.length !== 1 ? "s" : ""}</p>
           </div>
         </div>
-        <Link href="/workspace/kanban" className="text-[var(--muted-foreground)] hover:text-white/80">
+        <Link href="/workspace/kanban" className="text-[var(--muted-foreground)] hover:text-[var(--text-title)]">
           <ArrowUpRight size={15} />
         </Link>
       </div>
@@ -71,11 +71,11 @@ export function TodoListCard({ tasksHook, delay = 0 }: TodoListCardProps) {
           </p>
         )}
         {visible.map((task) => (
-          <div key={task.id} className="flex items-center gap-2.5 rounded-lg px-1 py-1.5 transition-colors hover:bg-white/[0.03]">
+          <div key={task.id} className="flex items-center gap-2.5 rounded-lg px-1 py-1.5 transition-colors hover:bg-[var(--hover)]">
             <button
               onClick={() => tasksHook.toggleComplete(task.id)}
               className="flex flex-shrink-0 items-center justify-center rounded-full border transition-colors"
-              style={{ width: "16px", height: "16px", borderColor: "rgba(255,255,255,0.25)", background: "transparent" }}
+              style={{ width: "16px", height: "16px", borderColor: "var(--border)", background: "transparent" }}
               aria-label="Marcar como concluída"
             />
             <button

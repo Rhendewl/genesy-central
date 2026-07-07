@@ -32,14 +32,14 @@ export function ChecklistField({ items, onAdd, onToggle, onDelete, placeholder =
   return (
     <div className="flex flex-col gap-1.5">
       {items.map((item) => (
-        <div key={item.id} className="group flex items-center gap-2 rounded-lg px-1 py-1 hover:bg-white/[0.03]">
+        <div key={item.id} className="group flex items-center gap-2 rounded-lg px-1 py-1 hover:bg-[var(--hover)]">
           <button
             onClick={() => onToggle(item.id, !item.is_completed)}
             className="flex flex-shrink-0 items-center justify-center rounded-full border transition-colors"
             style={{
               width:       "18px",
               height:      "18px",
-              borderColor: item.is_completed ? "var(--primary)" : "rgba(255,255,255,0.25)",
+              borderColor: item.is_completed ? "var(--primary)" : "var(--border)",
               background:  item.is_completed ? "var(--primary)" : "transparent",
             }}
           >

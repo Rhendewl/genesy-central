@@ -42,26 +42,26 @@ export function WorkspaceSummaryPanel({ tasksHook, height, delay = 0 }: Workspac
   return (
     <motion.div
       className="lc-card flex p-6"
-      style={{ background: "rgba(0,0,0,0.31)", height }}
+      style={{ background: "var(--glass-bg-soft)", height }}
       initial={{ opacity: 0, y: 18 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay, ease: "easeOut" }}
     >
       <div
         className="flex w-[150px] flex-shrink-0 flex-col items-center justify-center gap-3 pr-6"
-        style={{ borderRight: "1px solid rgba(255,255,255,0.06)" }}
+        style={{ borderRight: "1px solid var(--border)" }}
       >
         <div className="flex items-center gap-2 self-start">
-          <LayoutGrid size={15} style={{ color: "#ffffff" }} />
-          <p className="text-[12px] font-semibold leading-tight" style={{ color: "#b4b4b4" }}>Workspace</p>
+          <LayoutGrid size={15} style={{ color: "var(--text-title)" }} />
+          <p className="text-[12px] font-semibold leading-tight" style={{ color: "var(--silver)" }}>Workspace</p>
         </div>
         <HalfDonutGauge percent={tasksPercent} label="Progresso" caption={`${doneTasks}/${totalTasks} tarefas`} size={132} />
       </div>
 
       <div className="flex min-w-0 flex-1 flex-col pl-6">
         <div className="mb-3 flex flex-shrink-0 items-center justify-between">
-          <p className="text-[13px] font-semibold leading-tight" style={{ color: "#b4b4b4" }}>Tarefas pendentes</p>
-          <Link href="/workspace" className="text-[var(--muted-foreground)] hover:text-white/80">
+          <p className="text-[13px] font-semibold leading-tight" style={{ color: "var(--silver)" }}>Tarefas pendentes</p>
+          <Link href="/workspace" className="text-[var(--muted-foreground)] hover:text-[var(--text-title)]">
             <ArrowUpRight size={15} />
           </Link>
         </div>
@@ -74,11 +74,11 @@ export function WorkspaceSummaryPanel({ tasksHook, height, delay = 0 }: Workspac
           ) : (
             <div className="flex flex-col gap-1">
               {pendingTasks.map((task) => (
-                <div key={task.id} className="flex items-center gap-2.5 rounded-lg px-1 py-1.5 transition-colors hover:bg-white/[0.03]">
+                <div key={task.id} className="flex items-center gap-2.5 rounded-lg px-1 py-1.5 transition-colors hover:bg-[var(--hover)]">
                   <button
                     onClick={() => tasksHook.toggleComplete(task.id)}
                     className="flex flex-shrink-0 items-center justify-center rounded-full border transition-colors"
-                    style={{ width: "16px", height: "16px", borderColor: "rgba(255,255,255,0.25)", background: "transparent" }}
+                    style={{ width: "16px", height: "16px", borderColor: "var(--glass-border)", background: "transparent" }}
                     aria-label="Marcar como concluída"
                   />
                   <button

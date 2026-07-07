@@ -24,7 +24,7 @@ export function AssigneeAvatarGroup({ assigneeIds, size = 20, max = 3 }: Assigne
       {overflow > 0 && (
         <div
           className="flex flex-shrink-0 items-center justify-center rounded-full text-[9px] font-semibold"
-          style={{ width: size, height: size, marginLeft: -6, background: "rgba(255,255,255,0.12)", color: "var(--text-title)" }}
+          style={{ width: size, height: size, marginLeft: -6, background: "var(--hover)", color: "var(--text-title)" }}
         >
           +{overflow}
         </div>

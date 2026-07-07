@@ -1,7 +1,35 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
+import type { FormStep, LogicRule, FormEnding } from "@/types";
 
 type Params = { params: Promise<{ id: string }> };
+
+// Valida invariantes de publicação por bloco. Cada novo tipo de bloco que
+// precise de uma pré-condição própria para publicar entra aqui, sem tocar
+// no restante do fluxo de publicação.
+function validatePublish(steps: FormStep[], logicRules: LogicRule[], endings: FormEnding[]): string | null {
+  if (steps.length === 0) {
+    return "O formulário precisa ter ao menos uma pergunta para ser publicado";
+  }
+  for (const step of steps) {
+    if (step.type === "calendar" && !step.calendarId) {
+      return "O bloco Calendário precisa de um calendário selecionado antes de publicar";
+    }
+  }
+
+  const stepIds   = new Set(steps.map(s => s.id));
+  const endingIds = new Set(endings.map(e => e.id));
+  for (const rule of logicRules) {
+    if (!rule.action.target) continue;
+    const targetExists = rule.action.type === "jump"
+      ? stepIds.has(rule.action.target)
+      : endingIds.has(rule.action.target);
+    if (!targetExists) {
+      return "Uma regra de lógica aponta para uma pergunta ou tela que não existe mais — corrija ou remova a regra antes de publicar";
+    }
+  }
+  return null;
+}
 
 // POST /api/formularios/:id/publicar
 // Publica o formulário: muda status para 'published', grava snapshot versionado.
@@ -24,8 +52,13 @@ export async function POST(_req: NextRequest, { params }: Params) {
     return NextResponse.json({ error: "Formulário não encontrado" }, { status: 404 });
   }
 
-  if (!form.steps || (form.steps as unknown[]).length === 0) {
-    return NextResponse.json({ error: "O formulário precisa ter ao menos uma pergunta para ser publicado" }, { status: 422 });
+  const validationError = validatePublish(
+    (form.steps ?? []) as FormStep[],
+    (form.logic_rules ?? []) as LogicRule[],
+    (form.endings ?? []) as FormEnding[],
+  );
+  if (validationError) {
+    return NextResponse.json({ error: validationError }, { status: 422 });
   }
 
   // Determina o próximo número de versão

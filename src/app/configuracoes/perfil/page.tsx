@@ -19,27 +19,27 @@ function ProfileInput({
 }: React.InputHTMLAttributes<HTMLInputElement> & { label: string; hint?: string }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <label className="text-[12px] font-medium uppercase tracking-[0.08em]" style={{ color: "rgba(255,255,255,0.45)" }}>
+      <label className="text-[12px] font-medium uppercase tracking-[0.08em]" style={{ color: "color-mix(in srgb, var(--text-title) 45%, transparent)" }}>
         {label}
       </label>
       <input
         {...props}
         className="h-10 w-full rounded-xl px-3.5 text-[14px] outline-none transition-all duration-200"
         style={{
-          background: "rgba(255,255,255,0.09)",
-          border: "1px solid rgba(255,255,255,0.08)",
-          color: "#ffffff",
+          background: "var(--hover)",
+          border: "1px solid var(--border)",
+          color: "var(--text-title)",
         }}
         onFocus={e => {
           e.currentTarget.style.borderColor = "rgba(39,163,255,0.45)";
-          e.currentTarget.style.background = "rgba(255,255,255,0.07)";
+          e.currentTarget.style.background = "var(--hover)";
         }}
         onBlur={e => {
-          e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)";
-          e.currentTarget.style.background = "rgba(255,255,255,0.05)";
+          e.currentTarget.style.borderColor = "var(--glass-border)";
+          e.currentTarget.style.background = "var(--hover)";
         }}
       />
-      {hint && <p className="text-[11px]" style={{ color: "rgba(255,255,255,0.28)" }}>{hint}</p>}
+      {hint && <p className="text-[11px]" style={{ color: "color-mix(in srgb, var(--text-title) 28%, transparent)" }}>{hint}</p>}
     </div>
   );
 }
@@ -51,7 +51,7 @@ function ProfileTextarea({
 }: React.TextareaHTMLAttributes<HTMLTextAreaElement> & { label: string; hint?: string }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <label className="text-[12px] font-medium uppercase tracking-[0.08em]" style={{ color: "rgba(255,255,255,0.45)" }}>
+      <label className="text-[12px] font-medium uppercase tracking-[0.08em]" style={{ color: "color-mix(in srgb, var(--text-title) 45%, transparent)" }}>
         {label}
       </label>
       <textarea
@@ -59,20 +59,20 @@ function ProfileTextarea({
         rows={3}
         className="w-full resize-none rounded-xl px-3.5 py-2.5 text-[14px] outline-none transition-all duration-200"
         style={{
-          background: "rgba(255,255,255,0.09)",
-          border: "1px solid rgba(255,255,255,0.08)",
-          color: "#ffffff",
+          background: "var(--hover)",
+          border: "1px solid var(--border)",
+          color: "var(--text-title)",
         }}
         onFocus={e => {
           e.currentTarget.style.borderColor = "rgba(39,163,255,0.45)";
-          e.currentTarget.style.background = "rgba(255,255,255,0.07)";
+          e.currentTarget.style.background = "var(--hover)";
         }}
         onBlur={e => {
-          e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)";
-          e.currentTarget.style.background = "rgba(255,255,255,0.05)";
+          e.currentTarget.style.borderColor = "var(--glass-border)";
+          e.currentTarget.style.background = "var(--hover)";
         }}
       />
-      {hint && <p className="text-[11px]" style={{ color: "rgba(255,255,255,0.28)" }}>{hint}</p>}
+      {hint && <p className="text-[11px]" style={{ color: "color-mix(in srgb, var(--text-title) 28%, transparent)" }}>{hint}</p>}
     </div>
   );
 }
@@ -84,22 +84,22 @@ function ProfileSelect({
 }: React.SelectHTMLAttributes<HTMLSelectElement> & { label: string }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <label className="text-[12px] font-medium uppercase tracking-[0.08em]" style={{ color: "rgba(255,255,255,0.45)" }}>
+      <label className="text-[12px] font-medium uppercase tracking-[0.08em]" style={{ color: "color-mix(in srgb, var(--text-title) 45%, transparent)" }}>
         {label}
       </label>
       <select
         {...props}
         className="h-10 w-full rounded-xl px-3.5 text-[14px] outline-none transition-all duration-200 appearance-none cursor-pointer"
         style={{
-          background: "rgba(255,255,255,0.09)",
-          border: "1px solid rgba(255,255,255,0.08)",
-          color: "#ffffff",
+          background: "var(--hover)",
+          border: "1px solid var(--border)",
+          color: "var(--text-title)",
         }}
         onFocus={e => {
           e.currentTarget.style.borderColor = "rgba(39,163,255,0.45)";
         }}
         onBlur={e => {
-          e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)";
+          e.currentTarget.style.borderColor = "var(--glass-border)";
         }}
       >
         {children}
@@ -145,7 +145,7 @@ function LogoUploader({ currentUrl, onUpload, isUploading }: LogoUploaderProps) 
 
   return (
     <div className="flex flex-col gap-1.5">
-      <label className="text-[12px] font-medium uppercase tracking-[0.08em]" style={{ color: "rgba(255,255,255,0.45)" }}>
+      <label className="text-[12px] font-medium uppercase tracking-[0.08em]" style={{ color: "color-mix(in srgb, var(--text-title) 45%, transparent)" }}>
         Perfil | Logomarca
       </label>
 
@@ -153,36 +153,36 @@ function LogoUploader({ currentUrl, onUpload, isUploading }: LogoUploaderProps) 
         {/* Preview circle */}
         <div
           className="relative flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl"
-          style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)" }}
+          style={{ background: "var(--hover)", border: "1px solid var(--border)" }}
         >
           {preview ? (
             <img src={preview} alt="Logo" className="h-full w-full object-cover" />
           ) : (
-            <Building2 size={28} style={{ color: "rgba(255,255,255,0.2)" }} />
+            <Building2 size={28} style={{ color: "color-mix(in srgb, var(--text-title) 20%, transparent)" }} />
           )}
           {isUploading && (
             <div className="absolute inset-0 flex items-center justify-center rounded-2xl" style={{ background: "rgba(0,0,0,0.6)" }}>
-              <div className="h-5 w-5 animate-spin rounded-full border-2 border-white/20 border-t-white" />
+              <div className="h-5 w-5 animate-spin rounded-full border-2 border-[color-mix(in_srgb,var(--text-title)_20%,transparent)] border-t-white" />
             </div>
           )}
         </div>
 
         {/* Drop zone */}
         <motion.div
-          animate={{ borderColor: isDragging ? "rgba(39,163,255,0.6)" : "rgba(255,255,255,0.1)" }}
+          animate={{ borderColor: isDragging ? "rgba(39,163,255,0.6)" : "var(--glass-border)" }}
           onDragOver={e => { e.preventDefault(); setIsDragging(true); }}
           onDragLeave={() => setIsDragging(false)}
           onDrop={handleDrop}
           onClick={() => inputRef.current?.click()}
           className="flex flex-1 cursor-pointer flex-col items-center justify-center gap-1.5 rounded-xl py-5 transition-colors duration-200"
-          style={{ background: isDragging ? "rgba(39,163,255,0.06)" : "rgba(255,255,255,0.03)", border: "1.5px dashed rgba(255,255,255,0.1)" }}
-          whileHover={{ background: "rgba(255,255,255,0.09)" }}
+          style={{ background: isDragging ? "rgba(39,163,255,0.06)" : "var(--shimmer-light)", border: "1.5px dashed var(--glass-border)" }}
+          whileHover={{ background: "var(--hover)" }}
         >
-          <Upload size={16} style={{ color: "rgba(255,255,255,0.35)" }} />
-          <p className="text-[12px]" style={{ color: "rgba(255,255,255,0.4)" }}>
+          <Upload size={16} style={{ color: "color-mix(in srgb, var(--text-title) 35%, transparent)" }} />
+          <p className="text-[12px]" style={{ color: "color-mix(in srgb, var(--text-title) 40%, transparent)" }}>
             Arraste ou <span style={{ color: "rgba(39,163,255,0.8)" }}>clique para selecionar</span>
           </p>
-          <p className="text-[10px]" style={{ color: "rgba(255,255,255,0.22)" }}>PNG, JPG, WebP · Máx. 5 MB</p>
+          <p className="text-[10px]" style={{ color: "color-mix(in srgb, var(--text-title) 22%, transparent)" }}>PNG, JPG, WebP · Máx. 5 MB</p>
         </motion.div>
 
         <input ref={inputRef} type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); }} />
@@ -214,13 +214,18 @@ function SettingsSection({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay, ease: "easeOut" }}
       className="rounded-2xl p-6"
-      style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.06)" }}
+      style={{
+        background: "var(--hover)",
+        border: "1px solid var(--border)",
+        backdropFilter: "blur(20px) saturate(160%)",
+        WebkitBackdropFilter: "blur(20px) saturate(160%)",
+      }}
     >
       <div className="mb-5 flex items-center gap-3">
         <div className="flex h-8 w-8 items-center justify-center rounded-lg" style={{ background: `${accentColor}18` }}>
           <Icon size={16} style={{ color: accentColor }} strokeWidth={1.75} />
         </div>
-        <h2 className="text-[13px] font-semibold tracking-wide" style={{ color: "rgba(255,255,255,0.75)" }}>
+        <h2 className="text-[13px] font-semibold tracking-wide" style={{ color: "color-mix(in srgb, var(--text-title) 75%, transparent)" }}>
           {title}
         </h2>
       </div>
@@ -237,13 +242,13 @@ function Skeleton() {
   return (
     <div className="space-y-4">
       {[1, 2, 3].map(i => (
-        <div key={i} className="animate-pulse rounded-2xl p-6" style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.05)" }}>
-          <div className="mb-5 h-4 w-32 rounded-lg" style={{ background: "rgba(255,255,255,0.07)" }} />
+        <div key={i} className="animate-pulse rounded-2xl p-6" style={{ background: "var(--hover)", border: "1px solid var(--border)" }}>
+          <div className="mb-5 h-4 w-32 rounded-lg" style={{ background: "var(--hover)" }} />
           <div className="grid grid-cols-2 gap-4">
             {[1, 2, 3, 4].map(j => (
               <div key={j} className="space-y-2">
-                <div className="h-3 w-20 rounded" style={{ background: "rgba(255,255,255,0.09)" }} />
-                <div className="h-10 w-full rounded-xl" style={{ background: "rgba(255,255,255,0.08)" }} />
+                <div className="h-3 w-20 rounded" style={{ background: "var(--hover)" }} />
+                <div className="h-10 w-full rounded-xl" style={{ background: "var(--hover)" }} />
               </div>
             ))}
           </div>
@@ -271,12 +276,12 @@ function SaveBar({ isDirty, isSaving, onSave }: { isDirty: boolean; isSaving: bo
           <div
             className="flex items-center gap-4 rounded-2xl px-5 py-3"
             style={{
-              background: "rgba(10,10,10,0.85)",
-              border: "1px solid rgba(255,255,255,0.1)",
+              background: "var(--popover)",
+              border: "1px solid var(--border)",
               boxShadow: "0 12px 40px rgba(0,0,0,0.6), 0 1px 0 rgba(255,255,255,0.05) inset",
             }}
           >
-            <span className="text-[13px]" style={{ color: "rgba(255,255,255,0.55)" }}>
+            <span className="text-[13px]" style={{ color: "color-mix(in srgb, var(--text-title) 55%, transparent)" }}>
               Alterações não salvas
             </span>
             <PrimaryButton onClick={onSave} disabled={isSaving} className="flex items-center gap-2 px-5 py-2 text-[13px]">
@@ -364,17 +369,17 @@ export default function PerfilEmpresaPage() {
         <Link
           href="/configuracoes"
           className="inline-flex items-center gap-1.5 text-[12px] transition-colors duration-150"
-          style={{ color: "rgba(255,255,255,0.35)" }}
-          onMouseEnter={e => (e.currentTarget.style.color = "rgba(255,255,255,0.7)")}
-          onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,255,255,0.35)")}
+          style={{ color: "color-mix(in srgb, var(--text-title) 35%, transparent)" }}
+          onMouseEnter={e => (e.currentTarget.style.color = "color-mix(in srgb, var(--text-title) 70%, transparent)")}
+          onMouseLeave={e => (e.currentTarget.style.color = "color-mix(in srgb, var(--text-title) 35%, transparent)")}
         >
           <ArrowLeft size={13} />
           Configurações
         </Link>
-        <h1 className="text-xl font-bold tracking-tight sm:text-2xl" style={{ color: "#ffffff", letterSpacing: "-0.02em" }}>
+        <h1 className="text-xl font-bold tracking-tight sm:text-2xl" style={{ color: "var(--text-title)", letterSpacing: "-0.02em" }}>
           Perfil da Empresa
         </h1>
-        <p className="text-[13px]" style={{ color: "rgba(255,255,255,0.38)" }}>
+        <p className="text-[13px]" style={{ color: "color-mix(in srgb, var(--text-title) 38%, transparent)" }}>
           Dados institucionais e identidade da operação
         </p>
       </motion.div>

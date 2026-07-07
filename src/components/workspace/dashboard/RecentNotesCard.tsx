@@ -45,7 +45,7 @@ export function RecentNotesCard({ notes, delay = 0, bare = false }: RecentNotesC
   return (
     <motion.div
       className={bare ? "" : "lc-card p-6"}
-      style={bare ? undefined : { background: "rgba(0,0,0,0.31)" }}
+      style={bare ? undefined : { background: "var(--glass-bg-soft)" }}
       initial={{ opacity: 0, y: 18 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay, ease: "easeOut" }}
@@ -53,14 +53,14 @@ export function RecentNotesCard({ notes, delay = 0, bare = false }: RecentNotesC
       <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="flex h-9 w-9 items-center justify-center rounded-xl">
-            <StickyNote size={17} style={{ color: "#ffffff" }} />
+            <StickyNote size={17} style={{ color: "var(--text-title)" }} />
           </div>
           <div>
-            <p className="text-[13px] font-semibold leading-tight" style={{ color: "#b4b4b4" }}>Últimas Notas</p>
+            <p className="text-[13px] font-semibold leading-tight" style={{ color: "var(--silver)" }}>Últimas Notas</p>
             <p className="text-[10px] text-[var(--muted-foreground)]">Criadas ou editadas recentemente</p>
           </div>
         </div>
-        <Link href="/workspace/notas" className="text-[var(--muted-foreground)] hover:text-white/80">
+        <Link href="/workspace/notas" className="text-[var(--muted-foreground)] hover:text-[var(--text-title)]">
           <ArrowUpRight size={15} />
         </Link>
       </div>
@@ -75,7 +75,7 @@ export function RecentNotesCard({ notes, delay = 0, bare = false }: RecentNotesC
           <Link
             key={note.id}
             href={`/workspace/notas/${note.id}`}
-            className="flex flex-col gap-0.5 rounded-lg px-1 py-1.5 transition-colors hover:bg-white/[0.03]"
+            className="flex flex-col gap-0.5 rounded-lg px-1 py-1.5 transition-colors hover:bg-[var(--hover)]"
           >
             <p className="truncate text-sm font-medium" style={{ color: "var(--text-title)" }}>
               {note.title || "Nota sem título"}

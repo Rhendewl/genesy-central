@@ -35,7 +35,7 @@ export default function WorkspaceKanbanPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col pb-24">
+    <div className="flex flex-col pb-24">
       <Header title="Workspace" subtitle="Suas tarefas, sempre organizadas" />
 
       <div className="flex flex-wrap items-center justify-between gap-3 px-4 pb-4 sm:px-6">
@@ -44,7 +44,7 @@ export default function WorkspaceKanbanPage() {
           <Link
             href="/workspace/configuracoes/notificacoes"
             aria-label="Configurações de notificações"
-            className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full transition-colors hover:bg-white/[0.06]"
+            className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full transition-colors hover:bg-[var(--hover)]"
           >
             <Settings size={16} style={{ color: "var(--muted-foreground)" }} />
           </Link>

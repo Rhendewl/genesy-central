@@ -62,7 +62,7 @@ export default function WorkspaceNoteEditorPage() {
 
   if (isLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
+      <div className="flex min-h-[60vh] items-center justify-center">
         <Loader2 size={24} className="animate-spin" style={{ color: "var(--muted-foreground)" }} />
       </div>
     );
@@ -70,14 +70,14 @@ export default function WorkspaceNoteEditorPage() {
 
   if (error || !note) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
+      <div className="flex min-h-[60vh] items-center justify-center">
         <p className="text-sm text-red-400">{error ?? "Nota não encontrada"}</p>
       </div>
     );
   }
 
   return (
-    <div className="flex min-h-screen flex-col pb-24">
+    <div className="flex flex-col pb-24">
       <div className="flex items-center justify-between px-4 py-4 sm:px-6">
         <button onClick={handleBack} className="flex items-center gap-1.5 text-sm" style={{ color: "var(--muted-foreground)" }}>
           <ArrowLeft size={15} />
@@ -119,7 +119,7 @@ export default function WorkspaceNoteEditorPage() {
                 style={{
                   background: c,
                   transform:  note.color === c ? "scale(1.2)" : "scale(1)",
-                  boxShadow:  note.color === c ? `0 0 0 2px rgba(0,0,0,0.6), 0 0 0 3px ${c}` : undefined,
+                  boxShadow:  note.color === c ? `0 0 0 2px var(--background), 0 0 0 3px ${c}` : undefined,
                 }}
               />
             ))}
@@ -135,9 +135,9 @@ export default function WorkspaceNoteEditorPage() {
                     onClick={() => toggleTag(tag.id)}
                     className="rounded-full px-2.5 py-1 text-[11px] font-medium transition-all"
                     style={{
-                      background: active ? `${tag.color}30` : "rgba(255,255,255,0.04)",
+                      background: active ? `${tag.color}30` : "var(--hover)",
                       color:      active ? tag.color : "var(--muted-foreground)",
-                      border:     `1px solid ${active ? tag.color + "50" : "rgba(255,255,255,0.08)"}`,
+                      border:     `1px solid ${active ? tag.color + "50" : "var(--glass-border)"}`,
                     }}
                   >
                     {tag.name}
@@ -153,23 +153,23 @@ export default function WorkspaceNoteEditorPage() {
 
       {confirmDelete && (
         <div
-          className="fixed inset-0 z-[60] flex items-center justify-center p-4"
+          className="fixed inset-0 z-[60] flex items-center justify-center p-4 lc-scrim"
           style={{ background: "rgba(0,0,0,0.60)", backdropFilter: "blur(6px)" }}
         >
           <div
             className="w-full max-w-sm overflow-hidden rounded-2xl"
-            style={{ background: "rgba(8,8,12,0.96)", border: "1px solid rgba(255,255,255,0.09)", boxShadow: "0 24px 64px rgba(0,0,0,0.65)" }}
+            style={{ background: "var(--bg-modal)", border: "1px solid var(--border-modal)", boxShadow: "0 24px 64px var(--shadow-modal)" }}
           >
             <div className="flex flex-col gap-2 px-5 pb-4 pt-5">
               <p className="text-sm font-semibold" style={{ color: "var(--text-title)" }}>Excluir nota</p>
               <p className="text-xs" style={{ color: "var(--muted-foreground)" }}>Esta ação não pode ser desfeita.</p>
             </div>
-            <div className="flex justify-end gap-2 px-5 py-4" style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}>
+            <div className="flex justify-end gap-2 px-5 py-4" style={{ borderTop: "1px solid var(--glass-border)" }}>
               <button
                 onClick={() => setConfirmDelete(false)}
                 disabled={isDeleting}
                 className="rounded-full px-4 py-1.5 text-xs disabled:opacity-40"
-                style={{ background: "rgba(255,255,255,0.05)", color: "var(--muted-foreground)", border: "1px solid rgba(255,255,255,0.08)" }}
+                style={{ background: "var(--hover)", color: "var(--muted-foreground)", border: "1px solid var(--glass-border)" }}
               >
                 Cancelar
               </button>

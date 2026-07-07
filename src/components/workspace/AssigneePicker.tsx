@@ -51,7 +51,7 @@ export function AssigneePicker({ value, onChange }: AssigneePickerProps) {
         className={cn(
           "flex h-9 w-full items-center gap-2 rounded-lg px-2.5 text-sm outline-none transition-all",
           "border border-[var(--border)] bg-transparent",
-          open && "ring-1 ring-white/20"
+          open && "ring-1 ring-[var(--glass-border)]"
         )}
         style={{ color: "var(--text-title)" }}
       >
@@ -78,8 +78,8 @@ export function AssigneePicker({ value, onChange }: AssigneePickerProps) {
                 <div
                   className="rounded-xl py-1 shadow-2xl"
                   style={{
-                    background: "rgba(0,0,0,0.10)",
-                    border: "1px solid rgba(255,255,255,0.10)",
+                    background: "var(--bg-tooltip)",
+                    border: "1px solid var(--border-tooltip)",
                     backdropFilter: "blur(24px)",
                     WebkitBackdropFilter: "blur(24px)",
                   }}
@@ -96,13 +96,13 @@ export function AssigneePicker({ value, onChange }: AssigneePickerProps) {
                         onClick={() => toggleAssignee(p.id)}
                         className={cn(
                           "flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm transition-colors",
-                          checked ? "bg-white/10 text-white" : "text-[#b4b4b4] hover:bg-white/5 hover:text-white"
+                          checked ? "bg-[var(--hover)] text-[var(--text-title)]" : "text-[var(--silver)] hover:bg-[var(--hover)] hover:text-[var(--text-title)]"
                         )}
                       >
                         <div
                           className="flex h-4 w-4 flex-shrink-0 items-center justify-center rounded border transition-colors"
                           style={{
-                            borderColor: checked ? "var(--primary)" : "rgba(255,255,255,0.25)",
+                            borderColor: checked ? "var(--primary)" : "var(--border)",
                             background: checked ? "var(--primary)" : "transparent",
                           }}
                         >

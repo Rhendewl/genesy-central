@@ -94,3 +94,22 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
+
+// DELETE /api/appointments/bookings/[id] → exclusão permanente.
+// Diferente de cancelar (status muda, registro fica): aqui o registro some
+// de vez, junto com seu histórico (ON DELETE CASCADE). Cancelar já libera o
+// horário pra novos agendamentos — isto é só pra limpar a lista de fato.
+// BookingService.deleteBooking é o mesmo método usado pelo bulk-delete.
+export async function DELETE(_req: NextRequest, { params }: Params) {
+  const { id } = await params;
+
+  const supabase = await createServerSupabaseClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
+
+  const service = new BookingService(supabase);
+  const result  = await service.deleteBooking(id, user.id);
+
+  if (!result.ok) return NextResponse.json({ error: result.error }, { status: 500 });
+  return NextResponse.json({ ok: true });
+}

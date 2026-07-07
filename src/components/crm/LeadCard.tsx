@@ -7,6 +7,7 @@ import { ptBR } from "date-fns/locale/pt-BR";
 import type { Lead } from "@/types";
 import { cn } from "@/lib/utils";
 import { useTags } from "@/hooks/useTags";
+import { LeadScoreEngine } from "@/lib/crm/lead-score-engine";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // LeadCard
@@ -59,7 +60,7 @@ export function LeadCard({ lead, isDragOverlay = false, onEdit }: LeadCardProps)
       )}
       style={{
         boxShadow: isDragOverlay
-          ? "0 28px 64px rgba(0,0,0,0.65), 0 0 0 1px rgba(255,255,255,0.12)"
+          ? "0 28px 64px var(--shadow-lg), 0 0 0 1px var(--glass-border)"
           : undefined,
         touchAction: "none",
       }}
@@ -78,6 +79,24 @@ export function LeadCard({ lead, isDragOverlay = false, onEdit }: LeadCardProps)
           </span>
         )}
       </div>
+
+      {/* Badge: IG (Índice Genesy) — média de IQ/IE, resumo pro card.
+          Valores individuais aparecem no card de detalhes do lead. */}
+      {(() => {
+        const ig = LeadScoreEngine.calculateIG(lead.iq_score, lead.ie_score);
+        if (ig === null) return null;
+        return (
+          <div className="mt-1.5 flex items-center gap-1.5">
+            <span
+              className="rounded-full px-1.5 py-0.5 text-[9px] font-bold leading-none"
+              style={{ background: "rgba(139,92,246,0.15)", color: "#a78bfa", border: "1px solid rgba(167,139,250,0.25)" }}
+              title="IG — Índice Genesy (média de IQ e IE)"
+            >
+              IG {ig}
+            </span>
+          </div>
+        );
+      })()}
 
       {/* Contato (phone) */}
       {lead.contact && (

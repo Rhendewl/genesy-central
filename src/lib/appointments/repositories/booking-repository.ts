@@ -178,6 +178,18 @@ export class BookingRepository {
     return data as unknown as AppointmentBooking;
   }
 
+  // Exclusão permanente — usada pra remover agendamentos de teste. Cancelar
+  // já libera o horário (status sai de pending/confirmed); isto aqui é só
+  // pra tirar o registro de vez (e seu histórico, via ON DELETE CASCADE).
+  async deleteBooking(id: string, userId: string): Promise<void> {
+    const { error } = await this.db
+      .from("appointment_bookings")
+      .delete()
+      .eq("id", id)
+      .eq("user_id", userId);
+    if (error) throw new Error(error.message);
+  }
+
   async getHistory(bookingId: string, userId: string): Promise<AppointmentBookingHistory[]> {
     const { data, error } = await this.db
       .from("appointment_booking_history")

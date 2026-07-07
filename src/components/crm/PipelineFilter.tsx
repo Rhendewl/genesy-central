@@ -86,15 +86,15 @@ export function PipelineFilter({ value, onChange, pipelines }: PipelineFilterPro
         onClick={() => setOpen(o => !o)}
         className={cn(
           "flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-all hover:scale-[1.02] active:scale-95 select-none",
-          isActive ? "text-white" : "text-[#b4b4b4] hover:text-white",
+          isActive ? "text-[var(--text-title)]" : "text-[var(--silver)] hover:text-[var(--text-title)]",
         )}
         style={{
-          background:           "rgba(10,10,10,.10)",
+          background:           "var(--glass-bg-soft)",
           backdropFilter:       "blur(24px)",
           WebkitBackdropFilter: "blur(24px)",
           border: isActive
-            ? "1px solid rgba(255,255,255,.18)"
-            : "1px solid rgba(255,255,255,.06)",
+            ? "1px solid var(--border-card-hover)"
+            : "1px solid var(--border-card)",
         }}
       >
         <Kanban size={13} />
@@ -106,7 +106,7 @@ export function PipelineFilter({ value, onChange, pipelines }: PipelineFilterPro
         {isActive && (
           <span
             onClick={clearFilter}
-            className="ml-0.5 rounded-full p-0.5 text-white/60 hover:text-white hover:bg-white/10 transition-colors"
+            className="ml-0.5 rounded-full p-0.5 text-[var(--icon)] hover:text-[var(--text-title)] hover:bg-[var(--hover)] transition-colors"
           >
             <X size={10} />
           </span>
@@ -123,11 +123,11 @@ export function PipelineFilter({ value, onChange, pipelines }: PipelineFilterPro
             transition={{ duration: 0.15, ease: "easeOut" }}
             className="absolute left-0 top-full mt-2 z-40 min-w-[220px] rounded-2xl overflow-hidden"
             style={{
-              background:           "rgba(8,8,12,0.92)",
+              background:           "var(--bg-tooltip)",
               backdropFilter:       "blur(24px) saturate(160%)",
               WebkitBackdropFilter: "blur(24px) saturate(160%)",
-              border:               "1px solid rgba(255,255,255,0.09)",
-              boxShadow:            "0 16px 48px rgba(0,0,0,0.60), inset 0 1px 0 rgba(255,255,255,0.06)",
+              border:               "1px solid var(--border-tooltip)",
+              boxShadow:            "0 16px 48px var(--shadow-lg), inset 0 1px 0 var(--hover)",
             }}
           >
             <div className="p-1.5">
@@ -137,13 +137,13 @@ export function PipelineFilter({ value, onChange, pipelines }: PipelineFilterPro
                 className={cn(
                   "w-full text-left px-3 py-2 rounded-xl text-sm transition-all flex items-center justify-between gap-2",
                   !isActive
-                    ? "text-white font-medium"
-                    : "text-[#b4b4b4] hover:text-white hover:bg-white/[0.06]",
+                    ? "text-[var(--text-title)] font-medium"
+                    : "text-[var(--silver)] hover:text-[var(--text-title)] hover:bg-[var(--hover)]",
                 )}
-                style={!isActive ? { background: "rgba(255,255,255,0.08)" } : {}}
+                style={!isActive ? { background: "var(--hover)" } : {}}
               >
                 Todas as pipelines
-                {!isActive && <span className="w-1.5 h-1.5 rounded-full bg-white/40 shrink-0" />}
+                {!isActive && <span className="w-1.5 h-1.5 rounded-full bg-[var(--icon)] shrink-0" />}
               </button>
 
               {/* Individual pipelines */}
@@ -156,10 +156,10 @@ export function PipelineFilter({ value, onChange, pipelines }: PipelineFilterPro
                     className={cn(
                       "w-full text-left px-3 py-2 rounded-xl text-sm transition-all flex items-center gap-2",
                       isSelected
-                        ? "text-white font-medium"
-                        : "text-[#b4b4b4] hover:text-white hover:bg-white/[0.06]",
+                        ? "text-[var(--text-title)] font-medium"
+                        : "text-[var(--silver)] hover:text-[var(--text-title)] hover:bg-[var(--hover)]",
                     )}
-                    style={isSelected ? { background: "rgba(255,255,255,0.08)" } : {}}
+                    style={isSelected ? { background: "var(--hover)" } : {}}
                   >
                     <span
                       className="w-2 h-2 rounded-full flex-shrink-0"
@@ -167,7 +167,7 @@ export function PipelineFilter({ value, onChange, pipelines }: PipelineFilterPro
                     />
                     <span className="truncate flex-1">{p.name}</span>
                     {isSelected && (
-                      <Check size={12} className="text-white/60 flex-shrink-0" />
+                      <Check size={12} className="text-[var(--icon)] flex-shrink-0" />
                     )}
                   </button>
                 );

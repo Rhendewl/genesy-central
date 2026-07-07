@@ -20,12 +20,12 @@ export function TaskColumn({ status, label, tasks, onOpenTask }: TaskColumnProps
       ref={setNodeRef}
       className="flex w-72 flex-shrink-0 flex-col rounded-[20px] transition-all duration-200"
       style={{
-        background:     isOver ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.32)",
+        background:     isOver ? "var(--hover)" : "var(--glass-bg-soft)",
         backdropFilter: "blur(14px) saturate(140%)",
-        border:         isOver ? "1px solid rgba(255,255,255,0.14)" : "1px solid rgba(255,255,255,0.07)",
+        border:         isOver ? "1px solid var(--border-card-hover)" : "1px solid var(--border-card)",
         boxShadow:      isOver
-          ? "0 8px 32px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.08)"
-          : "0 4px 20px rgba(0,0,0,0.30), inset 0 1px 0 rgba(255,255,255,0.04)",
+          ? "0 8px 32px var(--shadow-md), inset 0 1px 0 rgba(255,255,255,0.08)"
+          : "0 4px 20px var(--shadow-sm), inset 0 1px 0 rgba(255,255,255,0.04)",
         minHeight: 500,
       }}
     >
@@ -33,7 +33,7 @@ export function TaskColumn({ status, label, tasks, onOpenTask }: TaskColumnProps
         <div className="flex items-center gap-2.5">
           <span
             className="flex-1 truncate text-[11px] font-semibold uppercase tracking-widest"
-            style={{ color: "rgba(255,255,255,0.55)" }}
+            style={{ color: "var(--text-card-secondary)" }}
           >
             {label}
           </span>
@@ -43,7 +43,7 @@ export function TaskColumn({ status, label, tasks, onOpenTask }: TaskColumnProps
             animate={{ scale: 1, opacity: 1 }}
             transition={{ type: "spring", stiffness: 500, damping: 25 }}
             className="min-w-[22px] rounded-full px-2 py-0.5 text-center text-xs font-semibold tabular-nums"
-            style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.45)" }}
+            style={{ background: "var(--hover)", color: "var(--text-card-subtle)" }}
           >
             {tasks.length}
           </motion.span>
@@ -72,9 +72,9 @@ export function TaskColumn({ status, label, tasks, onOpenTask }: TaskColumnProps
             animate={{ opacity: 1 }}
             className="flex flex-1 items-center justify-center rounded-2xl py-10 text-xs transition-all duration-200"
             style={{
-              border:     "1.5px dashed rgba(255,255,255,0.10)",
-              color:      isOver ? "rgba(255,255,255,0.65)" : "rgba(255,255,255,0.25)",
-              background: isOver ? "rgba(255,255,255,0.04)" : "transparent",
+              border:     "1.5px dashed var(--border-empty)",
+              color:      isOver ? "var(--text-card-secondary)" : "var(--text-empty)",
+              background: isOver ? "var(--hover)" : "transparent",
             }}
           >
             {isOver ? "↓ Soltar aqui" : "Sem tarefas"}

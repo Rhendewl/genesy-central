@@ -115,7 +115,7 @@ export function MoneyInput({
       placeholder={placeholder}
       disabled={disabled}
       className={cn(
-        "w-full rounded-xl bg-white/5 text-white text-sm px-3 py-2.5 outline-none placeholder:text-[#b4b4b4]/50 transition-colors",
+        "w-full rounded-xl bg-[var(--input)] text-[var(--text-title)] text-sm px-3 py-2.5 outline-none placeholder:text-[var(--silver)] transition-colors",
         disabled && "opacity-50 cursor-not-allowed",
         className
       )}

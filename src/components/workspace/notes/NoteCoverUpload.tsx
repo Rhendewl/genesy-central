@@ -108,8 +108,8 @@ export function NoteCoverUpload({ noteId, coverUrl, onUpload, onRemove }: NoteCo
         disabled={isUploading}
         className="flex w-full items-center justify-center gap-2 rounded-xl py-3 text-xs transition-all"
         style={{
-          border:     `1.5px dashed ${isDragging ? "var(--primary)" : "rgba(255,255,255,0.12)"}`,
-          background: isDragging ? "rgba(74,143,212,0.06)" : "rgba(255,255,255,0.02)",
+          border:     `1.5px dashed ${isDragging ? "var(--primary)" : "var(--border)"}`,
+          background: isDragging ? "rgba(74,143,212,0.06)" : "var(--hover)",
           color:      "var(--muted-foreground)",
         }}
       >

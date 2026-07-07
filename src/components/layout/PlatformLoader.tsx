@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
+import { useGlobalStore } from "@/store";
 
 const CRYSTAL = "M253.02,226.65h243.82c6.92,0,13.55-2.75,18.45-7.64l173.93-173.93c16.64-16.64,4.85-45.08-18.67-45.08H208.5c-6.29,0-12.31,2.5-16.76,6.94L8.24,190.45c-5.27,5.27-8.24,12.43-8.24,19.88v312.98c0,7.87,3.13,15.42,8.69,20.99l182.64,182.64c4.71,4.71,11.09,7.35,17.75,7.35h272.13c14.59,0,26.42-11.83,26.42-26.42v-200.23h139.69c14.59,0,26.42-11.83,26.42-26.42v-113.29c0-14.58-11.82-26.4-26.4-26.4h-113.6c-14.42,0-26.11,11.69-26.11,26.11v140h-254.77c-14.48,0-26.22-11.74-26.22-26.22v-228.4c0-14.56,11.8-26.36,26.36-26.36Z";
 
@@ -11,6 +12,7 @@ const PUBLIC_PATH_PREFIXES = ["/form/", "/agendar/"];
 
 export function PlatformLoader() {
   const pathname = usePathname();
+  const theme = useGlobalStore((s) => s.theme);
   const isPublicPage = PUBLIC_PATH_PREFIXES.some((prefix) => pathname?.startsWith(prefix));
 
   const [visible,  setVisible]  = useState(false);
@@ -35,7 +37,6 @@ export function PlatformLoader() {
         #gl-overlay {
           position: fixed;
           inset: 0;
-          background: #000;
           display: flex;
           align-items: center;
           justify-content: center;
@@ -102,7 +103,7 @@ export function PlatformLoader() {
         }
       `}</style>
 
-      <div id="gl-overlay">
+      <div id="gl-overlay" style={{ background: theme === "light" ? "#ffffff" : "#000000" }}>
         <div className={`gl-entry${exiting ? " gl-exit" : ""}`}>
           <div className="gl-breathe">
             <div className="gl-float">

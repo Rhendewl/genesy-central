@@ -180,7 +180,7 @@ export function ConfigPanel({ definition, row, onSave, onCreate, onDelete }: Con
         <button
           onClick={() => setEnabled(e => !e)}
           className="relative w-11 h-6 rounded-full transition-colors"
-          style={{ background: enabled ? "var(--primary)" : "rgba(255,255,255,0.12)" }}
+          style={{ background: enabled ? "var(--primary)" : "var(--border-card-hover)" }}
         >
           <span
             className="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform shadow-sm"

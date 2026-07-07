@@ -74,7 +74,7 @@ export function AttachmentsField({ signEndpoint, attachments, onRegister, onDele
   return (
     <div className="flex flex-col gap-2">
       {attachments.map((att) => (
-        <div key={att.id} className="group flex items-center gap-2 rounded-lg px-1 py-1 hover:bg-white/[0.03]">
+        <div key={att.id} className="group flex items-center gap-2 rounded-lg px-1 py-1 hover:bg-[var(--hover)]">
           <Paperclip size={13} style={{ color: "var(--muted-foreground)" }} />
           <a href={att.public_url} target="_blank" rel="noopener noreferrer" className="flex-1 truncate text-sm" style={{ color: "var(--text-title)" }}>
             {att.file_name}

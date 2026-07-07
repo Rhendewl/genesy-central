@@ -69,7 +69,7 @@ const EMPTY_FORM: FormState = {
 // ── Styles ─────────────────────────────────────────────────────────────────────
 
 const INPUT_STYLE = {
-  background: "rgba(255,255,255,0.04)",
+  background: "var(--hover)",
   border:     "1px solid var(--border)",
   color:      "var(--text-title)",
 } as const;
@@ -197,7 +197,7 @@ function RuleModal({ rule, onSave, onClose }: ModalProps) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 lc-scrim"
       style={{ background: "rgba(0,0,0,0.70)", backdropFilter: "blur(8px)", paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
     >
@@ -210,7 +210,7 @@ function RuleModal({ rule, onSave, onClose }: ModalProps) {
           <p className="text-sm font-semibold" style={{ color: "var(--text-title)" }}>
             {isEdit ? "Editar regra" : "Nova regra de notificação"}
           </p>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-white/5 transition-colors" style={{ color: "var(--muted-foreground)" }}>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-[var(--hover)] transition-colors" style={{ color: "var(--muted-foreground)" }}>
             <X size={15} />
           </button>
         </div>
@@ -229,9 +229,9 @@ function RuleModal({ rule, onSave, onClose }: ModalProps) {
                   className="w-full appearance-none rounded-lg px-3 py-2 text-sm outline-none"
                   style={INPUT_STYLE}
                 >
-                  <option value="" style={{ background: "#17172a" }}>Selecionar…</option>
+                  <option value="" style={{ background: "var(--background)" }}>Selecionar…</option>
                   {activePipelines.map(p => (
-                    <option key={p.id} value={p.id} style={{ background: "#17172a" }}>{p.name}</option>
+                    <option key={p.id} value={p.id} style={{ background: "var(--background)" }}>{p.name}</option>
                   ))}
                 </select>
               </div>
@@ -244,9 +244,9 @@ function RuleModal({ rule, onSave, onClose }: ModalProps) {
                   className="w-full appearance-none rounded-lg px-3 py-2 text-sm outline-none disabled:opacity-40"
                   style={INPUT_STYLE}
                 >
-                  <option value="" style={{ background: "#17172a" }}>Selecionar…</option>
+                  <option value="" style={{ background: "var(--background)" }}>Selecionar…</option>
                   {availableStages.map(s => (
-                    <option key={s.id} value={s.id} style={{ background: "#17172a" }}>{s.name}</option>
+                    <option key={s.id} value={s.id} style={{ background: "var(--background)" }}>{s.name}</option>
                   ))}
                 </select>
               </div>
@@ -333,7 +333,7 @@ function RuleModal({ rule, onSave, onClose }: ModalProps) {
                     onClick={() => insertVariable(v.key)}
                     title={v.label}
                     className="px-2 py-1 rounded text-xs font-mono transition-colors hover:opacity-80"
-                    style={{ background: "rgba(255,255,255,0.07)", color: "var(--text-title)", border: "1px solid var(--border)" }}
+                    style={{ background: "var(--hover)", color: "var(--text-title)", border: "1px solid var(--border)" }}
                   >
                     {v.key}
                   </button>
@@ -347,9 +347,9 @@ function RuleModal({ rule, onSave, onClose }: ModalProps) {
             <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--muted-foreground)" }}>Preview</p>
             <div
               className="rounded-xl px-4 py-3 flex items-start gap-3"
-              style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)" }}
+              style={{ background: "var(--hover)", border: "1px solid var(--glass-border)" }}
             >
-              <div className="w-9 h-9 rounded-lg shrink-0 flex items-center justify-center text-base" style={{ background: "rgba(255,255,255,0.08)" }}>
+              <div className="w-9 h-9 rounded-lg shrink-0 flex items-center justify-center text-base" style={{ background: "var(--hover)" }}>
                 🔔
               </div>
               <div className="flex flex-col gap-0.5 min-w-0">
@@ -373,7 +373,7 @@ function RuleModal({ rule, onSave, onClose }: ModalProps) {
               onClick={handleTest}
               disabled={isTesting}
               className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium transition-all active:scale-95 disabled:opacity-50"
-              style={{ background: "rgba(255,255,255,0.07)", color: "var(--text-title)", border: "1px solid var(--border)" }}
+              style={{ background: "var(--hover)", color: "var(--text-title)", border: "1px solid var(--border)" }}
             >
               {isTesting ? <Loader2 size={13} className="animate-spin" /> : <Bell size={13} />}
               Testar
@@ -499,7 +499,7 @@ export function CrmNotificacoesTab() {
             className="grid px-4 py-2.5 text-xs font-semibold uppercase tracking-wide"
             style={{
               gridTemplateColumns: "1fr 1fr auto auto",
-              background: "rgba(255,255,255,0.03)",
+              background: "var(--hover)",
               borderBottom: "1px solid var(--border)",
               color: "var(--muted-foreground)",
             }}
@@ -514,7 +514,7 @@ export function CrmNotificacoesTab() {
           {rules.map((rule, idx) => (
             <div
               key={rule.id}
-              className="grid items-center px-4 py-3 cursor-pointer hover:bg-white/[0.02] transition-colors"
+              className="grid items-center px-4 py-3 cursor-pointer hover:bg-[var(--hover)] transition-colors"
               style={{
                 gridTemplateColumns: "1fr 1fr auto auto",
                 borderBottom: idx < rules.length - 1 ? "1px solid var(--border)" : undefined,
@@ -530,7 +530,7 @@ export function CrmNotificacoesTab() {
               <div className="flex items-center gap-2">
                 <span
                   className="w-2 h-2 rounded-full shrink-0"
-                  style={{ background: rule.stage_color || "rgba(255,255,255,0.3)" }}
+                  style={{ background: rule.stage_color || "var(--icon)" }}
                 />
                 <p className="text-sm truncate" style={{ color: "var(--muted-foreground)" }}>
                   {rule.stage_name}
@@ -543,7 +543,7 @@ export function CrmNotificacoesTab() {
                 onClick={e => { e.stopPropagation(); handleToggle(rule); }}
                 aria-pressed={rule.enabled}
                 className="relative rounded-full transition-colors"
-                style={{ background: rule.enabled ? "var(--primary)" : "rgba(255,255,255,0.12)", width: "36px", height: "20px" }}
+                style={{ background: rule.enabled ? "var(--primary)" : "var(--border-card-hover)", width: "36px", height: "20px" }}
               >
                 <span
                   className="absolute top-0.5 left-0.5 rounded-full bg-white transition-transform shadow"
@@ -556,7 +556,7 @@ export function CrmNotificacoesTab() {
                 type="button"
                 onClick={e => { e.stopPropagation(); handleDelete(rule.id); }}
                 disabled={deletingId === rule.id}
-                className="ml-2 p-1.5 rounded-lg hover:bg-white/10 transition-colors disabled:opacity-40"
+                className="ml-2 p-1.5 rounded-lg hover:bg-[var(--hover)] transition-colors disabled:opacity-40"
                 style={{ color: "var(--muted-foreground)" }}
               >
                 {deletingId === rule.id

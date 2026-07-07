@@ -203,16 +203,16 @@ export function PeriodFilter({ onChange }: PeriodFilterProps) {
         className={cn(
           "flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-all hover:scale-[1.02] active:scale-95 select-none",
           isActive
-            ? "text-white"
-            : "text-[#b4b4b4] hover:text-white",
+            ? "text-[var(--text-title)]"
+            : "text-[var(--silver)] hover:text-[var(--text-title)]",
         )}
         style={{
-          background: "rgba(10,10,10,.10)",
+          background: "var(--glass-bg-soft)",
           backdropFilter: "blur(24px)",
           WebkitBackdropFilter: "blur(24px)",
           border: isActive
-            ? "1px solid rgba(255,255,255,.18)"
-            : "1px solid rgba(255,255,255,.06)",
+            ? "1px solid var(--border-card-hover)"
+            : "1px solid var(--border-card)",
         }}
       >
         <Calendar size={13} />
@@ -231,7 +231,7 @@ export function PeriodFilter({ onChange }: PeriodFilterProps) {
               setCustomTo("");
               setOpen(false);
             }}
-            className="ml-0.5 rounded-full p-0.5 text-white/60 hover:text-white hover:bg-white/10 transition-colors"
+            className="ml-0.5 rounded-full p-0.5 text-[var(--icon)] hover:text-[var(--text-title)] hover:bg-[var(--hover)] transition-colors"
           >
             <X size={10} />
           </span>
@@ -248,11 +248,11 @@ export function PeriodFilter({ onChange }: PeriodFilterProps) {
             transition={{ duration: 0.15, ease: "easeOut" }}
             className="absolute right-0 top-full mt-2 z-40 min-w-[220px] rounded-2xl overflow-hidden"
             style={{
-              background: "rgba(8,8,12,0.92)",
+              background: "var(--bg-tooltip)",
               backdropFilter: "blur(24px) saturate(160%)",
               WebkitBackdropFilter: "blur(24px) saturate(160%)",
-              border: "1px solid rgba(255,255,255,0.09)",
-              boxShadow: "0 16px 48px rgba(0,0,0,0.60), inset 0 1px 0 rgba(255,255,255,0.06)",
+              border: "1px solid var(--border-tooltip)",
+              boxShadow: "0 16px 48px var(--shadow-lg), inset 0 1px 0 var(--hover)",
             }}
           >
             {/* Options */}
@@ -266,16 +266,16 @@ export function PeriodFilter({ onChange }: PeriodFilterProps) {
                     className={cn(
                       "w-full text-left px-3 py-2 rounded-xl text-sm transition-all flex items-center justify-between gap-2",
                       isSelected
-                        ? "text-white font-medium"
-                        : "text-[#b4b4b4] hover:text-white hover:bg-white/[0.06]",
+                        ? "text-[var(--text-title)] font-medium"
+                        : "text-[var(--silver)] hover:text-[var(--text-title)] hover:bg-[var(--hover)]",
                     )}
                     style={isSelected ? {
-                      background: "rgba(255,255,255,0.08)",
+                      background: "var(--hover)",
                     } : {}}
                   >
                     {opt.label}
                     {isSelected && (
-                      <span className="w-1.5 h-1.5 rounded-full bg-white/40 shrink-0" />
+                      <span className="w-1.5 h-1.5 rounded-full bg-[var(--icon)] shrink-0" />
                     )}
                   </button>
                 );
@@ -293,11 +293,11 @@ export function PeriodFilter({ onChange }: PeriodFilterProps) {
               >
                 <div
                   className="px-3 pb-3 pt-2 space-y-2"
-                  style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}
+                  style={{ borderTop: "1px solid var(--border-card)" }}
                 >
                   {needsSpecificDate && (
                     <div>
-                      <label className="block text-[10px] font-semibold text-[#5a5a5a] uppercase tracking-widest mb-1.5">
+                      <label className="block text-[10px] font-semibold text-[var(--muted-foreground)] uppercase tracking-widest mb-1.5">
                         Data
                       </label>
                       <input
@@ -305,8 +305,7 @@ export function PeriodFilter({ onChange }: PeriodFilterProps) {
                         max={today}
                         value={specificDate}
                         onChange={e => setSpecificDate(e.target.value)}
-                        className="w-full px-3 py-2 rounded-xl text-sm text-white outline-none lc-filter-control"
-                        style={{ colorScheme: "dark" }}
+                        className="w-full px-3 py-2 rounded-xl text-sm text-[var(--text-title)] outline-none lc-filter-control"
                       />
                     </div>
                   )}
@@ -314,7 +313,7 @@ export function PeriodFilter({ onChange }: PeriodFilterProps) {
                   {needsCustomRange && (
                     <>
                       <div>
-                        <label className="block text-[10px] font-semibold text-[#5a5a5a] uppercase tracking-widest mb-1.5">
+                        <label className="block text-[10px] font-semibold text-[var(--muted-foreground)] uppercase tracking-widest mb-1.5">
                           De
                         </label>
                         <input
@@ -322,12 +321,11 @@ export function PeriodFilter({ onChange }: PeriodFilterProps) {
                           max={customTo || today}
                           value={customFrom}
                           onChange={e => setCustomFrom(e.target.value)}
-                          className="w-full px-3 py-2 rounded-xl text-sm text-white outline-none lc-filter-control"
-                          style={{ colorScheme: "dark" }}
+                          className="w-full px-3 py-2 rounded-xl text-sm text-[var(--text-title)] outline-none lc-filter-control"
                         />
                       </div>
                       <div>
-                        <label className="block text-[10px] font-semibold text-[#5a5a5a] uppercase tracking-widest mb-1.5">
+                        <label className="block text-[10px] font-semibold text-[var(--muted-foreground)] uppercase tracking-widest mb-1.5">
                           Até
                         </label>
                         <input
@@ -336,15 +334,14 @@ export function PeriodFilter({ onChange }: PeriodFilterProps) {
                           max={today}
                           value={customTo}
                           onChange={e => setCustomTo(e.target.value)}
-                          className="w-full px-3 py-2 rounded-xl text-sm text-white outline-none lc-filter-control"
-                          style={{ colorScheme: "dark" }}
+                          className="w-full px-3 py-2 rounded-xl text-sm text-[var(--text-title)] outline-none lc-filter-control"
                         />
                       </div>
                       {customFrom && customTo && (
                         <button
                           onClick={() => setOpen(false)}
-                          className="w-full py-2 rounded-xl text-xs font-semibold text-white transition-all hover:opacity-90"
-                          style={{ background: "rgba(99,102,241,0.25)", border: "1px solid rgba(99,102,241,0.35)" }}
+                          className="w-full py-2 rounded-xl text-xs font-semibold transition-all hover:opacity-90"
+                          style={{ background: "rgba(99,102,241,0.25)", border: "1px solid rgba(99,102,241,0.35)", color: "var(--text-title)" }}
                         >
                           Aplicar período
                         </button>
@@ -355,8 +352,8 @@ export function PeriodFilter({ onChange }: PeriodFilterProps) {
                   {needsSpecificDate && specificDate && (
                     <button
                       onClick={() => setOpen(false)}
-                      className="w-full py-2 rounded-xl text-xs font-semibold text-white transition-all hover:opacity-90"
-                      style={{ background: "rgba(99,102,241,0.25)", border: "1px solid rgba(99,102,241,0.35)" }}
+                      className="w-full py-2 rounded-xl text-xs font-semibold transition-all hover:opacity-90"
+                      style={{ background: "rgba(99,102,241,0.25)", border: "1px solid rgba(99,102,241,0.35)", color: "var(--text-title)" }}
                     >
                       Aplicar data
                     </button>

@@ -14,8 +14,6 @@ interface HalfDonutGaugeProps {
 }
 
 const TICK_COUNT = 24;
-const GRADIENT_FROM = "#26292e";
-const GRADIENT_TO   = "#b0b8c1";
 
 function polar(cx: number, cy: number, r: number, angleDeg: number) {
   const rad = (angleDeg * Math.PI) / 180;
@@ -52,8 +50,8 @@ export function HalfDonutGauge({ percent, label, caption, size = 116 }: HalfDonu
       <svg width={size} height={size / 2 + arcWidth} viewBox={`0 0 ${size} ${size / 2 + arcWidth}`}>
         <defs>
           <linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%"   stopColor={GRADIENT_FROM} />
-            <stop offset="100%" stopColor={GRADIENT_TO} />
+            <stop offset="0%"   style={{ stopColor: "var(--gauge-grad-from)" }} />
+            <stop offset="100%" style={{ stopColor: "var(--gauge-grad-to)" }} />
           </linearGradient>
         </defs>
 
@@ -65,7 +63,7 @@ export function HalfDonutGauge({ percent, label, caption, size = 116 }: HalfDonu
             <line
               key={angle}
               x1={inner.x} y1={inner.y} x2={outer.x} y2={outer.y}
-              stroke="rgba(255,255,255,0.22)"
+              stroke="var(--border-card)"
               strokeWidth={tickThickness}
               strokeLinecap="butt"
             />
@@ -87,7 +85,7 @@ export function HalfDonutGauge({ percent, label, caption, size = 116 }: HalfDonu
       <p className="-mt-1 text-lg font-bold tabular-nums" style={{ color: "var(--text-title)" }}>
         {Math.round(clamped)}%
       </p>
-      <p className="text-[10px] font-semibold uppercase tracking-[0.06em]" style={{ color: "#b4b4b4" }}>
+      <p className="text-[10px] font-semibold uppercase tracking-[0.06em]" style={{ color: "var(--silver)" }}>
         {label}
       </p>
       <p className="text-[10px]" style={{ color: "var(--muted-foreground)" }}>

@@ -61,8 +61,8 @@ function SpecialCard({
       aria-label={label}
       className="flex items-center gap-3 w-full px-3 py-3 rounded-xl border transition-all text-left"
       style={{
-        background: isSelected ? "rgba(255,255,255,0.07)" : "rgba(255,255,255,0.03)",
-        borderColor: isSelected ? "rgba(255,255,255,0.18)" : "rgba(255,255,255,0.07)",
+        background: isSelected ? "var(--glass-bg-soft)" : "var(--hover)",
+        borderColor: isSelected ? "var(--accent-blue)" : "var(--glass-border)",
         boxShadow: isSelected ? "0 0 0 1px rgba(255,255,255,0.08), 0 2px 10px rgba(0,0,0,0.30)" : undefined,
       }}
     >
@@ -172,7 +172,7 @@ export function EditorCanvas({
           onClick={onOpenBlockLibrary}
           className={cn(
             "flex items-center justify-center gap-2 w-full py-3 rounded-xl border text-xs font-medium transition-all",
-            "hover:bg-white/5 hover:border-white/20",
+            "hover:bg-[var(--hover)] hover:border-[var(--glass-border)]",
           )}
           style={{
             borderColor: "var(--border)",

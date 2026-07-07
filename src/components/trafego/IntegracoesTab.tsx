@@ -29,7 +29,7 @@ const fmtDate = (iso: string | null) => {
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
   connected:    { label: "Conectado",    color: "text-emerald-400 bg-emerald-400/10 border-emerald-400/25", icon: <CheckCircle2 size={12} /> },
-  disconnected: { label: "Desconectado", color: "text-[#b4b4b4] bg-[#b4b4b4]/10 border-[#b4b4b4]/25",    icon: <Unplug size={12} /> },
+  disconnected: { label: "Desconectado", color: "text-[var(--silver)] bg-[var(--silver)]/10 border-[var(--silver)]/25",    icon: <Unplug size={12} /> },
   pending:      { label: "Pendente",     color: "text-amber-400 bg-amber-400/10 border-amber-400/25",     icon: <Clock size={12} /> },
   error:        { label: "Erro",         color: "text-red-400 bg-red-400/10 border-red-400/25",           icon: <XCircle size={12} /> },
 };
@@ -115,21 +115,21 @@ function AccountPickerModal({
         transition={{ duration: 0.2, ease: [0.25, 0.46, 0.45, 0.94] }}
         className="relative w-full sm:max-w-lg z-10 flex flex-col rounded-t-2xl sm:rounded-2xl overflow-hidden"
         style={{
-          background: "rgba(12,12,14,0.07)",
+          background: "var(--glass-bg-soft)",
           border: "none",
           maxHeight: "90dvh",
         }}
       >
         {/* ── Fixed Header ─────────────────────────────────── */}
-        <div className="shrink-0 px-5 pt-5 pb-4" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
+        <div className="shrink-0 px-5 pt-5 pb-4" style={{ borderBottom: "1px solid var(--glass-border)" }}>
           <div className="flex items-start justify-between gap-3 mb-4">
             <div>
-              <h3 className="text-white font-semibold text-base leading-tight">Selecionar conta de anúncio</h3>
-              <p className="text-[#b4b4b4] text-xs mt-1">Escolha a conta Meta Ads para conectar ao dashboard</p>
+              <h3 className="text-[var(--text-title)] font-semibold text-base leading-tight">Selecionar conta de anúncio</h3>
+              <p className="text-[var(--silver)] text-xs mt-1">Escolha a conta Meta Ads para conectar ao dashboard</p>
             </div>
             <button
               onClick={onClose}
-              className="shrink-0 p-1.5 rounded-lg hover:bg-white/8 text-[#b4b4b4] hover:text-white transition-colors mt-0.5"
+              className="shrink-0 p-1.5 rounded-lg hover:bg-[var(--hover)] text-[var(--silver)] hover:text-[var(--text-title)] transition-colors mt-0.5"
             >
               <X size={16} />
             </button>
@@ -143,11 +143,11 @@ function AccountPickerModal({
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 placeholder="Buscar conta por nome ou ID…"
-                className="w-full pl-9 pr-3 py-2.5 rounded-xl text-sm text-white placeholder-[#5a5a5a] outline-none transition-colors"
-                style={{ background: "rgba(255,255,255,0.09)", border: "1px solid rgba(255,255,255,0.08)" }}
+                className="w-full pl-9 pr-3 py-2.5 rounded-xl text-sm text-[var(--text-title)] placeholder-[var(--text-muted)] outline-none transition-colors"
+                style={{ background: "var(--hover)", border: "1px solid var(--border)" }}
               />
               <svg
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-[#5a5a5a]"
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]"
                 width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
               >
                 <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
@@ -155,7 +155,7 @@ function AccountPickerModal({
               {search && (
                 <button
                   onClick={() => setSearch("")}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#5a5a5a] hover:text-[#b4b4b4] transition-colors"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--silver)] transition-colors"
                 >
                   <X size={12} />
                 </button>
@@ -173,7 +173,7 @@ function AccountPickerModal({
           {loading && (
             <div className="flex flex-col items-center justify-center py-12 gap-3">
               <Loader2 size={24} className="animate-spin text-[#4a8fd4]" />
-              <p className="text-[#b4b4b4] text-xs">Carregando contas…</p>
+              <p className="text-[var(--silver)] text-xs">Carregando contas…</p>
             </div>
           )}
 
@@ -190,7 +190,7 @@ function AccountPickerModal({
             <>
               {/* Ad account cards */}
               <div>
-                <label className="block text-[10px] font-semibold text-[#5a5a5a] uppercase tracking-widest mb-2.5">
+                <label className="block text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-widest mb-2.5">
                   {accounts.length} conta{accounts.length !== 1 ? "s" : ""} disponíve{accounts.length !== 1 ? "is" : "l"}
                 </label>
                 <div className="space-y-2">
@@ -204,16 +204,16 @@ function AccountPickerModal({
                         className={cn(
                           "group w-full flex items-center gap-3.5 p-3.5 rounded-xl text-left transition-all duration-150 relative overflow-hidden",
                           isSelected
-                            ? "text-white"
-                            : "text-[#b4b4b4] hover:text-white"
+                            ? "text-[var(--text-title)]"
+                            : "text-[var(--silver)] hover:text-[var(--text-title)]"
                         )}
                         style={{
                           background: isSelected
                             ? "rgba(74,143,212,0.12)"
-                            : "rgba(255,255,255,0.03)",
+                            : "var(--hover)",
                           border: isSelected
                             ? "1px solid rgba(74,143,212,0.40)"
-                            : "1px solid rgba(255,255,255,0.07)",
+                            : "1px solid var(--glass-border)",
                           boxShadow: isSelected
                             ? "0 0 0 1px rgba(74,143,212,0.15), inset 0 1px 0 rgba(255,255,255,0.05)"
                             : "none",
@@ -232,7 +232,7 @@ function AccountPickerModal({
                         {/* Radio indicator */}
                         <div className="relative shrink-0 flex items-center justify-center w-5 h-5 rounded-full transition-all duration-150"
                           style={{
-                            border: isSelected ? "2px solid #4a8fd4" : "2px solid rgba(255,255,255,0.20)",
+                            border: isSelected ? "2px solid #4a8fd4" : "2px solid var(--glass-border)",
                             background: isSelected ? "rgba(74,143,212,0.15)" : "transparent",
                           }}
                         >
@@ -243,10 +243,10 @@ function AccountPickerModal({
 
                         {/* Info */}
                         <div className="flex-1 min-w-0">
-                          <p className={cn("font-medium text-sm truncate leading-tight", isSelected ? "text-white" : "text-[#d4d4d4] group-hover:text-white")}>
+                          <p className={cn("font-medium text-sm truncate leading-tight", isSelected ? "text-[var(--text-title)]" : "text-[var(--text-body)] group-hover:text-[var(--text-title)]")}>
                             {acc.name}
                           </p>
-                          <p className="text-[11px] text-[#5a5a5a] mt-0.5 font-mono">{acc.id}</p>
+                          <p className="text-[11px] text-[var(--text-muted)] mt-0.5 font-mono">{acc.id}</p>
                         </div>
 
                         {/* Status pill */}
@@ -254,9 +254,9 @@ function AccountPickerModal({
                           "shrink-0 flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium",
                           statusOk
                             ? "bg-emerald-400/10 text-emerald-400"
-                            : "bg-[#b4b4b4]/10 text-[#b4b4b4]"
+                            : "bg-[var(--silver)]/10 text-[var(--silver)]"
                         )}>
-                          <div className={cn("w-1.5 h-1.5 rounded-full", statusOk ? "bg-emerald-400" : "bg-[#b4b4b4]")} />
+                          <div className={cn("w-1.5 h-1.5 rounded-full", statusOk ? "bg-emerald-400" : "bg-[var(--silver)]")} />
                           {statusOk ? "Ativa" : "Inativa"}
                         </div>
 
@@ -269,7 +269,7 @@ function AccountPickerModal({
                   })}
 
                   {filtered.length === 0 && accounts.length > 0 && (
-                    <div className="flex flex-col items-center py-8 gap-2 text-[#5a5a5a]">
+                    <div className="flex flex-col items-center py-8 gap-2 text-[var(--text-muted)]">
                       <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                         <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
                       </svg>
@@ -278,7 +278,7 @@ function AccountPickerModal({
                   )}
 
                   {accounts.length === 0 && (
-                    <div className="flex flex-col items-center py-8 gap-2 text-[#5a5a5a]">
+                    <div className="flex flex-col items-center py-8 gap-2 text-[var(--text-muted)]">
                       <Users size={20} />
                       <p className="text-sm">Nenhuma conta ativa encontrada</p>
                     </div>
@@ -289,17 +289,17 @@ function AccountPickerModal({
               {/* Client link */}
               {clients.length > 0 && (
                 <div>
-                  <label className="block text-[10px] font-semibold text-[#5a5a5a] uppercase tracking-widest mb-2.5">
+                  <label className="block text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-widest mb-2.5">
                     Vincular ao cliente (opcional)
                   </label>
                   <div className="relative">
                     <select
                       value={clientId}
                       onChange={e => setClientId(e.target.value)}
-                      className="w-full appearance-none px-3 py-2.5 rounded-xl text-sm text-white outline-none pr-8 transition-colors"
+                      className="w-full appearance-none px-3 py-2.5 rounded-xl text-sm text-[var(--text-title)] outline-none pr-8 transition-colors"
                       style={{
-                        background: "rgba(255,255,255,0.09)",
-                        border: "1px solid rgba(255,255,255,0.08)",
+                        background: "var(--hover)",
+                        border: "1px solid var(--border)",
                       }}
                     >
                       <option value="">Sem vínculo</option>
@@ -307,7 +307,7 @@ function AccountPickerModal({
                         <option key={c.id} value={c.id}>{c.name}</option>
                       ))}
                     </select>
-                    <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#5a5a5a] pointer-events-none" />
+                    <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] pointer-events-none" />
                   </div>
                 </div>
               )}
@@ -319,7 +319,7 @@ function AccountPickerModal({
         {!loading && !fetchErr && (
           <div
             className="shrink-0 px-5 py-4 space-y-3"
-            style={{ borderTop: "1px solid rgba(255,255,255,0.07)", background: "rgba(0,0,0,0.15)" }}
+            style={{ borderTop: "1px solid var(--glass-border)", background: "var(--hover)" }}
           >
             {saveErr && (
               <div className="flex items-center gap-2 p-3 rounded-xl bg-red-400/10 border border-red-400/20 text-red-400 text-sm">
@@ -332,9 +332,9 @@ function AccountPickerModal({
             {selectedAcc && (
               <div className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ background: "rgba(74,143,212,0.08)", border: "1px solid rgba(74,143,212,0.15)" }}>
                 <CheckCircle2 size={13} className="text-[#4a8fd4] shrink-0" />
-                <p className="text-xs text-[#b4b4b4] truncate">
-                  <span className="text-white font-medium">{selectedAcc.name}</span>
-                  <span className="ml-1.5 font-mono text-[#5a5a5a]">{selectedAcc.id}</span>
+                <p className="text-xs text-[var(--silver)] truncate">
+                  <span className="text-[var(--text-title)] font-medium">{selectedAcc.name}</span>
+                  <span className="ml-1.5 font-mono text-[var(--text-muted)]">{selectedAcc.id}</span>
                 </p>
               </div>
             )}
@@ -343,8 +343,8 @@ function AccountPickerModal({
               <button
                 onClick={onClose}
                 disabled={saving}
-                className="flex-1 py-2.5 rounded-xl text-sm font-medium text-[#b4b4b4] hover:text-white transition-colors"
-                style={{ background: "rgba(255,255,255,0.09)", border: "1px solid rgba(255,255,255,0.08)" }}
+                className="flex-1 py-2.5 rounded-xl text-sm font-medium text-[var(--silver)] hover:text-[var(--text-title)] transition-colors"
+                style={{ background: "var(--hover)", border: "1px solid var(--border)" }}
               >
                 Cancelar
               </button>
@@ -365,9 +365,9 @@ function AccountPickerModal({
       <style>{`
         .picker-scroll::-webkit-scrollbar { width: 4px; }
         .picker-scroll::-webkit-scrollbar-track { background: transparent; }
-        .picker-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.10); border-radius: 99px; }
-        .picker-scroll::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.18); }
-        .picker-scroll { scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.10) transparent; }
+        .picker-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
+        .picker-scroll::-webkit-scrollbar-thumb:hover { background: var(--glass-border); }
+        .picker-scroll { scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
       `}</style>
     </div>
   );
@@ -411,16 +411,16 @@ function MetaAccountRow({
       transition={{ duration: 0.2, delay: index * 0.04 }}
       className="rounded-xl p-4"
       style={{
-        background: "rgba(255,255,255,0.06)",
+        background: "var(--hover)",
         border: hasError
           ? "1px solid rgba(239,68,68,0.20)"
-          : "1px solid rgba(255,255,255,0.07)",
+          : "1px solid var(--glass-border)",
       }}
     >
       <div className="flex items-start gap-3">
         {/* Meta icon */}
         <div
-          className="w-9 h-9 rounded-xl flex items-center justify-center text-xs font-bold text-white shrink-0 mt-0.5"
+          className="w-9 h-9 rounded-xl flex items-center justify-center text-xs font-bold text-[var(--text-title)] shrink-0 mt-0.5"
           style={{ background: "linear-gradient(135deg, #0081fb 0%, #0064e0 100%)" }}
         >
           M
@@ -429,10 +429,10 @@ function MetaAccountRow({
         {/* Info */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <p className="text-white font-medium text-sm truncate">{account.account_name}</p>
+            <p className="text-[var(--text-title)] font-medium text-sm truncate">{account.account_name}</p>
             <StatusBadge status={account.status} />
           </div>
-          <div className="flex items-center gap-3 mt-1 text-[11px] text-[#5a5a5a] flex-wrap">
+          <div className="flex items-center gap-3 mt-1 text-[11px] text-[var(--text-muted)] flex-wrap">
             <span className="font-mono">{account.account_id ?? "—"}</span>
             {account.client && (
               <span className="flex items-center gap-1">
@@ -501,7 +501,7 @@ function MetaAccountRow({
               onClick={onDisconnect}
               disabled={isDisconnecting}
               title="Desconectar conta"
-              className="p-1.5 rounded-lg text-[#b4b4b4] hover:text-red-400 hover:bg-red-400/10 transition-colors disabled:opacity-40"
+              className="p-1.5 rounded-lg text-[var(--silver)] hover:text-red-400 hover:bg-red-400/10 transition-colors disabled:opacity-40"
             >
               {isDisconnecting ? <Loader2 size={13} className="animate-spin" /> : <Unplug size={13} />}
             </button>
@@ -511,7 +511,7 @@ function MetaAccountRow({
               <div className="flex items-center gap-1">
                 <button
                   onClick={() => setConfirmDelete(false)}
-                  className="px-2 py-1 rounded-lg text-[10px] text-[#b4b4b4] hover:text-white hover:bg-white/8 transition-colors"
+                  className="px-2 py-1 rounded-lg text-[10px] text-[var(--silver)] hover:text-[var(--text-title)] hover:bg-[var(--hover)] transition-colors"
                 >
                   Cancelar
                 </button>
@@ -528,7 +528,7 @@ function MetaAccountRow({
                 onClick={handleDeleteClick}
                 disabled={isDeleting}
                 title="Excluir conta"
-                className="p-1.5 rounded-lg text-[#b4b4b4] hover:text-red-400 hover:bg-red-400/10 transition-colors disabled:opacity-40"
+                className="p-1.5 rounded-lg text-[var(--silver)] hover:text-red-400 hover:bg-red-400/10 transition-colors disabled:opacity-40"
               >
                 <Trash2 size={13} />
               </button>
@@ -566,8 +566,8 @@ function MetaAdsSection({
       transition={{ duration: 0.25 }}
       className="rounded-2xl p-5 space-y-4"
       style={{
-        background: "rgba(0,0,0,0.10)",
-        border: "1px solid rgba(255,255,255,0.10)",
+        background: "var(--hover)",
+        border: "1px solid var(--border)",
         backdropFilter: "blur(20px)",
         WebkitBackdropFilter: "blur(20px)",
       }}
@@ -576,14 +576,14 @@ function MetaAdsSection({
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <div
-            className="w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold text-white shrink-0"
+            className="w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold text-[var(--text-title)] shrink-0"
             style={{ background: "linear-gradient(135deg, #0081fb 0%, #0064e0 100%)" }}
           >
             M
           </div>
           <div>
-            <p className="text-white font-semibold text-sm">Meta Ads</p>
-            <p className="text-[#b4b4b4] text-xs">
+            <p className="text-[var(--text-title)] font-semibold text-sm">Meta Ads</p>
+            <p className="text-[var(--silver)] text-xs">
               {accounts.length === 0
                 ? "Nenhuma conta conectada"
                 : `${accounts.length} conta${accounts.length !== 1 ? "s" : ""} conectada${accounts.length !== 1 ? "s" : ""}`}
@@ -629,7 +629,7 @@ function MetaAdsSection({
       )}
 
       {accounts.length === 0 && (
-        <div className="flex flex-col items-center py-6 gap-2 text-[#5a5a5a]">
+        <div className="flex flex-col items-center py-6 gap-2 text-[var(--text-muted)]">
           <Plug size={20} />
           <p className="text-sm">Conecte uma conta Meta Ads para importar campanhas e métricas</p>
         </div>
@@ -651,30 +651,30 @@ function SyncHistory({ logs }: { logs: MetaSyncLog[] }) {
       transition={{ duration: 0.3, delay: 0.2 }}
       className="rounded-2xl p-5"
       style={{
-        background: "rgba(0,0,0,0.10)",
-        border: "1px solid rgba(255,255,255,0.10)",
+        background: "var(--hover)",
+        border: "1px solid var(--border)",
         backdropFilter: "blur(20px)",
         WebkitBackdropFilter: "blur(20px)",
       }}
     >
-      <h3 className="text-white font-semibold text-sm mb-4 flex items-center gap-2">
+      <h3 className="text-[var(--text-title)] font-semibold text-sm mb-4 flex items-center gap-2">
         <Clock size={14} className="text-[#4a8fd4]" />
         Histórico de sincronizações
       </h3>
       <div className="space-y-2">
         {logs.slice(0, 8).map(log => (
           <div key={log.id} className="flex items-center justify-between gap-3 py-2 border-b last:border-0"
-            style={{ borderColor: "rgba(255,255,255,0.06)" }}>
+            style={{ borderColor: "var(--glass-border)" }}>
             <div className="flex items-center gap-2 min-w-0">
               {log.status === "success" && <CheckCircle2 size={12} className="text-emerald-400 shrink-0" />}
               {log.status === "running" && <Loader2 size={12} className="animate-spin text-[#4a8fd4] shrink-0" />}
               {log.status === "error"   && <XCircle size={12} className="text-red-400 shrink-0" />}
-              <span className="text-[#c7e5ff] text-xs">{fmtDate(log.started_at)}</span>
+              <span className="text-[color:var(--chart-tooltip-entry)] text-xs">{fmtDate(log.started_at)}</span>
               {log.status === "error" && (
                 <span className="text-red-400 text-xs truncate">{log.error_message}</span>
               )}
             </div>
-            <div className="flex items-center gap-3 shrink-0 text-xs text-[#b4b4b4]">
+            <div className="flex items-center gap-3 shrink-0 text-xs text-[var(--silver)]">
               <span>{log.campaigns_synced}c</span>
               <span>{log.metrics_synced}m</span>
             </div>
@@ -745,11 +745,11 @@ export function IntegracoesTab() {
           className="flex items-start justify-between"
         >
           <div>
-            <h2 className="text-white font-semibold text-base flex items-center gap-2">
+            <h2 className="text-[var(--text-title)] font-semibold text-base flex items-center gap-2">
               <ShieldCheck size={16} className="text-[#4a8fd4]" />
               Integrações de Tráfego
             </h2>
-            <p className="text-[#b4b4b4] text-xs mt-1">
+            <p className="text-[var(--silver)] text-xs mt-1">
               Conecte suas contas de mídia para importar dados automaticamente
             </p>
           </div>

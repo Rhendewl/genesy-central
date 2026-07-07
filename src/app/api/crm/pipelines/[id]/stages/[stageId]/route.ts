@@ -29,6 +29,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
   const allowed = [
     "name", "description", "color", "icon", "order_index",
     "is_active", "allow_free_move", "require_note", "require_attachment", "allow_edit",
+    "is_won", "is_lost",
   ] as const;
   const update: Record<string, unknown> = {};
   for (const key of allowed) {
@@ -47,31 +48,43 @@ export async function PUT(req: NextRequest, { params }: Params) {
   return NextResponse.json({ stage: data });
 }
 
-export async function DELETE(_req: NextRequest, { params }: Params) {
+// DELETE /api/crm/pipelines/:id/stages/:stageId?force=1
+//
+// Exclusão permanente da etapa (antes era só um soft-delete disfarçado —
+// is_active=false, o mesmo que o toggle "Desativar" já fazia). FKs de
+// crm_stages já são SET NULL (leads.stage_id, crm_lead_stage_history.stage_id)
+// ou CASCADE (crm_stage_conversions, crm_notification_rules) — o banco nunca
+// rejeitaria o delete. Por isso o guard de leads é só um aviso: sem `force`,
+// bloqueia com 409 + a contagem; com `force=1`, prossegue e os leads dessa
+// etapa ficam "Sem Etapa" (stage_id = null) — visíveis na coluna própria do
+// Kanban, não são apagados nem perdem dados.
+export async function DELETE(req: NextRequest, { params }: Params) {
   const { stageId } = await params;
   const supabase = await createServerSupabaseClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
 
-  // Block deletion if leads are assigned to this stage
+  const force = req.nextUrl.searchParams.get("force") === "1";
+
   const { count } = await supabase
     .from("leads")
     .select("id", { count: "exact", head: true })
     .eq("stage_id", stageId);
 
-  if (count && count > 0) {
+  const leadCount = count ?? 0;
+
+  if (leadCount > 0 && !force) {
     return NextResponse.json(
-      { error: `Não é possível excluir: ${count} lead(s) nesta etapa` },
+      { error: `${leadCount} lead(s) nesta etapa`, leadCount },
       { status: 409 },
     );
   }
 
-  // Soft delete
   const { error } = await supabase
     .from("crm_stages")
-    .update({ is_active: false })
+    .delete()
     .eq("id", stageId);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, leadCount });
 }

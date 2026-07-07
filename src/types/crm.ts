@@ -48,6 +48,10 @@ export interface CrmStage {
   require_attachment: boolean;
   allow_edit:         boolean;
   legacy_column:      string | null;
+  /** Marca esta etapa como "venda ganha" — dispara lead.deal.won ao entrar. */
+  is_won:             boolean;
+  /** Marca esta etapa como "venda perdida" — dispara lead.deal.lost ao entrar. */
+  is_lost:            boolean;
   created_at:         string;
   updated_at:         string;
 }
@@ -72,6 +76,8 @@ export type UpdateCrmStage = Partial<{
   require_note:       boolean;
   require_attachment: boolean;
   allow_edit:         boolean;
+  is_won:             boolean;
+  is_lost:            boolean;
 }>;
 
 // ── Stage Conversions ─────────────────────────────────────────────────────────

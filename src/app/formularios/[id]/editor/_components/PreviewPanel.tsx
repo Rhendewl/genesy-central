@@ -108,7 +108,7 @@ export function PreviewPanel({ form }: PreviewPanelProps) {
         <button
           onClick={goPrev}
           disabled={!canGoBack}
-          className="w-9 h-9 rounded-full flex items-center justify-center transition-all hover:bg-white/10 disabled:opacity-25"
+          className="w-9 h-9 rounded-full flex items-center justify-center transition-all hover:bg-[var(--hover)] disabled:opacity-25"
           style={{ border: "1px solid var(--border)" }}
           aria-label="Tela anterior"
         >
@@ -129,7 +129,7 @@ export function PreviewPanel({ form }: PreviewPanelProps) {
         <button
           onClick={goNext}
           disabled={!canGoNext}
-          className="w-9 h-9 rounded-full flex items-center justify-center transition-all hover:bg-white/10 disabled:opacity-25"
+          className="w-9 h-9 rounded-full flex items-center justify-center transition-all hover:bg-[var(--hover)] disabled:opacity-25"
           style={{ border: "1px solid var(--border)" }}
           aria-label="Próxima tela"
         >
@@ -138,7 +138,7 @@ export function PreviewPanel({ form }: PreviewPanelProps) {
 
         <button
           onClick={reset}
-          className="w-9 h-9 rounded-full flex items-center justify-center transition-all hover:bg-white/10"
+          className="w-9 h-9 rounded-full flex items-center justify-center transition-all hover:bg-[var(--hover)]"
           style={{ border: "1px solid var(--border)" }}
           aria-label="Reiniciar preview"
           title="Reiniciar preview"

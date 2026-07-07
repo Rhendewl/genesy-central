@@ -24,7 +24,7 @@ const fmt = (v: number) =>
 
 const STATUS_CONFIG: Record<ClientStatus, { label: string; color: string }> = {
   ativo:    { label: "Ativo",    color: "text-emerald-400 bg-emerald-400/10 border-emerald-400/20" },
-  inativo:  { label: "Inativo",  color: "text-[#b4b4b4] bg-[#b4b4b4]/10 border-[#b4b4b4]/20" },
+  inativo:  { label: "Inativo",  color: "text-[var(--silver)] bg-[var(--silver)]/10 border-[var(--silver)]/20" },
   churned:  { label: "Churned",  color: "text-red-400 bg-red-400/10 border-red-400/20" },
 };
 
@@ -104,8 +104,8 @@ function ClienteModal({ client, onClose, onSave, onDelete }: ClientModalProps) {
     }
   };
 
-  const inputCls = "w-full rounded-xl bg-white/5 text-white text-sm px-3 py-2.5 outline-none placeholder:text-[#b4b4b4]/50 focus:bg-white/[0.07] transition-colors";
-  const selectCls = "w-full rounded-xl bg-white/5 text-white text-sm px-3 py-2.5 outline-none focus:bg-white/[0.07] transition-colors";
+  const inputCls = "w-full rounded-xl bg-[var(--hover)] text-[var(--text-title)] text-sm px-3 py-2.5 outline-none placeholder:text-[var(--silver)]/50 focus:bg-[var(--glass-border)] transition-colors";
+  const selectCls = "w-full rounded-xl bg-[var(--hover)] text-[var(--text-title)] text-sm px-3 py-2.5 outline-none focus:bg-[var(--glass-border)] transition-colors";
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
@@ -114,20 +114,16 @@ function ClienteModal({ client, onClose, onSave, onDelete }: ClientModalProps) {
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.95 }}
-        className="relative w-full max-w-2xl rounded-2xl shadow-2xl p-6 max-h-[92vh] overflow-y-auto"
-        style={{
-          background: "rgba(10,14,20,0.97)",
-          border: "1px solid rgba(255,255,255,0.08)",
-        }}
+        className="lc-modal-panel relative w-full max-w-2xl rounded-2xl shadow-2xl p-6 max-h-[92vh] overflow-y-auto"
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
         <div className="flex items-center justify-between mb-5">
           <div>
-            <h2 className="text-lg font-bold text-white">{client ? "Editar Cliente" : "Novo Cliente"}</h2>
-            <p className="text-xs text-[#5a5a5a] mt-0.5">Preencha os dados do cliente e os custos vinculados</p>
+            <h2 className="text-lg font-bold text-[var(--text-title)]">{client ? "Editar Cliente" : "Novo Cliente"}</h2>
+            <p className="text-xs text-[var(--text-muted)] mt-0.5">Preencha os dados do cliente e os custos vinculados</p>
           </div>
-          <button onClick={onClose} className="text-[#b4b4b4] hover:text-white transition-colors p-1">
+          <button onClick={onClose} className="text-[var(--silver)] hover:text-[var(--text-title)] transition-colors p-1">
             <X size={20} />
           </button>
         </div>
@@ -142,7 +138,7 @@ function ClienteModal({ client, onClose, onSave, onDelete }: ClientModalProps) {
         {/* ── Basic info ─────────────────────────────────────────────────────── */}
         <div className="grid grid-cols-2 gap-3">
           <div className="col-span-2">
-            <label className="block text-xs text-[#b4b4b4] mb-1.5 font-medium">Nome da Empresa *</label>
+            <label className="block text-xs text-[var(--silver)] mb-1.5 font-medium">Nome da Empresa *</label>
             <input
               value={form.name ?? ""} onChange={e => set("name", e.target.value)}
               placeholder="Ex: Imobiliária Premium SP"
@@ -152,7 +148,7 @@ function ClienteModal({ client, onClose, onSave, onDelete }: ClientModalProps) {
           </div>
 
           <div>
-            <label className="block text-xs text-[#b4b4b4] mb-1.5 font-medium">Tipo</label>
+            <label className="block text-xs text-[var(--silver)] mb-1.5 font-medium">Tipo</label>
             <select
               value={form.company_type ?? "imobiliaria"} onChange={e => set("company_type", e.target.value as CompanyType)}
               className={selectCls} style={{ border: "none" }}>
@@ -161,7 +157,7 @@ function ClienteModal({ client, onClose, onSave, onDelete }: ClientModalProps) {
           </div>
 
           <div>
-            <label className="block text-xs text-[#b4b4b4] mb-1.5 font-medium">Status</label>
+            <label className="block text-xs text-[var(--silver)] mb-1.5 font-medium">Status</label>
             <select
               value={form.status ?? "ativo"} onChange={e => set("status", e.target.value as ClientStatus)}
               className={selectCls} style={{ border: "none" }}>
@@ -170,12 +166,12 @@ function ClienteModal({ client, onClose, onSave, onDelete }: ClientModalProps) {
           </div>
 
           <div>
-            <label className="block text-xs text-[#b4b4b4] mb-1.5 font-medium">Mensalidade (R$)</label>
+            <label className="block text-xs text-[var(--silver)] mb-1.5 font-medium">Mensalidade (R$)</label>
             <MoneyInput value={form.monthly_fee ?? 0} onChange={v => set("monthly_fee", v)} />
           </div>
 
           <div>
-            <label className="block text-xs text-[#b4b4b4] mb-1.5 font-medium">Dia de Vencimento</label>
+            <label className="block text-xs text-[var(--silver)] mb-1.5 font-medium">Dia de Vencimento</label>
             <input
               type="number" min={1} max={31} value={form.payment_day ?? 10}
               onChange={e => set("payment_day", parseInt(e.target.value))}
@@ -184,7 +180,7 @@ function ClienteModal({ client, onClose, onSave, onDelete }: ClientModalProps) {
           </div>
 
           <div>
-            <label className="block text-xs text-[#b4b4b4] mb-1.5 font-medium">Início do Contrato</label>
+            <label className="block text-xs text-[var(--silver)] mb-1.5 font-medium">Início do Contrato</label>
             <input
               type="date" value={form.contract_start ?? ""}
               onChange={e => set("contract_start", e.target.value || null)}
@@ -193,7 +189,7 @@ function ClienteModal({ client, onClose, onSave, onDelete }: ClientModalProps) {
           </div>
 
           <div>
-            <label className="block text-xs text-[#b4b4b4] mb-1.5 font-medium">Fim do Contrato</label>
+            <label className="block text-xs text-[var(--silver)] mb-1.5 font-medium">Fim do Contrato</label>
             <input
               type="date" value={form.contract_end ?? ""}
               onChange={e => set("contract_end", e.target.value || null)}
@@ -203,11 +199,11 @@ function ClienteModal({ client, onClose, onSave, onDelete }: ClientModalProps) {
 
           {/* Contact */}
           <div className="col-span-2 mt-1">
-            <p className="text-xs text-[#b4b4b4] font-medium uppercase tracking-wider mb-3">Contato</p>
+            <p className="text-xs text-[var(--silver)] font-medium uppercase tracking-wider mb-3">Contato</p>
           </div>
 
           <div>
-            <label className="block text-xs text-[#b4b4b4] mb-1.5 font-medium">Nome do Contato</label>
+            <label className="block text-xs text-[var(--silver)] mb-1.5 font-medium">Nome do Contato</label>
             <input
               value={form.contact_name ?? ""} onChange={e => set("contact_name", e.target.value || null)}
               placeholder="Ex: João Silva"
@@ -216,7 +212,7 @@ function ClienteModal({ client, onClose, onSave, onDelete }: ClientModalProps) {
           </div>
 
           <div>
-            <label className="block text-xs text-[#b4b4b4] mb-1.5 font-medium">WhatsApp</label>
+            <label className="block text-xs text-[var(--silver)] mb-1.5 font-medium">WhatsApp</label>
             <input
               value={form.contact_phone ?? ""} onChange={e => set("contact_phone", e.target.value || null)}
               placeholder="(11) 99999-9999"
@@ -225,7 +221,7 @@ function ClienteModal({ client, onClose, onSave, onDelete }: ClientModalProps) {
           </div>
 
           <div className="col-span-2">
-            <label className="block text-xs text-[#b4b4b4] mb-1.5 font-medium">E-mail</label>
+            <label className="block text-xs text-[var(--silver)] mb-1.5 font-medium">E-mail</label>
             <input
               value={form.contact_email ?? ""} onChange={e => set("contact_email", e.target.value || null)}
               placeholder="contato@empresa.com"
@@ -234,7 +230,7 @@ function ClienteModal({ client, onClose, onSave, onDelete }: ClientModalProps) {
           </div>
 
           <div className="col-span-2">
-            <label className="block text-xs text-[#b4b4b4] mb-1.5 font-medium">Observações</label>
+            <label className="block text-xs text-[var(--silver)] mb-1.5 font-medium">Observações</label>
             <textarea
               value={form.notes ?? ""} onChange={e => set("notes", e.target.value || null)}
               rows={2} placeholder="Notas internas..."
@@ -244,15 +240,15 @@ function ClienteModal({ client, onClose, onSave, onDelete }: ClientModalProps) {
         </div>
 
         {/* ── Custos Variáveis / Parceiros ───────────────────────────────────── */}
-        <div className="mt-5 pt-5" style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}>
+        <div className="mt-5 pt-5" style={{ borderTop: "1px solid var(--border)" }}>
           <div className="flex items-center gap-2 mb-1">
             <div className="w-6 h-6 rounded-lg flex items-center justify-center"
               style={{ background: "rgba(167,139,250,0.15)", border: "1px solid rgba(167,139,250,0.25)" }}>
               <Percent size={12} style={{ color: "#a78bfa" }} />
             </div>
-            <p className="text-sm font-semibold text-white">Custos Variáveis / Parceiros</p>
+            <p className="text-sm font-semibold text-[var(--text-title)]">Custos Variáveis / Parceiros</p>
           </div>
-          <p className="text-[11px] text-[#5a5a5a] mb-4 ml-8">
+          <p className="text-[11px] text-[var(--text-muted)] mb-4 ml-8">
             Defina percentuais da mensalidade destinados a parceiros ou comissões.
           </p>
 
@@ -273,7 +269,7 @@ function ClienteModal({ client, onClose, onSave, onDelete }: ClientModalProps) {
                     value={share.name}
                     onChange={e => setShare(i, "name", e.target.value)}
                     placeholder="Ex: Sócio, Gestora de Performance..."
-                    className="flex-1 rounded-xl bg-white/5 text-white text-sm px-3 py-2 outline-none placeholder:text-[#b4b4b4]/40 focus:bg-white/[0.07] transition-colors"
+                    className="flex-1 rounded-xl bg-[var(--hover)] text-[var(--text-title)] text-sm px-3 py-2 outline-none placeholder:text-[var(--silver)]/40 focus:bg-[var(--glass-border)] transition-colors"
                     style={{ border: "none" }}
                   />
                   {/* Percentage input */}
@@ -282,23 +278,23 @@ function ClienteModal({ client, onClose, onSave, onDelete }: ClientModalProps) {
                       type="number" min={0} max={100} step={0.5}
                       value={share.percentage}
                       onChange={e => setShare(i, "percentage", Math.min(100, Math.max(0, parseFloat(e.target.value) || 0)))}
-                      className="w-full rounded-xl bg-white/5 text-white text-sm px-3 py-2 outline-none pr-7 focus:bg-white/[0.07] transition-colors"
+                      className="w-full rounded-xl bg-[var(--hover)] text-[var(--text-title)] text-sm px-3 py-2 outline-none pr-7 focus:bg-[var(--glass-border)] transition-colors"
                       style={{ border: "none" }}
                     />
-                    <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#b4b4b4] text-xs pointer-events-none">%</span>
+                    <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--silver)] text-xs pointer-events-none">%</span>
                   </div>
                   {/* Calculated value */}
                   <div className="w-24 shrink-0 text-right">
                     <span className={cn(
                       "text-sm font-semibold",
-                      fee > 0 && share.percentage > 0 ? "text-amber-400" : "text-[#5a5a5a]"
+                      fee > 0 && share.percentage > 0 ? "text-amber-400" : "text-[var(--text-muted)]"
                     )}>
                       {fmt(calc)}
                     </span>
                   </div>
                   <button
                     onClick={() => removeShare(i)}
-                    className="p-1.5 rounded-lg text-[#5a5a5a] hover:text-red-400 transition-colors shrink-0"
+                    className="p-1.5 rounded-lg text-[var(--text-muted)] hover:text-red-400 transition-colors shrink-0"
                   >
                     <X size={14} />
                   </button>
@@ -323,7 +319,7 @@ function ClienteModal({ client, onClose, onSave, onDelete }: ClientModalProps) {
           {/* Add partner button */}
           <button
             onClick={addShare}
-            className="flex items-center gap-1.5 text-sm text-[#4a8fd4] hover:text-white transition-colors py-1 mt-1"
+            className="flex items-center gap-1.5 text-sm text-[#4a8fd4] hover:text-[var(--text-title)] transition-colors py-1 mt-1"
           >
             <Plus size={14} />
             Adicionar parceiro
@@ -336,28 +332,28 @@ function ClienteModal({ client, onClose, onSave, onDelete }: ClientModalProps) {
             <motion.div
               initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
               className="mt-4 rounded-xl p-4"
-              style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.07)" }}
+              style={{ background: "var(--hover)", border: "1px solid var(--border)" }}
             >
-              <p className="text-[10px] text-[#5a5a5a] font-medium uppercase tracking-wider mb-3">Prévia financeira</p>
+              <p className="text-[10px] text-[var(--text-muted)] font-medium uppercase tracking-wider mb-3">Prévia financeira</p>
               <div className="grid grid-cols-4 gap-3 text-center">
                 <div>
-                  <p className="text-[10px] text-[#5a5a5a] mb-1">Receita</p>
-                  <p className="text-sm font-bold text-white">{fmt(fee)}</p>
+                  <p className="text-[10px] text-[var(--text-muted)] mb-1">Receita</p>
+                  <p className="text-sm font-bold text-[var(--text-title)]">{fmt(fee)}</p>
                 </div>
                 <div>
-                  <p className="text-[10px] text-[#5a5a5a] mb-1">Custos</p>
-                  <p className={cn("text-sm font-bold", totalSharesAmt > 0 ? "text-red-400" : "text-[#b4b4b4]")}>
+                  <p className="text-[10px] text-[var(--text-muted)] mb-1">Custos</p>
+                  <p className={cn("text-sm font-bold", totalSharesAmt > 0 ? "text-red-400" : "text-[var(--silver)]")}>
                     {fmt(totalSharesAmt)}
                   </p>
                 </div>
                 <div>
-                  <p className="text-[10px] text-[#5a5a5a] mb-1">Lucro</p>
+                  <p className="text-[10px] text-[var(--text-muted)] mb-1">Lucro</p>
                   <p className={cn("text-sm font-bold", previewLucro >= 0 ? "text-emerald-400" : "text-red-400")}>
                     {fmt(previewLucro)}
                   </p>
                 </div>
                 <div>
-                  <p className="text-[10px] text-[#5a5a5a] mb-1">Margem</p>
+                  <p className="text-[10px] text-[var(--text-muted)] mb-1">Margem</p>
                   <p className={cn("text-sm font-bold",
                     previewMargem >= 30 ? "text-emerald-400" : previewMargem >= 0 ? "text-amber-400" : "text-red-400"
                   )}>
@@ -378,7 +374,7 @@ function ClienteModal({ client, onClose, onSave, onDelete }: ClientModalProps) {
                 "px-4 py-2.5 rounded-xl text-sm font-medium transition-all border",
                 confirmDelete
                   ? "text-red-400 bg-red-400/10 border-red-400/30"
-                  : "text-[#b4b4b4] border-white/10 hover:border-red-400/30 hover:text-red-400"
+                  : "text-[var(--silver)] border-[var(--border)] hover:border-red-400/30 hover:text-red-400"
               )}
             >
               {confirmDelete ? "Confirmar Exclusão" : "Excluir"}
@@ -386,8 +382,8 @@ function ClienteModal({ client, onClose, onSave, onDelete }: ClientModalProps) {
           )}
           <button
             onClick={onClose}
-            className="flex-1 rounded-xl py-2.5 text-sm font-medium text-[#b4b4b4] hover:text-white transition-colors"
-            style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.08)" }}
+            className="flex-1 rounded-xl py-2.5 text-sm font-medium text-[var(--silver)] hover:text-[var(--text-title)] transition-colors"
+            style={{ background: "var(--glass-border)", border: "1px solid var(--glass-border)" }}
           >
             Cancelar
           </button>
@@ -486,15 +482,15 @@ export function ClientesRentabilidade({ year, month }: Props) {
               {s.icon}
             </div>
             <div>
-              <p className="text-xs text-[#b4b4b4]">{s.label}</p>
-              <p className="text-lg font-bold text-white">{s.value}</p>
+              <p className="text-xs text-[var(--silver)]">{s.label}</p>
+              <p className="text-lg font-bold text-[var(--text-title)]">{s.value}</p>
             </div>
           </motion.div>
         ))}
       </div>
 
       <div className="flex justify-between items-center">
-        <p className="text-sm text-[#b4b4b4]">{clients.length} clientes cadastrados</p>
+        <p className="text-sm text-[var(--silver)]">{clients.length} clientes cadastrados</p>
         <PrimaryButton onClick={() => setModal({ open: true })} className="flex items-center gap-2 px-4 py-2.5 text-sm">
           <Plus size={16} />
           Novo Cliente
@@ -504,11 +500,11 @@ export function ClientesRentabilidade({ year, month }: Props) {
       {/* Profitability table */}
       <div className="lc-card overflow-hidden">
         {isLoading ? (
-          <div className="p-8 text-center text-[#b4b4b4] text-sm">Carregando...</div>
+          <div className="p-8 text-center text-[var(--silver)] text-sm">Carregando...</div>
         ) : sorted.length === 0 ? (
           <div className="p-12 text-center">
-            <Building2 size={40} className="text-[#b4b4b4]/30 mx-auto mb-3" />
-            <p className="text-[#b4b4b4] text-sm mb-3">Nenhum cliente ativo este mês</p>
+            <Building2 size={40} className="text-[var(--silver)]/30 mx-auto mb-3" />
+            <p className="text-[var(--silver)] text-sm mb-3">Nenhum cliente ativo este mês</p>
             <button onClick={() => setModal({ open: true })} className="text-[#4a8fd4] text-sm hover:underline">
               Cadastrar primeiro cliente
             </button>
@@ -517,8 +513,8 @@ export function ClientesRentabilidade({ year, month }: Props) {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-                  <th className="text-left text-xs text-[#b4b4b4] font-medium px-4 py-3">Cliente</th>
+                <tr style={{ borderBottom: "1px solid var(--border)" }}>
+                  <th className="text-left text-xs text-[var(--silver)] font-medium px-4 py-3">Cliente</th>
                   {([
                     ["mensalidade",         "Mensalidade"],
                     ["custo_total",         "Custos"],
@@ -527,37 +523,37 @@ export function ClientesRentabilidade({ year, month }: Props) {
                     ["tempo_contrato_meses","Meses"],
                   ] as [SortKey, string][]).map(([k, label]) => (
                     <th key={k}
-                      className="text-left text-xs text-[#b4b4b4] font-medium px-4 py-3 whitespace-nowrap cursor-pointer hover:text-white transition-colors select-none"
+                      className="text-left text-xs text-[var(--silver)] font-medium px-4 py-3 whitespace-nowrap cursor-pointer hover:text-[var(--text-title)] transition-colors select-none"
                       onClick={() => handleSort(k)}>
                       <span className="flex items-center gap-1">{label} <SortIcon k={k} /></span>
                     </th>
                   ))}
-                  <th className="text-left text-xs text-[#b4b4b4] font-medium px-4 py-3">Status</th>
+                  <th className="text-left text-xs text-[var(--silver)] font-medium px-4 py-3">Status</th>
                   <th className="px-4 py-3" />
                 </tr>
               </thead>
               <tbody>
                 {sorted.map((p, i) => {
                   const sc = STATUS_CONFIG[p.client.status];
-                  const profitColor  = p.lucro > 0 ? "text-emerald-400" : p.lucro < 0 ? "text-red-400" : "text-[#b4b4b4]";
+                  const profitColor  = p.lucro > 0 ? "text-emerald-400" : p.lucro < 0 ? "text-red-400" : "text-[var(--silver)]";
                   const marginColor  = p.margem >= 30 ? "text-emerald-400" : p.margem >= 0 ? "text-amber-400" : "text-red-400";
                   return (
                     <motion.tr key={p.client.id}
                       initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.03 }}
-                      className="hover:bg-white/[0.02] transition-colors"
-                      style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+                      className="hover:bg-[var(--hover)] transition-colors"
+                      style={{ borderBottom: "1px solid var(--border)" }}>
                       <td className="px-4 py-3">
                         <div>
-                          <p className="text-white font-medium">{p.client.name}</p>
-                          <p className="text-xs text-[#b4b4b4]">{COMPANY_LABELS[p.client.company_type]}</p>
+                          <p className="text-[var(--text-title)] font-medium">{p.client.name}</p>
+                          <p className="text-xs text-[var(--silver)]">{COMPANY_LABELS[p.client.company_type]}</p>
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-white font-semibold whitespace-nowrap">{fmt(p.mensalidade)}</td>
+                      <td className="px-4 py-3 text-[var(--text-title)] font-semibold whitespace-nowrap">{fmt(p.mensalidade)}</td>
                       <td className="px-4 py-3 whitespace-nowrap">
                         <div>
                           <p className="text-red-400 font-semibold">{fmt(p.custo_total)}</p>
                           {p.custo_parceiros > 0 && (
-                            <p className="text-[10px] text-[#5a5a5a]">
+                            <p className="text-[10px] text-[var(--text-muted)]">
                               {fmt(p.custo_parceiros)} parceiros
                             </p>
                           )}
@@ -567,7 +563,7 @@ export function ClientesRentabilidade({ year, month }: Props) {
                       <td className={cn("px-4 py-3 font-semibold whitespace-nowrap", marginColor)}>
                         {p.margem.toFixed(1)}%
                       </td>
-                      <td className="px-4 py-3 text-[#b4b4b4] whitespace-nowrap">
+                      <td className="px-4 py-3 text-[var(--silver)] whitespace-nowrap">
                         {p.client.contract_start ? `${p.tempo_contrato_meses}m` : "—"}
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">
@@ -577,7 +573,7 @@ export function ClientesRentabilidade({ year, month }: Props) {
                       </td>
                       <td className="px-4 py-3">
                         <button onClick={() => setModal({ open: true, client: p.client })}
-                          className="p-1.5 rounded-lg text-[#b4b4b4] hover:text-white hover:bg-white/5 transition-colors">
+                          className="p-1.5 rounded-lg text-[var(--silver)] hover:text-[var(--text-title)] hover:bg-[var(--hover)] transition-colors">
                           <Edit2 size={14} />
                         </button>
                       </td>
@@ -593,7 +589,7 @@ export function ClientesRentabilidade({ year, month }: Props) {
       {/* Non-active clients */}
       {clients.filter(c => c.status !== "ativo").length > 0 && (
         <div className="lc-card p-5">
-          <p className="text-xs text-[#b4b4b4] font-medium mb-3 uppercase tracking-wider">Outros Clientes</p>
+          <p className="text-xs text-[var(--silver)] font-medium mb-3 uppercase tracking-wider">Outros Clientes</p>
           <div className="flex flex-wrap gap-2">
             {clients.filter(c => c.status !== "ativo").map(c => {
               const sc = STATUS_CONFIG[c.status];

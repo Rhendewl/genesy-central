@@ -43,7 +43,7 @@ const CATEGORY_CONFIG: Record<ExpenseCategory, {
   equipe:       { label: "Equipe Interna",  color: "text-blue-400",   hex: "#60a5fa", bg: "bg-blue-400/10 border-blue-400/20" },
   ferramentas:  { label: "Ferramentas",     color: "text-cyan-400",   hex: "#22d3ee", bg: "bg-cyan-400/10 border-cyan-400/20" },
   impostos:     { label: "Impostos",        color: "text-red-400",    hex: "#f87171", bg: "bg-red-400/10 border-red-400/20" },
-  operacional:  { label: "Operacional",     color: "text-[#b4b4b4]",  hex: "#b4b4b4", bg: "bg-[#b4b4b4]/10 border-[#b4b4b4]/20" },
+  operacional:  { label: "Operacional",     color: "text-[var(--silver)]",  hex: "var(--silver)", bg: "bg-[var(--silver)]/10 border-[var(--silver)]/20" },
   marketing:    { label: "Marketing",       color: "text-pink-400",   hex: "#f472b6", bg: "bg-pink-400/10 border-pink-400/20" },
   trafego_pago: { label: "Tráfego Pago",   color: "text-amber-400",  hex: "#fbbf24", bg: "bg-amber-400/10 border-amber-400/20" },
   outros:       { label: "Outros",          color: "text-slate-400",  hex: "#94a3b8", bg: "bg-slate-400/10 border-slate-400/20" },
@@ -94,7 +94,7 @@ function DespesaModal({ expense, onClose, onSave, clients }: ModalProps) {
     if (result.error) { setError(result.error); setSaving(false); }
   };
 
-  const field = "w-full rounded-xl bg-white/5 text-white text-sm px-3 py-2.5 outline-none";
+  const field = "w-full rounded-xl bg-[var(--hover)] text-[var(--text-title)] text-sm px-3 py-2.5 outline-none";
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
@@ -107,10 +107,10 @@ function DespesaModal({ expense, onClose, onSave, clients }: ModalProps) {
         onClick={e => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-2">
-          <h2 className="text-lg font-bold text-white">
+          <h2 className="text-lg font-bold text-[var(--text-title)]">
             {expense ? "Editar Despesa" : "Nova Despesa"}
           </h2>
-          <button onClick={onClose} className="text-[#b4b4b4] hover:text-white transition-colors">
+          <button onClick={onClose} className="text-[var(--silver)] hover:text-[var(--text-title)] transition-colors">
             <X size={20} />
           </button>
         </div>
@@ -123,7 +123,7 @@ function DespesaModal({ expense, onClose, onSave, clients }: ModalProps) {
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-xs text-[#b4b4b4] mb-1.5 font-medium">Categoria</label>
+            <label className="block text-xs text-[var(--silver)] mb-1.5 font-medium">Categoria</label>
             <select value={form.category ?? "outros"}
               onChange={e => set("category", e.target.value as ExpenseCategory)}
               className={field} style={{ border: "none" }}>
@@ -133,7 +133,7 @@ function DespesaModal({ expense, onClose, onSave, clients }: ModalProps) {
             </select>
           </div>
           <div>
-            <label className="block text-xs text-[#b4b4b4] mb-1.5 font-medium">Tipo</label>
+            <label className="block text-xs text-[var(--silver)] mb-1.5 font-medium">Tipo</label>
             <select value={form.type ?? "variavel"}
               onChange={e => set("type", e.target.value as ExpenseType)}
               className={field} style={{ border: "none" }}>
@@ -142,22 +142,22 @@ function DespesaModal({ expense, onClose, onSave, clients }: ModalProps) {
             </select>
           </div>
           <div className="col-span-2">
-            <label className="block text-xs text-[#b4b4b4] mb-1.5 font-medium">Descrição *</label>
+            <label className="block text-xs text-[var(--silver)] mb-1.5 font-medium">Descrição *</label>
             <input value={form.description ?? ""} onChange={e => set("description", e.target.value)}
               placeholder="Ex: Pagamento freelancer design"
-              className={`${field} placeholder:text-[#b4b4b4]/50`} style={{ border: "none" }} />
+              className={`${field} placeholder:text-[var(--silver)]/50`} style={{ border: "none" }} />
           </div>
           <div>
-            <label className="block text-xs text-[#b4b4b4] mb-1.5 font-medium">Valor *</label>
+            <label className="block text-xs text-[var(--silver)] mb-1.5 font-medium">Valor *</label>
             <MoneyInput value={form.amount ?? 0} onChange={v => set("amount", v)} />
           </div>
           <div>
-            <label className="block text-xs text-[#b4b4b4] mb-1.5 font-medium">Data *</label>
+            <label className="block text-xs text-[var(--silver)] mb-1.5 font-medium">Data *</label>
             <input type="date" value={form.date ?? ""} onChange={e => set("date", e.target.value)}
               className={field} style={{ border: "none" }} />
           </div>
           <div>
-            <label className="block text-xs text-[#b4b4b4] mb-1.5 font-medium">Cliente vinculado</label>
+            <label className="block text-xs text-[var(--silver)] mb-1.5 font-medium">Cliente vinculado</label>
             <select value={form.client_id ?? ""} onChange={e => set("client_id", e.target.value || null)}
               className={field} style={{ border: "none" }}>
               <option value="">Nenhum</option>
@@ -165,23 +165,23 @@ function DespesaModal({ expense, onClose, onSave, clients }: ModalProps) {
             </select>
           </div>
           <div>
-            <label className="block text-xs text-[#b4b4b4] mb-1.5 font-medium">Centro de Custo</label>
+            <label className="block text-xs text-[var(--silver)] mb-1.5 font-medium">Centro de Custo</label>
             <input value={form.cost_center ?? ""} onChange={e => set("cost_center", e.target.value || null)}
               placeholder="Ex: Operações"
-              className={`${field} placeholder:text-[#b4b4b4]/50`} style={{ border: "none" }} />
+              className={`${field} placeholder:text-[var(--silver)]/50`} style={{ border: "none" }} />
           </div>
           <div className="col-span-2">
-            <label className="block text-xs text-[#b4b4b4] mb-1.5 font-medium">Observações</label>
+            <label className="block text-xs text-[var(--silver)] mb-1.5 font-medium">Observações</label>
             <textarea value={form.notes ?? ""} onChange={e => set("notes", e.target.value || null)}
               rows={2} placeholder="Opcional..."
-              className={`${field} resize-none placeholder:text-[#b4b4b4]/50`} style={{ border: "none" }} />
+              className={`${field} resize-none placeholder:text-[var(--silver)]/50`} style={{ border: "none" }} />
           </div>
         </div>
 
         <div className="flex gap-3 pt-2">
           <button onClick={onClose}
-            className="flex-1 rounded-xl py-2.5 text-sm font-medium text-[#b4b4b4] hover:text-white transition-colors"
-            style={{ border: "1px solid rgba(255,255,255,0.08)" }}>
+            className="flex-1 rounded-xl py-2.5 text-sm font-medium text-[var(--silver)] hover:text-[var(--text-title)] transition-colors"
+            style={{ border: "1px solid var(--glass-border)" }}>
             Cancelar
           </button>
           <PrimaryButton onClick={handleSave} disabled={saving} className="flex-1 py-2.5 text-sm">
@@ -231,9 +231,9 @@ function KpiCard({
         )}
       </div>
       <div>
-        <p className="text-2xl font-bold text-white leading-none mb-1">{value}</p>
-        <p className="text-xs text-[#b4b4b4]">{label}</p>
-        {sub && <p className="text-[10px] text-[#5a5a5a] mt-0.5">{sub}</p>}
+        <p className="text-2xl font-bold text-[var(--text-title)] leading-none mb-1">{value}</p>
+        <p className="text-xs text-[var(--silver)]">{label}</p>
+        {sub && <p className="text-[10px] text-[var(--text-muted)] mt-0.5">{sub}</p>}
       </div>
     </motion.div>
   );
@@ -251,9 +251,9 @@ function ChartTooltip({
   if (!active || !payload?.length) return null;
   return (
     <div className="rounded-xl px-3 py-2 text-xs shadow-xl"
-      style={{ background: "rgba(0,0,0,0.82)", border: "1px solid rgba(255,255,255,0.09)" }}>
-      <p className="text-[#b4b4b4] mb-1">{label}</p>
-      <p className="text-white font-semibold">{fmt(payload[0].value)}</p>
+      style={{ background: "var(--chart-tooltip-bg)", border: "1px solid var(--chart-tooltip-border)" }}>
+      <p className="mb-1" style={{ color: "var(--chart-tooltip-label)" }}>{label}</p>
+      <p className="font-semibold" style={{ color: "var(--chart-tooltip-text)" }}>{fmt(payload[0].value)}</p>
     </div>
   );
 }
@@ -413,9 +413,9 @@ export function GestaoDespesas({ year, month }: Props) {
         <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
           {Array.from({ length: 6 }).map((_, i) => (
             <div key={i} className="lc-card p-5 h-28 animate-pulse">
-              <div className="w-9 h-9 rounded-xl bg-white/5 mb-3" />
-              <div className="h-3 bg-white/5 rounded w-2/3 mb-2" />
-              <div className="h-6 bg-white/5 rounded w-1/2" />
+              <div className="w-9 h-9 rounded-xl bg-[var(--shimmer-base)] mb-3" />
+              <div className="h-3 bg-[var(--shimmer-base)] rounded w-2/3 mb-2" />
+              <div className="h-6 bg-[var(--shimmer-base)] rounded w-1/2" />
             </div>
           ))}
         </div>
@@ -506,8 +506,8 @@ export function GestaoDespesas({ year, month }: Props) {
             >
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <h3 className="text-sm font-semibold text-white">Por Categoria</h3>
-                  <p className="text-xs text-[#b4b4b4] mt-0.5">Clique para filtrar a tabela</p>
+                  <h3 className="text-sm font-semibold text-[var(--text-title)]">Por Categoria</h3>
+                  <p className="text-xs text-[var(--silver)] mt-0.5">Clique para filtrar a tabela</p>
                 </div>
                 {filterCat !== "todos" && (
                   <button
@@ -533,23 +533,23 @@ export function GestaoDespesas({ year, month }: Props) {
                           <span className="w-2 h-2 rounded-full shrink-0" style={{ background: c.hex }} />
                           <span className={cn(
                             "text-xs font-medium transition-colors",
-                            isActive ? c.color : "text-[#b4b4b4] group-hover:text-white"
+                            isActive ? c.color : "text-[var(--silver)] group-hover:text-[var(--text-title)]"
                           )}>
                             {c.label}
                           </span>
                         </div>
                         <div className="flex items-center gap-3">
-                          <span className="text-[10px] text-[#5a5a5a]">{pct.toFixed(1)}%</span>
+                          <span className="text-[10px] text-[var(--text-muted)]">{pct.toFixed(1)}%</span>
                           <span className={cn(
                             "text-xs font-semibold tabular-nums transition-colors",
-                            isActive ? "text-white" : "text-[#b4b4b4] group-hover:text-white"
+                            isActive ? "text-[var(--text-title)]" : "text-[var(--silver)] group-hover:text-[var(--text-title)]"
                           )}>
                             {fmt(c.total)}
                           </span>
                         </div>
                       </div>
                       <div className="h-1.5 rounded-full overflow-hidden"
-                        style={{ background: "rgba(255,255,255,0.06)" }}>
+                        style={{ background: "var(--border)" }}>
                         <motion.div
                           initial={{ width: 0 }}
                           animate={{ width: `${pct}%` }}
@@ -574,14 +574,14 @@ export function GestaoDespesas({ year, month }: Props) {
           >
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h3 className="text-sm font-semibold text-white">Evolução</h3>
-                <p className="text-xs text-[#b4b4b4] mt-0.5">Despesas no período</p>
+                <h3 className="text-sm font-semibold text-[var(--text-title)]">Evolução</h3>
+                <p className="text-xs text-[var(--silver)] mt-0.5">Despesas no período</p>
               </div>
               <div
                 className="flex gap-0.5 p-0.5 rounded-lg"
                 style={{
-                  background: "rgba(0,0,0,0.30)",
-                  border: "1px solid rgba(255,255,255,0.08)",
+                  background: "var(--glass-bg-soft)",
+                  border: "1px solid var(--glass-border)",
                 }}
               >
                 {(["day", "category"] as ChartView[]).map(v => (
@@ -591,8 +591,8 @@ export function GestaoDespesas({ year, month }: Props) {
                     className={cn(
                       "px-2.5 py-1 text-[10px] font-medium rounded-md transition-all",
                       chartView === v
-                        ? "text-white"
-                        : "text-[#b4b4b4] hover:text-white"
+                        ? "text-[var(--text-title)]"
+                        : "text-[var(--silver)] hover:text-[var(--text-title)]"
                     )}
                     style={chartView === v
                       ? { background: "rgba(255,255,255,0.14)" }
@@ -606,7 +606,7 @@ export function GestaoDespesas({ year, month }: Props) {
             </div>
 
             {(chartView === "day" ? dailyChartData : categoryChartData).length === 0 ? (
-              <div className="h-[180px] flex items-center justify-center text-[#5a5a5a] text-xs">
+              <div className="h-[180px] flex items-center justify-center text-[var(--text-muted)] text-xs">
                 Sem dados suficientes
               </div>
             ) : (
@@ -617,21 +617,21 @@ export function GestaoDespesas({ year, month }: Props) {
                 >
                   <CartesianGrid
                     strokeDasharray="3 3"
-                    stroke="rgba(255,255,255,0.05)"
+                    stroke="var(--chart-grid)"
                     vertical={false}
                   />
                   <XAxis
                     dataKey={chartView === "day" ? "date" : "name"}
-                    tick={{ fill: "#b4b4b4", fontSize: 10 }}
+                    tick={{ fill: "var(--icon)", fontSize: 10 }}
                     axisLine={false} tickLine={false}
                   />
                   <YAxis
-                    tick={{ fill: "#b4b4b4", fontSize: 10 }}
+                    tick={{ fill: "var(--icon)", fontSize: 10 }}
                     axisLine={false} tickLine={false}
                     tickFormatter={fmtK}
                   />
                   <RechartsTooltip
-                    cursor={{ fill: "rgba(255,255,255,0.04)" }}
+                    cursor={{ fill: "var(--hover)" }}
                     content={<ChartTooltip />}
                   />
                   {chartView === "day" ? (
@@ -673,7 +673,7 @@ export function GestaoDespesas({ year, month }: Props) {
           </div>
           <div className="flex flex-col gap-1">
             {insights.map((ins, i) => (
-              <p key={i} className="text-xs text-[#b4b4b4]">
+              <p key={i} className="text-xs text-[var(--silver)]">
                 <span className="text-[#fbbf24] font-medium">Insight · </span>{ins}
               </p>
             ))}
@@ -690,7 +690,7 @@ export function GestaoDespesas({ year, month }: Props) {
       >
         <div className="flex items-center gap-2 flex-wrap">
           <div className="relative">
-            <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#b4b4b4]" />
+            <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--silver)]" />
             <input
               value={search}
               onChange={e => setSearch(e.target.value)}
@@ -734,8 +734,8 @@ export function GestaoDespesas({ year, month }: Props) {
           {hasFilters && (
             <button
               onClick={clearFilters}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs text-[#b4b4b4] hover:text-white transition-colors"
-              style={{ border: "1px solid rgba(255,255,255,0.08)" }}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs text-[var(--silver)] hover:text-[var(--text-title)] transition-colors"
+              style={{ border: "1px solid var(--glass-border)" }}
             >
               <X size={11} /> Limpar filtros
             </button>
@@ -760,12 +760,12 @@ export function GestaoDespesas({ year, month }: Props) {
       >
         <div
           className="px-5 py-3.5 flex items-center justify-between"
-          style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}
+          style={{ borderBottom: "1px solid var(--border)" }}
         >
-          <p className="text-sm font-semibold text-white">
+          <p className="text-sm font-semibold text-[var(--text-title)]">
             Lançamentos
             {filtered.length !== expenses.length && (
-              <span className="ml-2 text-xs text-[#b4b4b4] font-normal">
+              <span className="ml-2 text-xs text-[var(--silver)] font-normal">
                 ({filtered.length} de {expenses.length})
               </span>
             )}
@@ -779,7 +779,7 @@ export function GestaoDespesas({ year, month }: Props) {
           <div className="p-12 text-center">
             {hasFilters ? (
               <>
-                <p className="text-[#b4b4b4] text-sm mb-2">
+                <p className="text-[var(--silver)] text-sm mb-2">
                   Nenhuma despesa encontrada com esses filtros
                 </p>
                 <button onClick={clearFilters} className="text-[#4a8fd4] text-sm hover:underline">
@@ -788,7 +788,7 @@ export function GestaoDespesas({ year, month }: Props) {
               </>
             ) : (
               <>
-                <p className="text-[#b4b4b4] text-sm mb-3">Nenhuma despesa neste período</p>
+                <p className="text-[var(--silver)] text-sm mb-3">Nenhuma despesa neste período</p>
                 <button
                   onClick={() => setModal({ open: true })}
                   className="text-[#4a8fd4] text-sm hover:underline"
@@ -802,11 +802,11 @@ export function GestaoDespesas({ year, month }: Props) {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                <tr style={{ borderBottom: "1px solid var(--border)" }}>
                   {["Categoria", "Descrição", "Valor", "Data", "Tipo", "Cliente", "Centro de Custo", ""].map(h => (
                     <th
                       key={h}
-                      className="text-left text-[10px] text-[#5a5a5a] font-semibold uppercase tracking-wider px-4 py-3 whitespace-nowrap"
+                      className="text-left text-[10px] text-[var(--text-muted)] font-semibold uppercase tracking-wider px-4 py-3 whitespace-nowrap"
                     >
                       {h}
                     </th>
@@ -824,8 +824,8 @@ export function GestaoDespesas({ year, month }: Props) {
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
                         transition={{ delay: Math.min(i * 0.015, 0.25) }}
-                        className="group transition-colors hover:bg-white/[0.025]"
-                        style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}
+                        className="group transition-colors hover:bg-[var(--hover)]"
+                        style={{ borderBottom: "1px solid var(--border)" }}
                       >
                         <td className="px-4 py-3.5 whitespace-nowrap">
                           <span className={cn(
@@ -837,15 +837,15 @@ export function GestaoDespesas({ year, month }: Props) {
                           </span>
                         </td>
                         <td className="px-4 py-3.5 max-w-[200px]">
-                          <p className="text-white truncate">{e.description}</p>
+                          <p className="text-[var(--text-title)] truncate">{e.description}</p>
                           {e.notes && (
-                            <p className="text-[10px] text-[#5a5a5a] truncate mt-0.5">{e.notes}</p>
+                            <p className="text-[10px] text-[var(--text-muted)] truncate mt-0.5">{e.notes}</p>
                           )}
                         </td>
                         <td className="px-4 py-3.5 text-red-400 font-semibold whitespace-nowrap tabular-nums">
                           {fmt(e.amount)}
                         </td>
-                        <td className="px-4 py-3.5 text-[#b4b4b4] whitespace-nowrap text-xs">
+                        <td className="px-4 py-3.5 text-[var(--silver)] whitespace-nowrap text-xs">
                           {format(parseISO(e.date), "dd MMM yyyy", { locale: ptBR })}
                         </td>
                         <td className="px-4 py-3.5 whitespace-nowrap">
@@ -858,10 +858,10 @@ export function GestaoDespesas({ year, month }: Props) {
                             {e.type === "fixa" ? "Fixa" : "Variável"}
                           </span>
                         </td>
-                        <td className="px-4 py-3.5 text-[#b4b4b4] whitespace-nowrap text-xs max-w-[120px] truncate">
+                        <td className="px-4 py-3.5 text-[var(--silver)] whitespace-nowrap text-xs max-w-[120px] truncate">
                           {(e.client as { name?: string } | undefined)?.name ?? "—"}
                         </td>
-                        <td className="px-4 py-3.5 text-[#b4b4b4] whitespace-nowrap text-xs">
+                        <td className="px-4 py-3.5 text-[var(--silver)] whitespace-nowrap text-xs">
                           {e.cost_center ?? "—"}
                         </td>
                         <td className="px-4 py-3.5 whitespace-nowrap">
@@ -869,7 +869,7 @@ export function GestaoDespesas({ year, month }: Props) {
                             {!e.auto_imported && (
                               <button
                                 onClick={() => setModal({ open: true, expense: e })}
-                                className="p-1.5 rounded-lg text-[#b4b4b4] hover:text-white hover:bg-white/5 transition-colors"
+                                className="p-1.5 rounded-lg text-[var(--silver)] hover:text-[var(--text-title)] hover:bg-[var(--hover)] transition-colors"
                               >
                                 <Edit2 size={13} />
                               </button>
@@ -880,7 +880,7 @@ export function GestaoDespesas({ year, month }: Props) {
                                 "p-1.5 rounded-lg transition-colors",
                                 deleting === e.id
                                   ? "text-red-400 bg-red-400/10"
-                                  : "text-[#b4b4b4] hover:text-red-400 hover:bg-red-400/10"
+                                  : "text-[var(--silver)] hover:text-red-400 hover:bg-red-400/10"
                               )}
                             >
                               <Trash2 size={13} />

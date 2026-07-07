@@ -22,6 +22,7 @@ import { MobileNavigation } from "./MobileNavigation";
 export function AuthLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const canvasMode = useGlobalStore((s) => s.canvasMode);
+  const theme = useGlobalStore((s) => s.theme);
   const [session, setSession] = useState<Session | null>(null);
   const [isChecking, setIsChecking] = useState(true);
 
@@ -68,11 +69,12 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
             inset:              0,
             zIndex:             -1,
             pointerEvents:      "none",
-            backgroundImage:    "url('/bg-premium.jpg')",
+            backgroundImage:    theme === "light" ? "url('/bg-premium-claro.jpg')" : "url('/bg-premium.jpg')",
             backgroundSize:     "cover",
             backgroundPosition: "center",
             backgroundRepeat:   "no-repeat",
-            opacity:            0.4,
+            backgroundAttachment: "fixed",
+            opacity:            theme === "light" ? 0.6 : 0.4,
           }}
         />
       )}

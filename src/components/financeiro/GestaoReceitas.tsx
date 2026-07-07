@@ -41,7 +41,7 @@ const STATUS_CONFIG: Record<RevenueStatus, {
   label: string; color: string; icon: React.ReactNode;
 }> = {
   pago:      { label: "Pago",      color: "text-emerald-400 bg-emerald-400/10 border-emerald-400/20", icon: <CheckCircle2 size={11} /> },
-  pendente:  { label: "Pendente",  color: "text-[#b4b4b4] bg-[#b4b4b4]/10 border-[#b4b4b4]/20",     icon: <Clock size={11} /> },
+  pendente:  { label: "Pendente",  color: "text-[var(--silver)] bg-[var(--silver)]/10 border-[var(--silver)]/20",     icon: <Clock size={11} /> },
   atrasado:  { label: "Atrasado",  color: "text-amber-400 bg-amber-400/10 border-amber-400/20",       icon: <AlertTriangle size={11} /> },
   cancelado: { label: "Cancelado", color: "text-red-400 bg-red-400/10 border-red-400/20",             icon: <XCircle size={11} /> },
 };
@@ -103,7 +103,7 @@ function ReceitaModal({ revenue, onClose, onSave, clients }: ModalProps) {
     if (result.error) { setError(result.error); setSaving(false); }
   };
 
-  const field = "w-full rounded-xl bg-white/5 text-white text-sm px-3 py-2.5 outline-none";
+  const field = "w-full rounded-xl bg-[var(--hover)] text-[var(--text-title)] text-sm px-3 py-2.5 outline-none";
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
@@ -117,10 +117,10 @@ function ReceitaModal({ revenue, onClose, onSave, clients }: ModalProps) {
         onClick={e => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-2">
-          <h2 className="text-lg font-bold text-white">
+          <h2 className="text-lg font-bold text-[var(--text-title)]">
             {revenue ? "Editar Receita" : "Nova Receita"}
           </h2>
-          <button onClick={onClose} className="text-[#b4b4b4] hover:text-white transition-colors">
+          <button onClick={onClose} className="text-[var(--silver)] hover:text-[var(--text-title)] transition-colors">
             <X size={20} />
           </button>
         </div>
@@ -133,7 +133,7 @@ function ReceitaModal({ revenue, onClose, onSave, clients }: ModalProps) {
 
         <div className="grid grid-cols-2 gap-3">
           <div className="col-span-2">
-            <label className="block text-xs text-[#b4b4b4] mb-1.5 font-medium">Cliente</label>
+            <label className="block text-xs text-[var(--silver)] mb-1.5 font-medium">Cliente</label>
             <select value={form.client_id ?? ""} onChange={e => set("client_id", e.target.value || null)}
               className={field} style={{ border: "none" }}>
               <option value="">Sem cliente vinculado</option>
@@ -141,17 +141,17 @@ function ReceitaModal({ revenue, onClose, onSave, clients }: ModalProps) {
             </select>
           </div>
           <div className="col-span-2">
-            <label className="block text-xs text-[#b4b4b4] mb-1.5 font-medium">Descrição *</label>
+            <label className="block text-xs text-[var(--silver)] mb-1.5 font-medium">Descrição *</label>
             <input value={form.description ?? ""} onChange={e => set("description", e.target.value)}
               placeholder="Ex: Mensalidade Janeiro — Imobiliária X"
-              className={`${field} placeholder:text-[#b4b4b4]/50`} style={{ border: "none" }} />
+              className={`${field} placeholder:text-[var(--silver)]/50`} style={{ border: "none" }} />
           </div>
           <div>
-            <label className="block text-xs text-[#b4b4b4] mb-1.5 font-medium">Valor *</label>
+            <label className="block text-xs text-[var(--silver)] mb-1.5 font-medium">Valor *</label>
             <MoneyInput value={form.amount ?? 0} onChange={v => set("amount", v)} />
           </div>
           <div>
-            <label className="block text-xs text-[#b4b4b4] mb-1.5 font-medium">Tipo</label>
+            <label className="block text-xs text-[var(--silver)] mb-1.5 font-medium">Tipo</label>
             <select value={form.type ?? "mensalidade"} onChange={e => set("type", e.target.value as RevenueType)}
               className={field} style={{ border: "none" }}>
               {Object.entries(TYPE_CONFIG).map(([k, v]) => (
@@ -160,17 +160,17 @@ function ReceitaModal({ revenue, onClose, onSave, clients }: ModalProps) {
             </select>
           </div>
           <div>
-            <label className="block text-xs text-[#b4b4b4] mb-1.5 font-medium">Data *</label>
+            <label className="block text-xs text-[var(--silver)] mb-1.5 font-medium">Data *</label>
             <input type="date" value={form.date ?? ""} onChange={e => set("date", e.target.value)}
               className={field} style={{ border: "none" }} />
           </div>
           <div>
-            <label className="block text-xs text-[#b4b4b4] mb-1.5 font-medium">Vencimento</label>
+            <label className="block text-xs text-[var(--silver)] mb-1.5 font-medium">Vencimento</label>
             <input type="date" value={form.due_date ?? ""} onChange={e => set("due_date", e.target.value || null)}
               className={field} style={{ border: "none" }} />
           </div>
           <div>
-            <label className="block text-xs text-[#b4b4b4] mb-1.5 font-medium">Forma de Pagamento</label>
+            <label className="block text-xs text-[var(--silver)] mb-1.5 font-medium">Forma de Pagamento</label>
             <select value={form.payment_method ?? "pix"} onChange={e => set("payment_method", e.target.value as PaymentMethod)}
               className={field} style={{ border: "none" }}>
               {Object.entries(PAYMENT_LABELS).map(([k, v]) => (
@@ -179,7 +179,7 @@ function ReceitaModal({ revenue, onClose, onSave, clients }: ModalProps) {
             </select>
           </div>
           <div>
-            <label className="block text-xs text-[#b4b4b4] mb-1.5 font-medium">Status</label>
+            <label className="block text-xs text-[var(--silver)] mb-1.5 font-medium">Status</label>
             <select value={form.status ?? "pendente"} onChange={e => set("status", e.target.value as RevenueStatus)}
               className={field} style={{ border: "none" }}>
               {Object.entries(STATUS_CONFIG).map(([k, v]) => (
@@ -195,22 +195,22 @@ function ReceitaModal({ revenue, onClose, onSave, clients }: ModalProps) {
               onChange={e => set("is_recurring", e.target.checked)}
               className="w-4 h-4 rounded accent-[#4a8fd4]"
             />
-            <label htmlFor="is_recurring" className="text-sm text-[#b4b4b4] cursor-pointer">
+            <label htmlFor="is_recurring" className="text-sm text-[var(--silver)] cursor-pointer">
               Receita recorrente (MRR)
             </label>
           </div>
           <div className="col-span-2">
-            <label className="block text-xs text-[#b4b4b4] mb-1.5 font-medium">Observações</label>
+            <label className="block text-xs text-[var(--silver)] mb-1.5 font-medium">Observações</label>
             <textarea value={form.notes ?? ""} onChange={e => set("notes", e.target.value || null)}
               rows={2} placeholder="Opcional..."
-              className={`${field} resize-none placeholder:text-[#b4b4b4]/50`} style={{ border: "none" }} />
+              className={`${field} resize-none placeholder:text-[var(--silver)]/50`} style={{ border: "none" }} />
           </div>
         </div>
 
         <div className="flex gap-3 pt-2">
           <button onClick={onClose}
-            className="flex-1 rounded-xl py-2.5 text-sm font-medium text-[#b4b4b4] hover:text-white transition-colors"
-            style={{ border: "1px solid rgba(255,255,255,0.08)" }}>
+            className="flex-1 rounded-xl py-2.5 text-sm font-medium text-[var(--silver)] hover:text-[var(--text-title)] transition-colors"
+            style={{ border: "1px solid var(--glass-border)" }}>
             Cancelar
           </button>
           <PrimaryButton onClick={handleSave} disabled={saving} className="flex-1 py-2.5 text-sm">
@@ -259,9 +259,9 @@ function KpiCard({
         )}
       </div>
       <div>
-        <p className="text-2xl font-bold text-white leading-none mb-1">{value}</p>
-        <p className="text-xs text-[#b4b4b4]">{label}</p>
-        {sub && <p className="text-[10px] text-[#5a5a5a] mt-0.5">{sub}</p>}
+        <p className="text-2xl font-bold text-[var(--text-title)] leading-none mb-1">{value}</p>
+        <p className="text-xs text-[var(--silver)]">{label}</p>
+        {sub && <p className="text-[10px] text-[var(--text-muted)] mt-0.5">{sub}</p>}
       </div>
     </motion.div>
   );
@@ -275,9 +275,9 @@ function ChartTooltip({ active, payload, label }: {
   if (!active || !payload?.length) return null;
   return (
     <div className="rounded-xl px-3 py-2 text-xs shadow-xl"
-      style={{ background: "rgba(0,0,0,0.82)", border: "1px solid rgba(255,255,255,0.09)" }}>
-      <p className="text-[#b4b4b4] mb-1">{label}</p>
-      <p className="text-white font-semibold">{fmt(payload[0].value)}</p>
+      style={{ background: "var(--chart-tooltip-bg)", border: "1px solid var(--chart-tooltip-border)" }}>
+      <p className="mb-1" style={{ color: "var(--chart-tooltip-label)" }}>{label}</p>
+      <p className="font-semibold" style={{ color: "var(--chart-tooltip-text)" }}>{fmt(payload[0].value)}</p>
     </div>
   );
 }
@@ -470,9 +470,9 @@ export function GestaoReceitas({ year, month }: Props) {
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {Array.from({ length: 8 }).map((_, i) => (
             <div key={i} className="lc-card p-5 h-28 animate-pulse">
-              <div className="w-9 h-9 rounded-xl bg-white/5 mb-3" />
-              <div className="h-3 bg-white/5 rounded w-2/3 mb-2" />
-              <div className="h-6 bg-white/5 rounded w-1/2" />
+              <div className="w-9 h-9 rounded-xl bg-[var(--shimmer-base)] mb-3" />
+              <div className="h-3 bg-[var(--shimmer-base)] rounded w-2/3 mb-2" />
+              <div className="h-6 bg-[var(--shimmer-base)] rounded w-1/2" />
             </div>
           ))}
         </div>
@@ -521,7 +521,7 @@ export function GestaoReceitas({ year, month }: Props) {
           value={fmt(totalAtrasado)}
           sub={`${revenues.filter(r => r.status === "atrasado").length} em atraso`}
           icon={<AlertTriangle size={16} />}
-          accent={totalAtrasado > 0 ? "#f87171" : "#b4b4b4"}
+          accent={totalAtrasado > 0 ? "#f87171" : "var(--silver)"}
           delay={0.12}
         />
         <KpiCard
@@ -573,8 +573,8 @@ export function GestaoReceitas({ year, month }: Props) {
               >
                 <div className="flex items-center justify-between mb-4">
                   <div>
-                    <h3 className="text-sm font-semibold text-white">Origem da Receita</h3>
-                    <p className="text-xs text-[#b4b4b4] mt-0.5">Clique para filtrar a tabela</p>
+                    <h3 className="text-sm font-semibold text-[var(--text-title)]">Origem da Receita</h3>
+                    <p className="text-xs text-[var(--silver)] mt-0.5">Clique para filtrar a tabela</p>
                   </div>
                   {filterType !== "todos" && (
                     <button onClick={() => setFilterType("todos")}
@@ -594,19 +594,19 @@ export function GestaoReceitas({ year, month }: Props) {
                           <div className="flex items-center gap-2">
                             <span className="w-2 h-2 rounded-full shrink-0" style={{ background: t.hex }} />
                             <span className={cn("text-xs font-medium transition-colors",
-                              isActive ? t.color : "text-[#b4b4b4] group-hover:text-white")}>
+                              isActive ? t.color : "text-[var(--silver)] group-hover:text-[var(--text-title)]")}>
                               {t.label}
                             </span>
                           </div>
                           <div className="flex items-center gap-3">
-                            <span className="text-[10px] text-[#5a5a5a]">{pct.toFixed(1)}%</span>
+                            <span className="text-[10px] text-[var(--text-muted)]">{pct.toFixed(1)}%</span>
                             <span className={cn("text-xs font-semibold tabular-nums transition-colors",
-                              isActive ? "text-white" : "text-[#b4b4b4] group-hover:text-white")}>
+                              isActive ? "text-[var(--text-title)]" : "text-[var(--silver)] group-hover:text-[var(--text-title)]")}>
                               {fmt(t.total)}
                             </span>
                           </div>
                         </div>
-                        <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.06)" }}>
+                        <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "var(--border)" }}>
                           <motion.div
                             initial={{ width: 0 }}
                             animate={{ width: `${pct}%` }}
@@ -631,15 +631,15 @@ export function GestaoReceitas({ year, month }: Props) {
             >
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <h3 className="text-sm font-semibold text-white">Evolução</h3>
-                  <p className="text-xs text-[#b4b4b4] mt-0.5">Receitas no período</p>
+                  <h3 className="text-sm font-semibold text-[var(--text-title)]">Evolução</h3>
+                  <p className="text-xs text-[var(--silver)] mt-0.5">Receitas no período</p>
                 </div>
                 <div className="flex gap-0.5 p-0.5 rounded-lg"
-                  style={{ background: "rgba(0,0,0,0.30)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                  style={{ background: "var(--glass-bg-soft)", border: "1px solid var(--glass-border)" }}>
                   {(["day", "type"] as ChartView[]).map(v => (
                     <button key={v} onClick={() => setChartView(v)}
                       className={cn("px-2.5 py-1 text-[10px] font-medium rounded-md transition-all",
-                        chartView === v ? "text-white" : "text-[#b4b4b4] hover:text-white")}
+                        chartView === v ? "text-[var(--text-title)]" : "text-[var(--silver)] hover:text-[var(--text-title)]")}
                       style={chartView === v ? { background: "rgba(255,255,255,0.14)" } : {}}>
                       {v === "day" ? "Por Dia" : "Por Tipo"}
                     </button>
@@ -647,7 +647,7 @@ export function GestaoReceitas({ year, month }: Props) {
                 </div>
               </div>
               {(chartView === "day" ? dailyChartData : typeChartData).length === 0 ? (
-                <div className="h-[160px] flex items-center justify-center text-[#5a5a5a] text-xs">
+                <div className="h-[160px] flex items-center justify-center text-[var(--text-muted)] text-xs">
                   Sem dados suficientes
                 </div>
               ) : (
@@ -656,12 +656,12 @@ export function GestaoReceitas({ year, month }: Props) {
                     data={(chartView === "day" ? dailyChartData : typeChartData) as Record<string, unknown>[]}
                     margin={{ top: 4, right: 4, left: -20, bottom: 0 }}
                   >
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" vertical={false} />
                     <XAxis dataKey={chartView === "day" ? "date" : "name"}
-                      tick={{ fill: "#b4b4b4", fontSize: 10 }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fill: "#b4b4b4", fontSize: 10 }} axisLine={false} tickLine={false}
+                      tick={{ fill: "var(--icon)", fontSize: 10 }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fill: "var(--icon)", fontSize: 10 }} axisLine={false} tickLine={false}
                       tickFormatter={fmtK} />
-                    <RechartsTooltip cursor={{ fill: "rgba(255,255,255,0.04)" }} content={<ChartTooltip />} />
+                    <RechartsTooltip cursor={{ fill: "var(--hover)" }} content={<ChartTooltip />} />
                     {chartView === "day" ? (
                       <Bar dataKey="total" fill="#22c55e" fillOpacity={0.75} radius={[4, 4, 0, 0]} maxBarSize={32} />
                     ) : (
@@ -686,8 +686,8 @@ export function GestaoReceitas({ year, month }: Props) {
               className="lc-card p-5"
             >
               <div className="mb-4">
-                <h3 className="text-sm font-semibold text-white">Top Clientes</h3>
-                <p className="text-xs text-[#b4b4b4] mt-0.5">Por receita no período</p>
+                <h3 className="text-sm font-semibold text-[var(--text-title)]">Top Clientes</h3>
+                <p className="text-xs text-[var(--silver)] mt-0.5">Por receita no período</p>
               </div>
               <div className="space-y-4">
                 {topClients.map((c, i) => {
@@ -702,14 +702,14 @@ export function GestaoReceitas({ year, month }: Props) {
                             style={{ background: `${hex}22`, color: hex }}>
                             {i + 1}
                           </div>
-                          <span className="text-xs font-medium text-white truncate max-w-[140px]">{c.name}</span>
+                          <span className="text-xs font-medium text-[var(--text-title)] truncate max-w-[140px]">{c.name}</span>
                         </div>
                         <div className="flex items-center gap-3 shrink-0">
-                          <span className="text-[10px] text-[#5a5a5a]">{pct.toFixed(1)}%</span>
-                          <span className="text-xs font-semibold tabular-nums text-white">{fmt(c.total)}</span>
+                          <span className="text-[10px] text-[var(--text-muted)]">{pct.toFixed(1)}%</span>
+                          <span className="text-xs font-semibold tabular-nums text-[var(--text-title)]">{fmt(c.total)}</span>
                         </div>
                       </div>
-                      <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.06)" }}>
+                      <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "var(--border)" }}>
                         <motion.div
                           initial={{ width: 0 }}
                           animate={{ width: `${pct}%` }}
@@ -728,7 +728,7 @@ export function GestaoReceitas({ year, month }: Props) {
                 <div className="mt-4 px-3 py-2 rounded-xl text-xs"
                   style={{ background: "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.18)" }}>
                   <span className="text-amber-400 font-medium">Atenção: </span>
-                  <span className="text-[#b4b4b4]">
+                  <span className="text-[var(--silver)]">
                     {((topClients[0].total / total) * 100).toFixed(0)}% da receita concentrada em 1 cliente
                   </span>
                 </div>
@@ -753,7 +753,7 @@ export function GestaoReceitas({ year, month }: Props) {
           </div>
           <div className="flex flex-col gap-1">
             {insights.map((ins, i) => (
-              <p key={i} className="text-xs text-[#b4b4b4]">
+              <p key={i} className="text-xs text-[var(--silver)]">
                 <span className="text-emerald-400 font-medium">Insight · </span>{ins}
               </p>
             ))}
@@ -770,7 +770,7 @@ export function GestaoReceitas({ year, month }: Props) {
       >
         <div className="flex items-center gap-2 flex-wrap">
           <div className="relative">
-            <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#b4b4b4]" />
+            <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--silver)]" />
             <input value={search} onChange={e => setSearch(e.target.value)}
               placeholder="Buscar receita ou cliente..."
               className="lc-filter-control rounded-xl pl-8 pr-3 py-2 text-sm outline-none w-48" />
@@ -810,8 +810,8 @@ export function GestaoReceitas({ year, month }: Props) {
 
           {hasFilters && (
             <button onClick={clearFilters}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs text-[#b4b4b4] hover:text-white transition-colors"
-              style={{ border: "1px solid rgba(255,255,255,0.08)" }}>
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs text-[var(--silver)] hover:text-[var(--text-title)] transition-colors"
+              style={{ border: "1px solid var(--glass-border)" }}>
               <X size={11} /> Limpar filtros
             </button>
           )}
@@ -832,11 +832,11 @@ export function GestaoReceitas({ year, month }: Props) {
         className="lc-card overflow-hidden"
       >
         <div className="px-5 py-3.5 flex items-center justify-between"
-          style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-          <p className="text-sm font-semibold text-white">
+          style={{ borderBottom: "1px solid var(--border)" }}>
+          <p className="text-sm font-semibold text-[var(--text-title)]">
             Lançamentos
             {filtered.length !== revenues.length && (
-              <span className="ml-2 text-xs text-[#b4b4b4] font-normal">
+              <span className="ml-2 text-xs text-[var(--silver)] font-normal">
                 ({filtered.length} de {revenues.length})
               </span>
             )}
@@ -848,14 +848,14 @@ export function GestaoReceitas({ year, month }: Props) {
           <div className="p-12 text-center">
             {hasFilters ? (
               <>
-                <p className="text-[#b4b4b4] text-sm mb-2">Nenhuma receita com esses filtros</p>
+                <p className="text-[var(--silver)] text-sm mb-2">Nenhuma receita com esses filtros</p>
                 <button onClick={clearFilters} className="text-[#4a8fd4] text-sm hover:underline">
                   Limpar filtros
                 </button>
               </>
             ) : (
               <>
-                <p className="text-[#b4b4b4] text-sm mb-3">Nenhuma receita neste período</p>
+                <p className="text-[var(--silver)] text-sm mb-3">Nenhuma receita neste período</p>
                 <button onClick={() => setModal({ open: true })}
                   className="text-[#4a8fd4] text-sm hover:underline">
                   Adicionar primeira receita
@@ -867,10 +867,10 @@ export function GestaoReceitas({ year, month }: Props) {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                <tr style={{ borderBottom: "1px solid var(--border)" }}>
                   {["Cliente", "Descrição", "Tipo", "Valor", "Vencimento", "Recebido", "Forma", "Status", ""].map(h => (
                     <th key={h}
-                      className="text-left text-[10px] text-[#5a5a5a] font-semibold uppercase tracking-wider px-4 py-3 whitespace-nowrap">
+                      className="text-left text-[10px] text-[var(--text-muted)] font-semibold uppercase tracking-wider px-4 py-3 whitespace-nowrap">
                       {h}
                     </th>
                   ))}
@@ -886,13 +886,13 @@ export function GestaoReceitas({ year, month }: Props) {
                       <motion.tr key={r.id}
                         initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                         transition={{ delay: Math.min(i * 0.015, 0.25) }}
-                        className="group transition-colors hover:bg-white/[0.025]"
-                        style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+                        className="group transition-colors hover:bg-[var(--hover)]"
+                        style={{ borderBottom: "1px solid var(--border)" }}>
                         <td className="px-4 py-3.5 whitespace-nowrap">
                           {clientName ? (
-                            <span className="text-[#c7e5ff] text-xs font-medium max-w-[120px] truncate block">{clientName}</span>
+                            <span className="text-[color:var(--chart-tooltip-entry)] text-xs font-medium max-w-[120px] truncate block">{clientName}</span>
                           ) : (
-                            <span className="text-[#5a5a5a] text-xs italic">—</span>
+                            <span className="text-[var(--text-muted)] text-xs italic">—</span>
                           )}
                           {r.is_recurring && (
                             <span className="flex items-center gap-0.5 text-[9px] text-[#60a5fa] mt-0.5">
@@ -901,9 +901,9 @@ export function GestaoReceitas({ year, month }: Props) {
                           )}
                         </td>
                         <td className="px-4 py-3.5 max-w-[180px]">
-                          <p className="text-white truncate">{r.description}</p>
+                          <p className="text-[var(--text-title)] truncate">{r.description}</p>
                           {r.notes && (
-                            <p className="text-[10px] text-[#5a5a5a] truncate mt-0.5">{r.notes}</p>
+                            <p className="text-[10px] text-[var(--text-muted)] truncate mt-0.5">{r.notes}</p>
                           )}
                         </td>
                         <td className="px-4 py-3.5 whitespace-nowrap">
@@ -914,13 +914,13 @@ export function GestaoReceitas({ year, month }: Props) {
                         <td className="px-4 py-3.5 text-emerald-400 font-semibold whitespace-nowrap tabular-nums">
                           {fmt(r.amount)}
                         </td>
-                        <td className="px-4 py-3.5 text-[#b4b4b4] whitespace-nowrap text-xs">
+                        <td className="px-4 py-3.5 text-[var(--silver)] whitespace-nowrap text-xs">
                           {r.due_date ? format(parseISO(r.due_date), "dd MMM yy", { locale: ptBR }) : "—"}
                         </td>
-                        <td className="px-4 py-3.5 text-[#b4b4b4] whitespace-nowrap text-xs">
+                        <td className="px-4 py-3.5 text-[var(--silver)] whitespace-nowrap text-xs">
                           {r.paid_date ? format(parseISO(r.paid_date), "dd MMM yy", { locale: ptBR }) : "—"}
                         </td>
-                        <td className="px-4 py-3.5 text-[#b4b4b4] whitespace-nowrap text-xs">
+                        <td className="px-4 py-3.5 text-[var(--silver)] whitespace-nowrap text-xs">
                           {PAYMENT_LABELS[r.payment_method]}
                         </td>
                         <td className="px-4 py-3.5 whitespace-nowrap">
@@ -938,14 +938,14 @@ export function GestaoReceitas({ year, month }: Props) {
                               </button>
                             )}
                             <button onClick={() => setModal({ open: true, revenue: r })}
-                              className="p-1.5 rounded-lg text-[#b4b4b4] hover:text-white hover:bg-white/5 transition-colors">
+                              className="p-1.5 rounded-lg text-[var(--silver)] hover:text-[var(--text-title)] hover:bg-[var(--hover)] transition-colors">
                               <Edit2 size={13} />
                             </button>
                             <button onClick={() => handleDelete(r.id)}
                               className={cn("p-1.5 rounded-lg transition-colors",
                                 deleting === r.id
                                   ? "text-red-400 bg-red-400/10"
-                                  : "text-[#b4b4b4] hover:text-red-400 hover:bg-red-400/10")}>
+                                  : "text-[var(--silver)] hover:text-red-400 hover:bg-red-400/10")}>
                               <Trash2 size={13} />
                             </button>
                           </div>

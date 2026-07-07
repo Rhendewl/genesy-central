@@ -41,9 +41,11 @@ function SettingsCard({
       whileHover="hover"
       className="group relative flex flex-col gap-5 rounded-2xl p-6 cursor-pointer overflow-hidden"
       style={{
-        background: "rgba(0,0,0,0.52)",
-        border: "1px solid rgba(255,255,255,0.08)",
-        boxShadow: "0 4px 32px rgba(0,0,0,0.40), inset 0 1px 0 rgba(255,255,255,0.05)",
+        background: "var(--glass-bg)",
+        border: "1px solid var(--glass-border)",
+        boxShadow: "var(--glass-shadow)",
+        backdropFilter: "blur(20px) saturate(160%)",
+        WebkitBackdropFilter: "blur(20px) saturate(160%)",
       }}
     >
       {/* Glow layer */}
@@ -82,13 +84,13 @@ function SettingsCard({
       <div className="relative space-y-1.5">
         <motion.h3
           className="text-[15px] font-semibold leading-snug"
-          style={{ color: "#ffffff" }}
+          style={{ color: "var(--text-title)" }}
           variants={{ hover: { color: accentColor } }}
           transition={{ duration: 0.25 }}
         >
           {title}
         </motion.h3>
-        <p className="text-[13px] leading-relaxed" style={{ color: "rgba(255,255,255,0.42)" }}>
+        <p className="text-[13px] leading-relaxed" style={{ color: "var(--text-card-subtle)" }}>
           {description}
         </p>
       </div>

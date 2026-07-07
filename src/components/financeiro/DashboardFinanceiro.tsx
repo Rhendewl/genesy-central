@@ -67,7 +67,7 @@ function TrendBadge({ change, metricType = "volume" }: { change: number | null; 
   if (Math.abs(change) < 0.5) {
     return (
       <span className="shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded-full whitespace-nowrap"
-        style={{ color: "#b4b4b4", background: "rgba(180,180,180,0.10)" }}
+        style={{ color: "var(--silver)", background: "var(--hover)" }}
         title="Comparado ao período anterior">
         estável
       </span>
@@ -98,18 +98,18 @@ function PeriodSelector({ value, onChange, size = "sm" }: {
   return (
     <div className="flex items-center gap-0.5 p-0.5 rounded-lg"
       style={{
-        background: "rgba(0,0,0,0.45)",
+        background: "var(--glass-bg)",
         backdropFilter: "blur(14px) saturate(140%)",
         WebkitBackdropFilter: "blur(14px) saturate(140%)",
-        border: "1px solid rgba(255,255,255,0.08)",
-        boxShadow: "0 2px 12px rgba(0,0,0,0.30), inset 0 1px 0 rgba(255,255,255,0.04)",
+        border: "1px solid var(--glass-border)",
+        boxShadow: "var(--glass-shadow)",
       }}>
       {PERIODS.map(p => (
         <button key={p.key} onClick={() => onChange(p.key)}
           className={cn(
             "rounded-md font-medium transition-all",
             size === "xs" ? "px-2 py-0.5 text-[10px]" : "px-2.5 py-1 text-[11px]",
-            value === p.key ? "text-white" : "text-[#b4b4b4] hover:text-white hover:bg-white/5"
+            value === p.key ? "text-[var(--text-title)]" : "text-[var(--silver)] hover:text-[var(--text-title)] hover:bg-[var(--hover)]"
           )}
           style={value === p.key ? {
             background: "rgba(74,143,212,0.22)",
@@ -170,12 +170,12 @@ function KpiCardPremium({ title, value, sub, icon, accent, change, metricType = 
             <div style={{ color: accent }}>{icon}</div>
           </div>
           <p className="text-[10px] font-semibold uppercase tracking-widest truncate"
-            style={{ color: "#7a7a8a" }}>{title}</p>
+            style={{ color: "var(--muted-foreground)" }}>{title}</p>
         </div>
         <TrendBadge change={change ?? null} metricType={metricType} />
       </div>
-      <p className="text-[28px] font-bold text-white leading-none tracking-tight">{value}</p>
-      {sub && <p className="text-xs mt-0.5" style={{ color: "#7a7a8a" }}>{sub}</p>}
+      <p className="text-[28px] font-bold text-[var(--text-title)] leading-none tracking-tight">{value}</p>
+      {sub && <p className="text-xs mt-0.5" style={{ color: "var(--muted-foreground)" }}>{sub}</p>}
       {sparklineData && sparklineKey && (
         <div className="mt-3 -mx-1">
           <Sparkline data={sparklineData} dataKey={sparklineKey} color={accent} />
@@ -206,14 +206,14 @@ const FinTooltip = ({ active, payload, label, commissionTotal, isDaily }: {
 
   return (
     <div className="rounded-xl px-4 py-3 text-sm shadow-2xl"
-      style={{ background: "rgba(10,12,22,0.92)", border: "1px solid rgba(255,255,255,0.08)" }}>
-      <p className="text-[#7a7a8a] text-[11px] mb-2 font-medium">{label}</p>
+      style={{ background: "var(--chart-tooltip-bg)", border: "1px solid var(--chart-tooltip-border)" }}>
+      <p className="text-[var(--muted-foreground)] text-[11px] mb-2 font-medium">{label}</p>
       {rows.map(p => (
         <div key={p.dataKey ?? p.name}>
           <div className="flex items-center gap-2 mb-1">
             <span className="w-2 h-2 rounded-full shrink-0" style={{ background: p.color }} />
-            <span className="text-[#c7e5ff] text-xs">{p.name}:</span>
-            <span className="text-white font-semibold text-xs">{fmtBRL(p.value)}</span>
+            <span className="text-[color:var(--chart-tooltip-entry)] text-xs">{p.name}:</span>
+            <span className="text-[var(--text-title)] font-semibold text-xs">{fmtBRL(p.value)}</span>
           </div>
           {(p.dataKey === "despesa") && comissao > 0 && (
             <div className="flex items-center gap-2 mb-1 pl-4">
@@ -245,15 +245,15 @@ function HeroChart({ data, period, commissionTotal = 0, onPeriodChange }: {
       className="lc-card p-6">
       <div className="flex items-start justify-between mb-5 flex-wrap gap-3">
         <div>
-          <h3 className="text-base font-semibold text-white">Fluxo Financeiro no Tempo</h3>
-          <p className="text-[11px] mt-0.5" style={{ color: "#7a7a8a" }}>Receita, despesas e lucro líquido</p>
+          <h3 className="text-base font-semibold text-[var(--text-title)]">Fluxo Financeiro no Tempo</h3>
+          <p className="text-[11px] mt-0.5" style={{ color: "var(--muted-foreground)" }}>Receita, despesas e lucro líquido</p>
         </div>
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-3">
             {[{ color: "#10b981", label: "Receita" }, { color: "#f59e0b", label: "Despesas" }, { color: "#4a8fd4", label: "Lucro" }].map(s => (
               <div key={s.label} className="flex items-center gap-1.5">
                 <div className="w-3 h-0.5 rounded-full" style={{ background: s.color }} />
-                <span className="text-[11px]" style={{ color: "#7a7a8a" }}>{s.label}</span>
+                <span className="text-[11px]" style={{ color: "var(--muted-foreground)" }}>{s.label}</span>
               </div>
             ))}
           </div>
@@ -262,16 +262,16 @@ function HeroChart({ data, period, commissionTotal = 0, onPeriodChange }: {
       </div>
       {isEmpty ? (
         <div className="h-[200px] flex flex-col items-center justify-center gap-2">
-          <BarChart2 size={28} style={{ color: "#3a3a4a" }} />
-          <p className="text-sm" style={{ color: "#5a5a6a" }}>Sem dados no período</p>
+          <BarChart2 size={28} style={{ color: "var(--icon)" }} />
+          <p className="text-sm" style={{ color: "var(--text-muted)" }}>Sem dados no período</p>
         </div>
       ) : (
         <ResponsiveContainer width="100%" height={220}>
           <ComposedChart data={data} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
-            <XAxis dataKey="label" tick={{ fill: "#5a5a6a", fontSize: 10 }} axisLine={false} tickLine={false}
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" vertical={false} />
+            <XAxis dataKey="label" tick={{ fill: "var(--text-muted)", fontSize: 10 }} axisLine={false} tickLine={false}
               interval={interval} />
-            <YAxis tick={{ fill: "#5a5a6a", fontSize: 10 }} axisLine={false} tickLine={false} width={52}
+            <YAxis tick={{ fill: "var(--text-muted)", fontSize: 10 }} axisLine={false} tickLine={false} width={52}
               tickFormatter={v => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)} />
             <Tooltip content={({ active, payload, label }) => (
               <FinTooltip
@@ -313,8 +313,8 @@ function SaudeFinanceira({ data }: {
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}
       className="lc-card p-6 flex flex-col">
       <div className="mb-5">
-        <h3 className="text-base font-semibold text-white">Saúde Financeira</h3>
-        <p className="text-[11px] mt-0.5" style={{ color: "#7a7a8a" }}>Indicadores operacionais</p>
+        <h3 className="text-base font-semibold text-[var(--text-title)]">Saúde Financeira</h3>
+        <p className="text-[11px] mt-0.5" style={{ color: "var(--muted-foreground)" }}>Indicadores operacionais</p>
       </div>
       <div className="grid grid-cols-2 gap-3 flex-1">
         {items.map((item, i) => (
@@ -323,12 +323,12 @@ function SaudeFinanceira({ data }: {
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: 0.4 + i * 0.05 }}
             className="rounded-xl p-3.5"
-            style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.06)" }}>
+            style={{ background: "var(--hover)", border: "1px solid var(--border)" }}>
             <div className="flex items-center gap-1.5 mb-1.5" style={{ color: item.color }}>
               {item.icon}
-              <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "#6a6a7a" }}>{item.label}</p>
+              <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "var(--muted-foreground)" }}>{item.label}</p>
             </div>
-            <p className="text-[18px] font-bold text-white leading-tight">{item.value}</p>
+            <p className="text-[18px] font-bold text-[var(--text-title)] leading-tight">{item.value}</p>
             <p className="text-[10px] mt-0.5" style={{ color: item.color }}>{item.sub}</p>
           </motion.div>
         ))}
@@ -370,21 +370,21 @@ function ProjecaoFinanceira({ data, goal, receitaChange }: {
       label: "Tendência de Crescimento",
       value: receitaChange !== null ? fmtPctSigned(receitaChange) : "—",
       sub: trendText,
-      color: trendPositive ? "#10b981" : receitaChange !== null ? "#ef4444" : "#6a6a7a",
+      color: trendPositive ? "#10b981" : receitaChange !== null ? "#ef4444" : "var(--muted-foreground)",
     },
     {
       icon: <Target size={13} />,
       label: "Meta do Mês",
       value: metaPct !== null ? `${metaPct.toFixed(0)}%` : "—",
       sub: goal ? `de ${fmtBRL(goal.revenue_goal)} atingido` : "Meta não definida",
-      color: metaPct !== null ? (metaPct >= 80 ? "#10b981" : metaPct >= 50 ? "#f59e0b" : "#ef4444") : "#6a6a7a",
+      color: metaPct !== null ? (metaPct >= 80 ? "#10b981" : metaPct >= 50 ? "#f59e0b" : "#ef4444") : "var(--muted-foreground)",
     },
     {
       icon: <Clock size={13} />,
       label: "Runway Estimado",
       value: runway !== null ? (runway > 24 ? "24m+" : `${runway.toFixed(1)}m`) : "—",
       sub: runway !== null ? "meses com saldo atual" : "calcular com despesas",
-      color: runway !== null ? (runway >= 6 ? "#10b981" : runway >= 3 ? "#f59e0b" : "#ef4444") : "#6a6a7a",
+      color: runway !== null ? (runway >= 6 ? "#10b981" : runway >= 3 ? "#f59e0b" : "#ef4444") : "var(--muted-foreground)",
     },
   ];
 
@@ -392,8 +392,8 @@ function ProjecaoFinanceira({ data, goal, receitaChange }: {
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}
       className="lc-card p-6 flex flex-col">
       <div className="mb-5">
-        <h3 className="text-base font-semibold text-white">Projeção Financeira</h3>
-        <p className="text-[11px] mt-0.5" style={{ color: "#7a7a8a" }}>Tendências e previsões</p>
+        <h3 className="text-base font-semibold text-[var(--text-title)]">Projeção Financeira</h3>
+        <p className="text-[11px] mt-0.5" style={{ color: "var(--muted-foreground)" }}>Tendências e previsões</p>
       </div>
       <div className="flex flex-col gap-3 flex-1">
         {rows.map((row, i) => (
@@ -402,15 +402,15 @@ function ProjecaoFinanceira({ data, goal, receitaChange }: {
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.45 + i * 0.05 }}
             className="flex items-center justify-between gap-3 py-3 px-3 rounded-xl"
-            style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.05)" }}>
+            style={{ background: "var(--hover)", border: "1px solid var(--border)" }}>
             <div className="flex items-center gap-2.5 min-w-0">
               <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
                 style={{ background: `${row.color}18`, color: row.color }}>
                 {row.icon}
               </div>
               <div className="min-w-0">
-                <p className="text-[11px] font-medium text-white leading-tight">{row.label}</p>
-                <p className="text-[10px] truncate" style={{ color: "#6a6a7a" }}>{row.sub}</p>
+                <p className="text-[11px] font-medium text-[var(--text-title)] leading-tight">{row.label}</p>
+                <p className="text-[10px] truncate" style={{ color: "var(--muted-foreground)" }}>{row.sub}</p>
               </div>
             </div>
             <span className="text-[15px] font-bold shrink-0" style={{ color: row.color }}>{row.value}</span>
@@ -433,12 +433,12 @@ function TopClientes({ clientes, totalFaturamento, onVerTodos }: {
       className="lc-card p-6">
       <div className="flex items-start justify-between mb-5">
         <div>
-          <h3 className="text-base font-semibold text-white">Receita por Cliente</h3>
-          <p className="text-[11px] mt-0.5" style={{ color: "#7a7a8a" }}>Top clientes por faturamento</p>
+          <h3 className="text-base font-semibold text-[var(--text-title)]">Receita por Cliente</h3>
+          <p className="text-[11px] mt-0.5" style={{ color: "var(--muted-foreground)" }}>Top clientes por faturamento</p>
         </div>
         {onVerTodos && (
           <button onClick={onVerTodos}
-            className="flex items-center gap-1 text-[11px] font-medium transition-colors hover:text-white"
+            className="flex items-center gap-1 text-[11px] font-medium transition-colors hover:text-[var(--text-title)]"
             style={{ color: "#4a8fd4" }}>
             Ver todos <ArrowRight size={10} />
           </button>
@@ -446,13 +446,13 @@ function TopClientes({ clientes, totalFaturamento, onVerTodos }: {
       </div>
       {clientes.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-8 gap-2">
-          <Users size={28} style={{ color: "#3a3a4a" }} />
-          <p className="text-sm" style={{ color: "#5a5a6a" }}>Sem clientes ativos no período</p>
+          <Users size={28} style={{ color: "var(--icon)" }} />
+          <p className="text-sm" style={{ color: "var(--text-muted)" }}>Sem clientes ativos no período</p>
         </div>
       ) : (
         <div className="flex flex-col gap-px">
           <div className="grid gap-2 px-2 pb-2 text-[10px] font-semibold uppercase tracking-wider"
-            style={{ color: "#5a5a6a", gridTemplateColumns: "1fr 88px 60px 56px" }}>
+            style={{ color: "var(--text-muted)", gridTemplateColumns: "1fr 88px 60px 56px" }}>
             <span>Cliente</span>
             <span className="text-right">Receita</span>
             <span className="text-right">Part. %</span>
@@ -466,15 +466,15 @@ function TopClientes({ clientes, totalFaturamento, onVerTodos }: {
                 initial={{ opacity: 0, x: -8 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: 0.5 + i * 0.04 }}
-                className="grid gap-2 px-2 py-2.5 rounded-xl items-center hover:bg-white/[0.03] transition-colors"
+                className="grid gap-2 px-2 py-2.5 rounded-xl items-center hover:bg-[var(--hover)] transition-colors"
                 style={{ gridTemplateColumns: "1fr 88px 60px 56px" }}>
                 <div className="flex items-center gap-2 min-w-0">
                   <span className="text-[10px] font-bold w-4 text-center shrink-0"
-                    style={{ color: i === 0 ? "#f59e0b" : "#5a5a6a" }}>{i + 1}</span>
-                  <span className="text-[12px] text-white font-medium truncate" title={c.nome}>{c.nome}</span>
+                    style={{ color: i === 0 ? "#f59e0b" : "var(--text-muted)" }}>{i + 1}</span>
+                  <span className="text-[12px] text-[var(--text-title)] font-medium truncate" title={c.nome}>{c.nome}</span>
                 </div>
-                <span className="text-[12px] font-medium text-right" style={{ color: "#c7e5ff" }}>{fmtBRL(c.receita)}</span>
-                <span className="text-[12px] font-medium text-right" style={{ color: "#7a7a8a" }}>{fmtPct(participacao)}</span>
+                <span className="text-[12px] font-medium text-right" style={{ color: "var(--chart-tooltip-entry)" }}>{fmtBRL(c.receita)}</span>
+                <span className="text-[12px] font-medium text-right" style={{ color: "var(--muted-foreground)" }}>{fmtPct(participacao)}</span>
                 <span className="text-[12px] font-semibold text-right" style={{ color: margemColor }}>{fmtPct(c.margem)}</span>
               </motion.div>
             );
@@ -555,14 +555,14 @@ function InsightsFinanceiros({ data, receitaChange, despesaChange, topCliente }:
           <Zap size={13} style={{ color: "#4a8fd4" }} />
         </div>
         <div>
-          <h3 className="text-base font-semibold text-white leading-none">Insights Financeiros</h3>
-          <p className="text-[11px] mt-0.5" style={{ color: "#7a7a8a" }}>Análise automática do período</p>
+          <h3 className="text-base font-semibold text-[var(--text-title)] leading-none">Insights Financeiros</h3>
+          <p className="text-[11px] mt-0.5" style={{ color: "var(--muted-foreground)" }}>Análise automática do período</p>
         </div>
       </div>
       {insights.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-8 gap-2">
-          <Activity size={24} style={{ color: "#3a3a4a" }} />
-          <p className="text-sm" style={{ color: "#5a5a6a" }}>Sem dados suficientes para insights</p>
+          <Activity size={24} style={{ color: "var(--icon)" }} />
+          <p className="text-sm" style={{ color: "var(--text-muted)" }}>Sem dados suficientes para insights</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -576,8 +576,8 @@ function InsightsFinanceiros({ data, receitaChange, despesaChange, topCliente }:
                 <div className="w-6 h-6 rounded-lg flex items-center justify-center shrink-0 mt-0.5"
                   style={{ background: `${s.color}20`, color: s.color }}>{ins.icon}</div>
                 <div className="min-w-0">
-                  <p className="text-[12px] font-semibold text-white leading-tight">{ins.title}</p>
-                  <p className="text-[11px] mt-0.5 leading-snug" style={{ color: "#9a9aaa" }}>{ins.desc}</p>
+                  <p className="text-[12px] font-semibold text-[var(--text-title)] leading-tight">{ins.title}</p>
+                  <p className="text-[11px] mt-0.5 leading-snug" style={{ color: "var(--muted-foreground)" }}>{ins.desc}</p>
                 </div>
               </motion.div>
             );
@@ -602,22 +602,22 @@ function MetricasDetalhadas({ data }: {
     { label: "Receita Nova",       value: fmtBRL(data.receita_nova),          icon: <ArrowRight size={12} />, color: "#22c55e" },
     { label: "Receita Perdida",    value: fmtBRL(data.receita_perdida),       icon: <TrendingDown size={12} />, color: "#f59e0b" },
     { label: "Novos Contratos",    value: fmtNum(data.novos_contratos),       icon: <DollarSign size={12} />,  color: "#4a8fd4" },
-    { label: "Clientes Ativos",    value: fmtNum(data.clientes_ativos),       icon: <Users size={12} />,       color: "#b4b4b4" },
+    { label: "Clientes Ativos",    value: fmtNum(data.clientes_ativos),       icon: <Users size={12} />,       color: "var(--silver)" },
     { label: "MRR",                value: fmtBRL(data.mrr),                   icon: <Activity size={12} />,   color: "#4a8fd4" },
   ];
   return (
     <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }}
       className="lc-card overflow-hidden">
       <button onClick={() => setOpen(o => !o)}
-        className="w-full flex items-center justify-between p-5 text-left transition-colors hover:bg-white/[0.02]">
+        className="w-full flex items-center justify-between p-5 text-left transition-colors hover:bg-[var(--hover)]">
         <div className="flex items-center gap-2">
-          <span className="text-sm font-semibold text-white">Métricas Detalhadas</span>
+          <span className="text-sm font-semibold text-[var(--text-title)]">Métricas Detalhadas</span>
           <span className="text-[10px] font-medium px-2 py-0.5 rounded-full"
             style={{ color: "#4a8fd4", background: "rgba(74,143,212,0.12)" }}>
             {items.length} indicadores
           </span>
         </div>
-        <ChevronDown size={14} className={cn("transition-transform", open && "rotate-180")} style={{ color: "#5a5a6a" }} />
+        <ChevronDown size={14} className={cn("transition-transform", open && "rotate-180")} style={{ color: "var(--text-muted)" }} />
       </button>
       <AnimatePresence>
         {open && (
@@ -626,12 +626,12 @@ function MetricasDetalhadas({ data }: {
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 p-5 pt-0">
               {items.map(item => (
                 <div key={item.label} className="rounded-xl p-3.5"
-                  style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                  style={{ background: "var(--hover)", border: "1px solid var(--border)" }}>
                   <div className="flex items-center gap-1.5 mb-1.5" style={{ color: item.color }}>
                     {item.icon}
-                    <p className="text-[10px] font-medium uppercase tracking-wider" style={{ color: "#6a6a7a" }}>{item.label}</p>
+                    <p className="text-[10px] font-medium uppercase tracking-wider" style={{ color: "var(--muted-foreground)" }}>{item.label}</p>
                   </div>
-                  <p className="text-lg font-bold text-white">{item.value}</p>
+                  <p className="text-lg font-bold text-[var(--text-title)]">{item.value}</p>
                 </div>
               ))}
             </div>
@@ -651,12 +651,12 @@ function DashboardSkeleton() {
         {Array.from({ length: 5 }).map((_, i) => (
           <div key={i} className="lc-card p-5 h-36 animate-pulse">
             <div className="flex items-center gap-2 mb-3">
-              <div className="w-9 h-9 rounded-xl bg-white/5" />
-              <div className="h-2 bg-white/5 rounded w-20" />
+              <div className="w-9 h-9 rounded-xl bg-[color-mix(in_srgb,var(--text-title)_5%,transparent)]" />
+              <div className="h-2 bg-[color-mix(in_srgb,var(--text-title)_5%,transparent)] rounded w-20" />
             </div>
-            <div className="h-8 bg-white/5 rounded w-28 mb-2" />
-            <div className="h-2 bg-white/5 rounded w-16 mb-3" />
-            <div className="h-8 bg-white/[0.03] rounded" />
+            <div className="h-8 bg-[color-mix(in_srgb,var(--text-title)_5%,transparent)] rounded w-28 mb-2" />
+            <div className="h-2 bg-[color-mix(in_srgb,var(--text-title)_5%,transparent)] rounded w-16 mb-3" />
+            <div className="h-8 bg-[color-mix(in_srgb,var(--text-title)_3%,transparent)] rounded" />
           </div>
         ))}
       </div>
@@ -742,7 +742,7 @@ export function DashboardFinanceiro({ year, month, onNavigateToTab }: Props) {
     <div className="space-y-5">
       {/* Period filter */}
       <div className="flex items-center justify-between flex-wrap gap-3">
-        <p className="text-[12px]" style={{ color: "#5a5a6a" }}>Período de análise</p>
+        <p className="text-[12px]" style={{ color: "var(--text-muted)" }}>Período de análise</p>
         <PeriodSelector value={period} onChange={p => { setPeriod(p); setHeroPeriod(p); }} />
       </div>
 

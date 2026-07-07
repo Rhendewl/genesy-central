@@ -47,9 +47,9 @@ export function TaskCard({ task, isDragOverlay = false, onClick }: TaskCardProps
         isDragOverlay && "cursor-grabbing"
       )}
       style={{
-        background:     "rgba(0,0,0,0.42)",
-        borderColor:    "rgba(255,255,255,0.08)",
-        boxShadow:      isDragOverlay ? "0 28px 64px rgba(0,0,0,0.65), 0 0 0 1px rgba(255,255,255,0.12)" : undefined,
+        background:     "var(--bg-lead-card)",
+        borderColor:    "var(--border-card)",
+        boxShadow:      isDragOverlay ? "0 28px 64px var(--shadow-lg), 0 0 0 1px var(--border-card-drag)" : undefined,
         touchAction:    "none",
         borderLeft:     task.color ? `3px solid ${task.color}` : undefined,
       }}
@@ -68,7 +68,7 @@ export function TaskCard({ task, isDragOverlay = false, onClick }: TaskCardProps
 
       {hasChecklist && (
         <div className="mb-2">
-          <div className="h-1 w-full overflow-hidden rounded-full" style={{ background: "rgba(255,255,255,0.08)" }}>
+          <div className="h-1 w-full overflow-hidden rounded-full" style={{ background: "var(--border-card)" }}>
             <div
               className="h-full rounded-full transition-all"
               style={{ width: `${checklistPct}%`, background: "var(--primary)" }}

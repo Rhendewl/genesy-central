@@ -32,8 +32,8 @@ export function NoteCard({ note, onDelete }: NoteCardProps) {
         // eslint-disable-next-line @next/next/no-img-element
         <img src={note.cover_url} alt="" className="h-28 w-full object-cover" />
       ) : (
-        <div className="flex h-28 w-full items-center justify-center" style={{ background: "rgba(255,255,255,0.03)" }}>
-          <StickyNote size={22} style={{ color: note.color ?? "rgba(255,255,255,0.15)" }} />
+        <div className="flex h-28 w-full items-center justify-center" style={{ background: "var(--hover)" }}>
+          <StickyNote size={22} style={{ color: note.color ?? "var(--text-empty)" }} />
         </div>
       )}
 
@@ -45,7 +45,7 @@ export function NoteCard({ note, onDelete }: NoteCardProps) {
           <div className="relative">
             <button
               onClick={(e) => { e.stopPropagation(); setMenuOpen((o) => !o); }}
-              className="rounded p-1 opacity-0 transition-opacity hover:bg-white/10 group-hover:opacity-100"
+              className="rounded p-1 opacity-0 transition-opacity hover:bg-[var(--hover)] group-hover:opacity-100"
             >
               <MoreHorizontal size={14} style={{ color: "var(--muted-foreground)" }} />
             </button>

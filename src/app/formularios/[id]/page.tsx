@@ -58,10 +58,10 @@ function FutureMetric({ label }: { label: string }) {
   return (
     <div
       className="flex items-center justify-between py-2 px-3 rounded-lg"
-      style={{ background: "rgba(255,255,255,0.02)", border: "1px dashed rgba(255,255,255,0.07)" }}
+      style={{ background: "var(--hover)", border: "1px dashed rgba(255,255,255,0.07)" }}
     >
-      <span className="text-[10px]" style={{ color: "rgba(255,255,255,0.20)" }}>{label}</span>
-      <span className="text-[10px]" style={{ color: "rgba(255,255,255,0.10)" }}>em breve</span>
+      <span className="text-[10px]" style={{ color: "color-mix(in srgb, var(--text-title) 20%, transparent)" }}>{label}</span>
+      <span className="text-[10px]" style={{ color: "color-mix(in srgb, var(--text-title) 10%, transparent)" }}>em breve</span>
     </div>
   );
 }
@@ -161,9 +161,9 @@ export default function FormularioOverviewPage() {
                     onClick={copyLink}
                     title="Copiar link público"
                     aria-label="Copiar link público do formulário"
-                    className="w-8 h-8 flex items-center justify-center rounded-lg transition-all hover:bg-white/10 active:scale-95"
+                    className="w-8 h-8 flex items-center justify-center rounded-lg transition-all hover:bg-[var(--hover)] active:scale-95"
                     style={{
-                      border: "1px solid rgba(255,255,255,0.10)",
+                      border: "1px solid var(--glass-border)",
                       color: "var(--muted-foreground)",
                     }}
                   >
@@ -175,9 +175,9 @@ export default function FormularioOverviewPage() {
                     onClick={openForm}
                     title="Abrir formulário em nova guia"
                     aria-label="Abrir formulário publicado em nova guia"
-                    className="w-8 h-8 flex items-center justify-center rounded-lg transition-all hover:bg-white/10 active:scale-95"
+                    className="w-8 h-8 flex items-center justify-center rounded-lg transition-all hover:bg-[var(--hover)] active:scale-95"
                     style={{
-                      border: "1px solid rgba(255,255,255,0.10)",
+                      border: "1px solid var(--glass-border)",
                       color: "var(--muted-foreground)",
                     }}
                   >
@@ -187,7 +187,7 @@ export default function FormularioOverviewPage() {
                   {/* Separador */}
                   <div
                     className="flex-shrink-0"
-                    style={{ width: 1, height: 20, background: "rgba(255,255,255,0.09)" }}
+                    style={{ width: 1, height: 20, background: "var(--glass-bg-soft)" }}
                     aria-hidden="true"
                   />
                 </>

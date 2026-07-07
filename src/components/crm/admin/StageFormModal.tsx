@@ -23,7 +23,7 @@ function ToggleRow({
   onChange:    (v: boolean) => void;
 }) {
   return (
-    <div className="flex items-start justify-between gap-4 py-3" style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+    <div className="flex items-start justify-between gap-4 py-3" style={{ borderBottom: "1px solid var(--border-card)" }}>
       <div>
         <p className="text-xs font-medium" style={{ color: "var(--text-title)" }}>{label}</p>
         <p className="text-[11px] mt-0.5" style={{ color: "var(--muted-foreground)" }}>{description}</p>
@@ -34,7 +34,7 @@ function ToggleRow({
         aria-checked={checked}
         onClick={() => onChange(!checked)}
         className="relative flex-shrink-0 w-9 h-5 rounded-full transition-colors"
-        style={{ background: checked ? "var(--primary)" : "rgba(255,255,255,0.12)" }}
+        style={{ background: checked ? "var(--primary)" : "var(--border-card-hover)" }}
       >
         <span
           className="absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform"
@@ -65,6 +65,8 @@ export function StageFormModal({ open, stage, onClose, onSave }: Props) {
   const [requireAttachment,  setRequireAttachment]  = useState(false);
   const [allowFreeMove,      setAllowFreeMove]      = useState(true);
   const [allowEdit,          setAllowEdit]          = useState(true);
+  const [isWon,              setIsWon]              = useState(false);
+  const [isLost,             setIsLost]             = useState(false);
   const [saving,             setSaving]             = useState(false);
 
   useEffect(() => {
@@ -77,6 +79,8 @@ export function StageFormModal({ open, stage, onClose, onSave }: Props) {
     setRequireAttachment(stage?.require_attachment ?? false);
     setAllowFreeMove(stage?.allow_free_move ?? true);
     setAllowEdit(stage?.allow_edit ?? true);
+    setIsWon(stage?.is_won ?? false);
+    setIsLost(stage?.is_lost ?? false);
   }, [open, stage]);
 
   if (!open) return null;
@@ -95,6 +99,8 @@ export function StageFormModal({ open, stage, onClose, onSave }: Props) {
         require_attachment: requireAttachment,
         allow_free_move:    allowFreeMove,
         allow_edit:         allowEdit,
+        is_won:             isWon,
+        is_lost:            isLost,
       });
       if (ok) onClose();
     } finally {
@@ -104,7 +110,7 @@ export function StageFormModal({ open, stage, onClose, onSave }: Props) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 lc-scrim"
       style={{ background: "rgba(0,0,0,0.60)" }}
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
     >
@@ -123,7 +129,7 @@ export function StageFormModal({ open, stage, onClose, onSave }: Props) {
           <button
             type="button"
             onClick={onClose}
-            className="p-1 rounded-lg hover:bg-white/5 transition-colors"
+            className="p-1 rounded-lg hover:bg-[var(--hover)] transition-colors"
             style={{ color: "var(--muted-foreground)" }}
           >
             <X size={15} />
@@ -148,7 +154,7 @@ export function StageFormModal({ open, stage, onClose, onSave }: Props) {
                 autoFocus
                 className="w-full rounded-lg px-3 py-2 text-sm outline-none"
                 style={{
-                  background: "rgba(255,255,255,0.04)",
+                  background: "var(--hover)",
                   border: "1px solid var(--border)",
                   color: "var(--text-title)",
                 }}
@@ -167,7 +173,7 @@ export function StageFormModal({ open, stage, onClose, onSave }: Props) {
                 placeholder="Descrição opcional…"
                 className="w-full rounded-lg px-3 py-2 text-sm outline-none"
                 style={{
-                  background: "rgba(255,255,255,0.04)",
+                  background: "var(--hover)",
                   border: "1px solid var(--border)",
                   color: "var(--text-title)",
                 }}
@@ -228,25 +234,35 @@ export function StageFormModal({ open, stage, onClose, onSave }: Props) {
                     checked={allowFreeMove}
                     onChange={setAllowFreeMove}
                   />
-                  <div className="flex items-start justify-between gap-4 py-3">
-                    <div>
-                      <p className="text-xs font-medium" style={{ color: "var(--text-title)" }}>Permite edição</p>
-                      <p className="text-[11px] mt-0.5" style={{ color: "var(--muted-foreground)" }}>Leads nesta etapa podem ser editados</p>
-                    </div>
-                    <button
-                      type="button"
-                      role="switch"
-                      aria-checked={allowEdit}
-                      onClick={() => setAllowEdit(v => !v)}
-                      className="relative flex-shrink-0 w-9 h-5 rounded-full transition-colors"
-                      style={{ background: allowEdit ? "var(--primary)" : "rgba(255,255,255,0.12)" }}
-                    >
-                      <span
-                        className="absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform"
-                        style={{ transform: allowEdit ? "translateX(16px)" : "translateX(0)" }}
-                      />
-                    </button>
-                  </div>
+                  <ToggleRow
+                    label="Permite edição"
+                    description="Leads nesta etapa podem ser editados"
+                    checked={allowEdit}
+                    onChange={setAllowEdit}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Venda ganha/perdida — usado pelo Workflow Engine (Automações) */}
+            <div>
+              <p className="text-xs font-semibold mb-1" style={{ color: "var(--muted-foreground)" }}>
+                AUTOMAÇÕES
+              </p>
+              <div className="rounded-xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
+                <div className="px-4">
+                  <ToggleRow
+                    label="Marcar como Venda Ganha"
+                    description="Leads que entrarem aqui disparam o gatilho “lead ganhou venda”"
+                    checked={isWon}
+                    onChange={v => { setIsWon(v); if (v) setIsLost(false); }}
+                  />
+                  <ToggleRow
+                    label="Marcar como Venda Perdida"
+                    description="Leads que entrarem aqui disparam o gatilho “lead perdeu venda”"
+                    checked={isLost}
+                    onChange={v => { setIsLost(v); if (v) setIsWon(false); }}
+                  />
                 </div>
               </div>
             </div>

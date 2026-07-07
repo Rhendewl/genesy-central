@@ -148,7 +148,7 @@ function RangeCalendar({
       >
         <button
           onClick={prevMonth}
-          className="p-1 rounded-lg transition-colors hover:bg-white/10"
+          className="p-1 rounded-lg transition-colors hover:bg-[var(--hover)]"
         >
           <ChevronLeft size={14} style={{ color: "var(--muted-foreground)" }} />
         </button>
@@ -157,7 +157,7 @@ function RangeCalendar({
         </span>
         <button
           onClick={nextMonth}
-          className="p-1 rounded-lg transition-colors hover:bg-white/10"
+          className="p-1 rounded-lg transition-colors hover:bg-[var(--hover)]"
         >
           <ChevronRight size={14} style={{ color: "var(--muted-foreground)" }} />
         </button>
@@ -237,7 +237,7 @@ function RangeCalendar({
       >
         <button
           onClick={onCancel}
-          className="px-3 py-1.5 rounded-lg text-xs transition-colors hover:bg-white/5"
+          className="px-3 py-1.5 rounded-lg text-xs transition-colors hover:bg-[var(--hover)]"
           style={{ color: "var(--muted-foreground)" }}
         >
           Cancelar
@@ -305,9 +305,9 @@ export function FilterBar({ value, onChange }: FilterBarProps) {
             onClick={() => handlePreset(preset.id)}
             className="px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors"
             style={{
-              background: active ? "var(--primary)" : "rgba(255,255,255,0.05)",
-              color:      active ? "#fff" : "var(--muted-foreground)",
-              border:     `1px solid ${active ? "var(--primary)" : "var(--border)"}`,
+              background: active ? "var(--tab-active-bg)" : "var(--hover)",
+              color:      active ? "var(--tab-active-text)" : "var(--muted-foreground)",
+              border:     `1px solid ${active ? "var(--tab-active-bg)" : "var(--border)"}`,
             }}
           >
             {preset.label}
@@ -320,7 +320,7 @@ export function FilterBar({ value, onChange }: FilterBarProps) {
         onClick={() => setCalendarOpen(o => !o)}
         className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors"
         style={{
-          background: (isCustom || calendarOpen) ? "var(--primary)" : "rgba(255,255,255,0.05)",
+          background: (isCustom || calendarOpen) ? "var(--primary)" : "var(--hover)",
           color:      (isCustom || calendarOpen) ? "#fff" : "var(--muted-foreground)",
           border:     `1px solid ${(isCustom || calendarOpen) ? "var(--primary)" : "var(--border)"}`,
         }}
@@ -332,7 +332,7 @@ export function FilterBar({ value, onChange }: FilterBarProps) {
         {isCustom && (
           <span
             onClick={clearFilter}
-            className="ml-0.5 rounded hover:bg-white/20 p-0.5 leading-none"
+            className="ml-0.5 rounded hover:bg-[var(--hover)] p-0.5 leading-none"
           >
             <X size={10} />
           </span>
@@ -343,7 +343,7 @@ export function FilterBar({ value, onChange }: FilterBarProps) {
       {activePreset && (
         <button
           onClick={clearFilter}
-          className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs transition-colors hover:bg-white/5"
+          className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs transition-colors hover:bg-[var(--hover)]"
           style={{ color: "var(--muted-foreground)" }}
         >
           <X size={11} />

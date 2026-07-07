@@ -22,7 +22,7 @@ export function CrmSettingsModal({ pipelineId, pipelineName, stages, onClose }: 
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 lc-scrim"
       style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(6px)" }}
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
     >
@@ -50,7 +50,7 @@ export function CrmSettingsModal({ pipelineId, pipelineName, stages, onClose }: 
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-lg hover:bg-white/5 transition-colors"
+            className="p-1.5 rounded-lg hover:bg-[var(--hover)] transition-colors"
             style={{ color: "var(--muted-foreground)" }}
           >
             <X size={15} />
@@ -60,7 +60,7 @@ export function CrmSettingsModal({ pipelineId, pipelineName, stages, onClose }: 
         {/* Tab bar */}
         <div
           className="flex gap-1 px-5 py-2 flex-shrink-0"
-          style={{ borderBottom: "1px solid var(--border)", background: "rgba(0,0,0,0.15)" }}
+          style={{ borderBottom: "1px solid var(--border)", background: "var(--hover)" }}
         >
           {(["origens", "etapas"] as TabId[]).map(tab => (
             <button
@@ -69,7 +69,7 @@ export function CrmSettingsModal({ pipelineId, pipelineName, stages, onClose }: 
               onClick={() => setActiveTab(tab)}
               className="px-4 py-1.5 rounded-lg text-xs font-medium transition-all"
               style={activeTab === tab ? {
-                background: "rgba(255,255,255,0.14)",
+                background: "var(--border-card-hover)",
                 color:      "var(--text-title)",
               } : {
                 color: "var(--muted-foreground)",

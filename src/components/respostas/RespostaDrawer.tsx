@@ -136,7 +136,7 @@ export function RespostaDrawer({
                       onClick={handleStar}
                       disabled={isStarring}
                       title={starred ? "Remover favorito" : "Favoritar"}
-                      className="p-2 rounded-lg hover:bg-white/10 transition-colors"
+                      className="p-2 rounded-lg hover:bg-[var(--hover)] transition-colors"
                     >
                       <Star
                         size={16}
@@ -150,7 +150,7 @@ export function RespostaDrawer({
                       <button
                         onClick={() => onArchive?.()}
                         title="Arquivar"
-                        className="p-2 rounded-lg hover:bg-white/10 transition-colors"
+                        className="p-2 rounded-lg hover:bg-[var(--hover)] transition-colors"
                       >
                         <Archive size={16} style={{ color: "var(--muted-foreground)" }} />
                       </button>
@@ -160,7 +160,7 @@ export function RespostaDrawer({
 
                 <button
                   onClick={onClose}
-                  className="p-2 rounded-lg hover:bg-white/10 transition-colors"
+                  className="p-2 rounded-lg hover:bg-[var(--hover)] transition-colors"
                 >
                   <X size={16} style={{ color: "var(--muted-foreground)" }} />
                 </button>
@@ -180,8 +180,8 @@ export function RespostaDrawer({
                     onClick={() => setActiveTab(tab.id)}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors"
                     style={{
-                      background: isActive ? "var(--primary)" : "transparent",
-                      color:      isActive ? "#fff" : "var(--muted-foreground)",
+                      background: isActive ? "var(--tab-active-bg)" : "transparent",
+                      color:      isActive ? "var(--tab-active-text)" : "var(--muted-foreground)",
                     }}
                   >
                     <tab.icon size={12} />

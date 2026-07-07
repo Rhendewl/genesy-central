@@ -87,13 +87,13 @@ function TaskRow({
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.97, transition: { duration: 0.15 } }}
       transition={{ duration: 0.2, ease: "easeOut" }}
-      className="flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors hover:bg-white/[0.04]"
+      className="flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors hover:bg-[var(--hover)]"
     >
       <button
         onClick={(e) => { e.stopPropagation(); onToggle(task.id); }}
         className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full border transition-colors"
         style={{
-          borderColor: done ? "var(--primary)" : "rgba(255,255,255,0.2)",
+          borderColor: done ? "var(--primary)" : "var(--border)",
           background:  done ? "var(--primary)" : "transparent",
         }}
         aria-label={done ? "Marcar como pendente" : "Marcar como concluída"}

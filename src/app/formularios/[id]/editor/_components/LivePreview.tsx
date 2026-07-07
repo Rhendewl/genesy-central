@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Monitor, Smartphone, Palette } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import type { Form } from "@/types";
 import { FormRenderer } from "@/components/formularios/FormRenderer";
 import type { FormRendererScreen } from "@/components/formularios/FormRenderer";
+import { createLogicEngine, adaptLegacyRule } from "@/lib/logic-engine";
 import { DeviceFrameMobile }  from "./device-frames/DeviceFrameMobile";
 import { DeviceFrameTablet }  from "./device-frames/DeviceFrameTablet";
 import { DeviceFrameDesktop } from "./device-frames/DeviceFrameDesktop";
@@ -36,6 +37,15 @@ export function LivePreview({ form, selectedId, onSelectTheme }: LivePreviewProp
   const [stepIndex, setStepIndex] = useState(0);
   const [dir,       setDir]       = useState(1);
   const [answers,   setAnswers]   = useState<Record<string, unknown>>({});
+  const [endingId,  setEndingId]  = useState<string | null>(null);
+
+  // Mesmo motor de lógica usado no link público (useFormularioRenderer.goNext)
+  // — permite testar o branching direto no preview do editor, sem publicar.
+  const engine = useMemo(() => createLogicEngine({
+    steps:   steps.map(s => ({ id: s.id, type: s.type, required: s.required ?? false })),
+    rules:   (form.logic_rules ?? []).map(adaptLegacyRule),
+    endings: form.endings?.map(e => ({ id: e.id })),
+  }), [steps, form.logic_rules, form.endings]);
 
   // Sync preview quando a seleção da sidebar muda
   useEffect(() => {
@@ -68,10 +78,36 @@ export function LivePreview({ form, selectedId, onSelectTheme }: LivePreviewProp
     if (screen === "welcome") {
       if (steps.length > 0) { setScreen("step"); setStepIndex(0); }
       else                   { setScreen("ending"); }
-    } else {
-      if (stepIndex < steps.length - 1) { setStepIndex(i => i + 1); }
-      else                               { setScreen("ending"); }
+      return;
     }
+
+    const currentStep = steps[stepIndex];
+    const result = currentStep ? engine.evaluate({ currentStepId: currentStep.id, answers }) : null;
+
+    switch (result?.type) {
+      case "next_step": {
+        const idx = steps.findIndex(s => s.id === result.stepId);
+        if (idx >= 0) { setStepIndex(idx); return; }
+        break; // alvo não encontrado — cai no fallback sequencial abaixo
+      }
+      case "ending":
+        setEndingId(result.endingId);
+        setScreen("ending");
+        return;
+      case "complete":
+        setEndingId(null);
+        setScreen("ending");
+        return;
+      case "redirect":
+        // Preview nunca navega de verdade — evita tirar o usuário do editor.
+        return;
+      default:
+        break;
+    }
+
+    // Fallback sequencial — comportamento padrão quando nenhuma regra bate.
+    if (stepIndex < steps.length - 1) { setStepIndex(i => i + 1); }
+    else                               { setScreen("ending"); }
   };
 
   const goBack = () => {
@@ -88,6 +124,7 @@ export function LivePreview({ form, selectedId, onSelectTheme }: LivePreviewProp
   const reset = () => {
     setDir(1);
     setAnswers({});
+    setEndingId(null);
     if (hasWelcome)        { setScreen("welcome"); }
     else if (steps.length) { setScreen("step"); setStepIndex(0); }
     else                   { setScreen("ending"); }
@@ -112,6 +149,7 @@ export function LivePreview({ form, selectedId, onSelectTheme }: LivePreviewProp
   const renderer = (
     <FormRenderer
       form={previewForm}
+      endingId={endingId}
       screen={screen}
       currentStepIndex={stepIndex}
       direction={dir}

@@ -35,7 +35,7 @@ export default function WorkspaceDashboardPage() {
     : 0;
 
   return (
-    <div className="flex min-h-screen flex-col gap-4 px-4 pb-24 pt-4 sm:px-6">
+    <div className="flex flex-col gap-4 px-4 pb-24 pt-4 sm:px-6">
       <Header title="Workspace" subtitle="Visão geral da sua produtividade" />
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">

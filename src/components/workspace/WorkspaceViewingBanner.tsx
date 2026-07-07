@@ -20,7 +20,7 @@ export function WorkspaceViewingBanner() {
       </span>
       <button
         onClick={() => setViewingMember(null)}
-        className="ml-auto flex items-center gap-1 text-xs transition-colors hover:text-white"
+        className="ml-auto flex items-center gap-1 text-xs transition-colors hover:text-[var(--text-title)]"
         style={{ color: "rgba(224,163,68,0.7)" }}
       >
         <X size={12} />

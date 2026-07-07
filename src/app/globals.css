@@ -1,6 +1,5 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
-@import "@xyflow/react/dist/style.css";
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -44,7 +43,11 @@
     --bg-card: rgba(15, 23, 74, 0.4);
     --border-color: rgba(255, 255, 255, 0.07);
     --text-title: #ffffff;
+    --text-subtitle: #d1d5db;
     --text-body: #9ca3af;
+    --text-muted: #6b7280;
+    --text-placeholder: #6b7280;
+    --icon: #b4b4b4;
     --hover: rgba(255, 255, 255, 0.04);
 
     /* Button gradient */
@@ -70,8 +73,13 @@
 
     /* Glassmorphism */
     --glass-bg: rgba(0, 0, 0, 0.52);
+    --glass-bg-soft: rgba(0, 0, 0, 0.31);
     --glass-border: rgba(255, 255, 255, 0.09);
     --glass-shadow: 0 4px 32px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+
+    /* Dock/nav flutuante — bem mais sutil que o glass de card */
+    --dock-bg: rgba(12, 12, 12, 0.03);
+    --dock-shadow: 0 8px 32px rgba(0, 0, 0, 0.22), inset 0 1px 0 rgba(255,255,255,0.05);
 
     /* Chart grid */
     --chart-grid: rgba(255, 255, 255, 0.05);
@@ -113,97 +121,147 @@
     --bg-modal: rgba(0, 0, 0, 0.55);
     --border-modal: rgba(255, 255, 255, 0.09);
     --shadow-modal: rgba(0, 0, 0, 0.70);
+
+    /* Gauge (HalfDonutGauge) gradient */
+    --gauge-grad-from: #26292e;
+    --gauge-grad-to: #b0b8c1;
+
+    /* Workspace charts (ProgressRing/ProgressBar) gradient */
+    --workspace-progress-from: #26292e;
+    --workspace-progress-to: #b0b8c1;
+
+    /* Botões de aba/segmentado (ex: Kanban/Lista) — estado ativo */
+    --tab-active-bg: var(--primary);
+    --tab-active-text: #ffffff;
+
+    /* Esteira de submódulos (Clientes/Financeiro/Tráfego) — pílula ativa */
+    --segment-active-bg: rgba(255, 255, 255, 0.14);
+    --segment-active-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.10), 0 1px 8px rgba(0, 0, 0, 0.30);
   }
 
   /* ── Lancaster Light Theme ── */
   .light {
     --background: #f8f8f8;
-    --foreground: #111111;
+    --foreground: #000000;
 
-    --card: #ffffff;
-    --card-foreground: #111111;
+    --card: rgba(176, 184, 193, 0.06);
+    --card-foreground: #000000;
 
     --popover: #ffffff;
-    --popover-foreground: #111111;
+    --popover-foreground: #000000;
 
-    --primary: #404549;
+    --primary: #27a3ff;
     --primary-foreground: #ffffff;
 
-    --secondary: #f2f2f2;
-    --secondary-foreground: #111111;
+    --secondary: rgba(176, 184, 193, 0.06);
+    --secondary-foreground: #000000;
 
-    --muted: #f2f2f2;
-    --muted-foreground: #71717a;
+    --muted: rgba(176, 184, 193, 0.06);
+    --muted-foreground: #4b5563;
 
-    --accent: #f2f2f2;
-    --accent-foreground: #111111;
+    --accent: rgba(176, 184, 193, 0.06);
+    --accent-foreground: #000000;
 
     --destructive: #ef4444;
     --destructive-foreground: #ffffff;
 
-    --border: rgba(0, 0, 0, 0.09);
-    --input: rgba(0, 0, 0, 0.04);
-    --ring: #404549;
+    --border: rgba(176, 184, 193, 0.25);
+    --input: rgba(176, 184, 193, 0.06);
+    --ring: #27a3ff;
 
     --bg-base: #f8f8f8;
-    --bg-card: rgba(0, 0, 0, 0.02);
-    --border-color: rgba(0, 0, 0, 0.09);
-    --text-title: #111111;
-    --text-body: #52525b;
-    --hover: rgba(0, 0, 0, 0.04);
+    --bg-card: rgba(176, 184, 193, 0.06);
+    --border-color: rgba(176, 184, 193, 0.25);
+    --text-title: #000000;
+    --text-subtitle: #1f2937;
+    --text-body: #4b5563;
+    --text-muted: #6b7280;
+    --text-placeholder: #9ca3af;
+    --icon: #7c878e;
+    --hover: rgba(176, 184, 193, 0.09);
     --btn-from: #0b0c20;
     --btn-mid: #404549;
     --btn-to: #404549;
     --btn-border: #133d83;
 
+    /* Legacy silver (kept for backward compat) */
     --silver: #6b7280;
-    --silver-dim: rgba(107, 114, 128, 0.10);
-    --silver-border: rgba(107, 114, 128, 0.25);
+    --silver-dim: rgba(176, 184, 193, 0.06);
+    --silver-border: rgba(176, 184, 193, 0.25);
 
-    --accent-blue: #404549;
+    /* Blue accent — mesmo azul oficial do tema escuro */
+    --accent-blue: #27a3ff;
     --accent-cyan: #0a8c85;
     --accent-orange: #d6582a;
-    --accent-blue-glow: rgba(9, 48, 121, 0.3);
+    --accent-blue-glow: rgba(39, 163, 255, 0.30);
 
-    --gold: #404549;
-    --gold-border: rgba(9, 48, 121, 0.35);
+    --gold: #27a3ff;
+    --gold-border: rgba(39, 163, 255, 0.35);
 
-    --glass-bg: rgba(0, 0, 0, 0.03);
-    --glass-border: rgba(0, 0, 0, 0.07);
+    /* Glassmorphism — novo padrão claro */
+    --glass-bg: rgba(176, 184, 193, 0.06);
+    --glass-bg-soft: rgba(176, 184, 193, 0.04);
+    --glass-border: rgba(176, 184, 193, 0.25);
+    --glass-shadow: 0 4px 24px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.4);
 
-    --chart-grid: rgba(0, 0, 0, 0.07);
+    /* Dock/nav flutuante — bem mais sutil que o glass de card */
+    --dock-bg: rgba(176, 184, 193, 0.02);
+    --dock-shadow: 0 8px 24px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.4);
 
-    --shadow-sm: rgba(0, 0, 0, 0.06);
+    --chart-grid: rgba(176, 184, 193, 0.30);
+
+    --shadow-sm: rgba(0, 0, 0, 0.05);
     --shadow-md: rgba(0, 0, 0, 0.08);
     --shadow-lg: rgba(0, 0, 0, 0.12);
 
-    --bg-lead-card: rgba(0, 0, 0, 0.015);
-    --text-card-primary: rgba(17, 17, 17, 0.88);
-    --text-card-secondary: rgba(17, 17, 17, 0.52);
-    --text-card-subtle: rgba(17, 17, 17, 0.38);
-    --border-card: rgba(0, 0, 0, 0.08);
-    --border-card-hover: rgba(9, 48, 121, 0.35);
-    --border-card-drag: rgba(9, 48, 121, 0.25);
-    --border-empty: rgba(0, 0, 0, 0.06);
+    /* Kanban */
+    --bg-lead-card: rgba(176, 184, 193, 0.06);
+    --text-card-primary: rgba(0, 0, 0, 0.88);
+    --text-card-secondary: rgba(0, 0, 0, 0.68);
+    --text-card-subtle: rgba(0, 0, 0, 0.52);
+    --border-card: rgba(176, 184, 193, 0.25);
+    --border-card-hover: rgba(39, 163, 255, 0.35);
+    --border-card-drag: rgba(39, 163, 255, 0.25);
+    --border-empty: rgba(176, 184, 193, 0.15);
     --text-empty: rgba(0, 0, 0, 0.22);
 
-    --shimmer-base: rgba(0, 0, 0, 0.06);
-    --shimmer-light: rgba(0, 0, 0, 0.03);
+    /* Skeleton */
+    --shimmer-base: rgba(176, 184, 193, 0.10);
+    --shimmer-light: rgba(176, 184, 193, 0.05);
 
-    --bg-tooltip: #ffffff;
-    --text-tooltip: #111111;
-    --border-tooltip: rgba(0, 0, 0, 0.10);
+    /* Tooltip */
+    --bg-tooltip: rgba(176, 184, 193, 0.14);
+    --text-tooltip: #000000;
+    --border-tooltip: rgba(176, 184, 193, 0.25);
 
-    --chart-tooltip-bg: rgba(248, 248, 248, 0.97);
-    --chart-tooltip-border: rgba(9, 48, 121, 0.18);
-    --chart-tooltip-text: rgba(17, 17, 17, 1);
-    --chart-tooltip-label: rgba(17, 17, 17, 0.45);
-    --chart-tooltip-entry: rgba(17, 17, 17, 0.60);
-    --chart-dot-stroke: rgba(17, 17, 17, 0.55);
+    /* Chart tooltip */
+    --chart-tooltip-bg: rgba(248, 248, 248, 0.92);
+    --chart-tooltip-border: rgba(176, 184, 193, 0.35);
+    --chart-tooltip-text: #000000;
+    --chart-tooltip-label: rgba(0, 0, 0, 0.45);
+    --chart-tooltip-entry: rgba(0, 0, 0, 0.65);
+    --chart-dot-stroke: rgba(0, 0, 0, 0.55);
 
-    --bg-modal: rgba(248, 248, 248, 0.98);
-    --border-modal: rgba(9, 48, 121, 0.12);
-    --shadow-modal: rgba(0, 0, 0, 0.14);
+    /* Modal */
+    --bg-modal: rgba(248, 248, 248, 0.90);
+    --border-modal: rgba(176, 184, 193, 0.25);
+    --shadow-modal: rgba(0, 0, 0, 0.18);
+
+    /* Gauge (HalfDonutGauge) gradient */
+    --gauge-grad-from: #d2d7dd;
+    --gauge-grad-to: #b0b8c1;
+
+    /* Workspace charts (ProgressRing/ProgressBar) — cor sólida */
+    --workspace-progress-from: #7c878e;
+    --workspace-progress-to: #7c878e;
+
+    /* Botões de aba/segmentado (ex: Kanban/Lista) — estado ativo */
+    --tab-active-bg: #b0b8c1;
+    --tab-active-text: #000000;
+
+    /* Esteira de submódulos (Clientes/Financeiro/Tráfego) — pílula ativa */
+    --segment-active-bg: #ffffff;
+    --segment-active-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8), 0 1px 6px rgba(0, 0, 0, 0.10);
   }
 
   * {
@@ -244,6 +302,13 @@
   ::-webkit-scrollbar-thumb:hover {
     background: rgba(255, 255, 255, 0.18);
   }
+
+  .light ::-webkit-scrollbar-thumb {
+    background: #b0b8c1;
+  }
+  .light ::-webkit-scrollbar-thumb:hover {
+    background: #8f99a3;
+  }
 }
 
 @layer components {
@@ -257,6 +322,47 @@
 
   .light .dashboard-geral-bg {
     background: transparent;
+  }
+
+  /* Teste de avaliação: bem mais transparente, só no tema claro */
+  .light .myday-card,
+  .light .notes-card {
+    background: rgba(176, 184, 193, 0.008) !important;
+  }
+
+  /* Retângulo de fundo dos módulos (Agendamentos/Formulários) — mesma cor e
+     blur do card "Minha atenção hoje", só no tema claro */
+  .light .module-shell-bg {
+    background: rgba(176, 184, 193, 0.008) !important;
+    backdrop-filter: blur(20px) saturate(160%) !important;
+    -webkit-backdrop-filter: blur(20px) saturate(160%) !important;
+    border-color: var(--glass-border) !important;
+    box-shadow: var(--glass-shadow) !important;
+  }
+
+  /* Scrim de drawers/modais (abrir dia da agenda, tarefa, objetivo, etc.) —
+     no tema claro, sem escurecer: só blur forte, deixando o módulo por trás
+     legível e claro */
+  .light .lc-scrim {
+    background: transparent !important;
+    backdrop-filter: blur(20px) saturate(160%) !important;
+    -webkit-backdrop-filter: blur(20px) saturate(160%) !important;
+  }
+
+  /* Agenda Semanal — quadros de dias com -50% de opacidade, só no tema claro */
+  .light .agenda-day-cell {
+    background: rgba(124, 135, 141, 0.1) !important;
+    border-color: rgba(124, 135, 141, 0.1) !important;
+  }
+  .light .agenda-day-cell[data-today] {
+    background: rgba(124, 135, 141, 0.16) !important;
+    border-color: rgba(124, 135, 141, 0.25) !important;
+  }
+
+  /* Agenda Semanal — tag de evento na cor metálica, só no tema claro */
+  .light .agenda-event-bar {
+    background: #c4cad1 !important;
+    color: #000000 !important;
   }
 
   /* ── Lancaster Card — glassmorphism com massa visual ── */
@@ -280,6 +386,17 @@
       inset 0 1px 0 rgba(255, 255, 255, 0.08);
   }
 
+  .light .lc-card {
+    background: var(--glass-bg);
+    border-color: var(--glass-border);
+    box-shadow: var(--glass-shadow);
+  }
+  .light .lc-card:hover {
+    background: rgba(176, 184, 193, 0.09);
+    border-color: rgba(176, 184, 193, 0.35);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.10), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  }
+
   /* ── Portal card — glass real, background 7% preto ── */
   .lc-portal-card {
     background: rgba(0, 0, 0, 0.07);
@@ -294,6 +411,16 @@
   .lc-portal-card:hover {
     background: rgba(0, 0, 0, 0.12);
     border-color: rgba(255, 255, 255, 0.13);
+  }
+
+  .light .lc-portal-card {
+    background: rgba(176, 184, 193, 0.04);
+    border-color: var(--glass-border);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  }
+  .light .lc-portal-card:hover {
+    background: rgba(176, 184, 193, 0.07);
+    border-color: rgba(176, 184, 193, 0.35);
   }
 
   /* ── Shadcn Card override ── */
@@ -317,6 +444,16 @@
     transform: translateY(-1px);
   }
 
+  .light .lc-card-base {
+    background: var(--glass-bg);
+    border-color: var(--glass-border) !important;
+    box-shadow: var(--glass-shadow);
+  }
+  .light .lc-card-base:hover {
+    background: rgba(176, 184, 193, 0.09);
+    border-color: rgba(176, 184, 193, 0.35) !important;
+  }
+
   /* ── Glass premium (auth card, painéis genéricos) ── */
   .lc-glass {
     backdrop-filter: blur(40px) saturate(180%);
@@ -328,6 +465,12 @@
       inset 0 1px 0 rgba(255, 255, 255, 0.07);
   }
 
+  .light .lc-glass {
+    background: rgba(176, 184, 193, 0.08);
+    border-color: var(--glass-border);
+    box-shadow: 0 8px 40px rgba(0, 0, 0, 0.10), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  }
+
   /* ── Modal panel — glass escuro com blur ── */
   .lc-modal-panel {
     background: rgba(0, 0, 0, 0.78);
@@ -337,6 +480,12 @@
     box-shadow:
       0 24px 64px rgba(0, 0, 0, 0.65),
       inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  }
+
+  .light .lc-modal-panel {
+    background: var(--bg-modal);
+    border-color: var(--border-modal) !important;
+    box-shadow: 0 24px 56px var(--shadow-modal), inset 0 1px 0 rgba(255, 255, 255, 0.6);
   }
 
   /* ── Filter inputs / selects — glassmorphism inline ── */
@@ -356,6 +505,20 @@
   }
   .lc-filter-control::placeholder {
     color: rgba(180, 180, 180, 0.45);
+  }
+
+  .light .lc-filter-control {
+    background: var(--glass-bg);
+    border-color: var(--glass-border) !important;
+    color: var(--text-title);
+  }
+  .light .lc-filter-control:focus,
+  .light .lc-filter-control:focus-within {
+    border-color: var(--accent-blue) !important;
+    background: rgba(176, 184, 193, 0.10);
+  }
+  .light .lc-filter-control::placeholder {
+    color: var(--text-placeholder);
   }
 
   /* ── Lancaster Primary Action Button — metallic luminous ── */
@@ -403,6 +566,17 @@
       inset 0 1px 0 rgba(255, 255, 255, 0.07);
   }
 
+  .light .lc-lead-card {
+    background: var(--bg-lead-card);
+    border-color: var(--border-card) !important;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  }
+  .light .lc-lead-card:not(.is-dragging):hover {
+    background: rgba(176, 184, 193, 0.10);
+    border-color: var(--border-card-hover) !important;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  }
+
   /* ── KPI number ── */
   .lc-kpi {
     font-size: 2rem;
@@ -443,6 +617,20 @@
     height: 4px;
     border-radius: 9999px;
     background: rgba(255, 255, 255, 0.60);
+  }
+
+  .light .dock-item {
+    color: var(--icon);
+  }
+  .light .dock-item:hover {
+    color: #000000;
+    background: rgba(176, 184, 193, 0.08);
+  }
+  .light .dock-item.active {
+    color: #000000;
+  }
+  .light .dock-item.active::after {
+    background: var(--accent-blue);
   }
 
   /* ── Icon gradient — #ffffff → #9a9a9a via SVG defs in layout ── */
@@ -518,209 +706,6 @@
   .animate-glow-pulse {
     animation: glowPulse 2s ease-in-out infinite;
   }
-}
-
-/* ═══════════════════════════════════════════════════
-   WORKFLOW NODE — Custom Scrollbars & Handles
-   ═══════════════════════════════════════════════════ */
-
-/* Blue-tinted scrollbar — Text Node textarea */
-.node-scroll-blue::-webkit-scrollbar {
-  width: 3px;
-}
-.node-scroll-blue::-webkit-scrollbar-track {
-  background: transparent;
-}
-.node-scroll-blue::-webkit-scrollbar-thumb {
-  background: rgba(59, 130, 246, 0.22);
-  border-radius: 9999px;
-  transition: background 0.2s ease;
-}
-.node-scroll-blue::-webkit-scrollbar-thumb:hover {
-  background: rgba(59, 130, 246, 0.45);
-  box-shadow: 0 0 6px rgba(59, 130, 246, 0.35);
-}
-
-/* ── Canvas Premium Background layers ───────────────────────────────────────── */
-
-/* Ambient top glow — white/gray diffuse light, OLED premium */
-.canvas-ambient-top {
-  position: absolute;
-  top: -80px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 70%;
-  max-width: 900px;
-  height: 380px;
-  background: radial-gradient(
-    ellipse 60% 100% at 50% 0%,
-    rgba(255, 255, 255, 0.11) 0%,
-    rgba(200, 200, 200, 0.04) 50%,
-    transparent               100%
-  );
-  filter: blur(32px);
-  pointer-events: none;
-  animation: canvasBreathe 14s ease-in-out infinite;
-}
-
-/* Micro horizon line — white hairline at the very top edge */
-.canvas-ambient-horizon {
-  position: absolute;
-  top: 0; left: 0; right: 0;
-  height: 1px;
-  background: linear-gradient(
-    90deg,
-    transparent                0%,
-    rgba(255, 255, 255, 0.18) 25%,
-    rgba(255, 255, 255, 0.28) 50%,
-    rgba(255, 255, 255, 0.18) 75%,
-    transparent               100%
-  );
-  pointer-events: none;
-  animation: canvasBreathe 14s ease-in-out infinite;
-}
-
-/* Vignette — darkens edges for cinematic depth */
-.canvas-vignette {
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(
-    ellipse 110% 110% at 50% 50%,
-    transparent          45%,
-    rgba(0, 0, 0, 0.35)  75%,
-    rgba(0, 0, 0, 0.60) 100%
-  );
-  pointer-events: none;
-}
-
-@keyframes canvasBreathe {
-  0%, 100% { opacity: 0.55; }
-  50%      { opacity: 1;    }
-}
-
-/* ── Node handles — 24px transparent hit area, visual dot via ::after ── */
-.nh-blue,
-.nh-purple,
-.nh-amber,
-.nh-green {
-  width:      24px !important;
-  height:     24px !important;
-  background: transparent !important;
-  border:     none !important;
-  box-shadow: none !important;
-  border-radius: 0 !important;
-}
-
-.nh-blue::after,
-.nh-purple::after,
-.nh-amber::after,
-.nh-green::after {
-  content: "";
-  position: absolute;
-  top: 50%; left: 50%;
-  transform: translate(-50%, -50%);
-  width: 9px; height: 9px;
-  border-radius: 50%;
-  border: 2px solid rgba(7, 9, 20, 0.9);
-  pointer-events: none;
-  transition: box-shadow 0.2s ease;
-}
-
-/* Blue — Text Node */
-.nh-blue::after  { background: #3B82F6; box-shadow: 0 0 10px #3B82F6, 0 0 4px #3B82F6; }
-.nh-blue:hover::after  { box-shadow: 0 0 16px #3B82F6, 0 0 7px #3B82F6; }
-
-/* Purple — Engine Node */
-.nh-purple::after  { background: #8B5CF6; box-shadow: 0 0 10px #8B5CF6, 0 0 4px #8B5CF6; }
-.nh-purple:hover::after  { box-shadow: 0 0 16px #8B5CF6, 0 0 7px #8B5CF6; }
-
-/* Amber — Media Node */
-.nh-amber::after  { background: #F59E0B; box-shadow: 0 0 10px #F59E0B, 0 0 4px #F59E0B; }
-.nh-amber:hover::after  { box-shadow: 0 0 16px #F59E0B, 0 0 7px #F59E0B; }
-
-/* Green — Result Node */
-.nh-green::after  { background: #10B981; box-shadow: 0 0 10px #10B981, 0 0 4px #10B981; }
-.nh-green:hover::after  { box-shadow: 0 0 16px #10B981, 0 0 7px #10B981; }
-
-/* ═══════════════════════════════════════════════════
-   AI CANVAS — React Flow Premium Visual System
-   ═══════════════════════════════════════════════════ */
-
-/* Edge paths — glow futurista */
-.react-flow__edge-path {
-  filter: drop-shadow(0 0 3px rgba(139, 92, 246, 0.55));
-  transition: filter 0.25s ease;
-}
-.react-flow__edge:hover .react-flow__edge-path {
-  filter: drop-shadow(0 0 7px rgba(139, 92, 246, 0.9));
-}
-
-/* Connection line while dragging */
-.react-flow__connection-path {
-  stroke: rgba(139, 92, 246, 0.6) !important;
-  stroke-width: 1.5 !important;
-  filter: drop-shadow(0 0 4px rgba(139, 92, 246, 0.5));
-}
-
-/* Controls — glass premium */
-.react-flow__controls {
-  background: rgba(6, 6, 10, 0.88) !important;
-  border: 1px solid rgba(255, 255, 255, 0.07) !important;
-  backdrop-filter: blur(24px) saturate(1.8) !important;
-  -webkit-backdrop-filter: blur(24px) saturate(1.8) !important;
-  border-radius: 14px !important;
-  overflow: hidden !important;
-  box-shadow:
-    0 0 0 1px rgba(255, 255, 255, 0.03),
-    0 8px 32px rgba(0, 0, 0, 0.65),
-    inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
-}
-.react-flow__controls-button {
-  background: transparent !important;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
-  color: rgba(255, 255, 255, 0.4) !important;
-  transition: all 0.15s ease !important;
-}
-.react-flow__controls-button:last-child {
-  border-bottom: none !important;
-}
-.react-flow__controls-button:hover {
-  background: rgba(255, 255, 255, 0.05) !important;
-  color: rgba(255, 255, 255, 0.85) !important;
-}
-.react-flow__controls-button svg {
-  fill: currentColor !important;
-  stroke: none !important;
-}
-
-/* Handle hover glow */
-.react-flow__handle {
-  transition: box-shadow 0.2s ease, transform 0.15s ease !important;
-}
-.react-flow__handle:hover {
-  transform: scale(1.35) !important;
-}
-
-/* Node selection — remove default blue outline */
-.react-flow__node.selected > div,
-.react-flow__node:focus > div {
-  outline: none !important;
-}
-.react-flow__node.selected {
-  outline: none !important;
-}
-
-/* Attribution hide */
-.react-flow__attribution {
-  display: none !important;
-}
-
-/* Node drag — cursor */
-.react-flow__node {
-  cursor: grab;
-}
-.react-flow__node:active {
-  cursor: grabbing;
 }
 
 /* ── TipTap / ProseMirror — Editor rico ── */

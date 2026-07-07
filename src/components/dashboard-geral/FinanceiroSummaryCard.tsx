@@ -31,7 +31,7 @@ export function FinanceiroSummaryCard({ year, month, height, delay = 0 }: Financ
     <motion.a
       href="/financeiro"
       className="lc-card group flex flex-col cursor-pointer overflow-hidden p-6"
-      style={{ background: "rgba(0,0,0,0.31)", height }}
+      style={{ background: "var(--glass-bg-soft)", height }}
       initial={{ opacity: 0, y: 18 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay, ease: "easeOut" }}
@@ -39,17 +39,17 @@ export function FinanceiroSummaryCard({ year, month, height, delay = 0 }: Financ
       <div className="mb-4 flex flex-shrink-0 items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="flex h-9 w-9 items-center justify-center rounded-xl">
-            <Wallet size={17} style={{ color: "#ffffff" }} />
+            <Wallet size={17} style={{ color: "var(--text-title)" }} />
           </div>
           <div>
-            <p className="text-[13px] font-semibold leading-tight" style={{ color: "#b4b4b4" }}>Financeiro</p>
+            <p className="text-[13px] font-semibold leading-tight" style={{ color: "var(--silver)" }}>Financeiro</p>
             <p className="text-[10px] text-[var(--muted-foreground)]">Visão do mês</p>
           </div>
         </div>
         <ArrowUpRight
           size={15}
           className="transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
-          style={{ color: "#ffffff" }}
+          style={{ color: "var(--text-title)" }}
         />
       </div>
 

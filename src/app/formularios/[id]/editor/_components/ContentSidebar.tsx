@@ -19,7 +19,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import {
-  Plus, Play, Square, GripVertical, Trash2, Copy,
+  Plus, Play, Square, GripVertical, Trash2, Copy, GitBranch,
 } from "lucide-react";
 import type { FormStep, FormStepType, FormWelcomeScreen, FormEnding } from "@/types";
 import { getBlockDef } from "./blocks";
@@ -29,6 +29,7 @@ interface ContentSidebarProps {
   steps: FormStep[];
   welcome: FormWelcomeScreen;
   endings: FormEnding[];
+  logicCountByStep?: Record<string, number>;
   selectedId: string | null;
   onSelectWelcome: () => void;
   onSelectStep: (id: string) => void;
@@ -60,13 +61,13 @@ function SpecialStructureItem({
       aria-pressed={isSelected}
       className="flex items-center gap-2.5 w-full px-2 py-2 rounded-xl text-left transition-all"
       style={{
-        background: isSelected ? "rgba(255,255,255,0.08)" : "transparent",
-        border: `1px solid ${isSelected ? "rgba(255,255,255,0.14)" : "transparent"}`,
+        background: isSelected ? "var(--glass-bg-soft)" : "transparent",
+        border: `1px solid ${isSelected ? "var(--glass-border)" : "transparent"}`,
       }}
     >
       <div
         className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
-        style={{ background: "rgba(255,255,255,0.06)" }}
+        style={{ background: "var(--glass-bg-soft)" }}
         aria-hidden="true"
       >
         <Icon size={13} style={{ color: "var(--muted-foreground)" }} />
@@ -92,6 +93,7 @@ function SortableStepItem({
   step,
   index,
   isSelected,
+  logicCount,
   onSelect,
   onDelete,
   onDuplicate,
@@ -99,6 +101,7 @@ function SortableStepItem({
   step: FormStep;
   index: number;
   isSelected: boolean;
+  logicCount: number;
   onSelect: () => void;
   onDelete: () => void;
   onDuplicate: () => void;
@@ -130,8 +133,8 @@ function SortableStepItem({
         onClick={onSelect}
         className="group flex items-center gap-1.5 px-2 py-2 rounded-xl cursor-pointer transition-all select-none"
         style={{
-          background: isSelected ? "rgba(255,255,255,0.08)" : "transparent",
-          border: `1px solid ${isSelected ? "rgba(255,255,255,0.14)" : "transparent"}`,
+          background: isSelected ? "var(--glass-bg-soft)" : "transparent",
+          border: `1px solid ${isSelected ? "var(--glass-border)" : "transparent"}`,
         }}
         role="button"
         aria-pressed={isSelected}
@@ -174,6 +177,17 @@ function SortableStepItem({
           </p>
         </div>
 
+        {/* Indicador de lógica condicional */}
+        {logicCount > 0 && (
+          <div
+            className="flex-shrink-0"
+            title={`Possui ${logicCount} regra${logicCount !== 1 ? "s" : ""} de navegação`}
+            aria-label={`Possui ${logicCount} regra${logicCount !== 1 ? "s" : ""} de navegação`}
+          >
+            <GitBranch size={11} style={{ color: "#a78bfa" }} aria-hidden="true" />
+          </div>
+        )}
+
         {/* Hover actions */}
         <div
           className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
@@ -181,7 +195,7 @@ function SortableStepItem({
         >
           <button
             onClick={e => { e.stopPropagation(); onDuplicate(); }}
-            className="p-1 rounded hover:bg-white/10 transition-colors"
+            className="p-1 rounded hover:bg-[var(--hover)] transition-colors"
             aria-label={`Duplicar pergunta ${index + 1}`}
             title="Duplicar"
           >
@@ -207,6 +221,7 @@ export function ContentSidebar({
   steps,
   welcome,
   endings,
+  logicCountByStep = {},
   selectedId,
   onSelectWelcome,
   onSelectStep,
@@ -243,8 +258,8 @@ export function ContentSidebar({
       <div
         className="w-60 flex-shrink-0 flex flex-col border-r overflow-hidden"
         style={{
-          borderColor: "rgba(255,255,255,0.07)",
-          background: "rgba(10,10,10,.10)",
+          borderColor: "var(--glass-border)",
+          background: "var(--hover)",
           backdropFilter: "blur(24px)",
           WebkitBackdropFilter: "blur(24px)",
         }}
@@ -252,7 +267,7 @@ export function ContentSidebar({
         {/* Header */}
         <div
           className="flex items-center justify-between px-3 py-2.5 border-b flex-shrink-0"
-          style={{ borderColor: "rgba(255,255,255,0.07)" }}
+          style={{ borderColor: "var(--glass-border)" }}
         >
           <span
             className="text-[10px] font-semibold uppercase tracking-wider"
@@ -264,9 +279,9 @@ export function ContentSidebar({
             onClick={() => setModalOpen(true)}
             className="flex items-center gap-1 text-[11px] px-2 py-1 rounded-lg transition-all hover:opacity-90 active:scale-95"
             style={{
-              background: "rgba(64,69,73,0.14)",
-              color: "#404549",
-              border: "1px solid rgba(64,69,73,0.24)",
+              background: "color-mix(in srgb, var(--primary) 14%, transparent)",
+              color: "var(--primary)",
+              border: "1px solid color-mix(in srgb, var(--primary) 24%, transparent)",
             }}
             aria-label="Adicionar conteúdo"
           >
@@ -288,7 +303,7 @@ export function ContentSidebar({
 
           {/* Divisor + contagem de perguntas */}
           <div className="flex items-center gap-2 my-1.5 px-2">
-            <div className="flex-1" style={{ height: "1px", background: "rgba(255,255,255,0.06)" }} />
+            <div className="flex-1" style={{ height: "1px", background: "var(--glass-bg-soft)" }} />
             {steps.length > 0 && (
               <span
                 className="text-[9px] uppercase tracking-wider"
@@ -297,7 +312,7 @@ export function ContentSidebar({
                 {steps.length} pergunta{steps.length !== 1 ? "s" : ""}
               </span>
             )}
-            <div className="flex-1" style={{ height: "1px", background: "rgba(255,255,255,0.06)" }} />
+            <div className="flex-1" style={{ height: "1px", background: "var(--glass-bg-soft)" }} />
           </div>
 
           {/* Lista sortável de steps */}
@@ -317,6 +332,7 @@ export function ContentSidebar({
                     step={step}
                     index={idx}
                     isSelected={selectedId === step.id}
+                    logicCount={logicCountByStep[step.id] ?? 0}
                     onSelect={() => onSelectStep(step.id)}
                     onDelete={() => onDeleteStep(step.id)}
                     onDuplicate={() => onDuplicateStep(step.id)}
@@ -330,10 +346,10 @@ export function ContentSidebar({
           {steps.length === 0 && (
             <button
               onClick={() => setModalOpen(true)}
-              className="flex items-center gap-1.5 text-xs py-2.5 px-3 rounded-xl transition-all hover:bg-white/5 w-full mt-1"
+              className="flex items-center gap-1.5 text-xs py-2.5 px-3 rounded-xl transition-all hover:bg-[var(--hover)] w-full mt-1"
               style={{
                 color: "var(--muted-foreground)",
-                border: "1px dashed rgba(255,255,255,0.10)",
+                border: "1px dashed var(--glass-border)",
               }}
             >
               <Plus size={11} aria-hidden="true" />
@@ -343,7 +359,7 @@ export function ContentSidebar({
 
           {/* Divisor antes do encerramento */}
           <div className="flex items-center gap-2 my-1.5 px-2">
-            <div className="flex-1" style={{ height: "1px", background: "rgba(255,255,255,0.06)" }} />
+            <div className="flex-1" style={{ height: "1px", background: "var(--glass-bg-soft)" }} />
           </div>
 
           {/* Encerramento */}

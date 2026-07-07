@@ -130,11 +130,11 @@ function RangeCalendar({
   return (
     <div className="rounded-xl shadow-xl overflow-hidden" style={{ background: "var(--card)", border: "1px solid var(--border)", minWidth: 280 }}>
       <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: "1px solid var(--border)" }}>
-        <button onClick={prevMonth} className="p-1 rounded hover:bg-white/10 transition-colors">
+        <button onClick={prevMonth} className="p-1 rounded hover:bg-[var(--hover)] transition-colors">
           <ChevronLeft size={13} style={{ color: "var(--muted-foreground)" }} />
         </button>
         <span className="text-xs font-semibold capitalize" style={{ color: "var(--text-title)" }}>{monthLabel}</span>
-        <button onClick={nextMonth} className="p-1 rounded hover:bg-white/10 transition-colors">
+        <button onClick={nextMonth} className="p-1 rounded hover:bg-[var(--hover)] transition-colors">
           <ChevronRight size={13} style={{ color: "var(--muted-foreground)" }} />
         </button>
       </div>
@@ -153,7 +153,7 @@ function RangeCalendar({
             const to_   = isTo(d);
             let bg = "transparent", color = "var(--muted-foreground)", br = "6px";
             if (sel)        { bg = "var(--primary)"; color = "#fff"; }
-            else if (range) { bg = "rgba(255,255,255,0.07)"; color = "var(--text-title)"; br = "0"; }
+            else if (range) { bg = "var(--border-color)"; color = "var(--text-title)"; br = "0"; }
             if (from_ && lTo)   br = "6px 0 0 6px";
             if (to_   && lFrom) br = "0 6px 6px 0";
             return (
@@ -180,7 +180,7 @@ function RangeCalendar({
           : "Selecione a data final"}
       </div>
       <div className="flex items-center justify-end gap-2 px-4 py-3" style={{ borderTop: "1px solid var(--border)" }}>
-        <button onClick={onCancel} className="px-3 py-1.5 rounded-lg text-xs transition-colors hover:bg-white/5" style={{ color: "var(--muted-foreground)" }}>
+        <button onClick={onCancel} className="px-3 py-1.5 rounded-lg text-xs transition-colors hover:bg-[var(--hover)]" style={{ color: "var(--muted-foreground)" }}>
           Cancelar
         </button>
         <button
@@ -235,9 +235,9 @@ export function InsightsFilterBar({ period, device, onPeriod, onDevice }: Insigh
               onClick={() => handlePreset(p.id)}
               className="px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors"
               style={{
-                background: active ? "var(--primary)" : "rgba(255,255,255,0.05)",
-                color:      active ? "#fff" : "var(--muted-foreground)",
-                border:     `1px solid ${active ? "var(--primary)" : "var(--border)"}`,
+                background: active ? "var(--tab-active-bg)" : "var(--shimmer-base)",
+                color:      active ? "var(--tab-active-text)" : "var(--muted-foreground)",
+                border:     `1px solid ${active ? "var(--tab-active-bg)" : "var(--border)"}`,
               }}
             >
               {p.label}
@@ -250,7 +250,7 @@ export function InsightsFilterBar({ period, device, onPeriod, onDevice }: Insigh
           onClick={() => setCalOpen(o => !o)}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors"
           style={{
-            background: (isCustom || calOpen) ? "var(--primary)" : "rgba(255,255,255,0.05)",
+            background: (isCustom || calOpen) ? "var(--primary)" : "var(--shimmer-base)",
             color:      (isCustom || calOpen) ? "#fff" : "var(--muted-foreground)",
             border:     `1px solid ${(isCustom || calOpen) ? "var(--primary)" : "var(--border)"}`,
           }}
@@ -262,7 +262,7 @@ export function InsightsFilterBar({ period, device, onPeriod, onDevice }: Insigh
           {isCustom && (
             <span
               onClick={e => { e.stopPropagation(); onPeriod({}); }}
-              className="ml-0.5 p-0.5 rounded hover:bg-white/20 leading-none"
+              className="ml-0.5 p-0.5 rounded hover:bg-[var(--hover)] leading-none"
             >
               <X size={10} />
             </span>
@@ -284,7 +284,7 @@ export function InsightsFilterBar({ period, device, onPeriod, onDevice }: Insigh
               title={d.label}
               className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors"
               style={{
-                background: active ? "rgba(255,255,255,0.10)" : "transparent",
+                background: active ? "var(--border-card-drag)" : "transparent",
                 color:      active ? "var(--text-title)" : "var(--muted-foreground)",
                 border:     `1px solid ${active ? "var(--border)" : "transparent"}`,
               }}

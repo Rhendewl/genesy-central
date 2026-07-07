@@ -35,8 +35,8 @@ const SEVERITY_CONFIG = {
     label: "Recente",
     sub: "1–7 dias",
     rowClass: "",
-    badgeClass: "text-[#b4b4b4] bg-[#b4b4b4]/10 border-[#b4b4b4]/30",
-    dotClass: "bg-[#b4b4b4]",
+    badgeClass: "text-[var(--silver)] bg-[var(--silver)]/10 border-[var(--silver)]/30",
+    dotClass: "bg-[var(--silver)]",
     icon: <Clock size={14} />,
   },
 };
@@ -85,12 +85,12 @@ function ContactModal({ collectionId, clientName, amount, phone, onClose, onUpda
         onClick={e => e.stopPropagation()}
       >
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-bold text-white">Registrar Contato</h2>
-          <button onClick={onClose} className="text-[#b4b4b4] hover:text-white transition-colors"><X size={20} /></button>
+          <h2 className="text-lg font-bold text-[var(--text-title)]">Registrar Contato</h2>
+          <button onClick={onClose} className="text-[var(--silver)] hover:text-[var(--text-title)] transition-colors"><X size={20} /></button>
         </div>
 
         <div className="lc-card p-4 space-y-1">
-          <p className="text-white font-semibold">{clientName}</p>
+          <p className="text-[var(--text-title)] font-semibold">{clientName}</p>
           <p className="text-amber-400 font-bold text-lg">{fmt(amount)}</p>
           {phone && (
             <a href={`https://wa.me/${phone.replace(/\D/g, "")}`} target="_blank" rel="noopener noreferrer"
@@ -102,9 +102,9 @@ function ContactModal({ collectionId, clientName, amount, phone, onClose, onUpda
         </div>
 
         <div>
-          <label className="block text-xs text-[#b4b4b4] mb-1.5 font-medium">Status após contato</label>
+          <label className="block text-xs text-[var(--silver)] mb-1.5 font-medium">Status após contato</label>
           <select value={status} onChange={e => setStatus(e.target.value as CollectionStatus)}
-            className="w-full rounded-xl bg-white/5 border text-white text-sm px-3 py-2.5 outline-none"
+            className="w-full rounded-xl bg-[var(--hover)] border text-[var(--text-title)] text-sm px-3 py-2.5 outline-none"
             style={{ border: "none" }}>
             <option value="em_cobranca">Em Cobrança</option>
             <option value="pago">Pago</option>
@@ -113,16 +113,16 @@ function ContactModal({ collectionId, clientName, amount, phone, onClose, onUpda
         </div>
 
         <div>
-          <label className="block text-xs text-[#b4b4b4] mb-1.5 font-medium">Anotações do contato</label>
+          <label className="block text-xs text-[var(--silver)] mb-1.5 font-medium">Anotações do contato</label>
           <textarea value={notes} onChange={e => setNotes(e.target.value)}
             rows={3} placeholder="Ex: Prometeu pagar na sexta..."
-            className="w-full rounded-xl bg-white/5 border text-white text-sm px-3 py-2.5 outline-none resize-none placeholder:text-[#b4b4b4]/50"
+            className="w-full rounded-xl bg-[var(--hover)] border text-[var(--text-title)] text-sm px-3 py-2.5 outline-none resize-none placeholder:text-[var(--silver)]/50"
             style={{ border: "none" }} />
         </div>
 
         <div className="flex gap-3">
           <button onClick={onClose}
-            className="flex-1 rounded-xl border py-2.5 text-sm font-medium text-[#b4b4b4] hover:text-white"
+            className="flex-1 rounded-xl border py-2.5 text-sm font-medium text-[var(--silver)] hover:text-[var(--text-title)]"
             style={{ border: "none" }}>
             Cancelar
           </button>
@@ -173,7 +173,7 @@ export function Inadimplencia({ year: _year, month: _month }: Props) {
             <AlertTriangle size={24} className="text-red-400" />
           </div>
           <div className="flex-1">
-            <p className="text-white font-semibold text-lg">{fmt(totalInadimplencia)}</p>
+            <p className="text-[var(--text-title)] font-semibold text-lg">{fmt(totalInadimplencia)}</p>
             <p className="text-red-300 text-sm">{collections.length} cliente{collections.length !== 1 ? "s" : ""} com pagamento em atraso</p>
           </div>
           <div className="flex items-center gap-2 shrink-0">
@@ -188,11 +188,11 @@ export function Inadimplencia({ year: _year, month: _month }: Props) {
       )}
 
       <div className="flex items-center justify-between">
-        <p className="text-sm text-[#b4b4b4]">
+        <p className="text-sm text-[var(--silver)]">
           {collections.length === 0 ? "Nenhuma inadimplência ativa" : `${collections.length} cobranças pendentes`}
         </p>
         <button onClick={handleGenerate} disabled={generating}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium text-[#b4b4b4] border hover:text-white transition-colors disabled:opacity-50"
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium text-[var(--silver)] border hover:text-[var(--text-title)] transition-colors disabled:opacity-50"
           style={{ border: "none" }}>
           <RefreshCw size={14} className={generating ? "animate-spin" : ""} />
           Sincronizar da Gestão de Receitas
@@ -200,12 +200,12 @@ export function Inadimplencia({ year: _year, month: _month }: Props) {
       </div>
 
       {isLoading ? (
-        <div className="lc-card p-8 text-center text-[#b4b4b4] text-sm">Carregando cobranças...</div>
+        <div className="lc-card p-8 text-center text-[var(--silver)] text-sm">Carregando cobranças...</div>
       ) : collections.length === 0 ? (
         <div className="lc-card p-12 text-center">
           <CheckCircle2 size={40} className="text-emerald-400/40 mx-auto mb-3" />
           <p className="text-emerald-400 text-sm font-semibold mb-1">Nenhuma inadimplência</p>
-          <p className="text-[#b4b4b4] text-xs">Todos os clientes estão em dia</p>
+          <p className="text-[var(--silver)] text-xs">Todos os clientes estão em dia</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -216,7 +216,7 @@ export function Inadimplencia({ year: _year, month: _month }: Props) {
               <div key={sev}>
                 <div className="flex items-center gap-2 mb-2">
                   <span className={cn("w-2 h-2 rounded-full", sc.dotClass)} />
-                  <p className="text-xs text-[#b4b4b4] font-medium uppercase tracking-wider">
+                  <p className="text-xs text-[var(--silver)] font-medium uppercase tracking-wider">
                     {sc.label} · {sc.sub} · {items.length} cliente{items.length !== 1 ? "s" : ""}
                   </p>
                 </div>
@@ -225,7 +225,7 @@ export function Inadimplencia({ year: _year, month: _month }: Props) {
                     <thead>
                       <tr className="border-b" style={{ border: "none" }}>
                         {["Cliente", "Valor", "Vencimento", "Dias Atraso", "Último Contato", "Status", ""].map(h => (
-                          <th key={h} className="text-left text-xs text-[#b4b4b4] font-medium px-4 py-3 whitespace-nowrap">{h}</th>
+                          <th key={h} className="text-left text-xs text-[var(--silver)] font-medium px-4 py-3 whitespace-nowrap">{h}</th>
                         ))}
                       </tr>
                     </thead>
@@ -236,19 +236,19 @@ export function Inadimplencia({ year: _year, month: _month }: Props) {
                             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                             transition={{ delay: i * 0.04 }}
                             className={cn("border-b transition-colors", sc.rowClass)}
-                            style={{ borderColor: "rgba(255,255,255,0.06)" }}>
+                            style={{ borderColor: "var(--border)" }}>
                             <td className="px-4 py-3">
                               <div>
-                                <p className="text-white font-medium">{(c.client as { name?: string } | undefined)?.name ?? "—"}</p>
+                                <p className="text-[var(--text-title)] font-medium">{(c.client as { name?: string } | undefined)?.name ?? "—"}</p>
                                 {(c.client as { contact_phone?: string } | undefined)?.contact_phone && (
-                                  <p className="text-xs text-[#b4b4b4]">{(c.client as { contact_phone?: string }).contact_phone}</p>
+                                  <p className="text-xs text-[var(--silver)]">{(c.client as { contact_phone?: string }).contact_phone}</p>
                                 )}
                               </div>
                             </td>
                             <td className="px-4 py-3">
-                              <p className="text-white font-bold">{fmt(c.amount)}</p>
+                              <p className="text-[var(--text-title)] font-bold">{fmt(c.amount)}</p>
                             </td>
-                            <td className="px-4 py-3 text-[#b4b4b4] whitespace-nowrap">
+                            <td className="px-4 py-3 text-[var(--silver)] whitespace-nowrap">
                               {format(parseISO(c.due_date), "dd/MM/yyyy", { locale: ptBR })}
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap">
@@ -256,13 +256,13 @@ export function Inadimplencia({ year: _year, month: _month }: Props) {
                                 {c.days_overdue}d
                               </span>
                             </td>
-                            <td className="px-4 py-3 text-[#b4b4b4] whitespace-nowrap text-xs">
+                            <td className="px-4 py-3 text-[var(--silver)] whitespace-nowrap text-xs">
                               {c.last_contact_date
                                 ? format(parseISO(c.last_contact_date), "dd/MM", { locale: ptBR })
                                 : "Nunca"}
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap">
-                              <span className="text-xs text-[#b4b4b4] bg-[#b4b4b4]/10 px-2 py-0.5 rounded-full">
+                              <span className="text-xs text-[var(--silver)] bg-[var(--silver)]/10 px-2 py-0.5 rounded-full">
                                 {STATUS_LABELS[c.status]}
                               </span>
                             </td>
@@ -274,13 +274,13 @@ export function Inadimplencia({ year: _year, month: _month }: Props) {
                                     name: (c.client as { name?: string } | undefined)?.name ?? "Cliente",
                                     phone: (c.client as { contact_phone?: string } | undefined)?.contact_phone,
                                   })}
-                                  className="p-1.5 rounded-lg text-[#b4b4b4] hover:text-[#4a8fd4] hover:bg-[#4a8fd4]/10 transition-colors"
+                                  className="p-1.5 rounded-lg text-[var(--silver)] hover:text-[#4a8fd4] hover:bg-[#4a8fd4]/10 transition-colors"
                                   title="Registrar contato">
                                   <MessageSquare size={14} />
                                 </button>
                                 <button
                                   onClick={() => markAsPaid(c.id)}
-                                  className="p-1.5 rounded-lg text-[#b4b4b4] hover:text-emerald-400 hover:bg-emerald-400/10 transition-colors"
+                                  className="p-1.5 rounded-lg text-[var(--silver)] hover:text-emerald-400 hover:bg-emerald-400/10 transition-colors"
                                   title="Marcar como pago">
                                   <CheckCircle2 size={14} />
                                 </button>

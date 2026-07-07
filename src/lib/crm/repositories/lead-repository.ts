@@ -25,6 +25,8 @@ export interface CreateLeadParams {
   notes?:        string | null;
   entered_at?:   string;
   is_duplicate?: boolean;
+  iq_score?:     number | null;
+  ie_score?:     number | null;
 }
 
 export interface MoveLeadRpcParams {
@@ -67,6 +69,8 @@ export class LeadRepository {
         notes:         params.notes         ?? null,
         entered_at:    params.entered_at    ?? new Date().toISOString().split("T")[0],
         is_duplicate:  params.is_duplicate  ?? false,
+        iq_score:      params.iq_score      ?? null,
+        ie_score:      params.ie_score      ?? null,
       })
       .select("id")
       .single();
@@ -113,5 +117,12 @@ export class LeadRepository {
     if (!rows?.length) throw new Error("MOVE_FAILED");
 
     return rows[0];
+  }
+
+  // IE é recalculado a cada movimentação (LeadScoreEngine.calculateIE). Grava
+  // via UPDATE simples logo após o commit da RPC — mais simples e de menor
+  // risco do que estender crm_move_lead para fazer isso na mesma transação.
+  async updateIeScore(leadId: string, ieScore: number): Promise<void> {
+    await this.db.from("leads").update({ ie_score: ieScore }).eq("id", leadId);
   }
 }

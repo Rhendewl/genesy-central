@@ -14,13 +14,13 @@ import {
   LogOut,
   User,
   Contact,
-  Sparkles,
   NotepadText,
   Calendar,
   KanbanSquare,
   X,
+  Sun,
+  Moon,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
 import { useGlobalStore } from "@/store";
 import { getSupabaseClient } from "@/lib/supabase";
 import { useCurrentMember } from "@/context/CurrentMemberContext";
@@ -42,7 +42,6 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/clientes",      label: "Clientes",     icon: Contact,         exactMatch: false, permKey: "clientes"     },
   { href: "/financeiro",    label: "Financeiro",   icon: Wallet,          exactMatch: false, permKey: "financeiro"   },
   { href: "/trafego",       label: "Tráfego",      icon: TrendingUp,      exactMatch: false, permKey: "trafego"      },
-  { href: "/criativos",     label: "Criativos",    icon: Sparkles,        exactMatch: false, permKey: "criativos"    },
   { href: "/formularios",   label: "Formulários",  icon: NotepadText,     exactMatch: false, permKey: "formularios"  },
   { href: "/agendamentos",  label: "Agenda",       icon: Calendar,        exactMatch: false, permKey: "agendamentos" },
   { href: "/configuracoes", label: "Configurações",icon: Settings,        exactMatch: false, permKey: "configuracoes"},
@@ -89,19 +88,19 @@ function HamburgerIcon({ isOpen }: { isOpen: boolean }) {
     >
       <motion.span
         className="absolute left-0 right-0 rounded-full"
-        style={{ top: 0, height: 1.5, backgroundColor: "rgba(255,255,255,0.88)", transformOrigin: "center" }}
+        style={{ top: 0, height: 1.5, backgroundColor: "color-mix(in srgb, var(--text-title) 88%, transparent)", transformOrigin: "center" }}
         animate={isOpen ? { y: 6.25, rotate: 45 } : { y: 0, rotate: 0 }}
         transition={{ duration: 0.24, ease: IOS_SPRING as [number, number, number, number] }}
       />
       <motion.span
         className="absolute left-0 rounded-full"
-        style={{ top: "50%", marginTop: "-0.75px", height: 1.5, width: 13, backgroundColor: "rgba(255,255,255,0.50)" }}
+        style={{ top: "50%", marginTop: "-0.75px", height: 1.5, width: 13, backgroundColor: "color-mix(in srgb, var(--text-title) 50%, transparent)" }}
         animate={isOpen ? { opacity: 0, x: -4 } : { opacity: 1, x: 0 }}
         transition={{ duration: 0.14 }}
       />
       <motion.span
         className="absolute left-0 right-0 rounded-full"
-        style={{ bottom: 0, height: 1.5, backgroundColor: "rgba(255,255,255,0.88)", transformOrigin: "center" }}
+        style={{ bottom: 0, height: 1.5, backgroundColor: "color-mix(in srgb, var(--text-title) 88%, transparent)", transformOrigin: "center" }}
         animate={isOpen ? { y: -6.25, rotate: -45 } : { y: 0, rotate: 0 }}
         transition={{ duration: 0.24, ease: IOS_SPRING as [number, number, number, number] }}
       />
@@ -132,14 +131,11 @@ function NavigationItem({ href, label, icon: Icon, exactMatch, pathname, onNavig
         aria-current={active ? "page" : undefined}
       >
         <div
-          className={cn(
-            "relative flex items-center gap-3.5 px-4 rounded-2xl transition-all duration-200 active:scale-[0.97]",
-            active
-              ? "bg-white/[0.10] border border-white/[0.11]"
-              : "border border-transparent hover:bg-white/[0.05]",
-          )}
+          className="relative flex items-center gap-3.5 px-4 rounded-2xl transition-all duration-200 active:scale-[0.97] border"
           style={{
-            minHeight: 54,
+            minHeight:   54,
+            background:  active ? "var(--hover)" : "transparent",
+            borderColor: active ? "var(--glass-border)" : "transparent",
             ...(active ? {
               boxShadow: "0 2px 14px rgba(0,0,0,0.20), inset 0 1px 0 rgba(255,255,255,0.07)",
             } : undefined),
@@ -148,7 +144,7 @@ function NavigationItem({ href, label, icon: Icon, exactMatch, pathname, onNavig
           {active && (
             <span
               className="pointer-events-none absolute inset-0 rounded-2xl"
-              style={{ background: "radial-gradient(circle at 28% 50%, rgba(255,255,255,0.065) 0%, transparent 70%)" }}
+              style={{ background: "radial-gradient(circle at 28% 50%, var(--hover) 0%, transparent 70%)" }}
               aria-hidden="true"
             />
           )}
@@ -156,7 +152,7 @@ function NavigationItem({ href, label, icon: Icon, exactMatch, pathname, onNavig
             size={19}
             strokeWidth={active ? 2.1 : 1.7}
             style={{
-              color:     active ? "#ffffff" : "rgba(255,255,255,0.44)",
+              color:     active ? "var(--text-title)" : "var(--icon)",
               flexShrink: 0,
               position:  "relative",
               zIndex:    1,
@@ -165,7 +161,7 @@ function NavigationItem({ href, label, icon: Icon, exactMatch, pathname, onNavig
           <span
             className="text-[14px] font-medium leading-none"
             style={{
-              color:    active ? "#ffffff" : "rgba(255,255,255,0.52)",
+              color:    active ? "var(--text-title)" : "var(--text-body)",
               position: "relative",
               zIndex:   1,
             }}
@@ -175,6 +171,47 @@ function NavigationItem({ href, label, icon: Icon, exactMatch, pathname, onNavig
         </div>
       </Link>
     </motion.div>
+  );
+}
+
+// ─── ThemeToggleRow ───────────────────────────────────────────────────────────
+
+function ThemeToggleRow() {
+  const theme = useGlobalStore((s) => s.theme);
+  const toggleTheme = useGlobalStore((s) => s.toggleTheme);
+  const isLight = theme === "light";
+
+  return (
+    <button
+      onClick={toggleTheme}
+      aria-label={isLight ? "Mudar para tema escuro" : "Mudar para tema claro"}
+      className="flex items-center gap-3.5 w-full px-4 rounded-2xl transition-all duration-200 active:scale-[0.97] mb-0.5"
+      style={{
+        minHeight:  54,
+        border:     "1px solid transparent",
+        color:      "var(--icon)",
+        background: "transparent",
+        cursor:     "pointer",
+      }}
+      onMouseEnter={e => {
+        const t = e.currentTarget;
+        t.style.background  = "var(--hover)";
+        t.style.borderColor = "var(--glass-border)";
+      }}
+      onMouseLeave={e => {
+        const t = e.currentTarget;
+        t.style.background   = "transparent";
+        t.style.borderColor  = "transparent";
+      }}
+    >
+      {isLight
+        ? <Moon size={19} strokeWidth={1.7} style={{ flexShrink: 0 }} />
+        : <Sun  size={19} strokeWidth={1.7} style={{ flexShrink: 0 }} />
+      }
+      <span className="text-[14px] font-medium leading-none">
+        {isLight ? "Tema escuro" : "Tema claro"}
+      </span>
+    </button>
   );
 }
 
@@ -217,11 +254,11 @@ function MobileHeader({ isOpen, onOpen, onClose }: MobileHeaderProps) {
       <header
         className="flex items-center justify-between w-full h-14 px-4 rounded-[22px]"
         style={{
-          background:           "rgba(10,10,12,0.10)",
+          background:           "var(--dock-bg)",
           backdropFilter:       "blur(30px) saturate(170%)",
           WebkitBackdropFilter: "blur(30px) saturate(170%)",
-          border:               "1px solid rgba(255,255,255,0.085)",
-          boxShadow:            "0 8px 32px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.045)",
+          border:               "1px solid var(--glass-border)",
+          boxShadow:            "var(--dock-shadow)",
         }}
       >
         {/* Hamburger button */}
@@ -235,9 +272,9 @@ function MobileHeader({ isOpen, onOpen, onClose }: MobileHeaderProps) {
             width:       40,
             height:      40,
             flexShrink:  0,
-            background:  isOpen ? "rgba(255,255,255,0.07)" : "transparent",
+            background:  isOpen ? "var(--hover)" : "transparent",
             border:      "1px solid",
-            borderColor: isOpen ? "rgba(255,255,255,0.09)" : "transparent",
+            borderColor: isOpen ? "var(--glass-border)" : "transparent",
           }}
         >
           <HamburgerIcon isOpen={isOpen} />
@@ -343,11 +380,11 @@ function MobileSidebar({
             className="md:hidden fixed left-0 top-0 bottom-0 z-[100] flex flex-col"
             style={{
               width:                "min(82vw, 340px)",
-              background:           "rgba(12,12,18,0.05)",
+              background:           "var(--dock-bg)",
               backdropFilter:       "blur(48px) saturate(200%)",
               WebkitBackdropFilter: "blur(48px) saturate(200%)",
-              borderRight:          "1px solid rgba(255,255,255,0.12)",
-              boxShadow:            "8px 0 48px rgba(0,0,0,0.40), inset -1px 0 0 rgba(255,255,255,0.06)",
+              borderRight:          "1px solid var(--glass-border)",
+              boxShadow:            "var(--dock-shadow)",
             }}
             onTouchStart={onTouchStart}
             onTouchEnd={onTouchEnd}
@@ -358,7 +395,7 @@ function MobileSidebar({
               style={{
                 paddingTop:    "calc(env(safe-area-inset-top, 0px) + 1.25rem)",
                 paddingBottom: "1rem",
-                borderBottom:  "1px solid rgba(255,255,255,0.10)",
+                borderBottom:  "1px solid var(--glass-border)",
               }}
             >
               <img
@@ -375,9 +412,9 @@ function MobileSidebar({
                   width:       36,
                   height:      36,
                   flexShrink:  0,
-                  background:  "rgba(255,255,255,0.055)",
-                  border:      "1px solid rgba(255,255,255,0.07)",
-                  color:       "rgba(255,255,255,0.50)",
+                  background:  "var(--hover)",
+                  border:      "1px solid var(--glass-border)",
+                  color:       "var(--icon)",
                   cursor:      "pointer",
                 }}
               >
@@ -407,15 +444,16 @@ function MobileSidebar({
               ))}
             </motion.nav>
 
-            {/* Footer — logout */}
+            {/* Footer — tema + logout */}
             <div
               className="flex-shrink-0 px-3"
               style={{
                 paddingTop:    "0.75rem",
                 paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 1.25rem)",
-                borderTop:     "1px solid rgba(255,255,255,0.10)",
+                borderTop:     "1px solid var(--glass-border)",
               }}
             >
+              <ThemeToggleRow />
               <button
                 onClick={onSignOut}
                 disabled={isSigningOut}
@@ -424,7 +462,7 @@ function MobileSidebar({
                 style={{
                   minHeight:  54,
                   border:     "1px solid transparent",
-                  color:      "rgba(255,255,255,0.38)",
+                  color:      "var(--icon)",
                   background: "transparent",
                   cursor:     "pointer",
                 }}
@@ -438,7 +476,7 @@ function MobileSidebar({
                   const t = e.currentTarget;
                   t.style.background   = "transparent";
                   t.style.borderColor  = "transparent";
-                  t.style.color        = "rgba(255,255,255,0.38)";
+                  t.style.color        = "var(--icon)";
                 }}
               >
                 {isSigningOut

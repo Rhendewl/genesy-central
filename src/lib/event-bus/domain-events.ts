@@ -7,6 +7,11 @@ export type DomainEventType =
   | "lead.deleted"
   | "lead.stage.entered"
   | "lead.stage.left"
+  // CRM module — workflow engine triggers (Fase 1 do motor de automação)
+  | "lead.deal.won"
+  | "lead.deal.lost"
+  | "lead.tag.added"
+  | "lead.tag.removed"
   // Appointments module — calendar lifecycle
   | "calendar.created"
   | "calendar.updated"
@@ -17,6 +22,7 @@ export type DomainEventType =
   | "booking.cancelled"
   | "booking.completed"
   | "booking.rescheduled"
+  | "booking.no_show"
   // Workspace module — task lifecycle (Fase 3 conecta os publish(); os tipos
   // abaixo além destes 3 — task.commented, task.mentioned,
   // task.checklist_completed, task.priority_changed, task.due_date_changed,
@@ -60,6 +66,29 @@ export interface LeadStageLeftPayload {
   userId:     string;
 }
 
+// ── CRM — workflow engine trigger payloads ────────────────────────────────────
+
+export interface LeadDealWonPayload {
+  leadId:     string;
+  pipelineId: string;
+  stageId:    string;
+  dealValue:  number | null;
+  userId:     string;
+}
+
+export interface LeadDealLostPayload {
+  leadId:     string;
+  pipelineId: string;
+  stageId:    string;
+  userId:     string;
+}
+
+export interface LeadTagChangedPayload {
+  leadId: string;
+  tagId:  string;
+  userId: string;
+}
+
 // ── Appointments module payloads ──────────────────────────────────────────────
 
 export interface CalendarCreatedPayload {
@@ -98,12 +127,21 @@ export interface BookingEventPayload {
   visitorPhone: string | null;
   startsAt:     string;
   attribution:  Record<string, unknown>;
+  /**
+   * Null at booking.created time (o sync CRM ainda não rodou nesta mesma
+   * request). Populado a partir de booking.confirmed/completed/cancelled/
+   * no_show em diante, quando `appointment_bookings.lead_id` já existe.
+   */
+  leadId:       string | null;
 }
 
 // Per-event aliases — all identical in shape today; kept separate so each
 // event can evolve its payload independently in the future.
 export type BookingCreatedPayload   = BookingEventPayload;
 export type BookingConfirmedPayload = BookingEventPayload;
+export type BookingCompletedPayload = BookingEventPayload;
+export type BookingCancelledPayload = BookingEventPayload;
+export type BookingNoShowPayload    = BookingEventPayload;
 
 // ── Workspace module — task lifecycle payloads ────────────────────────────────
 // assigneeIds carrega TODOS os responsáveis da tarefa; actorUserId é quem

@@ -5,7 +5,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import {
   Search, X, Loader2, Inbox, RefreshCw,
   Check, CheckCircle2, UserX, Copy, ExternalLink,
-  ChevronLeft, ChevronRight, Filter,
+  ChevronLeft, ChevronRight, Filter, Trash2,
 } from "lucide-react";
 import { useCalendars } from "@/hooks/useCalendars";
 import type {
@@ -52,7 +52,7 @@ const VALID_NEXT: Partial<Record<string, BookingStatus[]>> = {
   rescheduled: ["cancelled"],
 };
 
-const COL = "1.6fr 1.6fr 0.9fr 1.2fr 0.8fr 0.6fr 0.95fr 0.95fr";
+const COL = "24px 1.6fr 1.6fr 0.9fr 1.2fr 0.8fr 0.6fr 0.95fr 0.95fr";
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -101,7 +101,7 @@ function SectionHead({ title }: { title: string }) {
 function InfoRow({ label, value }: { label: string; value?: string | null }) {
   if (!value) return null;
   return (
-    <div className="flex justify-between items-start gap-4 py-1.5" style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+    <div className="flex justify-between items-start gap-4 py-1.5" style={{ borderBottom: "1px solid var(--border)" }}>
       <span className="text-xs flex-shrink-0" style={{ color: "var(--muted-foreground)" }}>{label}</span>
       <span className="text-xs font-medium text-right break-all" style={{ color: "var(--text-title)" }}>{value}</span>
     </div>
@@ -110,7 +110,7 @@ function InfoRow({ label, value }: { label: string; value?: string | null }) {
 
 function TimelineItem({ label, date, dot, sub }: { label: string; date: string; dot: string; sub?: string }) {
   return (
-    <div className="flex items-start gap-2.5 py-1.5" style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+    <div className="flex items-start gap-2.5 py-1.5" style={{ borderBottom: "1px solid var(--border)" }}>
       <div className="w-1.5 h-1.5 rounded-full flex-shrink-0 mt-1" style={{ background: dot }} />
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between gap-2">
@@ -227,7 +227,7 @@ function HistoryTab({ bookingId, fallback }: { bookingId: string; fallback: Book
         <InfoRow label="Reagend. de" value={fallback.rescheduled_from_id} />
       )}
       {fallback.google_event_id && (
-        <div className="py-1.5" style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+        <div className="py-1.5" style={{ borderBottom: "1px solid var(--border)" }}>
           <div className="flex items-center justify-between">
             <span className="text-xs" style={{ color: "var(--muted-foreground)" }}>Google Event</span>
             <button
@@ -264,11 +264,13 @@ function BookingDrawer({
   calendarCustomFields,
   onClose,
   onStatusChange,
+  onDeleted,
 }: {
   booking: BookingWithCalendar;
   calendarCustomFields: AppointmentCustomField[];
   onClose: () => void;
   onStatusChange: (updated: BookingWithCalendar) => void;
+  onDeleted: (bookingId: string) => void;
 }) {
   const [booking,       setBooking]       = useState(initialBooking);
   const [tab,           setTab]           = useState<DrawerTab>("info");
@@ -277,6 +279,9 @@ function BookingDrawer({
   const [cancelMode,    setCancelMode]    = useState(false);
   const [cancelReason,  setCancelReason]  = useState("");
   const [copied,        setCopied]        = useState(false);
+  const [deleteArmed,   setDeleteArmed]   = useState(false);
+  const [isDeleting,    setIsDeleting]    = useState(false);
+  const [deleteError,   setDeleteError]   = useState<string | null>(null);
 
   useEffect(() => { setBooking(initialBooking); }, [initialBooking]);
 
@@ -303,6 +308,22 @@ function BookingDrawer({
       setActionError(err instanceof Error ? err.message : "Erro desconhecido");
     } finally {
       setActionLoading(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!deleteArmed) { setDeleteArmed(true); return; }
+    setIsDeleting(true);
+    setDeleteError(null);
+    try {
+      const res  = await fetch(`/api/appointments/bookings/${booking.id}`, { method: "DELETE" });
+      const data = await res.json() as { error?: string };
+      if (!res.ok) throw new Error(data.error ?? "Erro ao excluir");
+      onDeleted(booking.id);
+      onClose();
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : "Erro desconhecido");
+      setIsDeleting(false);
     }
   };
 
@@ -336,7 +357,7 @@ function BookingDrawer({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="flex-1"
+        className="flex-1 lc-scrim"
         style={{ background: "rgba(0,0,0,0.55)", backdropFilter: "blur(4px)" }}
         onClick={onClose}
       />
@@ -348,12 +369,12 @@ function BookingDrawer({
         exit={{ x: "100%" }}
         transition={{ type: "spring", damping: 28, stiffness: 280 }}
         className="w-full max-w-md h-full flex flex-col flex-shrink-0 lc-modal-panel"
-        style={{ borderLeft: "1px solid rgba(255,255,255,0.08)" }}
+        style={{ borderLeft: "1px solid var(--border-modal)" }}
       >
         {/* ── Header ─────────────────────────────────────────────────────── */}
         <div
           className="sticky top-0 z-10 flex items-center gap-3 px-5 py-4 flex-shrink-0"
-          style={{ background: "rgba(0,0,0,0.78)", borderBottom: "1px solid rgba(255,255,255,0.08)" }}
+          style={{ background: "var(--bg-modal)", borderBottom: "1px solid var(--border-modal)" }}
         >
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold truncate" style={{ color: "var(--text-title)" }}>
@@ -366,7 +387,7 @@ function BookingDrawer({
           <StatusBadge status={booking.status} />
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg hover:bg-white/5 transition-colors flex-shrink-0"
+            className="p-1.5 rounded-lg hover:bg-[var(--hover)] transition-colors flex-shrink-0"
           >
             <X size={14} style={{ color: "var(--muted-foreground)" }} />
           </button>
@@ -376,7 +397,7 @@ function BookingDrawer({
         {(nextStatuses.length > 0 || booking.meeting_url) && !cancelMode && (
           <div
             className="px-5 py-2.5 flex flex-wrap gap-2 flex-shrink-0"
-            style={{ borderBottom: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.02)" }}
+            style={{ borderBottom: "1px solid var(--border)", background: "var(--hover)" }}
           >
             {actionLoading ? (
               <Loader2 size={14} className="animate-spin self-center" style={{ color: "var(--muted-foreground)" }} />
@@ -428,14 +449,14 @@ function BookingDrawer({
               placeholder="Motivo do cancelamento (opcional)"
               rows={2}
               className="w-full px-2.5 py-1.5 text-xs rounded-lg outline-none resize-none"
-              style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: "var(--text-title)" }}
+              style={{ background: "var(--input)", border: "1px solid var(--border)", color: "var(--text-title)" }}
             />
             <div className="flex gap-2">
               <button
                 type="button"
                 onClick={() => { setCancelMode(false); setCancelReason(""); }}
                 className="flex-1 py-1.5 text-xs rounded-lg font-medium"
-                style={{ background: "rgba(255,255,255,0.07)", color: "var(--muted-foreground)" }}
+                style={{ background: "var(--hover)", color: "var(--muted-foreground)" }}
               >
                 Voltar
               </button>
@@ -462,7 +483,7 @@ function BookingDrawer({
         {/* ── Tab bar ──────────────────────────────────────────────────────── */}
         <div
           className="flex flex-shrink-0 overflow-x-auto scrollbar-none"
-          style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}
+          style={{ borderBottom: "1px solid var(--border)" }}
         >
           {DRAWER_TABS.map(t => (
             <button
@@ -502,7 +523,7 @@ function BookingDrawer({
                   <p className="text-[11px] mb-1.5" style={{ color: "var(--muted-foreground)" }}>Observações</p>
                   <p
                     className="text-xs p-3 rounded-xl leading-relaxed"
-                    style={{ background: "rgba(255,255,255,0.04)", border: "1px solid var(--border)", color: "var(--text-title)" }}
+                    style={{ background: "var(--hover)", border: "1px solid var(--border)", color: "var(--text-title)" }}
                   >
                     {booking.visitor_notes}
                   </p>
@@ -535,7 +556,7 @@ function BookingDrawer({
                 </div>
               ) : (
                 customFieldEntries.map(({ key, label, value }) => (
-                  <div key={key} className="py-2" style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+                  <div key={key} className="py-2" style={{ borderBottom: "1px solid var(--border)" }}>
                     <p className="text-[11px] mb-0.5" style={{ color: "var(--muted-foreground)" }}>{label}</p>
                     <p className="text-xs font-medium" style={{ color: "var(--text-title)" }}>
                       {Array.isArray(value) ? value.join(", ") : String(value ?? "—")}
@@ -591,6 +612,40 @@ function BookingDrawer({
             <HistoryTab bookingId={booking.id} fallback={booking} />
           )}
         </div>
+
+        {/* ── Excluir (zona de perigo) — exclusão permanente, qualquer status ── */}
+        <div
+          className="px-5 py-3 flex-shrink-0 flex items-center justify-end gap-2"
+          style={{ borderTop: "1px solid var(--border)" }}
+        >
+          {deleteError && (
+            <p className="text-[11px] flex-1" style={{ color: "#ef4444" }}>{deleteError}</p>
+          )}
+          {deleteArmed && !isDeleting && (
+            <button
+              type="button"
+              onClick={() => setDeleteArmed(false)}
+              className="text-xs px-3 py-1.5 rounded-lg"
+              style={{ background: "var(--hover)", color: "var(--muted-foreground)" }}
+            >
+              Voltar
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => void handleDelete()}
+            disabled={isDeleting}
+            className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-medium transition-all disabled:opacity-50"
+            style={{
+              background: deleteArmed ? "#ef4444" : "transparent",
+              color: deleteArmed ? "#fff" : "#ef4444",
+              border: `1px solid rgba(239,68,68,${deleteArmed ? 0 : 0.25})`,
+            }}
+          >
+            {isDeleting ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
+            {deleteArmed ? "Confirmar exclusão" : "Excluir agendamento"}
+          </button>
+        </div>
       </motion.div>
     </div>
   );
@@ -621,6 +676,13 @@ export function BookingsTable({
   const [toDate,       setToDate]       = useState(initialToDate ?? "");
   const [selected,     setSelected]     = useState<BookingWithCalendar | null>(null);
 
+  // ── Seleção em lote ──────────────────────────────────────────────────────
+  const [selectedIds,      setSelectedIds]      = useState<Set<string>>(new Set());
+  const [bulkDeleteArmed,  setBulkDeleteArmed]  = useState(false);
+  const [isBulkDeleting,   setIsBulkDeleting]   = useState(false);
+  const [bulkDeleteError,  setBulkDeleteError]  = useState<string | null>(null);
+  const headerCheckboxRef = useRef<HTMLInputElement>(null);
+
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const abortRef    = useRef<AbortController | null>(null);
 
@@ -644,7 +706,7 @@ export function BookingsTable({
     abortRef.current = controller;
 
     if (silent) setIsRefreshing(true);
-    else        setIsLoading(true);
+    else        { setIsLoading(true); setSelectedIds(new Set()); }
     setError(null);
 
     try {
@@ -680,6 +742,73 @@ export function BookingsTable({
     setSelected(updated);
   };
 
+  const handleDeleted = (bookingId: string) => {
+    setBookings(prev => prev.filter(b => b.id !== bookingId));
+    setTotal(prev => Math.max(0, prev - 1));
+    setSelected(null);
+  };
+
+  // ── Seleção em lote ──────────────────────────────────────────────────────
+
+  const allOnPageSelected  = bookings.length > 0 && bookings.every(b => selectedIds.has(b.id));
+  const someOnPageSelected = bookings.some(b => selectedIds.has(b.id));
+
+  useEffect(() => {
+    if (headerCheckboxRef.current) {
+      headerCheckboxRef.current.indeterminate = someOnPageSelected && !allOnPageSelected;
+    }
+  }, [someOnPageSelected, allOnPageSelected]);
+
+  const toggleOne = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAllOnPage = () => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (allOnPageSelected) bookings.forEach(b => next.delete(b.id));
+      else                   bookings.forEach(b => next.add(b.id));
+      return next;
+    });
+  };
+
+  const handleBulkDelete = async () => {
+    if (!bulkDeleteArmed) { setBulkDeleteArmed(true); return; }
+    setIsBulkDeleting(true);
+    setBulkDeleteError(null);
+    try {
+      const res  = await fetch("/api/appointments/bookings/bulk-delete", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ ids: Array.from(selectedIds) }),
+      });
+      const data = await res.json() as {
+        deleted?: string[];
+        failed?:  Array<{ id: string; error: string }>;
+        error?:   string;
+      };
+      if (!res.ok) throw new Error(data.error ?? "Erro ao excluir");
+
+      const deletedSet = new Set(data.deleted ?? []);
+      setBookings(prev => prev.filter(b => !deletedSet.has(b.id)));
+      setTotal(prev => Math.max(0, prev - deletedSet.size));
+      setSelectedIds(new Set());
+      setBulkDeleteArmed(false);
+
+      if (data.failed?.length) {
+        setBulkDeleteError(`${data.failed.length} agendamento${data.failed.length !== 1 ? "s" : ""} não pôde${data.failed.length !== 1 ? "ram" : ""} ser excluído${data.failed.length !== 1 ? "s" : ""}`);
+      }
+    } catch (err) {
+      setBulkDeleteError(err instanceof Error ? err.message : "Erro desconhecido");
+    } finally {
+      setIsBulkDeleting(false);
+    }
+  };
+
   // Filter change helpers — reset page in the same call to avoid double-fetch
   const changeCalendarId = (v: string) => { setCalendarId(v); setPage(0); };
   const changeStatus     = (v: string) => { setStatus(v);     setPage(0); };
@@ -707,7 +836,7 @@ export function BookingsTable({
       {/* ── Filter bar ────────────────────────────────────────────────────── */}
       <div
         className="flex flex-wrap gap-2 p-3 rounded-xl mb-3"
-        style={{ background: "rgba(255,255,255,0.03)", border: "1px solid var(--border)" }}
+        style={{ background: "var(--hover)", border: "1px solid var(--border)" }}
       >
         <div className="relative flex-1 min-w-[160px]">
           <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: "var(--muted-foreground)" }} />
@@ -760,7 +889,7 @@ export function BookingsTable({
           <button
             type="button" onClick={clearFilters}
             className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs transition-colors"
-            style={{ color: "var(--muted-foreground)", background: "rgba(255,255,255,0.04)" }}
+            style={{ color: "var(--muted-foreground)", background: "var(--hover)" }}
           >
             <Filter size={11} />
             Limpar
@@ -772,7 +901,7 @@ export function BookingsTable({
           onClick={() => void fetchBookings(true)}
           disabled={isRefreshing || isLoading}
           className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs transition-colors disabled:opacity-40"
-          style={{ color: "var(--muted-foreground)", background: "rgba(255,255,255,0.04)" }}
+          style={{ color: "var(--muted-foreground)", background: "var(--hover)" }}
           title="Atualizar"
         >
           <RefreshCw size={11} className={isRefreshing ? "animate-spin" : ""} />
@@ -797,7 +926,7 @@ export function BookingsTable({
               type="button"
               onClick={() => setPage(p => Math.max(p - 1, 0))}
               disabled={page === 0}
-              className="p-1.5 rounded-lg disabled:opacity-30 hover:bg-white/5 transition-colors"
+              className="p-1.5 rounded-lg disabled:opacity-30 hover:bg-[var(--hover)] transition-colors"
             >
               <ChevronLeft size={13} style={{ color: "var(--muted-foreground)" }} />
             </button>
@@ -808,7 +937,7 @@ export function BookingsTable({
               type="button"
               onClick={() => setPage(p => Math.min(p + 1, totalPages - 1))}
               disabled={page >= totalPages - 1}
-              className="p-1.5 rounded-lg disabled:opacity-30 hover:bg-white/5 transition-colors"
+              className="p-1.5 rounded-lg disabled:opacity-30 hover:bg-[var(--hover)] transition-colors"
             >
               <ChevronRight size={13} style={{ color: "var(--muted-foreground)" }} />
             </button>
@@ -820,6 +949,54 @@ export function BookingsTable({
         <p className="text-xs mb-3 px-3 py-2 rounded-lg" style={{ color: "#ef4444", background: "rgba(239,68,68,0.08)" }}>
           {error}
         </p>
+      )}
+
+      {/* ── Barra de ação em lote ─────────────────────────────────────────── */}
+      {selectedIds.size > 0 && (
+        <div
+          className="flex items-center gap-2 mb-3 px-3 py-2 rounded-xl"
+          style={{ background: "rgba(239,68,68,0.06)", border: "1px solid rgba(239,68,68,0.2)" }}
+        >
+          <p className="text-xs font-medium" style={{ color: "var(--text-title)" }}>
+            {selectedIds.size} selecionado{selectedIds.size !== 1 ? "s" : ""}
+          </p>
+          <button
+            type="button"
+            onClick={() => { setSelectedIds(new Set()); setBulkDeleteArmed(false); }}
+            className="text-xs px-2.5 py-1 rounded-lg transition-colors"
+            style={{ color: "var(--muted-foreground)" }}
+          >
+            Limpar seleção
+          </button>
+          <div className="flex-1" />
+          {bulkDeleteError && (
+            <p className="text-[11px]" style={{ color: "#ef4444" }}>{bulkDeleteError}</p>
+          )}
+          {bulkDeleteArmed && !isBulkDeleting && (
+            <button
+              type="button"
+              onClick={() => setBulkDeleteArmed(false)}
+              className="text-xs px-2.5 py-1.5 rounded-lg"
+              style={{ background: "var(--hover)", color: "var(--muted-foreground)" }}
+            >
+              Voltar
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => void handleBulkDelete()}
+            disabled={isBulkDeleting}
+            className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-medium transition-all disabled:opacity-50"
+            style={{
+              background: bulkDeleteArmed ? "#ef4444" : "transparent",
+              color: bulkDeleteArmed ? "#fff" : "#ef4444",
+              border: `1px solid rgba(239,68,68,${bulkDeleteArmed ? 0 : 0.3})`,
+            }}
+          >
+            {isBulkDeleting ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
+            {bulkDeleteArmed ? `Confirmar exclusão (${selectedIds.size})` : "Excluir selecionados"}
+          </button>
+        </div>
       )}
 
       {/* ── Table ─────────────────────────────────────────────────────────── */}
@@ -855,9 +1032,17 @@ export function BookingsTable({
         <div className="overflow-x-auto">
           <div style={{ minWidth: "900px" }}>
             <div
-              className="grid gap-3 px-4 py-2 text-[10px] font-semibold uppercase tracking-wider mb-1"
+              className="grid gap-3 px-4 py-2 text-[10px] font-semibold uppercase tracking-wider mb-1 items-center"
               style={{ gridTemplateColumns: COL, color: "var(--muted-foreground)" }}
             >
+              <input
+                ref={headerCheckboxRef}
+                type="checkbox"
+                checked={allOnPageSelected}
+                onChange={toggleSelectAllOnPage}
+                aria-label="Selecionar todos os agendamentos desta página"
+                className="cursor-pointer"
+              />
               <span>Visitante</span>
               <span>E-mail</span>
               <span>Telefone</span>
@@ -870,21 +1055,31 @@ export function BookingsTable({
 
             <div className="space-y-0.5">
               {bookings.map(booking => (
-                <button
+                <div
                   key={booking.id}
-                  type="button"
+                  role="button"
+                  tabIndex={0}
                   onClick={() => setSelected(booking)}
-                  className="w-full text-left grid gap-3 px-4 py-2.5 rounded-xl transition-all"
+                  onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setSelected(booking); } }}
+                  className="w-full text-left grid gap-3 px-4 py-2.5 rounded-xl transition-all items-center cursor-pointer"
                   style={{ gridTemplateColumns: COL, border: "1px solid transparent" }}
                   onMouseOver={e => {
-                    e.currentTarget.style.background  = "rgba(255,255,255,0.04)";
-                    e.currentTarget.style.borderColor = "rgba(255,255,255,0.07)";
+                    e.currentTarget.style.background  = "var(--hover)";
+                    e.currentTarget.style.borderColor = "var(--border)";
                   }}
                   onMouseOut={e => {
                     e.currentTarget.style.background  = "transparent";
                     e.currentTarget.style.borderColor = "transparent";
                   }}
                 >
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.has(booking.id)}
+                    onChange={() => toggleOne(booking.id)}
+                    onClick={e => e.stopPropagation()}
+                    aria-label={`Selecionar agendamento de ${booking.visitor_name}`}
+                    className="cursor-pointer"
+                  />
                   <span className="text-xs font-medium truncate" style={{ color: "var(--text-title)" }}>
                     {booking.visitor_name}
                   </span>
@@ -907,7 +1102,7 @@ export function BookingsTable({
                   <span className="text-xs" style={{ color: "var(--muted-foreground)" }}>
                     {fmtDate(booking.created_at)}
                   </span>
-                </button>
+                </div>
               ))}
             </div>
           </div>
@@ -922,7 +1117,7 @@ export function BookingsTable({
             onClick={() => setPage(0)}
             disabled={page === 0}
             className="px-2.5 py-1.5 rounded-lg text-xs disabled:opacity-30 transition-colors"
-            style={{ color: "var(--muted-foreground)", background: "rgba(255,255,255,0.04)" }}
+            style={{ color: "var(--muted-foreground)", background: "var(--hover)" }}
           >
             « Início
           </button>
@@ -931,11 +1126,11 @@ export function BookingsTable({
             onClick={() => setPage(p => Math.max(p - 1, 0))}
             disabled={page === 0}
             className="px-2.5 py-1.5 rounded-lg text-xs disabled:opacity-30 transition-colors"
-            style={{ color: "var(--muted-foreground)", background: "rgba(255,255,255,0.04)" }}
+            style={{ color: "var(--muted-foreground)", background: "var(--hover)" }}
           >
             ‹ Anterior
           </button>
-          <span className="text-xs px-3 py-1.5 rounded-lg" style={{ color: "var(--text-title)", background: "rgba(255,255,255,0.06)" }}>
+          <span className="text-xs px-3 py-1.5 rounded-lg" style={{ color: "var(--text-title)", background: "var(--hover)" }}>
             Pág. {page + 1} / {totalPages}
           </span>
           <button
@@ -943,7 +1138,7 @@ export function BookingsTable({
             onClick={() => setPage(p => Math.min(p + 1, totalPages - 1))}
             disabled={page >= totalPages - 1}
             className="px-2.5 py-1.5 rounded-lg text-xs disabled:opacity-30 transition-colors"
-            style={{ color: "var(--muted-foreground)", background: "rgba(255,255,255,0.04)" }}
+            style={{ color: "var(--muted-foreground)", background: "var(--hover)" }}
           >
             Próxima ›
           </button>
@@ -952,7 +1147,7 @@ export function BookingsTable({
             onClick={() => setPage(totalPages - 1)}
             disabled={page >= totalPages - 1}
             className="px-2.5 py-1.5 rounded-lg text-xs disabled:opacity-30 transition-colors"
-            style={{ color: "var(--muted-foreground)", background: "rgba(255,255,255,0.04)" }}
+            style={{ color: "var(--muted-foreground)", background: "var(--hover)" }}
           >
             Final »
           </button>
@@ -968,6 +1163,7 @@ export function BookingsTable({
             calendarCustomFields={calendarCustomFields}
             onClose={() => setSelected(null)}
             onStatusChange={handleStatusChange}
+            onDeleted={handleDeleted}
           />
         )}
       </AnimatePresence>

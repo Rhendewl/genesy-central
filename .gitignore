@@ -34,3 +34,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# arquivos de mídia pessoais que não fazem parte do app (não devem ir pro deploy)
+/public/MUSICAS/

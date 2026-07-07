@@ -8,6 +8,8 @@ import { bookingResolver }                   from "@/lib/conversion-engine/event
 import { createPushNotificationConsumer }      from "@/lib/event-bus/appointments/consumers/push-notification";
 import { createCrmStageNotificationConsumer } from "@/lib/event-bus/crm/consumers/stage-notification";
 import { createTaskNotificationConsumer }     from "@/lib/event-bus/workspace/consumers/task-notification";
+import { createWorkflowJobCanceller }         from "@/lib/event-bus/workflow/canceller";
+import { createWorkflowTriggerConsumer }      from "@/lib/event-bus/workflow/consumer";
 import { createAdminSupabaseClient }          from "@/lib/supabase-admin";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -48,6 +50,11 @@ export function getPlatformEventBus(): EventBus<DomainEventType> {
   // Workspace: push notification on task.assigned/task.status_changed/task.completed
   // (scaffold da Fase 2 — nada publica esses eventos ainda, ver Fase 3)
   _bus.subscribe(createTaskNotificationConsumer(db));
+
+  // Workflow Engine (Automações) — cancela jobs obsoletos ANTES de
+  // eventualmente agendar novos para o mesmo lead (ordem importa).
+  _bus.subscribe(createWorkflowJobCanceller(db));
+  _bus.subscribe(createWorkflowTriggerConsumer(db));
 
   return _bus;
 }

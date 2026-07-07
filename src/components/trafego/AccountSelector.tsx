@@ -50,15 +50,15 @@ export function AccountSelector({ accounts, selectedAccountId, onChange, compact
           className="w-1.5 h-1.5 rounded-full shrink-0"
           style={{ background: selectedAccountId ? "#4a8fd4" : "#22c55e" }}
         />
-        <span className={cn("text-white font-medium truncate", compact ? "max-w-[100px]" : "max-w-[140px]")}>{label}</span>
+        <span className={cn("text-[var(--text-title)] font-medium truncate", compact ? "max-w-[100px]" : "max-w-[140px]")}>{label}</span>
         {accounts.length > 1 && (
-          <span className="text-[10px] text-[#5a5a5a] bg-white/5 px-1.5 py-0.5 rounded-full">
+          <span className="text-[10px] text-[var(--text-muted)] bg-[color-mix(in_srgb,var(--text-title)_5%,transparent)] px-1.5 py-0.5 rounded-full">
             {accounts.length}
           </span>
         )}
         <ChevronDown
           size={13}
-          className={cn("text-[#b4b4b4] transition-transform shrink-0", open && "rotate-180")}
+          className={cn("text-[var(--silver)] transition-transform shrink-0", open && "rotate-180")}
         />
       </button>
 
@@ -86,8 +86,8 @@ export function AccountSelector({ accounts, selectedAccountId, onChange, compact
                 <div
                   className="rounded-xl shadow-2xl"
                   style={{
-                    background: "rgba(0,0,0,0.10)",
-                    border: "1px solid rgba(255,255,255,0.10)",
+                    background: "var(--hover)",
+                    border: "1px solid var(--border)",
                     backdropFilter: "blur(24px)",
                     WebkitBackdropFilter: "blur(24px)",
                   }}
@@ -96,15 +96,15 @@ export function AccountSelector({ accounts, selectedAccountId, onChange, compact
                     onClick={() => { onChange(null); setOpen(false); }}
                     className={cn(
                       "w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm transition-colors text-left",
-                      !selectedAccountId ? "bg-white/10 text-white" : "text-[#b4b4b4] hover:bg-white/5 hover:text-white"
+                      !selectedAccountId ? "bg-[color-mix(in_srgb,var(--text-title)_10%,transparent)] text-[var(--text-title)]" : "text-[var(--silver)] hover:bg-[var(--hover)] hover:text-[var(--text-title)]"
                     )}
                   >
                     <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
                     <span className="font-medium">Todas as contas</span>
-                    {!selectedAccountId && <span className="ml-auto text-white/70 text-xs">✓</span>}
+                    {!selectedAccountId && <span className="ml-auto text-[color-mix(in_srgb,var(--text-title)_70%,transparent)] text-xs">✓</span>}
                   </button>
 
-                  <div className="mx-3 border-t" style={{ borderColor: "rgba(255,255,255,0.07)" }} />
+                  <div className="mx-3 border-t" style={{ borderColor: "var(--glass-border)" }} />
 
                   {accounts.map(acc => (
                     <button
@@ -112,21 +112,21 @@ export function AccountSelector({ accounts, selectedAccountId, onChange, compact
                       onClick={() => { onChange(acc.id); setOpen(false); }}
                       className={cn(
                         "w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm transition-colors text-left",
-                        selectedAccountId === acc.id ? "bg-white/10 text-white" : "text-[#b4b4b4] hover:bg-white/5 hover:text-white"
+                        selectedAccountId === acc.id ? "bg-[color-mix(in_srgb,var(--text-title)_10%,transparent)] text-[var(--text-title)]" : "text-[var(--silver)] hover:bg-[var(--hover)] hover:text-[var(--text-title)]"
                       )}
                     >
                       <div
                         className="w-1.5 h-1.5 rounded-full shrink-0"
                         style={{
                           background: acc.status === "connected" ? "#4a8fd4"
-                            : acc.status === "error" ? "#ef4444" : "#5a5a5a",
+                            : acc.status === "error" ? "#ef4444" : "var(--text-muted)",
                         }}
                       />
                       <div className="flex-1 min-w-0">
                         <p className="font-medium truncate leading-tight">{acc.account_name}</p>
-                        {acc.client && <p className="text-[10px] text-[#5a5a5a] truncate">{acc.client.name}</p>}
+                        {acc.client && <p className="text-[10px] text-[var(--text-muted)] truncate">{acc.client.name}</p>}
                       </div>
-                      {selectedAccountId === acc.id && <span className="ml-auto text-white/70 text-xs shrink-0">✓</span>}
+                      {selectedAccountId === acc.id && <span className="ml-auto text-[color-mix(in_srgb,var(--text-title)_70%,transparent)] text-xs shrink-0">✓</span>}
                     </button>
                   ))}
                 </div>

@@ -29,7 +29,7 @@ const META_EVENTS: { value: MetaPixelEventName; label: string }[] = [
 ];
 
 const SELECT_STYLE = {
-  background: "rgba(255,255,255,0.04)",
+  background: "var(--input)",
   border:     "1px solid var(--border)",
   color:      "var(--text-title)",
 } as const;
@@ -244,9 +244,9 @@ export function MetaPixelConversionCard({ calendarId, triggerEvent }: Props) {
                       className="w-full appearance-none rounded-lg px-3 py-2 text-sm outline-none"
                       style={SELECT_STYLE}
                     >
-                      <option value="" style={{ background: "#17172a" }}>Selecionar…</option>
+                      <option value="" style={{ background: "var(--popover)" }}>Selecionar…</option>
                       {activeSources.map(s => (
-                        <option key={s.id} value={s.id} style={{ background: "#17172a" }}>
+                        <option key={s.id} value={s.id} style={{ background: "var(--popover)" }}>
                           {s.name}
                         </option>
                       ))}
@@ -266,7 +266,7 @@ export function MetaPixelConversionCard({ calendarId, triggerEvent }: Props) {
                         style={SELECT_STYLE}
                       >
                         {META_EVENTS.map(ev => (
-                          <option key={ev.value} value={ev.value} style={{ background: "#17172a" }}>
+                          <option key={ev.value} value={ev.value} style={{ background: "var(--popover)" }}>
                             {ev.label}
                           </option>
                         ))}
@@ -282,9 +282,9 @@ export function MetaPixelConversionCard({ calendarId, triggerEvent }: Props) {
                         className="w-full appearance-none rounded-lg px-3 py-2 text-sm outline-none"
                         style={SELECT_STYLE}
                       >
-                        <option value="capi"    style={{ background: "#17172a" }}>Apenas CAPI</option>
-                        <option value="browser" style={{ background: "#17172a" }}>Apenas Pixel</option>
-                        <option value="both"    style={{ background: "#17172a" }}>CAPI + Pixel</option>
+                        <option value="capi"    style={{ background: "var(--popover)" }}>Apenas CAPI</option>
+                        <option value="browser" style={{ background: "var(--popover)" }}>Apenas Pixel</option>
+                        <option value="both"    style={{ background: "var(--popover)" }}>CAPI + Pixel</option>
                       </select>
                     </div>
                   </div>

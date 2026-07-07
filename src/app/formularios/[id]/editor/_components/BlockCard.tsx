@@ -14,7 +14,7 @@ export function BlockCard({ block, onClick }: BlockCardProps) {
   return (
     <button
       onClick={onClick}
-      className="group flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-left transition-all hover:bg-white/5"
+      className="group flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-left transition-all hover:bg-[var(--hover)]"
     >
       <div
         className="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center"

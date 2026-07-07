@@ -34,7 +34,7 @@ function AgendamentosPageContent() {
 
   if (isLoading) {
     return (
-      <div className="m-3 flex flex-col rounded-[22px]" style={{ minHeight: "calc(100dvh - 24px)", background: "rgba(0,0,0,0.31)", backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)", border: "1px solid rgba(255,255,255,0.08)" }}>
+      <div className="m-3 flex flex-col rounded-[22px] module-shell-bg" style={{ minHeight: "calc(100dvh - 24px)", background: "rgba(0,0,0,0.31)", backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)", border: "1px solid rgba(255,255,255,0.08)" }}>
         <Header title="Agendamentos" subtitle="Gerencie seus calendários de agendamento" />
         <div className="flex-1 flex items-center justify-center">
           <Loader2 size={24} className="animate-spin" style={{ color: "var(--muted-foreground)" }} />
@@ -44,7 +44,7 @@ function AgendamentosPageContent() {
   }
 
   return (
-    <div className="m-3 flex flex-col rounded-[22px] pb-24" style={{ minHeight: "calc(100dvh - 24px)", background: "rgba(0,0,0,0.31)", backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)", border: "1px solid rgba(255,255,255,0.08)" }}>
+    <div className="m-3 flex flex-col rounded-[22px] pb-24 module-shell-bg" style={{ minHeight: "calc(100dvh - 24px)", background: "rgba(0,0,0,0.31)", backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)", border: "1px solid rgba(255,255,255,0.08)" }}>
       <Header
         title="Agendamentos"
         subtitle={
@@ -143,7 +143,7 @@ function AgendamentosPageContent() {
 export default function AgendamentosPage() {
   return (
     <Suspense fallback={
-      <div className="m-3 flex flex-col rounded-[22px]" style={{ minHeight: "calc(100dvh - 24px)", background: "rgba(0,0,0,0.31)", backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)", border: "1px solid rgba(255,255,255,0.08)" }}>
+      <div className="m-3 flex flex-col rounded-[22px] module-shell-bg" style={{ minHeight: "calc(100dvh - 24px)", background: "rgba(0,0,0,0.31)", backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)", border: "1px solid rgba(255,255,255,0.08)" }}>
         <Header title="Agendamentos" subtitle="Gerencie seus calendários de agendamento" />
         <div className="flex-1 flex items-center justify-center">
           <Loader2 size={24} className="animate-spin" style={{ color: "var(--muted-foreground)" }} />

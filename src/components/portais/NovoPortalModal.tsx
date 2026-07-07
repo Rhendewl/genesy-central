@@ -163,7 +163,7 @@ export function NovoPortalModal({ open, onClose, onSave, editingPortal, onUpdate
               onClick={e => e.stopPropagation()}
             >
               {/* Header */}
-              <div className="flex items-center justify-between px-6 py-5 border-b border-white/[0.07]">
+              <div className="flex items-center justify-between px-6 py-5 border-b border-[color-mix(in_srgb,var(--text-title)_7%,transparent)]">
                 <div className="flex items-center gap-3">
                   <div
                     className="w-9 h-9 rounded-xl flex items-center justify-center"
@@ -172,15 +172,15 @@ export function NovoPortalModal({ open, onClose, onSave, editingPortal, onUpdate
                     <Globe size={17} style={{ color: "#27a3ff" }} strokeWidth={1.8} />
                   </div>
                   <div>
-                    <h2 className="text-white font-semibold text-sm">
+                    <h2 className="text-[var(--text-title)] font-semibold text-sm">
                       {editingPortal ? "Editar Portal" : "Novo Portal"}
                     </h2>
-                    <p className="text-white/40 text-xs">Dashboard público para cliente</p>
+                    <p className="text-[color-mix(in_srgb,var(--text-title)_40%,transparent)] text-xs">Dashboard público para cliente</p>
                   </div>
                 </div>
                 <button
                   onClick={onClose}
-                  className="w-8 h-8 rounded-xl flex items-center justify-center text-white/40 hover:text-white hover:bg-white/5 transition-all"
+                  className="w-8 h-8 rounded-xl flex items-center justify-center text-[color-mix(in_srgb,var(--text-title)_40%,transparent)] hover:text-[var(--text-title)] hover:bg-[var(--hover)] transition-all"
                 >
                   <X size={16} />
                 </button>
@@ -191,7 +191,7 @@ export function NovoPortalModal({ open, onClose, onSave, editingPortal, onUpdate
 
                 {/* Cliente */}
                 <div>
-                  <label className="block text-xs font-medium text-white/60 mb-2">Cliente</label>
+                  <label className="block text-xs font-medium text-[color-mix(in_srgb,var(--text-title)_60%,transparent)] mb-2">Cliente</label>
                   <div className="relative">
                     <button
                       onClick={() => setClientOpen(o => !o)}
@@ -200,10 +200,10 @@ export function NovoPortalModal({ open, onClose, onSave, editingPortal, onUpdate
                         "lc-filter-control"
                       )}
                     >
-                      <span className={selectedClient ? "text-white" : "text-white/35"}>
+                      <span className={selectedClient ? "text-[var(--text-title)]" : "text-[color-mix(in_srgb,var(--text-title)_35%,transparent)]"}>
                         {selectedClient ? selectedClient.name : "Selecionar cliente..."}
                       </span>
-                      <ChevronDown size={14} className={cn("text-white/40 transition-transform", clientOpen && "rotate-180")} />
+                      <ChevronDown size={14} className={cn("text-[color-mix(in_srgb,var(--text-title)_40%,transparent)] transition-transform", clientOpen && "rotate-180")} />
                     </button>
 
                     <AnimatePresence>
@@ -216,24 +216,24 @@ export function NovoPortalModal({ open, onClose, onSave, editingPortal, onUpdate
                             exit={{ opacity: 0, y: -4 }}
                             transition={{ duration: 0.12 }}
                             className="absolute left-0 right-0 top-full mt-1.5 z-20 rounded-xl overflow-hidden shadow-2xl"
-                            style={{ background: "rgba(10,12,20,0.96)", border: "1px solid rgba(255,255,255,0.1)" }}
+                            style={{ background: "var(--bg-tooltip)", border: "1px solid var(--border-tooltip)" }}
                           >
-                            <div className="p-2 border-b border-white/[0.06]">
+                            <div className="p-2 border-b border-[color-mix(in_srgb,var(--text-title)_6%,transparent)]">
                               <div className="flex items-center gap-2 px-2">
-                                <Search size={13} className="text-white/30 shrink-0" />
+                                <Search size={13} className="text-[color-mix(in_srgb,var(--text-title)_30%,transparent)] shrink-0" />
                                 <input
                                   autoFocus
                                   value={clientSearch}
                                   onChange={e => setClientSearch(e.target.value)}
                                   placeholder="Buscar cliente..."
-                                  className="flex-1 bg-transparent text-sm text-white placeholder-white/30 outline-none py-1"
+                                  className="flex-1 bg-transparent text-sm text-[var(--text-title)] placeholder:text-[color-mix(in_srgb,var(--text-title)_30%,transparent)] outline-none py-1"
                                 />
                               </div>
                             </div>
                             <div className="max-h-48 overflow-y-auto py-1">
                               <button
                                 onClick={() => { setSelectedClientId(null); setClientOpen(false); setClientSearch(""); }}
-                                className="w-full px-3.5 py-2 text-sm text-left text-white/50 hover:bg-white/5 hover:text-white transition-colors"
+                                className="w-full px-3.5 py-2 text-sm text-left text-[color-mix(in_srgb,var(--text-title)_50%,transparent)] hover:bg-[var(--hover)] hover:text-[var(--text-title)] transition-colors"
                               >
                                 Sem cliente
                               </button>
@@ -244,8 +244,8 @@ export function NovoPortalModal({ open, onClose, onSave, editingPortal, onUpdate
                                   className={cn(
                                     "w-full flex items-center gap-2 px-3.5 py-2 text-sm text-left transition-colors",
                                     selectedClientId === c.id
-                                      ? "bg-[#27a3ff]/10 text-white"
-                                      : "text-white/60 hover:bg-white/5 hover:text-white"
+                                      ? "bg-[#27a3ff]/10 text-[var(--text-title)]"
+                                      : "text-[color-mix(in_srgb,var(--text-title)_60%,transparent)] hover:bg-[var(--hover)] hover:text-[var(--text-title)]"
                                   )}
                                 >
                                   <span className="flex-1 truncate">{c.name}</span>
@@ -253,7 +253,7 @@ export function NovoPortalModal({ open, onClose, onSave, editingPortal, onUpdate
                                 </button>
                               ))}
                               {filteredClients.length === 0 && (
-                                <p className="px-3.5 py-3 text-sm text-white/30 text-center">Nenhum cliente encontrado</p>
+                                <p className="px-3.5 py-3 text-sm text-[color-mix(in_srgb,var(--text-title)_30%,transparent)] text-center">Nenhum cliente encontrado</p>
                               )}
                             </div>
                           </motion.div>
@@ -265,11 +265,11 @@ export function NovoPortalModal({ open, onClose, onSave, editingPortal, onUpdate
 
                 {/* Contas Meta */}
                 <div>
-                  <label className="block text-xs font-medium text-white/60 mb-2">
+                  <label className="block text-xs font-medium text-[color-mix(in_srgb,var(--text-title)_60%,transparent)] mb-2">
                     Contas de anúncios permitidas
                   </label>
                   {metaAccounts.length === 0 ? (
-                    <div className="rounded-xl border border-white/[0.07] px-4 py-3 text-sm text-white/40">
+                    <div className="rounded-xl border border-[color-mix(in_srgb,var(--text-title)_7%,transparent)] px-4 py-3 text-sm text-[color-mix(in_srgb,var(--text-title)_40%,transparent)]">
                       Nenhuma conta Meta conectada. Conecte em Tráfego → Integrações.
                     </div>
                   ) : (
@@ -284,22 +284,22 @@ export function NovoPortalModal({ open, onClose, onSave, editingPortal, onUpdate
                               "w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm text-left transition-all",
                               selected
                                 ? "bg-[#27a3ff]/10 border border-[#27a3ff]/25"
-                                : "border border-white/[0.07] hover:border-white/15 hover:bg-white/[0.03]"
+                                : "border border-[color-mix(in_srgb,var(--text-title)_7%,transparent)] hover:border-[var(--glass-border)] hover:bg-[var(--hover)]"
                             )}
                           >
                             <div
                               className="w-4 h-4 rounded flex items-center justify-center shrink-0 transition-all"
                               style={{
                                 background: selected ? "#27a3ff" : "transparent",
-                                border: selected ? "none" : "1.5px solid rgba(255,255,255,0.25)",
+                                border: selected ? "none" : "1.5px solid var(--silver-border)",
                               }}
                             >
                               {selected && <Check size={10} className="text-black" strokeWidth={3} />}
                             </div>
                             <div className="flex-1 min-w-0">
-                              <p className="text-white font-medium truncate leading-tight">{acc.account_name}</p>
+                              <p className="text-[var(--text-title)] font-medium truncate leading-tight">{acc.account_name}</p>
                               {acc.account_id && (
-                                <p className="text-white/35 text-xs">{acc.account_id}</p>
+                                <p className="text-[color-mix(in_srgb,var(--text-title)_35%,transparent)] text-xs">{acc.account_id}</p>
                               )}
                             </div>
                           </button>
@@ -311,8 +311,8 @@ export function NovoPortalModal({ open, onClose, onSave, editingPortal, onUpdate
 
                 {/* Nome do Portal */}
                 <div>
-                  <label className="block text-xs font-medium text-white/60 mb-2">
-                    Nome do Portal <span className="text-white/30">(opcional)</span>
+                  <label className="block text-xs font-medium text-[color-mix(in_srgb,var(--text-title)_60%,transparent)] mb-2">
+                    Nome do Portal <span className="text-[color-mix(in_srgb,var(--text-title)_30%,transparent)]">(opcional)</span>
                   </label>
                   <input
                     value={name}
@@ -324,11 +324,11 @@ export function NovoPortalModal({ open, onClose, onSave, editingPortal, onUpdate
 
                 {/* Slug */}
                 <div>
-                  <label className="block text-xs font-medium text-white/60 mb-2">Slug do link</label>
+                  <label className="block text-xs font-medium text-[color-mix(in_srgb,var(--text-title)_60%,transparent)] mb-2">Slug do link</label>
                   <div className="flex items-center gap-0">
                     <span
-                      className="px-3 py-2.5 text-sm text-white/40 rounded-l-xl border border-r-0 border-white/[0.08] shrink-0"
-                      style={{ background: "rgba(255,255,255,0.03)" }}
+                      className="px-3 py-2.5 text-sm text-[color-mix(in_srgb,var(--text-title)_40%,transparent)] rounded-l-xl border border-r-0 border-[color-mix(in_srgb,var(--text-title)_8%,transparent)] shrink-0"
+                      style={{ background: "var(--hover)" }}
                     >
                       /portal/
                     </span>
@@ -341,7 +341,7 @@ export function NovoPortalModal({ open, onClose, onSave, editingPortal, onUpdate
                     />
                   </div>
                   {slug && (
-                    <p className="mt-1.5 text-xs text-white/30">
+                    <p className="mt-1.5 text-xs text-[color-mix(in_srgb,var(--text-title)_30%,transparent)]">
                       Link público: <span className="text-[#27a3ff]/70">/portal/{slug}</span>
                     </p>
                   )}
@@ -349,7 +349,7 @@ export function NovoPortalModal({ open, onClose, onSave, editingPortal, onUpdate
 
                 {/* Status */}
                 <div>
-                  <label className="block text-xs font-medium text-white/60 mb-2">Status</label>
+                  <label className="block text-xs font-medium text-[color-mix(in_srgb,var(--text-title)_60%,transparent)] mb-2">Status</label>
                   <div className="flex gap-2">
                     {(["ativo", "pausado"] as const).map(s => (
                       <button
@@ -361,7 +361,7 @@ export function NovoPortalModal({ open, onClose, onSave, editingPortal, onUpdate
                             ? s === "ativo"
                               ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
                               : "bg-amber-500/10 border-amber-500/30 text-amber-400"
-                            : "border-white/[0.07] text-white/40 hover:text-white hover:border-white/15"
+                            : "border-[color-mix(in_srgb,var(--text-title)_7%,transparent)] text-[color-mix(in_srgb,var(--text-title)_40%,transparent)] hover:text-[var(--text-title)] hover:border-[var(--glass-border)]"
                         )}
                       >
                         {s.charAt(0).toUpperCase() + s.slice(1)}
@@ -379,10 +379,10 @@ export function NovoPortalModal({ open, onClose, onSave, editingPortal, onUpdate
               </div>
 
               {/* Footer */}
-              <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-white/[0.07]">
+              <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-[color-mix(in_srgb,var(--text-title)_7%,transparent)]">
                 <button
                   onClick={onClose}
-                  className="px-4 py-2 rounded-xl text-sm text-white/50 hover:text-white hover:bg-white/5 transition-all"
+                  className="px-4 py-2 rounded-xl text-sm text-[color-mix(in_srgb,var(--text-title)_50%,transparent)] hover:text-[var(--text-title)] hover:bg-[var(--hover)] transition-all"
                 >
                   Cancelar
                 </button>

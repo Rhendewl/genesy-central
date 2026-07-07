@@ -63,28 +63,28 @@ export default function ClientesPage() {
           <div
             className="rounded-[20px] overflow-hidden"
             style={{
-              background:           "rgba(8,8,12,0.72)",
+              background:           "var(--bg-modal)",
               backdropFilter:       "blur(24px) saturate(160%)",
               WebkitBackdropFilter: "blur(24px) saturate(160%)",
-              border:               "1px solid rgba(255,255,255,0.09)",
+              border:               "1px solid var(--border-modal)",
               boxShadow:            "0 4px 24px rgba(0,0,0,0.20)",
             }}
           >
             <div className="flex items-center gap-2 px-3 pt-3 pb-2.5">
-              <button onClick={prevMonth} className="w-7 h-7 rounded-lg flex items-center justify-center text-white/50 hover:text-white active:scale-90 transition-all">
+              <button onClick={prevMonth} className="w-7 h-7 rounded-lg flex items-center justify-center text-[color-mix(in_srgb,var(--text-title)_50%,transparent)] hover:text-[var(--text-title)] active:scale-90 transition-all">
                 <ChevronLeft size={13} />
               </button>
-              <span className="text-sm font-semibold text-white">
+              <span className="text-sm font-semibold text-[var(--text-title)]">
                 {MONTH_NAMES[month - 1].slice(0, 3)} {year}
               </span>
               {isCurrentMonth && (
                 <span className="text-[10px] text-[#4a8fd4] bg-[#4a8fd4]/10 px-1.5 py-0.5 rounded-full font-medium">atual</span>
               )}
-              <button onClick={nextMonth} disabled={isCurrentMonth} className="w-7 h-7 rounded-lg flex items-center justify-center text-white/50 disabled:opacity-30 active:scale-90 transition-all">
+              <button onClick={nextMonth} disabled={isCurrentMonth} className="w-7 h-7 rounded-lg flex items-center justify-center text-[color-mix(in_srgb,var(--text-title)_50%,transparent)] disabled:opacity-30 active:scale-90 transition-all">
                 <ChevronRight size={13} />
               </button>
             </div>
-            <div className="mx-3 h-px" style={{ background: "rgba(255,255,255,0.07)" }} />
+            <div className="mx-3 h-px" style={{ background: "var(--border)" }} />
             <div className="overflow-x-auto scrollbar-none px-2 py-2">
               <div className="flex gap-0.5 min-w-max">
                 {TABS.map(tab => (
@@ -93,11 +93,11 @@ export default function ClientesPage() {
                     onClick={() => setActiveTab(tab.id)}
                     className={cn(
                       "flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-all active:scale-95",
-                      activeTab === tab.id ? "text-white" : "text-white/50",
+                      activeTab === tab.id ? "text-[var(--text-title)]" : "text-[color-mix(in_srgb,var(--text-title)_50%,transparent)]",
                     )}
                     style={activeTab === tab.id ? {
-                      background: "rgba(255,255,255,0.14)",
-                      boxShadow:  "inset 0 1px 0 rgba(255,255,255,0.10), 0 1px 8px rgba(0,0,0,0.30)",
+                      background: "var(--segment-active-bg)",
+                      boxShadow:  "var(--segment-active-shadow)",
                     } : {}}
                   >
                     {tab.icon}
@@ -110,43 +110,35 @@ export default function ClientesPage() {
         </div>
 
         {/* ── Desktop: barra full-width (sem alterações) ─────────── */}
-        <div
-          className="hidden md:block pt-2 pb-4"
-          style={{
-            background:           "rgba(0,0,0,0.60)",
-            backdropFilter:       "blur(24px) saturate(160%)",
-            WebkitBackdropFilter: "blur(24px) saturate(160%)",
-            borderBottom:         "1px solid rgba(255,255,255,0.06)",
-          }}
-        >
+        <div className="hidden md:block pt-2 pb-4">
           <div className="flex items-center gap-2 mb-4">
-            <button onClick={prevMonth} className="w-8 h-8 rounded-xl flex items-center justify-center text-[#b4b4b4] hover:text-white hover:bg-white/5 transition-all">
+            <button onClick={prevMonth} className="w-8 h-8 rounded-xl flex items-center justify-center text-[var(--silver)] hover:text-[var(--text-title)] hover:bg-[var(--hover)] transition-all">
               <ChevronLeft size={16} />
             </button>
             <div className="lc-card px-4 py-2 flex items-center gap-2 min-w-[160px] justify-center">
-              <p className="text-white font-semibold text-sm">{MONTH_NAMES[month - 1]}</p>
-              <p className="text-[#b4b4b4] text-sm">{year}</p>
+              <p className="text-[var(--text-title)] font-semibold text-sm">{MONTH_NAMES[month - 1]}</p>
+              <p className="text-[var(--silver)] text-sm">{year}</p>
               {isCurrentMonth && (
                 <span className="text-xs text-[#4a8fd4] bg-[#4a8fd4]/10 px-2 py-0.5 rounded-full font-medium">atual</span>
               )}
             </div>
-            <button onClick={nextMonth} disabled={isCurrentMonth} className="w-8 h-8 rounded-xl flex items-center justify-center text-[#b4b4b4] hover:text-white hover:bg-white/5 transition-all disabled:opacity-30 disabled:cursor-not-allowed">
+            <button onClick={nextMonth} disabled={isCurrentMonth} className="w-8 h-8 rounded-xl flex items-center justify-center text-[var(--silver)] hover:text-[var(--text-title)] hover:bg-[var(--hover)] transition-all disabled:opacity-30 disabled:cursor-not-allowed">
               <ChevronRight size={16} />
             </button>
           </div>
           <div className="overflow-x-auto scrollbar-none">
-            <div className="flex gap-1 p-1 rounded-2xl min-w-max" style={{ background: "rgba(0,0,0,0.30)", border: "1px solid rgba(255,255,255,0.08)" }}>
+            <div className="flex gap-1 p-1 rounded-2xl min-w-max" style={{ background: "var(--glass-bg-soft)", border: "1px solid var(--glass-border)" }}>
               {TABS.map(tab => (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
                   className={cn(
                     "flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-medium transition-all whitespace-nowrap",
-                    activeTab === tab.id ? "text-white" : "text-white/50 hover:text-white hover:bg-white/[0.05]",
+                    activeTab === tab.id ? "text-[var(--text-title)]" : "text-[color-mix(in_srgb,var(--text-title)_50%,transparent)] hover:text-[var(--text-title)] hover:bg-[var(--hover)]",
                   )}
                   style={activeTab === tab.id ? {
-                    background: "rgba(255,255,255,0.14)",
-                    boxShadow:  "inset 0 1px 0 rgba(255,255,255,0.10), 0 1px 8px rgba(0,0,0,0.30)",
+                    background: "var(--segment-active-bg)",
+                    boxShadow:  "var(--segment-active-shadow)",
                   } : {}}
                 >
                   {tab.icon}

@@ -11,7 +11,7 @@ import type {
 } from "@/types/crm";
 
 const SELECT_STYLE = {
-  background: "rgba(255,255,255,0.04)",
+  background: "var(--hover)",
   border:     "1px solid var(--border)",
   color:      "var(--text-title)",
 } as const;
@@ -132,13 +132,13 @@ function StageConversionRow({ stage, sources, saved, onUpsert }: RowProps) {
   return (
     <div
       className="flex flex-col gap-3 px-5 py-4"
-      style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}
+      style={{ borderBottom: "1px solid var(--border-card)" }}
     >
       {/* Stage header row */}
       <div className="flex items-center gap-2">
         <span
           className="w-2 h-2 flex-shrink-0 rounded-full"
-          style={{ background: stage.color ?? "rgba(255,255,255,0.3)" }}
+          style={{ background: stage.color ?? "var(--icon)" }}
         />
         <p className="text-xs font-semibold flex-1" style={{ color: "var(--text-title)" }}>
           {stage.name}
@@ -151,7 +151,7 @@ function StageConversionRow({ stage, sources, saved, onUpsert }: RowProps) {
           onClick={handleToggleEnabled}
           title={form.enabled ? "Desativar conversão" : "Ativar conversão"}
           className="relative flex-shrink-0 w-8 h-4 rounded-full transition-colors"
-          style={{ background: form.enabled ? "var(--primary)" : "rgba(255,255,255,0.12)" }}
+          style={{ background: form.enabled ? "var(--primary)" : "var(--border-card-hover)" }}
         >
           <span
             className="absolute top-0.5 left-0.5 w-3 h-3 rounded-full bg-white transition-transform"
@@ -194,9 +194,9 @@ function StageConversionRow({ stage, sources, saved, onUpsert }: RowProps) {
                       className="w-full appearance-none rounded-lg px-2.5 py-1.5 text-xs outline-none"
                       style={SELECT_STYLE}
                     >
-                      <option value="" style={{ background: "#17172a" }}>Selecionar…</option>
+                      <option value="" style={{ background: "var(--background)" }}>Selecionar…</option>
                       {activeSources.map(s => (
-                        <option key={s.id} value={s.id} style={{ background: "#17172a" }}>
+                        <option key={s.id} value={s.id} style={{ background: "var(--background)" }}>
                           {s.name}
                         </option>
                       ))}
@@ -215,7 +215,7 @@ function StageConversionRow({ stage, sources, saved, onUpsert }: RowProps) {
                       style={SELECT_STYLE}
                     >
                       {META_EVENTS.map(ev => (
-                        <option key={ev.value} value={ev.value} style={{ background: "#17172a" }}>
+                        <option key={ev.value} value={ev.value} style={{ background: "var(--background)" }}>
                           {ev.label}
                         </option>
                       ))}

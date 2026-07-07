@@ -2,12 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, LayoutGrid, StickyNote, Calendar, Target } from "lucide-react";
+import { LayoutDashboard, ListChecks, StickyNote, Calendar, Target } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const SECTIONS = [
   { href: "/workspace",            label: "Dashboard",  icon: LayoutDashboard, exact: true },
-  { href: "/workspace/kanban",     label: "Kanban",     icon: LayoutGrid,      exact: false },
+  { href: "/workspace/kanban",     label: "Tarefas",    icon: ListChecks,      exact: false },
   { href: "/workspace/notas",      label: "Notas",      icon: StickyNote,      exact: false },
   { href: "/workspace/calendario", label: "Calendário", icon: Calendar,        exact: false },
   { href: "/workspace/objetivos",  label: "Objetivos",  icon: Target,          exact: false },
@@ -23,7 +23,7 @@ export function WorkspaceSubNav({ rightSlot }: WorkspaceSubNavProps) {
   return (
     <div
       className="flex flex-wrap items-center justify-between gap-2 px-4 pt-4 sm:px-6"
-      style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}
+      style={{ borderBottom: "1px solid var(--border)" }}
     >
       <div className="flex items-center gap-1">
         {SECTIONS.map((section) => {
@@ -35,7 +35,7 @@ export function WorkspaceSubNav({ rightSlot }: WorkspaceSubNavProps) {
               href={section.href}
               className={cn(
                 "flex items-center gap-1.5 px-3 pb-3 text-sm font-medium transition-colors",
-                active ? "text-white" : "text-[var(--muted-foreground)] hover:text-white/80"
+                active ? "text-[var(--text-title)]" : "text-[var(--muted-foreground)] hover:text-[var(--text-title)]"
               )}
               style={{ borderBottom: active ? "2px solid var(--primary)" : "2px solid transparent" }}
             >

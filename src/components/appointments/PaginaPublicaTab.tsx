@@ -18,7 +18,7 @@ import type {
 
 const inputCls   = "w-full px-3 py-2 rounded-xl text-sm outline-none";
 const inputStyle = {
-  background: "rgba(255,255,255,0.05)",
+  background: "var(--input)",
   border:     "1px solid var(--border)",
   color:      "var(--text-title)",
 };
@@ -48,7 +48,7 @@ function Section({
         type="button"
         onClick={() => setOpen(o => !o)}
         className="w-full flex items-center justify-between px-4 py-3"
-        style={{ background: "rgba(255,255,255,0.03)" }}
+        style={{ background: "var(--hover)" }}
       >
         <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--muted-foreground)", letterSpacing: "0.08em" }}>
           {title}
@@ -142,7 +142,7 @@ function FieldEditor({
   };
 
   return (
-    <div className="p-4 rounded-xl space-y-3" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid var(--border)" }}>
+    <div className="p-4 rounded-xl space-y-3" style={{ background: "var(--hover)", border: "1px solid var(--border)" }}>
       <div className="grid grid-cols-2 gap-3">
         <div>
           <FieldLabel>Nome do campo *</FieldLabel>
@@ -326,7 +326,7 @@ export function PaginaPublicaTab({ calendar, onSave }: PaginaPublicaTabProps) {
       {/* Preview link */}
       <div
         className="flex items-center justify-between p-3 rounded-xl"
-        style={{ background: "rgba(255,255,255,0.04)", border: "1px solid var(--border)" }}
+        style={{ background: "var(--hover)", border: "1px solid var(--border)" }}
       >
         <div>
           <p className="text-xs font-medium" style={{ color: "var(--text-title)" }}>URL pública</p>
@@ -449,7 +449,7 @@ export function PaginaPublicaTab({ calendar, onSave }: PaginaPublicaTabProps) {
                 ) : (
                   <div
                     className="flex items-center gap-2 px-3 py-2 rounded-xl"
-                    style={{ background: "rgba(255,255,255,0.03)", border: "1px solid var(--border)" }}
+                    style={{ background: "var(--hover)", border: "1px solid var(--border)" }}
                   >
                     <GripVertical size={12} style={{ color: "var(--muted-foreground)" }} className="shrink-0" />
                     <div className="flex-1 min-w-0">
@@ -470,7 +470,7 @@ export function PaginaPublicaTab({ calendar, onSave }: PaginaPublicaTabProps) {
                     <button
                       type="button"
                       onClick={() => removeField(idx)}
-                      className="p-1.5 rounded hover:bg-white/10"
+                      className="p-1.5 rounded hover:bg-[var(--hover)]"
                     >
                       <Trash2 size={12} style={{ color: "var(--muted-foreground)" }} />
                     </button>

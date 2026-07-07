@@ -38,13 +38,13 @@ function ChartTooltip({ active, payload, label }: {
   if (!active || !payload?.length) return null;
   return (
     <div className="rounded-xl px-4 py-3 shadow-xl text-xs"
-      style={{ background: "rgba(0,0,0,0.85)", border: "1px solid rgba(255,255,255,0.08)" }}>
-      <p className="text-[#b4b4b4] mb-2 font-medium">{label}</p>
+      style={{ background: "var(--chart-tooltip-bg)", border: "1px solid var(--chart-tooltip-border)" }}>
+      <p className="text-[var(--silver)] mb-2 font-medium">{label}</p>
       {payload.map(p => (
         <div key={p.name} className="flex items-center gap-2 mb-1 last:mb-0">
           <span className="w-2 h-2 rounded-full shrink-0" style={{ background: p.color }} />
-          <span className="text-[#c7e5ff]">{p.name}:</span>
-          <span className="text-white font-semibold">
+          <span className="text-[color:var(--chart-tooltip-entry)]">{p.name}:</span>
+          <span className="text-[var(--text-title)] font-semibold">
             {typeof p.value === "number" && p.name.toLowerCase().includes("mrr")
               ? fmtBRL(p.value)
               : p.name.toLowerCase().includes("%") || p.name.toLowerCase().includes("churn") || p.name.toLowerCase().includes("reten")
@@ -88,7 +88,7 @@ function KpiCard({ label, value, sub, icon, accent, trend, trendLabel, delay = 0
             "text-[10px] font-semibold px-2 py-0.5 rounded-full flex items-center gap-1",
             trend === "up" ? "text-emerald-400 bg-emerald-400/10" :
             trend === "down" ? "text-red-400 bg-red-400/10" :
-            "text-[#b4b4b4] bg-white/5"
+            "text-[var(--silver)] bg-[color-mix(in_srgb,var(--text-title)_5%,transparent)]"
           )}>
             {trend === "up" ? <ArrowUpRight size={10} /> : trend === "down" ? <ArrowDownRight size={10} /> : null}
             {trendLabel}
@@ -96,9 +96,9 @@ function KpiCard({ label, value, sub, icon, accent, trend, trendLabel, delay = 0
         )}
       </div>
       <div>
-        <p className="text-xs text-[#b4b4b4] mb-1">{label}</p>
-        <p className="text-2xl font-bold text-white leading-none">{value}</p>
-        {sub && <p className="text-xs text-[#5a5a5a] mt-1.5">{sub}</p>}
+        <p className="text-xs text-[var(--silver)] mb-1">{label}</p>
+        <p className="text-2xl font-bold text-[var(--text-title)] leading-none">{value}</p>
+        {sub && <p className="text-xs text-[var(--text-muted)] mt-1.5">{sub}</p>}
       </div>
     </motion.div>
   );
@@ -136,10 +136,10 @@ const INSIGHT_CONFIG: Record<SaudeInsight["type"], {
   },
   neutral: {
     icon: <Info size={14} />,
-    border: "border-white/10",
-    bg: "bg-white/5",
-    textColor: "text-[#b4b4b4]",
-    dot: "bg-[#b4b4b4]",
+    border: "border-[color-mix(in_srgb,var(--text-title)_10%,transparent)]",
+    bg: "bg-[color-mix(in_srgb,var(--text-title)_5%,transparent)]",
+    textColor: "text-[var(--silver)]",
+    dot: "bg-[var(--silver)]",
   },
 };
 
@@ -150,7 +150,7 @@ function cohortColor(pct: number): string {
   if (pct >= 60) return "text-[#4a8fd4] bg-[#4a8fd4]/10";
   if (pct >= 40) return "text-amber-400 bg-amber-400/10";
   if (pct > 0)   return "text-red-400 bg-red-400/10";
-  return "text-[#5a5a5a] bg-white/5";
+  return "text-[var(--text-muted)] bg-[color-mix(in_srgb,var(--text-title)_5%,transparent)]";
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -193,8 +193,8 @@ export function SaudeOperacao({ year, month }: Props) {
           style={{ background: "rgba(74,143,212,0.12)", border: "1px solid rgba(74,143,212,0.2)" }}>
           <HeartPulse size={28} style={{ color: "#4a8fd4" }} />
         </div>
-        <h3 className="text-white font-semibold text-lg mb-2">Sem dados suficientes</h3>
-        <p className="text-[#b4b4b4] text-sm max-w-xs mx-auto">
+        <h3 className="text-[var(--text-title)] font-semibold text-lg mb-2">Sem dados suficientes</h3>
+        <p className="text-[var(--silver)] text-sm max-w-xs mx-auto">
           Cadastre clientes com data de início de contrato para visualizar as métricas de saúde da operação.
         </p>
       </motion.div>
@@ -284,7 +284,7 @@ export function SaudeOperacao({ year, month }: Props) {
                 style={{ background: "rgba(74,143,212,0.15)", border: "1px solid rgba(74,143,212,0.25)" }}>
                 <Zap size={13} style={{ color: "#4a8fd4" }} />
               </div>
-              <p className="text-sm font-semibold text-white">Insights da Operação</p>
+              <p className="text-sm font-semibold text-[var(--text-title)]">Insights da Operação</p>
             </div>
             <div className="grid sm:grid-cols-2 gap-3">
               {metrics.insights.map((insight, i) => {
@@ -301,7 +301,7 @@ export function SaudeOperacao({ year, month }: Props) {
                       <span className={cn("mt-0.5 shrink-0", cfg.textColor)}>{cfg.icon}</span>
                       <div>
                         <p className={cn("text-sm font-semibold mb-0.5", cfg.textColor)}>{insight.title}</p>
-                        <p className="text-xs text-[#b4b4b4] leading-relaxed">{insight.message}</p>
+                        <p className="text-xs text-[var(--silver)] leading-relaxed">{insight.message}</p>
                       </div>
                     </div>
                   </motion.div>
@@ -325,19 +325,19 @@ export function SaudeOperacao({ year, month }: Props) {
             <TrendingUp size={13} style={{ color: "#a78bfa" }} />
           </div>
           <div>
-            <p className="text-sm font-semibold text-white">Evolução da Base</p>
-            <p className="text-[11px] text-[#5a5a5a]">Clientes ativos e cancelamentos — últimos 6 meses</p>
+            <p className="text-sm font-semibold text-[var(--text-title)]">Evolução da Base</p>
+            <p className="text-[11px] text-[var(--text-muted)]">Clientes ativos e cancelamentos — últimos 6 meses</p>
           </div>
         </div>
         <ResponsiveContainer width="100%" height={220}>
           <ComposedChart data={metrics.monthly_evolution} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
-            <XAxis dataKey="mes" tick={{ fill: "#5a5a5a", fontSize: 11 }} axisLine={false} tickLine={false} />
-            <YAxis tick={{ fill: "#5a5a5a", fontSize: 11 }} axisLine={false} tickLine={false} />
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
+            <XAxis dataKey="mes" tick={{ fill: "var(--text-muted)", fontSize: 11 }} axisLine={false} tickLine={false} />
+            <YAxis tick={{ fill: "var(--text-muted)", fontSize: 11 }} axisLine={false} tickLine={false} />
             <Tooltip content={<ChartTooltip />} />
             <Legend
               wrapperStyle={{ fontSize: "11px", paddingTop: "12px" }}
-              formatter={(v) => <span style={{ color: "#b4b4b4" }}>{v}</span>}
+              formatter={(v) => <span style={{ color: "var(--silver)" }}>{v}</span>}
             />
             <Area
               type="monotone"
@@ -365,19 +365,19 @@ export function SaudeOperacao({ year, month }: Props) {
             <Shield size={13} style={{ color: "#10b981" }} />
           </div>
           <div>
-            <p className="text-sm font-semibold text-white">Churn × Retenção</p>
-            <p className="text-[11px] text-[#5a5a5a]">Taxas mensais — últimos 6 meses</p>
+            <p className="text-sm font-semibold text-[var(--text-title)]">Churn × Retenção</p>
+            <p className="text-[11px] text-[var(--text-muted)]">Taxas mensais — últimos 6 meses</p>
           </div>
         </div>
         <ResponsiveContainer width="100%" height={200}>
           <AreaChart data={metrics.monthly_evolution} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
-            <XAxis dataKey="mes" tick={{ fill: "#5a5a5a", fontSize: 11 }} axisLine={false} tickLine={false} />
-            <YAxis tick={{ fill: "#5a5a5a", fontSize: 11 }} axisLine={false} tickLine={false} domain={[0, 100]} />
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
+            <XAxis dataKey="mes" tick={{ fill: "var(--text-muted)", fontSize: 11 }} axisLine={false} tickLine={false} />
+            <YAxis tick={{ fill: "var(--text-muted)", fontSize: 11 }} axisLine={false} tickLine={false} domain={[0, 100]} />
             <Tooltip content={<ChartTooltip />} />
             <Legend
               wrapperStyle={{ fontSize: "11px", paddingTop: "12px" }}
-              formatter={(v) => <span style={{ color: "#b4b4b4" }}>{v}</span>}
+              formatter={(v) => <span style={{ color: "var(--silver)" }}>{v}</span>}
             />
             <Area
               type="monotone"
@@ -412,16 +412,16 @@ export function SaudeOperacao({ year, month }: Props) {
             <DollarSign size={13} style={{ color: "#4a8fd4" }} />
           </div>
           <div>
-            <p className="text-sm font-semibold text-white">Receita Saudável</p>
-            <p className="text-[11px] text-[#5a5a5a]">MRR por mês — últimos 6 meses</p>
+            <p className="text-sm font-semibold text-[var(--text-title)]">Receita Saudável</p>
+            <p className="text-[11px] text-[var(--text-muted)]">MRR por mês — últimos 6 meses</p>
           </div>
         </div>
         <ResponsiveContainer width="100%" height={180}>
           <AreaChart data={metrics.monthly_evolution} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
-            <XAxis dataKey="mes" tick={{ fill: "#5a5a5a", fontSize: 11 }} axisLine={false} tickLine={false} />
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
+            <XAxis dataKey="mes" tick={{ fill: "var(--text-muted)", fontSize: 11 }} axisLine={false} tickLine={false} />
             <YAxis
-              tick={{ fill: "#5a5a5a", fontSize: 11 }}
+              tick={{ fill: "var(--text-muted)", fontSize: 11 }}
               axisLine={false} tickLine={false}
               tickFormatter={v => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)}
             />
@@ -438,7 +438,7 @@ export function SaudeOperacao({ year, month }: Props) {
         </ResponsiveContainer>
         {/* MRR breakdown */}
         <div className="grid grid-cols-3 gap-3 mt-4 pt-4"
-          style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+          style={{ borderTop: "1px solid var(--border)" }}>
           {[
             { label: "MRR Atual",       value: fmtBRL(metrics.mrr),            color: "#4a8fd4" },
             { label: "Receita Perdida", value: fmtBRL(metrics.mrr_lost),        color: "#ef4444" },
@@ -449,7 +449,7 @@ export function SaudeOperacao({ year, month }: Props) {
             },
           ].map(item => (
             <div key={item.label} className="text-center">
-              <p className="text-[10px] text-[#5a5a5a] mb-1">{item.label}</p>
+              <p className="text-[10px] text-[var(--text-muted)] mb-1">{item.label}</p>
               <p className="text-sm font-bold" style={{ color: item.color }}>{item.value}</p>
             </div>
           ))}
@@ -470,17 +470,17 @@ export function SaudeOperacao({ year, month }: Props) {
               <Target size={13} style={{ color: "#f59e0b" }} />
             </div>
             <div>
-              <p className="text-sm font-semibold text-white">Cohort de Permanência</p>
-              <p className="text-[11px] text-[#5a5a5a]">Retenção por mês de entrada</p>
+              <p className="text-sm font-semibold text-[var(--text-title)]">Cohort de Permanência</p>
+              <p className="text-[11px] text-[var(--text-muted)]">Retenção por mês de entrada</p>
             </div>
           </div>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead>
-              <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+              <tr style={{ borderBottom: "1px solid var(--border)" }}>
                 {["Entrada", "Clientes", "1 mês", "3 meses", "6 meses"].map(h => (
-                  <th key={h} className="text-left text-[#b4b4b4] font-medium px-5 py-3 whitespace-nowrap">
+                  <th key={h} className="text-left text-[var(--silver)] font-medium px-5 py-3 whitespace-nowrap">
                     {h}
                   </th>
                 ))}
@@ -493,16 +493,16 @@ export function SaudeOperacao({ year, month }: Props) {
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ delay: i * 0.04 }}
-                  style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}
-                  className="hover:bg-white/[0.02] transition-colors"
+                  style={{ borderBottom: "1px solid var(--border)" }}
+                  className="hover:bg-[var(--hover)] transition-colors"
                 >
-                  <td className="px-5 py-3 text-white font-medium capitalize">{row.mes}</td>
-                  <td className="px-5 py-3 text-[#b4b4b4]">{row.entradas || "—"}</td>
+                  <td className="px-5 py-3 text-[var(--text-title)] font-medium capitalize">{row.mes}</td>
+                  <td className="px-5 py-3 text-[var(--silver)]">{row.entradas || "—"}</td>
                   {row.entradas === 0 ? (
                     <>
-                      <td className="px-5 py-3 text-[#5a5a5a]">—</td>
-                      <td className="px-5 py-3 text-[#5a5a5a]">—</td>
-                      <td className="px-5 py-3 text-[#5a5a5a]">—</td>
+                      <td className="px-5 py-3 text-[var(--text-muted)]">—</td>
+                      <td className="px-5 py-3 text-[var(--text-muted)]">—</td>
+                      <td className="px-5 py-3 text-[var(--text-muted)]">—</td>
                     </>
                   ) : (
                     <>
@@ -544,17 +544,17 @@ export function SaudeOperacao({ year, month }: Props) {
                 <UserMinus size={13} style={{ color: "#ef4444" }} />
               </div>
               <div>
-                <p className="text-sm font-semibold text-white">Clientes Encerrados</p>
-                <p className="text-[11px] text-[#5a5a5a]">{metrics.churned_clients.length} contrato{metrics.churned_clients.length > 1 ? "s" : ""} encerrado{metrics.churned_clients.length > 1 ? "s" : ""}</p>
+                <p className="text-sm font-semibold text-[var(--text-title)]">Clientes Encerrados</p>
+                <p className="text-[11px] text-[var(--text-muted)]">{metrics.churned_clients.length} contrato{metrics.churned_clients.length > 1 ? "s" : ""} encerrado{metrics.churned_clients.length > 1 ? "s" : ""}</p>
               </div>
             </div>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                <tr style={{ borderBottom: "1px solid var(--border)" }}>
                   {["Cliente", "Entrada", "Saída", "Tempo", "Receita Gerada", "Observações", "Status"].map(h => (
-                    <th key={h} className="text-left text-xs text-[#b4b4b4] font-medium px-5 py-3 whitespace-nowrap">
+                    <th key={h} className="text-left text-xs text-[var(--silver)] font-medium px-5 py-3 whitespace-nowrap">
                       {h}
                     </th>
                   ))}
@@ -567,32 +567,32 @@ export function SaudeOperacao({ year, month }: Props) {
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     transition={{ delay: i * 0.04 }}
-                    style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}
-                    className="hover:bg-white/[0.02] transition-colors"
+                    style={{ borderBottom: "1px solid var(--border)" }}
+                    className="hover:bg-[var(--hover)] transition-colors"
                   >
                     <td className="px-5 py-3">
-                      <p className="text-white font-medium">{row.client.name}</p>
-                      <p className="text-[11px] text-[#5a5a5a]">{row.client.contact_name ?? "—"}</p>
+                      <p className="text-[var(--text-title)] font-medium">{row.client.name}</p>
+                      <p className="text-[11px] text-[var(--text-muted)]">{row.client.contact_name ?? "—"}</p>
                     </td>
-                    <td className="px-5 py-3 text-[#b4b4b4] whitespace-nowrap">
+                    <td className="px-5 py-3 text-[var(--silver)] whitespace-nowrap">
                       {row.client.contract_start
                         ? format(parseISO(row.client.contract_start), "MMM/yy", { locale: ptBR })
                         : "—"}
                     </td>
-                    <td className="px-5 py-3 text-[#b4b4b4] whitespace-nowrap">
+                    <td className="px-5 py-3 text-[var(--silver)] whitespace-nowrap">
                       {row.client.contract_end
                         ? format(parseISO(row.client.contract_end), "MMM/yy", { locale: ptBR })
                         : "—"}
                     </td>
-                    <td className="px-5 py-3 text-[#b4b4b4] whitespace-nowrap">
+                    <td className="px-5 py-3 text-[var(--silver)] whitespace-nowrap">
                       {row.tempo_meses > 0 ? `${row.tempo_meses}m` : "—"}
                     </td>
                     <td className="px-5 py-3 whitespace-nowrap">
-                      <span className={row.receita_total > 0 ? "text-white font-semibold" : "text-[#5a5a5a]"}>
+                      <span className={row.receita_total > 0 ? "text-[var(--text-title)] font-semibold" : "text-[var(--text-muted)]"}>
                         {row.receita_total > 0 ? fmtBRL(row.receita_total) : "—"}
                       </span>
                     </td>
-                    <td className="px-5 py-3 text-[#5a5a5a] text-xs max-w-[180px] truncate">
+                    <td className="px-5 py-3 text-[var(--text-muted)] text-xs max-w-[180px] truncate">
                       {row.client.notes ?? "—"}
                     </td>
                     <td className="px-5 py-3">
@@ -600,7 +600,7 @@ export function SaudeOperacao({ year, month }: Props) {
                         "text-xs font-medium px-2.5 py-1 rounded-full border",
                         row.client.status === "churned"
                           ? "text-red-400 bg-red-400/10 border-red-400/20"
-                          : "text-[#b4b4b4] bg-[#b4b4b4]/10 border-[#b4b4b4]/20"
+                          : "text-[var(--silver)] bg-[var(--silver)]/10 border-[var(--silver)]/20"
                       )}>
                         {row.client.status === "churned" ? "Churned" : "Inativo"}
                       </span>
@@ -627,8 +627,8 @@ export function SaudeOperacao({ year, month }: Props) {
               <AlertTriangle size={13} style={{ color: "#f59e0b" }} />
             </div>
             <div>
-              <p className="text-sm font-semibold text-white">Contratos Vencendo em 60 Dias</p>
-              <p className="text-[11px] text-[#5a5a5a]">Requer atenção proativa de renovação</p>
+              <p className="text-sm font-semibold text-[var(--text-title)]">Contratos Vencendo em 60 Dias</p>
+              <p className="text-[11px] text-[var(--text-muted)]">Requer atenção proativa de renovação</p>
             </div>
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -641,8 +641,8 @@ export function SaudeOperacao({ year, month }: Props) {
                 className="rounded-xl p-3.5"
                 style={{ background: "rgba(245,158,11,0.06)", border: "1px solid rgba(245,158,11,0.18)" }}
               >
-                <p className="text-white font-medium text-sm">{c.name}</p>
-                <p className="text-[11px] text-[#b4b4b4] mt-0.5">
+                <p className="text-[var(--text-title)] font-medium text-sm">{c.name}</p>
+                <p className="text-[11px] text-[var(--silver)] mt-0.5">
                   Vence: {c.contract_end
                     ? format(parseISO(c.contract_end), "dd/MM/yyyy", { locale: ptBR })
                     : "—"}

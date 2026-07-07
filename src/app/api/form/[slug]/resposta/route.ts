@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminSupabaseClient } from "@/lib/supabase-admin";
 import { LeadService } from "@/lib/crm/lead-service";
+import { LeadScoreEngine } from "@/lib/crm/lead-score-engine";
+import { extractContactFromAnswers } from "@/lib/forms/extract-contact";
 import type { FormStep } from "@/types";
 
 type Params = { params: Promise<{ slug: string }> };
@@ -12,8 +14,10 @@ type Params = { params: Promise<{ slug: string }> };
 //   - Se existe parcial → atualiza (upgrade para completed quando solicitado).
 //   - Se já está completed → retorna sem modificar (impede downgrade).
 //
-// Ao completar: tenta criar um lead no CRM automaticamente se houver
-// uma integração CRM ativa configurada para este formulário.
+// Tenta criar (ou atualizar) um lead no CRM automaticamente sempre que houver
+// uma integração CRM ativa configurada para este formulário — mesmo em
+// respostas parciais (abandono), contanto que já haja nome/telefone/e-mail
+// suficiente para identificar o contato. Ver createCrmLead().
 export async function POST(req: NextRequest, { params }: Params) {
   const { slug } = await params;
   const supabase = createAdminSupabaseClient();
@@ -122,10 +126,12 @@ export async function POST(req: NextRequest, { params }: Params) {
     submissionId = submission.id;
   }
 
-  // ── Auto-criar lead no CRM ao completar ───────────────────────────────────
-  if (isCompleted) {
-    void createCrmLead(supabase, session.form_id, session.user_id, body.answers, submissionId);
-  }
+  // ── Auto-criar (ou atualizar) lead no CRM — mesmo em respostas parciais ───
+  // Quem abandona o formulário no meio já deixou um contato identificável
+  // (nome/telefone/e-mail); o lead é criado assim que houver dado suficiente,
+  // sem esperar a conclusão. Se a pessoa completar depois, o mesmo lead é
+  // atualizado em vez de duplicado — ver createCrmLead().
+  void createCrmLead(supabase, session.form_id, session.user_id, body.answers, submissionId);
 
   return NextResponse.json(
     { submission_id: submissionId },
@@ -186,31 +192,23 @@ async function createCrmLead(
     const steps    = (formData.steps ?? []) as FormStep[];
     const formName = formData.name as string;
 
-    // 3. Extrair campos-padrão das respostas
-    let leadName:   string | null = null;
-    let leadPhone:  string | null = null;
-    let leadEmail:  string | null = null;
-    let dealValue                 = 0;
-    const noteLines: string[]     = [];
+    // 3. Extrair campos-padrão das respostas (nome/telefone/e-mail — lógica
+    // compartilhada com o bloco Calendário, que também precisa desses dados
+    // sem pedir de novo) + montar dealValue/notas com o restante das respostas.
+    const { name: leadName, phone: leadPhone, email: leadEmail, consumedStepIds } =
+      extractContactFromAnswers(steps, answers);
+    const consumedSet = new Set(consumedStepIds);
+
+    let dealValue              = 0;
+    const noteLines: string[] = [];
 
     for (const step of steps) {
       const answer = answers[step.id];
       if (answer === undefined || answer === null || answer === "") continue;
+      if (consumedSet.has(step.id)) continue;
 
       const val = Array.isArray(answer) ? answer.join(", ") : String(answer);
 
-      if (step.type === "email" && !leadEmail) {
-        leadEmail = val;
-        continue;
-      }
-      if (step.type === "phone" && !leadPhone) {
-        leadPhone = val;
-        continue;
-      }
-      if ((step.type === "short_text" || step.type === "long_text") && !leadName && /nome/i.test(step.title)) {
-        leadName = val;
-        continue;
-      }
       if (
         settings.value_mode !== "fixed" &&
         settings.value_field_id === step.id &&
@@ -222,15 +220,48 @@ async function createCrmLead(
       noteLines.push(`${step.title}: ${val}`);
     }
 
-    // Fallback: primeiro short_text como nome
-    if (!leadName) {
-      const firstText = steps.find(s => s.type === "short_text");
-      if (firstText && answers[firstText.id]) leadName = String(answers[firstText.id]);
-    }
-
     if (!leadName && !leadPhone && !leadEmail) return;
 
-    // 4. Deduplicação
+    // IQ (Inteligência de Qualificação) — calculado a partir do snapshot
+    // atual de steps+answers (ver LeadScoreEngine). Recalculado a cada save
+    // (parcial ou completo) desta mesma submissão: como respostas só se
+    // acumulam, o valor estabiliza no da submissão completa, sem precisar de
+    // um passo especial de "congelamento".
+    const iqScore = LeadScoreEngine.calculateIQ(steps, answers);
+
+    // 4. Montar notes
+    const metaLines: string[] = [`Formulário: ${formName}`];
+    if (settings.owner_name) metaLines.push(`Responsável: ${settings.owner_name}`);
+    const noteSections: string[] = [metaLines.join("\n")];
+    if (noteLines.length) noteSections.push(noteLines.join("\n"));
+    const notes = noteSections.join("\n\n") || null;
+
+    // 5. Essa submissão já gerou um lead antes (ex.: resposta parcial que já
+    // tinha nome/telefone/e-mail)? Atualiza o mesmo lead em vez de duplicar —
+    // não move de etapa/pipeline, só atualiza os dados de contato/notas.
+    const { data: existingSubmission } = await supabase
+      .from("form_submissions")
+      .select("lead_id")
+      .eq("id", submissionId)
+      .single();
+
+    if (existingSubmission?.lead_id) {
+      await supabase
+        .from("leads")
+        .update({
+          name:       leadName ?? "Sem nome",
+          contact:    leadPhone ?? leadEmail ?? "",
+          email:      leadEmail ?? null,
+          tags:       settings.tag_ids ?? [],
+          deal_value: settings.value_mode === "fixed" ? (settings.fixed_value ?? 0) : dealValue,
+          notes,
+          iq_score:   iqScore,
+        })
+        .eq("id", existingSubmission.lead_id);
+      return;
+    }
+
+    // 6. Deduplicação (só para leads novos)
     let is_duplicate = false;
     const orParts: string[] = [];
     if (leadPhone) orParts.push(`contact.eq.${leadPhone}`);
@@ -244,13 +275,6 @@ async function createCrmLead(
         .maybeSingle();
       if (dupe) is_duplicate = true;
     }
-
-    // 5. Montar notes
-    const metaLines: string[] = [`Formulário: ${formName}`];
-    if (settings.owner_name) metaLines.push(`Responsável: ${settings.owner_name}`);
-    const noteSections: string[] = [metaLines.join("\n")];
-    if (noteLines.length) noteSections.push(noteLines.join("\n"));
-    const notes = noteSections.join("\n\n") || null;
 
     const commonFields = {
       user_id:     userId,
@@ -269,6 +293,7 @@ async function createCrmLead(
       notes,
       entered_at:  new Date().toISOString().split("T")[0],
       is_duplicate,
+      iq_score:    iqScore,
     };
 
     let createdLeadId: string | null = null;
@@ -281,7 +306,11 @@ async function createCrmLead(
         ...commonFields,
         stageId: settings.stage_id!,
       });
-      if (result.ok) createdLeadId = result.leadId;
+      if (result.ok) {
+        createdLeadId = result.leadId;
+      } else {
+        console.error("[resposta/crm] LeadService.createLead falhou:", result.error);
+      }
     } else {
       // ── Legado: kanban_column — configs sem pipeline_id/stage_id ──────────
       const { data: createdLead } = await supabase
@@ -292,7 +321,7 @@ async function createCrmLead(
       if (createdLead?.id) createdLeadId = createdLead.id;
     }
 
-    // 6. Linkar lead à submissão
+    // 7. Linkar lead à submissão
     if (createdLeadId) {
       await supabase
         .from("form_submissions")

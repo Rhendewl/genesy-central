@@ -61,8 +61,8 @@ export function AgendaMobileCarousel({ days, eventsByDay, onDayClick, onEventCli
           transition={{ duration: 0.28, ease: [0.32, 0.72, 0, 1] }}
           className="flex w-full flex-col gap-1.5 rounded-2xl p-3 text-left"
           style={{
-            background: isToday(day) ? "rgba(0,0,0,0.62)" : "rgba(0,0,0,0.31)",
-            border:     `1px solid ${isToday(day) ? "rgba(255,255,255,0.18)" : "rgba(255,255,255,0.09)"}`,
+            background: isToday(day) ? "var(--glass-bg)" : "var(--glass-bg-soft)",
+            border:     `1px solid ${isToday(day) ? "var(--border-card-hover)" : "var(--border-card)"}`,
             minHeight:  120,
           }}
         >
@@ -89,7 +89,7 @@ export function AgendaMobileCarousel({ days, eventsByDay, onDayClick, onEventCli
             className="h-1 rounded-full transition-all"
             style={{
               width:      i === index ? 12 : 4,
-              background: i === index ? "var(--primary)" : "rgba(255,255,255,0.12)",
+              background: i === index ? "var(--primary)" : "var(--border)",
             }}
           />
         ))}

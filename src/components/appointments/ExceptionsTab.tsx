@@ -9,7 +9,7 @@ import type {
 
 const inputCls   = "px-2 py-1.5 rounded-lg text-sm outline-none";
 const inputStyle = {
-  background: "rgba(255,255,255,0.06)",
+  background: "var(--input)",
   border:     "1px solid var(--border)",
   color:      "var(--text-title)",
 };
@@ -62,7 +62,7 @@ export function ExceptionsTab({ exceptions, onCreate, onDelete }: ExceptionsTabP
           <div
             key={exc.id}
             className="flex items-center justify-between px-3 py-2 rounded-xl"
-            style={{ background: "rgba(255,255,255,0.04)", border: "1px solid var(--border)" }}
+            style={{ background: "var(--hover)", border: "1px solid var(--border)" }}
           >
             <div>
               <span className="text-sm font-medium" style={{ color: "var(--text-title)" }}>
@@ -83,7 +83,7 @@ export function ExceptionsTab({ exceptions, onCreate, onDelete }: ExceptionsTabP
             </div>
             <button
               onClick={() => onDelete(exc.id)}
-              className="p-1.5 rounded-lg hover:bg-white/10 transition-colors"
+              className="p-1.5 rounded-lg hover:bg-[var(--hover)] transition-colors"
             >
               <Trash2 size={13} style={{ color: "var(--muted-foreground)" }} />
             </button>
@@ -92,7 +92,7 @@ export function ExceptionsTab({ exceptions, onCreate, onDelete }: ExceptionsTabP
       </div>
 
       {showForm ? (
-        <form onSubmit={handleAdd} className="space-y-3 p-4 rounded-xl" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid var(--border)" }}>
+        <form onSubmit={handleAdd} className="space-y-3 p-4 rounded-xl" style={{ background: "var(--hover)", border: "1px solid var(--border)" }}>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs mb-1" style={{ color: "var(--muted-foreground)" }}>Data</label>

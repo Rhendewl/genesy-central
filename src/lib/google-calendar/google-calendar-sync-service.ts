@@ -17,7 +17,7 @@
 import type { SupabaseClient }          from "@supabase/supabase-js";
 import { GoogleConnectionRepository }   from "./google-connection-repository";
 import { GoogleTokenService }           from "./google-token-service";
-import { createCalendarEvent }          from "./google-calendar-service";
+import { createCalendarEvent, deleteCalendarEvent } from "./google-calendar-service";
 import type { SyncBookingPayload }      from "@/types/google-calendar";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -54,6 +54,20 @@ export class GoogleCalendarSyncService {
 
       // Update connection status
       void this.repo.updateSyncStatus(payload.userId, "error", null, msg).catch(() => undefined);
+    }
+  }
+
+  // Best-effort, non-throwing — chamado ao excluir um agendamento que já
+  // tinha sido sincronizado (google_event_id presente). Nunca bloqueia a
+  // exclusão do agendamento em si; falha aqui só fica no log.
+  async deleteBookingEvent(userId: string, googleCalendarId: string, eventId: string): Promise<void> {
+    try {
+      const connection = await this.repo.findByUserId(userId);
+      if (!connection || !connection.is_active) return;
+      const accessToken = await this.tokens.getValidAccessToken(userId);
+      await deleteCalendarEvent(accessToken, googleCalendarId, eventId);
+    } catch (err) {
+      console.error(`[GCal] Falha ao excluir evento ${eventId}:`, err instanceof Error ? err.message : err);
     }
   }
 

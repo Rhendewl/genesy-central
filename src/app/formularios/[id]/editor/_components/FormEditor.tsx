@@ -14,7 +14,7 @@ import { useFormularioEditor } from "@/hooks/useFormularioEditor";
 import { useFormularios } from "@/hooks/useFormularios";
 
 import type {
-  FormStep, FormStepType, FormWelcomeScreen, FormEnding, FormTheme,
+  FormStep, FormStepType, FormWelcomeScreen, FormEnding, FormTheme, LogicRule,
 } from "@/types";
 
 import { EditorToolbar }  from "./EditorToolbar";
@@ -127,6 +127,18 @@ export function FormEditor({ id }: FormEditorProps) {
     pushHistory(form.steps ?? []);
     editor.updateSteps((form.steps ?? []).filter(s => s.id !== stepId));
     if (selected === stepId) setSelected(null);
+
+    // Limpa regras de lógica órfãs: a pergunta removida deixa de disparar
+    // regras (elas somem) e deixa de ser um alvo válido (volta pro padrão
+    // "Próxima pergunta" nas regras de outras perguntas que apontavam pra ela).
+    const rules = form.logic_rules ?? [];
+    if (rules.some(r => r.condition.step === stepId || r.action.target === stepId)) {
+      editor.updateLogic(
+        rules
+          .filter(r => r.condition.step !== stepId)
+          .map(r => r.action.target === stepId ? { ...r, action: { type: "jump" as const, target: undefined } } : r)
+      );
+    }
   }, [form, editor, selected]);
 
   const updateStep = useCallback((stepId: string, patch: Partial<FormStep>) => {
@@ -190,10 +202,19 @@ export function FormEditor({ id }: FormEditorProps) {
 
   // ── Dados resolvidos ───────────────────────────────────────────────────────
 
-  const welcome = form.welcome_screen ?? DEFAULT_WELCOME;
-  const endings = form.endings?.length ? form.endings : [{ id: "default", title: "Obrigado!" }];
-  const steps   = form.steps ?? [];
-  const theme   = { ...DEFAULT_THEME, ...form.theme };
+  const welcome    = form.welcome_screen ?? DEFAULT_WELCOME;
+  const endings    = form.endings?.length ? form.endings : [{ id: "default", title: "Obrigado!" }];
+  const steps      = form.steps ?? [];
+  const theme      = { ...DEFAULT_THEME, ...form.theme };
+  const logicRules = form.logic_rules ?? [];
+
+  // Não usa useMemo: o form só está disponível depois dos early returns
+  // acima (isLoading/!form), então um hook aqui violaria a ordem de hooks
+  // entre renders. O array de regras é pequeno o suficiente para recalcular.
+  const logicCountByStep: Record<string, number> = {};
+  for (const rule of logicRules) {
+    logicCountByStep[rule.condition.step] = (logicCountByStep[rule.condition.step] ?? 0) + 1;
+  }
 
   const selectedStep =
     selected && selected !== "welcome" && selected !== "ending" && selected !== "theme"
@@ -233,6 +254,10 @@ export function FormEditor({ id }: FormEditorProps) {
           <BlockSettings
             step={selectedStep}
             onChange={patch => updateStep(selectedStep.id, patch)}
+            allSteps={steps}
+            endings={endings}
+            logicRules={logicRules}
+            onChangeLogic={editor.updateLogic}
           />
         </div>
       );
@@ -271,6 +296,7 @@ export function FormEditor({ id }: FormEditorProps) {
       <EditorToolbar
         formName={form.name}
         formStatus={form.status}
+        formSlug={form.slug ?? null}
         isDirty={isDirty}
         isSaving={isSaving}
         onSave={save}
@@ -288,6 +314,7 @@ export function FormEditor({ id }: FormEditorProps) {
           steps={steps}
           welcome={welcome}
           endings={endings}
+          logicCountByStep={logicCountByStep}
           selectedId={selected}
           onSelectWelcome={() => setSelected(s => s === "welcome" ? null : "welcome")}
           onSelectStep={id => setSelected(s => s === id ? null : id)}
@@ -309,8 +336,8 @@ export function FormEditor({ id }: FormEditorProps) {
         <div
           className="w-80 flex-shrink-0 border-l flex flex-col overflow-hidden"
           style={{
-            borderColor: "rgba(255,255,255,0.07)",
-            background: "rgba(10,10,10,.10)",
+            borderColor: "var(--glass-border)",
+            background: "var(--hover)",
             backdropFilter: "blur(24px)",
             WebkitBackdropFilter: "blur(24px)",
           }}
@@ -318,7 +345,7 @@ export function FormEditor({ id }: FormEditorProps) {
           {selected && (
             <div
               className="px-4 py-2.5 border-b flex items-center justify-between flex-shrink-0"
-              style={{ borderColor: "rgba(255,255,255,0.07)" }}
+              style={{ borderColor: "var(--glass-border)" }}
             >
               <span
                 className="text-[10px] font-semibold uppercase tracking-wider"

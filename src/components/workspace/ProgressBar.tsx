@@ -14,10 +14,10 @@ export function ProgressBar({ percent, showLabel = true }: ProgressBarProps) {
 
   return (
     <div className="flex items-center gap-2">
-      <div className="h-1.5 flex-1 overflow-hidden rounded-full" style={{ background: "rgba(255,255,255,0.08)" }}>
+      <div className="h-1.5 flex-1 overflow-hidden rounded-full" style={{ background: "var(--glass-border)" }}>
         <motion.div
           className="h-full rounded-full"
-          style={{ background: "linear-gradient(90deg, #26292e 0%, #b0b8c1 100%)" }}
+          style={{ background: "linear-gradient(90deg, var(--workspace-progress-from) 0%, var(--workspace-progress-to) 100%)" }}
           initial={{ width: 0 }}
           animate={{ width: `${clamped}%` }}
           transition={{ duration: 0.5, ease: "easeOut" }}

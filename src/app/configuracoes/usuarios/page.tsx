@@ -73,8 +73,8 @@ function RoleBadge({ role }: { role: UserRole }) {
 
 function StatusDot({ active }: { active: boolean }) {
   return (
-    <span className="inline-flex items-center gap-1.5 text-[12px]" style={{ color: active ? "#34d399" : "rgba(255,255,255,0.3)" }}>
-      <span className="h-1.5 w-1.5 rounded-full" style={{ background: active ? "#34d399" : "rgba(255,255,255,0.2)" }} />
+    <span className="inline-flex items-center gap-1.5 text-[12px]" style={{ color: active ? "#34d399" : "var(--icon)" }}>
+      <span className="h-1.5 w-1.5 rounded-full" style={{ background: active ? "#34d399" : "var(--icon)" }} />
       {active ? "Ativo" : "Inativo"}
     </span>
   );
@@ -93,14 +93,14 @@ function StatsCard({ icon: Icon, label, value, accent, delay }: {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35, delay, ease: "easeOut" }}
       className="flex items-center gap-4 rounded-2xl p-4"
-      style={{ background: "rgba(0,0,0,0.10)", border: "1px solid rgba(255,255,255,0.10)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)" }}
+      style={{ background: "var(--hover)", border: "1px solid var(--border)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)" }}
     >
       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl" style={{ background: `${accent}18` }}>
         <Icon size={18} style={{ color: accent }} strokeWidth={1.75} />
       </div>
       <div>
-        <p className="text-[22px] font-bold leading-none" style={{ color: "#ffffff" }}>{value}</p>
-        <p className="mt-1 text-[11px]" style={{ color: "rgba(255,255,255,0.4)" }}>{label}</p>
+        <p className="text-[22px] font-bold leading-none" style={{ color: "var(--text-title)" }}>{value}</p>
+        <p className="mt-1 text-[11px]" style={{ color: "color-mix(in srgb, var(--text-title) 40%, transparent)" }}>{label}</p>
       </div>
     </motion.div>
   );
@@ -126,9 +126,9 @@ function RowActions({ profile, onEdit, onToggle, onReset, onDelete }: {
   }
 
   const actions = [
-    { icon: Pencil,   label: "Editar / Permissões", action: onEdit,   color: "rgba(255,255,255,0.8)" },
+    { icon: Pencil,   label: "Editar / Permissões", action: onEdit,   color: "color-mix(in srgb, var(--text-title) 80%, transparent)" },
     { icon: Power,    label: profile.is_active ? "Desativar" : "Ativar", action: onToggle, color: profile.is_active ? "#f87171" : "#34d399" },
-    { icon: KeyRound, label: "Resetar senha",        action: onReset,  color: "rgba(255,255,255,0.8)" },
+    { icon: KeyRound, label: "Resetar senha",        action: onReset,  color: "color-mix(in srgb, var(--text-title) 80%, transparent)" },
     { icon: Trash2,   label: "Remover",              action: onDelete, color: "#f87171" },
   ];
   return (
@@ -137,9 +137,9 @@ function RowActions({ profile, onEdit, onToggle, onReset, onDelete }: {
         ref={btnRef}
         onClick={handleToggleOpen}
         className="flex h-7 w-7 items-center justify-center rounded-lg transition-colors"
-        style={{ color: "rgba(255,255,255,0.35)" }}
-        onMouseEnter={e => (e.currentTarget.style.color = "#ffffff")}
-        onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,255,255,0.35)")}
+        style={{ color: "color-mix(in srgb, var(--text-title) 35%, transparent)" }}
+        onMouseEnter={e => (e.currentTarget.style.color = "var(--text-title)")}
+        onMouseLeave={e => (e.currentTarget.style.color = "color-mix(in srgb, var(--text-title) 35%, transparent)")}
       >
         <MoreHorizontal size={15} />
       </button>
@@ -153,7 +153,7 @@ function RowActions({ profile, onEdit, onToggle, onReset, onDelete }: {
               exit={{ opacity: 0, scale: 0.95, y: openUp ? 4 : -4 }}
               transition={{ duration: 0.15 }}
               className={`absolute right-0 z-20 min-w-[180px] rounded-xl py-1.5 shadow-2xl ${openUp ? "bottom-8" : "top-8"}`}
-              style={{ background: "rgba(18,18,18,0.97)", border: "1px solid rgba(255,255,255,0.1)" }}
+              style={{ background: "var(--popover)", border: "1px solid var(--border)" }}
             >
               {actions.map(({ icon: ActionIcon, label, action, color }) => (
                 <button
@@ -161,7 +161,7 @@ function RowActions({ profile, onEdit, onToggle, onReset, onDelete }: {
                   onClick={() => { action(); setOpen(false); }}
                   className="flex w-full items-center gap-2.5 px-3.5 py-2 text-left text-[13px] transition-colors"
                   style={{ color }}
-                  onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.05)")}
+                  onMouseEnter={e => (e.currentTarget.style.background = "var(--hover)")}
                   onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
                 >
                   <ActionIcon size={13} />
@@ -187,11 +187,11 @@ function FilterSelect({ value, onChange, children }: { value: string; onChange: 
         value={value}
         onChange={e => onChange(e.target.value)}
         className="h-9 appearance-none rounded-xl pl-3.5 pr-8 text-[13px] outline-none transition-all cursor-pointer"
-        style={{ background: "rgba(0,0,0,0.10)", border: "1px solid rgba(255,255,255,0.10)", color: "rgba(255,255,255,0.7)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)" }}
+        style={{ background: "var(--hover)", border: "1px solid var(--border)", color: "color-mix(in srgb, var(--text-title) 70%, transparent)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)" }}
       >
         {children}
       </select>
-      <ChevronDown size={12} className="pointer-events-none absolute right-2.5" style={{ color: "rgba(255,255,255,0.35)" }} />
+      <ChevronDown size={12} className="pointer-events-none absolute right-2.5" style={{ color: "color-mix(in srgb, var(--text-title) 35%, transparent)" }} />
     </div>
   );
 }
@@ -206,8 +206,8 @@ function Toggle({ label, description, checked, onChange }: {
   return (
     <div className="flex items-center justify-between gap-4">
       <div>
-        <p className="text-[13px] font-medium" style={{ color: "rgba(255,255,255,0.8)" }}>{label}</p>
-        <p className="text-[11px]" style={{ color: "rgba(255,255,255,0.3)" }}>{description}</p>
+        <p className="text-[13px] font-medium" style={{ color: "color-mix(in srgb, var(--text-title) 80%, transparent)" }}>{label}</p>
+        <p className="text-[11px]" style={{ color: "color-mix(in srgb, var(--text-title) 30%, transparent)" }}>{description}</p>
       </div>
       <button
         type="button"
@@ -215,7 +215,7 @@ function Toggle({ label, description, checked, onChange }: {
         aria-checked={checked}
         onClick={() => onChange(!checked)}
         className="relative h-5 w-9 shrink-0 rounded-full transition-all duration-200"
-        style={{ background: checked ? "#27a3ff" : "rgba(255,255,255,0.12)" }}
+        style={{ background: checked ? "#27a3ff" : "var(--border)" }}
       >
         <span
           className="absolute top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-transform duration-200"
@@ -256,16 +256,16 @@ function PermissionsGrid({
             onClick={() => toggle(key)}
             className="flex items-center gap-2 rounded-xl px-3 py-2.5 text-left text-[12px] font-medium transition-all"
             style={{
-              background: active ? "rgba(39,163,255,0.1)" : "rgba(255,255,255,0.05)",
-              border: active ? "1px solid rgba(39,163,255,0.3)" : "1px solid rgba(255,255,255,0.07)",
-              color: active ? "#27a3ff" : "rgba(255,255,255,0.45)",
+              background: active ? "rgba(39,163,255,0.1)" : "var(--hover)",
+              border: active ? "1px solid rgba(39,163,255,0.3)" : "1px solid var(--glass-border)",
+              color: active ? "#27a3ff" : "var(--icon)",
             }}
           >
             <span
               className="flex h-4 w-4 shrink-0 items-center justify-center rounded"
               style={{
-                background: active ? "#27a3ff" : "rgba(255,255,255,0.08)",
-                border: active ? "none" : "1px solid rgba(255,255,255,0.15)",
+                background: active ? "#27a3ff" : "var(--hover)",
+                border: active ? "none" : "1px solid var(--glass-border)",
               }}
             >
               {active && <Check size={10} color="#000" strokeWidth={3} />}
@@ -329,9 +329,9 @@ function UserModal({
 
   const isCreate = mode === "create";
   const inputStyle = {
-    background: "rgba(0,0,0,0.10)",
-    border: "1px solid rgba(255,255,255,0.10)",
-    color: "#ffffff",
+    background: "var(--hover)",
+    border: "1px solid var(--border)",
+    color: "var(--text-title)",
     backdropFilter: "blur(20px)",
     WebkitBackdropFilter: "blur(20px)",
   };
@@ -371,8 +371,8 @@ function UserModal({
         transition={{ duration: 0.22, ease: [0.4, 0, 0.2, 1] }}
         className="relative w-full max-w-lg rounded-2xl"
         style={{
-          background: "rgba(0,0,0,0.10)",
-          border: "1px solid rgba(255,255,255,0.10)",
+          background: "var(--hover)",
+          border: "1px solid var(--border)",
           backdropFilter: "blur(20px)",
           WebkitBackdropFilter: "blur(20px)",
           boxShadow: "0 24px 64px rgba(0,0,0,0.7)",
@@ -384,19 +384,19 @@ function UserModal({
           {/* Header */}
           <div className="mb-6 flex items-start justify-between">
             <div>
-              <h2 className="text-[17px] font-bold" style={{ color: "#ffffff" }}>
+              <h2 className="text-[17px] font-bold" style={{ color: "var(--text-title)" }}>
                 {isCreate ? "Novo Usuário" : "Editar Usuário"}
               </h2>
-              <p className="mt-0.5 text-[12px]" style={{ color: "rgba(255,255,255,0.4)" }}>
+              <p className="mt-0.5 text-[12px]" style={{ color: "color-mix(in srgb, var(--text-title) 40%, transparent)" }}>
                 {isCreate ? "Adicione um membro à equipe" : "Atualize dados e permissões"}
               </p>
             </div>
             <button
               onClick={onClose}
               className="flex h-8 w-8 items-center justify-center rounded-full transition-colors"
-              style={{ color: "rgba(255,255,255,0.4)" }}
-              onMouseEnter={e => (e.currentTarget.style.color = "#ffffff")}
-              onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,255,255,0.4)")}
+              style={{ color: "color-mix(in srgb, var(--text-title) 40%, transparent)" }}
+              onMouseEnter={e => (e.currentTarget.style.color = "var(--text-title)")}
+              onMouseLeave={e => (e.currentTarget.style.color = "color-mix(in srgb, var(--text-title) 40%, transparent)")}
             >
               <X size={15} />
             </button>
@@ -405,7 +405,7 @@ function UserModal({
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* Nome */}
             <div className="space-y-1.5">
-              <label className="text-[11px] font-medium uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.4)" }}>
+              <label className="text-[11px] font-medium uppercase tracking-widest" style={{ color: "color-mix(in srgb, var(--text-title) 40%, transparent)" }}>
                 Nome Completo *
               </label>
               <input
@@ -415,15 +415,15 @@ function UserModal({
                 placeholder="Ex.: Ana Lima"
                 className="h-10 w-full rounded-xl px-3.5 text-[14px] outline-none transition-all"
                 style={inputStyle}
-                onFocus={e => (e.currentTarget.style.borderColor = "rgba(39,163,255,0.45)")}
-                onBlur={e => (e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)")}
+                onFocus={e => (e.currentTarget.style.borderColor = "var(--accent-blue)")}
+                onBlur={e => (e.currentTarget.style.borderColor = "var(--glass-border)")}
               />
             </div>
 
             {/* Email (create only) */}
             {isCreate && (
               <div className="space-y-1.5">
-                <label className="text-[11px] font-medium uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.4)" }}>
+                <label className="text-[11px] font-medium uppercase tracking-widest" style={{ color: "color-mix(in srgb, var(--text-title) 40%, transparent)" }}>
                   E-mail *
                 </label>
                 <input
@@ -434,8 +434,8 @@ function UserModal({
                   placeholder="email@empresa.com.br"
                   className="h-10 w-full rounded-xl px-3.5 text-[14px] outline-none transition-all"
                   style={inputStyle}
-                  onFocus={e => (e.currentTarget.style.borderColor = "rgba(39,163,255,0.45)")}
-                  onBlur={e => (e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)")}
+                  onFocus={e => (e.currentTarget.style.borderColor = "var(--accent-blue)")}
+                  onBlur={e => (e.currentTarget.style.borderColor = "var(--glass-border)")}
                 />
               </div>
             )}
@@ -443,7 +443,7 @@ function UserModal({
             {/* Cargo + Perfil */}
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <label className="text-[11px] font-medium uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.4)" }}>
+                <label className="text-[11px] font-medium uppercase tracking-widest" style={{ color: "color-mix(in srgb, var(--text-title) 40%, transparent)" }}>
                   Cargo
                 </label>
                 <input
@@ -452,12 +452,12 @@ function UserModal({
                   placeholder="Ex.: Analista"
                   className="h-10 w-full rounded-xl px-3.5 text-[14px] outline-none transition-all"
                   style={inputStyle}
-                  onFocus={e => (e.currentTarget.style.borderColor = "rgba(39,163,255,0.45)")}
-                  onBlur={e => (e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)")}
+                  onFocus={e => (e.currentTarget.style.borderColor = "var(--accent-blue)")}
+                  onBlur={e => (e.currentTarget.style.borderColor = "var(--glass-border)")}
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-[11px] font-medium uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.4)" }}>
+                <label className="text-[11px] font-medium uppercase tracking-widest" style={{ color: "color-mix(in srgb, var(--text-title) 40%, transparent)" }}>
                   Perfil *
                 </label>
                 <div className="relative">
@@ -467,8 +467,8 @@ function UserModal({
                     onChange={e => handleRoleChange(e.target.value as UserRole)}
                     className="h-10 w-full appearance-none rounded-xl pl-3.5 pr-8 text-[14px] outline-none transition-all cursor-pointer"
                     style={inputStyle}
-                    onFocus={e => (e.currentTarget.style.borderColor = "rgba(39,163,255,0.45)")}
-                    onBlur={e => (e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)")}
+                    onFocus={e => (e.currentTarget.style.borderColor = "var(--accent-blue)")}
+                    onBlur={e => (e.currentTarget.style.borderColor = "var(--glass-border)")}
                   >
                     {ROLES.map(r => (
                       <option key={r} value={r} style={{ background: "#111" }}>
@@ -476,7 +476,7 @@ function UserModal({
                       </option>
                     ))}
                   </select>
-                  <ChevronDown size={12} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2" style={{ color: "rgba(255,255,255,0.35)" }} />
+                  <ChevronDown size={12} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2" style={{ color: "color-mix(in srgb, var(--text-title) 35%, transparent)" }} />
                 </div>
               </div>
             </div>
@@ -484,10 +484,10 @@ function UserModal({
             {/* Módulos disponíveis */}
             <div className="space-y-2.5">
               <div className="flex items-center justify-between">
-                <label className="text-[11px] font-medium uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.4)" }}>
+                <label className="text-[11px] font-medium uppercase tracking-widest" style={{ color: "color-mix(in srgb, var(--text-title) 40%, transparent)" }}>
                   Módulos disponíveis
                 </label>
-                <span className="text-[11px]" style={{ color: "rgba(255,255,255,0.25)" }}>
+                <span className="text-[11px]" style={{ color: "color-mix(in srgb, var(--text-title) 25%, transparent)" }}>
                   {form.permissions.length} de {ALL_MODULES.length} ativos
                 </span>
               </div>
@@ -498,7 +498,7 @@ function UserModal({
             </div>
 
             {/* Toggles */}
-            <div className="flex flex-col gap-3 rounded-xl p-4" style={{ background: "rgba(0,0,0,0.10)", border: "1px solid rgba(255,255,255,0.10)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)" }}>
+            <div className="flex flex-col gap-3 rounded-xl p-4" style={{ background: "var(--hover)", border: "1px solid var(--border)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)" }}>
               <Toggle
                 label="Usuário ativo"
                 description="Permite acesso imediato à plataforma"
@@ -521,9 +521,9 @@ function UserModal({
                 type="button"
                 onClick={onClose}
                 className="h-9 rounded-xl px-5 text-[13px] transition-colors"
-                style={{ color: "rgba(255,255,255,0.5)", background: "rgba(255,255,255,0.09)", border: "1px solid rgba(255,255,255,0.08)" }}
-                onMouseEnter={e => (e.currentTarget.style.color = "#ffffff")}
-                onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,255,255,0.5)")}
+                style={{ color: "color-mix(in srgb, var(--text-title) 50%, transparent)", background: "var(--hover)", border: "1px solid var(--border)" }}
+                onMouseEnter={e => (e.currentTarget.style.color = "var(--text-title)")}
+                onMouseLeave={e => (e.currentTarget.style.color = "color-mix(in srgb, var(--text-title) 50%, transparent)")}
               >
                 Cancelar
               </button>
@@ -562,20 +562,20 @@ function DeleteConfirm({ name, onClose, onConfirm, isLoading }: {
         exit={{ opacity: 0, scale: 0.94, y: 8 }}
         transition={{ duration: 0.2 }}
         className="relative w-full max-w-sm rounded-2xl p-6 text-center"
-        style={{ background: "rgba(10,10,10,0.97)", border: "1px solid rgba(248,113,113,0.25)", boxShadow: "0 24px 64px rgba(0,0,0,0.7)" }}
+        style={{ background: "var(--popover)", border: "1px solid rgba(248,113,113,0.25)", boxShadow: "0 24px 64px rgba(0,0,0,0.7)" }}
       >
         <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full" style={{ background: "rgba(248,113,113,0.12)" }}>
           <UserX size={22} style={{ color: "#f87171" }} />
         </div>
-        <h3 className="text-[16px] font-bold" style={{ color: "#ffffff" }}>Remover usuário?</h3>
-        <p className="mt-1.5 text-[13px]" style={{ color: "rgba(255,255,255,0.45)" }}>
-          <strong style={{ color: "rgba(255,255,255,0.75)" }}>{name}</strong> será removido permanentemente.
+        <h3 className="text-[16px] font-bold" style={{ color: "var(--text-title)" }}>Remover usuário?</h3>
+        <p className="mt-1.5 text-[13px]" style={{ color: "color-mix(in srgb, var(--text-title) 45%, transparent)" }}>
+          <strong style={{ color: "color-mix(in srgb, var(--text-title) 75%, transparent)" }}>{name}</strong> será removido permanentemente.
         </p>
         <div className="mt-5 flex items-center justify-center gap-3">
           <button
             onClick={onClose}
             className="h-9 rounded-xl px-5 text-[13px]"
-            style={{ color: "rgba(255,255,255,0.5)", background: "rgba(255,255,255,0.09)", border: "1px solid rgba(255,255,255,0.08)" }}
+            style={{ color: "color-mix(in srgb, var(--text-title) 50%, transparent)", background: "var(--hover)", border: "1px solid var(--border)" }}
           >
             Cancelar
           </button>
@@ -601,14 +601,14 @@ function Skeleton() {
   return (
     <div className="space-y-2">
       {[...Array(5)].map((_, i) => (
-        <div key={i} className="flex animate-pulse items-center gap-4 rounded-xl px-4 py-3.5" style={{ background: "rgba(255,255,255,0.06)" }}>
-          <div className="h-8 w-8 rounded-full" style={{ background: "rgba(255,255,255,0.07)" }} />
+        <div key={i} className="flex animate-pulse items-center gap-4 rounded-xl px-4 py-3.5" style={{ background: "var(--hover)" }}>
+          <div className="h-8 w-8 rounded-full" style={{ background: "var(--hover)" }} />
           <div className="flex-1 space-y-1.5">
-            <div className="h-3 w-32 rounded" style={{ background: "rgba(255,255,255,0.06)" }} />
-            <div className="h-2.5 w-48 rounded" style={{ background: "rgba(255,255,255,0.08)" }} />
+            <div className="h-3 w-32 rounded" style={{ background: "var(--hover)" }} />
+            <div className="h-2.5 w-48 rounded" style={{ background: "var(--hover)" }} />
           </div>
-          <div className="h-5 w-20 rounded-full" style={{ background: "rgba(255,255,255,0.09)" }} />
-          <div className="h-5 w-14 rounded-full" style={{ background: "rgba(255,255,255,0.08)" }} />
+          <div className="h-5 w-20 rounded-full" style={{ background: "var(--hover)" }} />
+          <div className="h-5 w-14 rounded-full" style={{ background: "var(--hover)" }} />
         </div>
       ))}
     </div>
@@ -725,17 +725,17 @@ export default function UsuariosPage() {
           <Link
             href="/configuracoes"
             className="inline-flex items-center gap-1.5 text-[12px] transition-colors duration-150"
-            style={{ color: "rgba(255,255,255,0.35)" }}
-            onMouseEnter={e => (e.currentTarget.style.color = "rgba(255,255,255,0.7)")}
-            onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,255,255,0.35)")}
+            style={{ color: "color-mix(in srgb, var(--text-title) 35%, transparent)" }}
+            onMouseEnter={e => (e.currentTarget.style.color = "color-mix(in srgb, var(--text-title) 70%, transparent)")}
+            onMouseLeave={e => (e.currentTarget.style.color = "color-mix(in srgb, var(--text-title) 35%, transparent)")}
           >
             <ArrowLeft size={13} />
             Configurações
           </Link>
-          <h1 className="text-xl font-bold sm:text-2xl" style={{ color: "#ffffff", letterSpacing: "-0.02em" }}>
+          <h1 className="text-xl font-bold sm:text-2xl" style={{ color: "var(--text-title)", letterSpacing: "-0.02em" }}>
             Usuários e Permissões
           </h1>
-          <p className="text-[13px]" style={{ color: "rgba(255,255,255,0.38)" }}>
+          <p className="text-[13px]" style={{ color: "color-mix(in srgb, var(--text-title) 38%, transparent)" }}>
             Gerencie equipe, acessos e módulos disponíveis
           </p>
         </div>
@@ -761,15 +761,15 @@ export default function UsuariosPage() {
         className="flex flex-wrap items-center gap-2"
       >
         <div className="relative flex-1 min-w-[200px]">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: "rgba(255,255,255,0.3)" }} />
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: "color-mix(in srgb, var(--text-title) 30%, transparent)" }} />
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Buscar por nome ou e-mail…"
             className="h-9 w-full rounded-xl pl-9 pr-3.5 text-[13px] outline-none transition-all"
-            style={{ background: "rgba(0,0,0,0.10)", border: "1px solid rgba(255,255,255,0.10)", color: "#ffffff", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)" }}
-            onFocus={e => (e.currentTarget.style.borderColor = "rgba(39,163,255,0.35)")}
-            onBlur={e => (e.currentTarget.style.borderColor = "rgba(255,255,255,0.10)")}
+            style={{ background: "var(--hover)", border: "1px solid var(--border)", color: "var(--text-title)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)" }}
+            onFocus={e => (e.currentTarget.style.borderColor = "var(--accent-blue)")}
+            onBlur={e => (e.currentTarget.style.borderColor = "var(--glass-border)")}
           />
         </div>
         <FilterSelect value={filterStatus} onChange={setFilterStatus}>
@@ -787,14 +787,14 @@ export default function UsuariosPage() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.35, delay: 0.25 }}
         className="rounded-2xl"
-        style={{ background: "rgba(0,0,0,0.10)", border: "1px solid rgba(255,255,255,0.10)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)" }}
+        style={{ background: "var(--hover)", border: "1px solid var(--border)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)" }}
       >
         <div
           className="hidden grid-cols-[auto_1fr_1fr_120px_100px_80px_32px] items-center gap-4 px-5 py-3 md:grid"
-          style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}
+          style={{ borderBottom: "1px solid var(--border)" }}
         >
           {["", "Nome", "E-mail / Cargo", "Perfil", "Status", "Criado em", ""].map((h, i) => (
-            <span key={i} className="text-[10px] font-semibold uppercase tracking-[0.1em]" style={{ color: "rgba(255,255,255,0.3)" }}>
+            <span key={i} className="text-[10px] font-semibold uppercase tracking-[0.1em]" style={{ color: "color-mix(in srgb, var(--text-title) 30%, transparent)" }}>
               {h}
             </span>
           ))}
@@ -804,8 +804,8 @@ export default function UsuariosPage() {
           <div className="p-4"><Skeleton /></div>
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-3 py-16">
-            <Users size={32} style={{ color: "rgba(255,255,255,0.1)" }} />
-            <p className="text-[13px]" style={{ color: "rgba(255,255,255,0.3)" }}>
+            <Users size={32} style={{ color: "color-mix(in srgb, var(--text-title) 10%, transparent)" }} />
+            <p className="text-[13px]" style={{ color: "color-mix(in srgb, var(--text-title) 30%, transparent)" }}>
               {search || filterStatus || filterRole ? "Nenhum usuário encontrado com os filtros" : "Nenhum usuário cadastrado ainda"}
             </p>
             {!search && !filterStatus && !filterRole && (
@@ -816,7 +816,7 @@ export default function UsuariosPage() {
             )}
           </div>
         ) : (
-          <div className="divide-y" style={{ borderColor: "rgba(255,255,255,0.04)" }}>
+          <div className="divide-y" style={{ borderColor: "var(--border)" }}>
             {filtered.map(profile => (
               <motion.div
                 key={profile.id}
@@ -825,30 +825,30 @@ export default function UsuariosPage() {
                 animate={{ opacity: 1 }}
                 className="group flex flex-col gap-3 px-5 py-4 transition-colors md:grid md:grid-cols-[auto_1fr_1fr_120px_100px_80px_32px] md:items-center md:gap-4"
                 style={{ background: "transparent" }}
-                onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.025)")}
+                onMouseEnter={e => (e.currentTarget.style.background = "var(--hover)")}
                 onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
               >
                 <Avatar name={profile.full_name} url={profile.avatar_url} size={32} />
                 <div>
-                  <p className="text-[14px] font-medium" style={{ color: "#ffffff" }}>{profile.full_name}</p>
+                  <p className="text-[14px] font-medium" style={{ color: "var(--text-title)" }}>{profile.full_name}</p>
                   {/* Mini permissões */}
                   <div className="mt-0.5 flex flex-wrap gap-1">
                     {profile.permissions.slice(0, 4).map(p => (
-                      <span key={p} className="rounded px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide" style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.3)" }}>
+                      <span key={p} className="rounded px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide" style={{ background: "var(--hover)", color: "color-mix(in srgb, var(--text-title) 30%, transparent)" }}>
                         {p}
                       </span>
                     ))}
                     {profile.permissions.length > 4 && (
-                      <span className="rounded px-1.5 py-0.5 text-[9px]" style={{ color: "rgba(255,255,255,0.2)" }}>
+                      <span className="rounded px-1.5 py-0.5 text-[9px]" style={{ color: "color-mix(in srgb, var(--text-title) 20%, transparent)" }}>
                         +{profile.permissions.length - 4}
                       </span>
                     )}
                   </div>
                 </div>
                 <div>
-                  <p className="text-[13px]" style={{ color: "rgba(255,255,255,0.5)" }}>{profile.email}</p>
+                  <p className="text-[13px]" style={{ color: "color-mix(in srgb, var(--text-title) 50%, transparent)" }}>{profile.email}</p>
                   {profile.job_title && (
-                    <p className="text-[11px]" style={{ color: "rgba(255,255,255,0.3)" }}>{profile.job_title}</p>
+                    <p className="text-[11px]" style={{ color: "color-mix(in srgb, var(--text-title) 30%, transparent)" }}>{profile.job_title}</p>
                   )}
                 </div>
                 <RoleBadge role={profile.role} />
@@ -860,7 +860,7 @@ export default function UsuariosPage() {
                 ) : (
                   <StatusDot active={profile.is_active} />
                 )}
-                <span className="text-[12px]" style={{ color: "rgba(255,255,255,0.3)" }}>
+                <span className="text-[12px]" style={{ color: "color-mix(in srgb, var(--text-title) 30%, transparent)" }}>
                   {new Date(profile.created_at).toLocaleDateString("pt-BR")}
                 </span>
                 <RowActions
@@ -884,7 +884,7 @@ export default function UsuariosPage() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 8 }}
             className="rounded-2xl overflow-hidden"
-            style={{ background: "rgba(0,0,0,0.10)", border: "1px solid rgba(255,255,255,0.10)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)" }}
+            style={{ background: "var(--hover)", border: "1px solid var(--border)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)" }}
           >
             <div className="flex items-center gap-2 px-5 py-3.5" style={{ borderBottom: "1px solid rgba(250,204,21,0.1)" }}>
               <Mail size={14} style={{ color: "#facc15" }} />
@@ -900,8 +900,8 @@ export default function UsuariosPage() {
                       <Mail size={14} style={{ color: "#facc15" }} />
                     </div>
                     <div>
-                      <p className="text-[13px] font-medium" style={{ color: "rgba(255,255,255,0.8)" }}>{invite.email}</p>
-                      <p className="text-[11px]" style={{ color: "rgba(255,255,255,0.35)" }}>
+                      <p className="text-[13px] font-medium" style={{ color: "color-mix(in srgb, var(--text-title) 80%, transparent)" }}>{invite.email}</p>
+                      <p className="text-[11px]" style={{ color: "color-mix(in srgb, var(--text-title) 35%, transparent)" }}>
                         Expira em {new Date(invite.expires_at).toLocaleDateString("pt-BR")}
                       </p>
                     </div>

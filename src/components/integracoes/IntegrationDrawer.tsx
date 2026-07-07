@@ -94,7 +94,7 @@ export function IntegrationDrawer({
               </div>
               <button
                 onClick={onClose}
-                className="p-2 rounded-lg hover:bg-white/10 transition-colors ml-3 shrink-0"
+                className="p-2 rounded-lg hover:bg-[var(--hover)] transition-colors ml-3 shrink-0"
               >
                 <X size={16} style={{ color: "var(--muted-foreground)" }} />
               </button>
@@ -113,8 +113,8 @@ export function IntegrationDrawer({
                     onClick={() => setActiveTab(tab.id)}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors"
                     style={{
-                      background: isActive ? "var(--primary)" : "transparent",
-                      color:      isActive ? "#fff" : "var(--muted-foreground)",
+                      background: isActive ? "var(--tab-active-bg)" : "transparent",
+                      color:      isActive ? "var(--tab-active-text)" : "var(--muted-foreground)",
                     }}
                   >
                     <tab.icon size={12} />

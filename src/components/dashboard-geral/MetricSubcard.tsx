@@ -9,7 +9,7 @@ export function MetricSubcard({ label, value }: MetricSubcardProps) {
   return (
     <div
       className="rounded-xl p-2"
-      style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}
+      style={{ background: "var(--bg-lead-card)", border: "1px solid var(--border)" }}
     >
       <p className="text-[8px] font-semibold uppercase tracking-[0.06em]" style={{ color: "var(--muted-foreground)" }}>
         {label}

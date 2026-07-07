@@ -39,7 +39,7 @@ const INSIGHT_CFG: Record<NpsInsight["type"], { icon: React.ReactNode; border: s
   positive: { icon: <CheckCircle size={14} />, border: "border-emerald-500/25", bg: "bg-emerald-500/8", color: "text-emerald-400" },
   warning:  { icon: <AlertTriangle size={14} />, border: "border-amber-500/25", bg: "bg-amber-500/8", color: "text-amber-400" },
   critical: { icon: <Zap size={14} />, border: "border-red-500/25", bg: "bg-red-500/8", color: "text-red-400" },
-  neutral:  { icon: <Info size={14} />, border: "border-white/10", bg: "bg-white/5", color: "text-[#b4b4b4]" },
+  neutral:  { icon: <Info size={14} />, border: "border-[color-mix(in_srgb,var(--text-title)_10%,transparent)]", bg: "bg-[color-mix(in_srgb,var(--text-title)_5%,transparent)]", color: "text-[var(--silver)]" },
 };
 
 // ── Score display ─────────────────────────────────────────────────────────────
@@ -62,7 +62,7 @@ function ScoreBadge({ score }: { score: number }) {
 }
 
 function ClassificationBadge({ cls }: { cls: "promotor" | "neutro" | "detrator" | null }) {
-  if (!cls) return <span className="text-[#5a5a5a] text-xs">—</span>;
+  if (!cls) return <span className="text-[var(--text-muted)] text-xs">—</span>;
   const cfg = {
     promotor: "text-emerald-400 bg-emerald-400/10 border-emerald-400/20",
     neutro:   "text-amber-400 bg-amber-400/10 border-amber-400/20",
@@ -86,13 +86,13 @@ function ChartTooltip({ active, payload, label }: {
   if (!active || !payload?.length) return null;
   return (
     <div className="rounded-xl px-4 py-3 shadow-xl text-xs"
-      style={{ background: "rgba(0,0,0,0.85)", border: "1px solid rgba(255,255,255,0.08)" }}>
-      <p className="text-[#b4b4b4] mb-2 font-medium capitalize">{label}</p>
+      style={{ background: "var(--chart-tooltip-bg)", border: "1px solid var(--chart-tooltip-border)" }}>
+      <p className="text-[var(--silver)] mb-2 font-medium capitalize">{label}</p>
       {payload.map(p => (
         <div key={p.name} className="flex items-center gap-2 mb-1 last:mb-0">
           <span className="w-2 h-2 rounded-full shrink-0" style={{ background: p.color }} />
-          <span className="text-[#c7e5ff]">{p.name}:</span>
-          <span className="text-white font-semibold">
+          <span className="text-[color:var(--chart-tooltip-entry)]">{p.name}:</span>
+          <span className="text-[var(--text-title)] font-semibold">
             {typeof p.value === "number"
               ? p.name === "NPS" ? p.value.toFixed(0) : `${p.value.toFixed(1)}%`
               : p.value}
@@ -151,8 +151,8 @@ function NpsModal({ clients, record, defaultMonth, onClose, onSave, onDelete }: 
   const scoreValue = form.score ?? 8;
   const cls = classifyNps(scoreValue);
 
-  const inputCls = "w-full rounded-xl bg-white/15 text-white text-sm px-3 py-2.5 outline-none placeholder:text-[#b4b4b4]/50 focus:bg-white/20 transition-colors border-none";
-  const selectCls = "w-full rounded-xl bg-white/15 text-white text-sm px-3 py-2.5 outline-none focus:bg-white/20 transition-colors border-none";
+  const inputCls = "w-full rounded-xl bg-[color-mix(in_srgb,var(--text-title)_15%,transparent)] text-[var(--text-title)] text-sm px-3 py-2.5 outline-none placeholder:text-[var(--silver)]/50 focus:bg-[color-mix(in_srgb,var(--text-title)_20%,transparent)] transition-colors border-none";
+  const selectCls = "w-full rounded-xl bg-[color-mix(in_srgb,var(--text-title)_15%,transparent)] text-[var(--text-title)] text-sm px-3 py-2.5 outline-none focus:bg-[color-mix(in_srgb,var(--text-title)_20%,transparent)] transition-colors border-none";
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
@@ -162,15 +162,15 @@ function NpsModal({ clients, record, defaultMonth, onClose, onSave, onDelete }: 
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.95 }}
         className="relative w-full max-w-lg rounded-2xl shadow-2xl p-6 max-h-[90vh] overflow-y-auto"
-        style={{ background: "rgba(0,0,0,0.10)", border: "1px solid rgba(255,255,255,0.08)" }}
+        style={{ background: "var(--bg-modal)", border: "1px solid var(--border-modal)", backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)" }}
         onClick={e => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-5">
           <div>
-            <h2 className="text-lg font-bold text-white">{record ? "Editar NPS" : "Registrar NPS"}</h2>
-            <p className="text-xs text-[#5a5a5a] mt-0.5">Satisfação mensal do cliente</p>
+            <h2 className="text-lg font-bold text-[var(--text-title)]">{record ? "Editar NPS" : "Registrar NPS"}</h2>
+            <p className="text-xs text-[var(--text-muted)] mt-0.5">Satisfação mensal do cliente</p>
           </div>
-          <button onClick={onClose} className="text-[#b4b4b4] hover:text-white transition-colors p-1">
+          <button onClick={onClose} className="text-[var(--silver)] hover:text-[var(--text-title)] transition-colors p-1">
             <X size={20} />
           </button>
         </div>
@@ -184,7 +184,7 @@ function NpsModal({ clients, record, defaultMonth, onClose, onSave, onDelete }: 
 
         <div className="grid grid-cols-2 gap-3">
           <div className="col-span-2">
-            <label className="block text-xs text-[#b4b4b4] mb-1.5 font-medium">Cliente *</label>
+            <label className="block text-xs text-[var(--silver)] mb-1.5 font-medium">Cliente *</label>
             <select
               value={form.client_id ?? ""}
               onChange={e => set("client_id", e.target.value)}
@@ -198,7 +198,7 @@ function NpsModal({ clients, record, defaultMonth, onClose, onSave, onDelete }: 
           </div>
 
           <div>
-            <label className="block text-xs text-[#b4b4b4] mb-1.5 font-medium">Mês de referência *</label>
+            <label className="block text-xs text-[var(--silver)] mb-1.5 font-medium">Mês de referência *</label>
             <input
               type="month"
               value={form.reference_month ?? ""}
@@ -208,7 +208,7 @@ function NpsModal({ clients, record, defaultMonth, onClose, onSave, onDelete }: 
           </div>
 
           <div>
-            <label className="block text-xs text-[#b4b4b4] mb-1.5 font-medium">Canal</label>
+            <label className="block text-xs text-[var(--silver)] mb-1.5 font-medium">Canal</label>
             <select
               value={form.channel ?? "manual"}
               onChange={e => set("channel", e.target.value as NpsChannel)}
@@ -222,7 +222,7 @@ function NpsModal({ clients, record, defaultMonth, onClose, onSave, onDelete }: 
 
           {/* Score slider */}
           <div className="col-span-2">
-            <label className="block text-xs text-[#b4b4b4] mb-3 font-medium">
+            <label className="block text-xs text-[var(--silver)] mb-3 font-medium">
               Nota NPS *
               <span className={cn(
                 "ml-2 text-sm font-bold",
@@ -249,7 +249,7 @@ function NpsModal({ clients, record, defaultMonth, onClose, onSave, onDelete }: 
                           : c === "neutro"
                           ? "bg-amber-400/20 border-amber-400/50 text-amber-400"
                           : "bg-red-400/20 border-red-400/50 text-red-400"
-                        : "bg-white/5 border-white/10 text-[#b4b4b4] hover:bg-white/10 hover:text-white"
+                        : "bg-[color-mix(in_srgb,var(--text-title)_5%,transparent)] border-[color-mix(in_srgb,var(--text-title)_10%,transparent)] text-[var(--silver)] hover:bg-[var(--hover)] hover:text-[var(--text-title)]"
                     )}
                   >
                     {i}
@@ -257,7 +257,7 @@ function NpsModal({ clients, record, defaultMonth, onClose, onSave, onDelete }: 
                 );
               })}
             </div>
-            <div className="flex justify-between text-[10px] text-[#5a5a5a] mt-1.5">
+            <div className="flex justify-between text-[10px] text-[var(--text-muted)] mt-1.5">
               <span>0 — Pior</span>
               <span className="text-red-400/70">Detratores</span>
               <span className="text-amber-400/70">Neutros</span>
@@ -267,7 +267,7 @@ function NpsModal({ clients, record, defaultMonth, onClose, onSave, onDelete }: 
           </div>
 
           <div>
-            <label className="block text-xs text-[#b4b4b4] mb-1.5 font-medium">Responsável</label>
+            <label className="block text-xs text-[var(--silver)] mb-1.5 font-medium">Responsável</label>
             <input
               value={form.responsible ?? ""}
               onChange={e => set("responsible", e.target.value || null as unknown as string)}
@@ -277,7 +277,7 @@ function NpsModal({ clients, record, defaultMonth, onClose, onSave, onDelete }: 
           </div>
 
           <div className="col-span-2">
-            <label className="block text-xs text-[#b4b4b4] mb-1.5 font-medium">Comentário</label>
+            <label className="block text-xs text-[var(--silver)] mb-1.5 font-medium">Comentário</label>
             <textarea
               value={form.comment ?? ""}
               onChange={e => set("comment", e.target.value || null as unknown as string)}
@@ -296,7 +296,7 @@ function NpsModal({ clients, record, defaultMonth, onClose, onSave, onDelete }: 
                 "px-4 py-2.5 rounded-xl text-sm font-medium transition-all border",
                 confirmDelete
                   ? "text-red-400 bg-red-400/10 border-red-400/30"
-                  : "text-[#b4b4b4] border-white/10 hover:border-red-400/30 hover:text-red-400"
+                  : "text-[var(--silver)] border-[color-mix(in_srgb,var(--text-title)_10%,transparent)] hover:border-red-400/30 hover:text-red-400"
               )}
             >
               {confirmDelete ? "Confirmar" : "Excluir"}
@@ -304,8 +304,8 @@ function NpsModal({ clients, record, defaultMonth, onClose, onSave, onDelete }: 
           )}
           <button
             onClick={onClose}
-            className="flex-1 rounded-xl py-2.5 text-sm font-medium text-[#b4b4b4] hover:text-white transition-colors"
-            style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.08)" }}
+            className="flex-1 rounded-xl py-2.5 text-sm font-medium text-[var(--silver)] hover:text-[var(--text-title)] transition-colors"
+            style={{ background: "var(--border)", border: "1px solid var(--border)" }}
           >
             Cancelar
           </button>
@@ -386,9 +386,9 @@ export function NpsModule({ year, month }: Props) {
             <p className="text-[10px] font-medium mt-0.5" style={{ color: npsColor }}>/ 10</p>
           </div>
           <div>
-            <p className="text-xs text-[#b4b4b4] mb-0.5">NPS Geral</p>
-            <p className="text-xl font-bold text-white">{avgScoreLabel(metrics.avgScore)}</p>
-            <p className="text-xs text-[#5a5a5a] mt-1">
+            <p className="text-xs text-[var(--silver)] mb-0.5">NPS Geral</p>
+            <p className="text-xl font-bold text-[var(--text-title)]">{avgScoreLabel(metrics.avgScore)}</p>
+            <p className="text-xs text-[var(--text-muted)] mt-1">
               {metrics.respondedCount} de {metrics.respondedCount + metrics.notRespondedCount} clientes responderam
             </p>
             <div className="flex gap-3 mt-2">
@@ -431,9 +431,9 @@ export function NpsModule({ year, month }: Props) {
               {card.icon}
             </div>
             <div className="min-w-0">
-              <p className="text-xs text-[#b4b4b4]">{card.label}</p>
-              <p className="text-lg font-bold text-white leading-tight">{card.value}</p>
-              <p className="text-[10px] text-[#5a5a5a] truncate">{card.sub}</p>
+              <p className="text-xs text-[var(--silver)]">{card.label}</p>
+              <p className="text-lg font-bold text-[var(--text-title)] leading-tight">{card.value}</p>
+              <p className="text-[10px] text-[var(--text-muted)] truncate">{card.sub}</p>
             </div>
           </motion.div>
         ))}
@@ -452,7 +452,7 @@ export function NpsModule({ year, month }: Props) {
                 style={{ background: "rgba(74,143,212,0.15)", border: "1px solid rgba(74,143,212,0.25)" }}>
                 <Zap size={13} style={{ color: "#4a8fd4" }} />
               </div>
-              <p className="text-sm font-semibold text-white">Inteligência NPS</p>
+              <p className="text-sm font-semibold text-[var(--text-title)]">Inteligência NPS</p>
             </div>
             <div className="grid sm:grid-cols-2 gap-3">
               {metrics.insights.map((insight, i) => {
@@ -469,7 +469,7 @@ export function NpsModule({ year, month }: Props) {
                       <span className={cn("mt-0.5 shrink-0", cfg.color)}>{cfg.icon}</span>
                       <div>
                         <p className={cn("text-sm font-semibold mb-0.5", cfg.color)}>{insight.title}</p>
-                        <p className="text-xs text-[#b4b4b4] leading-relaxed">{insight.message}</p>
+                        <p className="text-xs text-[var(--silver)] leading-relaxed">{insight.message}</p>
                       </div>
                     </div>
                   </motion.div>
@@ -496,15 +496,15 @@ export function NpsModule({ year, month }: Props) {
               <TrendingUp size={13} style={{ color: "#4a8fd4" }} />
             </div>
             <div>
-              <p className="text-sm font-semibold text-white">NPS por Mês</p>
-              <p className="text-[11px] text-[#5a5a5a]">Score geral — últimos 6 meses</p>
+              <p className="text-sm font-semibold text-[var(--text-title)]">NPS por Mês</p>
+              <p className="text-[11px] text-[var(--text-muted)]">Score geral — últimos 6 meses</p>
             </div>
           </div>
           <ResponsiveContainer width="100%" height={180}>
             <AreaChart data={metrics.monthlyEvolution} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
-              <XAxis dataKey="mes" tick={{ fill: "#5a5a5a", fontSize: 11 }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fill: "#5a5a5a", fontSize: 11 }} axisLine={false} tickLine={false} domain={[-100, 100]} />
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+              <XAxis dataKey="mes" tick={{ fill: "var(--text-muted)", fontSize: 11 }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fill: "var(--text-muted)", fontSize: 11 }} axisLine={false} tickLine={false} domain={[-100, 100]} />
               <Tooltip content={<ChartTooltip />} />
               <Area
                 type="monotone"
@@ -531,19 +531,19 @@ export function NpsModule({ year, month }: Props) {
               <Users size={13} style={{ color: "#10b981" }} />
             </div>
             <div>
-              <p className="text-sm font-semibold text-white">Distribuição por Mês</p>
-              <p className="text-[11px] text-[#5a5a5a]">Promotores × Neutros × Detratores</p>
+              <p className="text-sm font-semibold text-[var(--text-title)]">Distribuição por Mês</p>
+              <p className="text-[11px] text-[var(--text-muted)]">Promotores × Neutros × Detratores</p>
             </div>
           </div>
           <ResponsiveContainer width="100%" height={180}>
             <BarChart data={metrics.monthlyEvolution} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
-              <XAxis dataKey="mes" tick={{ fill: "#5a5a5a", fontSize: 11 }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fill: "#5a5a5a", fontSize: 11 }} axisLine={false} tickLine={false} domain={[0, 100]} />
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+              <XAxis dataKey="mes" tick={{ fill: "var(--text-muted)", fontSize: 11 }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fill: "var(--text-muted)", fontSize: 11 }} axisLine={false} tickLine={false} domain={[0, 100]} />
               <Tooltip content={<ChartTooltip />} />
               <Legend
                 wrapperStyle={{ fontSize: "11px", paddingTop: "8px" }}
-                formatter={(v) => <span style={{ color: "#b4b4b4" }}>{v}</span>}
+                formatter={(v) => <span style={{ color: "var(--silver)" }}>{v}</span>}
               />
               <Bar dataKey="promotores" name="Promotores %" fill="#10b981" stackId="a" radius={[0, 0, 0, 0]} />
               <Bar dataKey="neutros"    name="Neutros %"    fill="#f59e0b" stackId="a" />
@@ -567,18 +567,18 @@ export function NpsModule({ year, month }: Props) {
               <MessageSquare size={13} style={{ color: "#a78bfa" }} />
             </div>
             <div>
-              <p className="text-sm font-semibold text-white">Histórico por Cliente</p>
-              <p className="text-[11px] text-[#5a5a5a]">{clients.filter(c => c.status === "ativo").length} clientes ativos</p>
+              <p className="text-sm font-semibold text-[var(--text-title)]">Histórico por Cliente</p>
+              <p className="text-[11px] text-[var(--text-muted)]">{clients.filter(c => c.status === "ativo").length} clientes ativos</p>
             </div>
           </div>
           <div className="flex items-center gap-3">
             <div className="relative">
-              <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#5a5a5a] pointer-events-none" />
+              <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] pointer-events-none" />
               <input
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 placeholder="Buscar cliente..."
-                className="pl-8 pr-3 py-2 rounded-xl bg-white/5 text-white text-sm outline-none placeholder:text-[#5a5a5a] focus:bg-white/[0.07] transition-colors w-44"
+                className="pl-8 pr-3 py-2 rounded-xl bg-[color-mix(in_srgb,var(--text-title)_5%,transparent)] text-[var(--text-title)] text-sm outline-none placeholder:text-[var(--text-muted)] focus:bg-[color-mix(in_srgb,var(--text-title)_7%,transparent)] transition-colors w-44"
               />
             </div>
             <PrimaryButton
@@ -593,16 +593,16 @@ export function NpsModule({ year, month }: Props) {
 
         {filteredSummaries.length === 0 ? (
           <div className="p-12 text-center">
-            <Star size={36} className="text-[#b4b4b4]/25 mx-auto mb-3" />
-            <p className="text-[#b4b4b4] text-sm">Nenhum cliente encontrado</p>
+            <Star size={36} className="text-[var(--silver)]/25 mx-auto mb-3" />
+            <p className="text-[var(--silver)] text-sm">Nenhum cliente encontrado</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                <tr style={{ borderBottom: "1px solid var(--border)" }}>
                   {["Cliente", "Última Nota", "Média Histórica", "Tendência", "Última Atualização", "Classificação", ""].map(h => (
-                    <th key={h} className="text-left text-xs text-[#b4b4b4] font-medium px-5 py-3 whitespace-nowrap">{h}</th>
+                    <th key={h} className="text-left text-xs text-[var(--silver)] font-medium px-5 py-3 whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -615,30 +615,30 @@ export function NpsModule({ year, month }: Props) {
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       transition={{ delay: i * 0.03 }}
-                      style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}
-                      className="hover:bg-white/[0.02] transition-colors"
+                      style={{ borderBottom: "1px solid var(--border)" }}
+                      className="hover:bg-[var(--hover)] transition-colors"
                     >
                       <td className="px-5 py-3">
-                        <p className="text-white font-medium">{cs.client.name}</p>
-                        <p className="text-[11px] text-[#5a5a5a]">{cs.client.contact_name ?? "—"}</p>
+                        <p className="text-[var(--text-title)] font-medium">{cs.client.name}</p>
+                        <p className="text-[11px] text-[var(--text-muted)]">{cs.client.contact_name ?? "—"}</p>
                       </td>
                       <td className="px-5 py-3">
                         {cs.lastScore !== null
                           ? <ScoreBadge score={cs.lastScore} />
-                          : <span className="text-[#5a5a5a]">—</span>}
+                          : <span className="text-[var(--text-muted)]">—</span>}
                       </td>
                       <td className="px-5 py-3">
                         {cs.records.length > 0
-                          ? <span className="text-white font-semibold">{cs.avgScore.toFixed(1)}</span>
-                          : <span className="text-[#5a5a5a]">—</span>}
+                          ? <span className="text-[var(--text-title)] font-semibold">{cs.avgScore.toFixed(1)}</span>
+                          : <span className="text-[var(--text-muted)]">—</span>}
                       </td>
                       <td className="px-5 py-3">
                         {cs.trend === "up" && <span className="text-emerald-400 flex items-center gap-1 text-xs"><ChevronUp size={14} />Subiu</span>}
                         {cs.trend === "down" && <span className="text-red-400 flex items-center gap-1 text-xs"><ChevronDown size={14} />Caiu</span>}
-                        {cs.trend === "stable" && <span className="text-[#b4b4b4] flex items-center gap-1 text-xs"><Minus size={14} />Estável</span>}
-                        {!cs.trend && <span className="text-[#5a5a5a]">—</span>}
+                        {cs.trend === "stable" && <span className="text-[var(--silver)] flex items-center gap-1 text-xs"><Minus size={14} />Estável</span>}
+                        {!cs.trend && <span className="text-[var(--text-muted)]">—</span>}
                       </td>
-                      <td className="px-5 py-3 text-[#b4b4b4] whitespace-nowrap text-xs">
+                      <td className="px-5 py-3 text-[var(--silver)] whitespace-nowrap text-xs">
                         {cs.lastMonth
                           ? format(new Date(cs.lastMonth + "-01"), "MMM/yy", { locale: ptBR })
                           : "—"}
@@ -650,7 +650,7 @@ export function NpsModule({ year, month }: Props) {
                         <div className="flex items-center gap-1">
                           <button
                             onClick={() => setModal({ open: true, record: lastRecord })}
-                            className="p-1.5 rounded-lg text-[#b4b4b4] hover:text-white hover:bg-white/5 transition-colors"
+                            className="p-1.5 rounded-lg text-[var(--silver)] hover:text-[var(--text-title)] hover:bg-[var(--hover)] transition-colors"
                           >
                             {lastRecord ? <Edit2 size={13} /> : <Plus size={13} />}
                           </button>
@@ -678,7 +678,7 @@ export function NpsModule({ year, month }: Props) {
               style={{ background: "rgba(74,143,212,0.15)", border: "1px solid rgba(74,143,212,0.25)" }}>
               <Star size={13} style={{ color: "#4a8fd4" }} />
             </div>
-            <p className="text-sm font-semibold text-white">Registros do Período</p>
+            <p className="text-sm font-semibold text-[var(--text-title)]">Registros do Período</p>
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {metrics.periodRecords.map((rec, i) => {
@@ -695,21 +695,21 @@ export function NpsModule({ year, month }: Props) {
                 >
                   <div className="flex items-start justify-between gap-2 mb-2">
                     <div>
-                      <p className="text-white font-medium text-sm">{rec.client?.name ?? "—"}</p>
-                      <p className="text-[11px] text-[#5a5a5a]">{CHANNEL_LABELS[rec.channel]}</p>
+                      <p className="text-[var(--text-title)] font-medium text-sm">{rec.client?.name ?? "—"}</p>
+                      <p className="text-[11px] text-[var(--text-muted)]">{CHANNEL_LABELS[rec.channel]}</p>
                     </div>
                     <ScoreBadge score={rec.score} />
                   </div>
                   {rec.comment && (
-                    <p className="text-xs text-[#b4b4b4] italic line-clamp-2">&ldquo;{rec.comment}&rdquo;</p>
+                    <p className="text-xs text-[var(--silver)] italic line-clamp-2">&ldquo;{rec.comment}&rdquo;</p>
                   )}
                   <div className="flex items-center justify-between mt-2.5">
-                    <span className="text-[10px] text-[#5a5a5a]">
+                    <span className="text-[10px] text-[var(--text-muted)]">
                       {rec.responsible ?? "—"}
                     </span>
                     <button
                       onClick={() => setModal({ open: true, record: rec })}
-                      className="p-1 rounded-lg text-[#5a5a5a] hover:text-white hover:bg-white/5 transition-colors"
+                      className="p-1 rounded-lg text-[var(--text-muted)] hover:text-[var(--text-title)] hover:bg-[var(--hover)] transition-colors"
                     >
                       <Edit2 size={11} />
                     </button>

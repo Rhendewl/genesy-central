@@ -156,18 +156,31 @@ export function usePipelines() {
     return true;
   }, [refetch]);
 
-  const deleteStage = useCallback(async (pipelineId: string, stageId: string): Promise<boolean> => {
-    const res = await fetch(`/api/crm/pipelines/${pipelineId}/stages/${stageId}`, {
+  // Exclusão permanente. Sem `force`: se a etapa tiver leads, a API bloqueia
+  // com 409 + leadCount — devolvemos isso pro chamador decidir (mostrar aviso
+  // "N leads ficarão sem etapa, excluir mesmo assim?") em vez de já mostrar
+  // um toast de erro genérico. Só falhas "de verdade" (rede, 500) viram toast aqui.
+  const deleteStage = useCallback(async (
+    pipelineId: string,
+    stageId:    string,
+    force = false,
+  ): Promise<{ ok: boolean; needsForce?: boolean; leadCount?: number; error?: string }> => {
+    const res  = await fetch(`/api/crm/pipelines/${pipelineId}/stages/${stageId}${force ? "?force=1" : ""}`, {
       method: "DELETE",
     });
+    const json = await res.json().catch(() => ({})) as { error?: string; leadCount?: number };
+
     if (!res.ok) {
-      const json = await res.json() as { error?: string };
+      if (res.status === 409 && typeof json.leadCount === "number") {
+        return { ok: false, needsForce: true, leadCount: json.leadCount };
+      }
       toast.error(json.error ?? "Erro ao excluir etapa");
-      return false;
+      return { ok: false, error: json.error };
     }
-    toast.success("Etapa arquivada");
+
+    toast.success("Etapa excluída");
     await refetch();
-    return true;
+    return { ok: true, leadCount: json.leadCount };
   }, [refetch]);
 
   // Optimistic reorder: update local state immediately, persist async, revert on failure.

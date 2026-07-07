@@ -36,7 +36,7 @@ export function UpcomingDeadlinesCard({ tasksHook, delay = 0, bare = false, maxV
   return (
     <motion.div
       className={bare ? "" : "lc-card p-6"}
-      style={bare ? undefined : { background: "rgba(0,0,0,0.31)" }}
+      style={bare ? undefined : { background: "var(--glass-bg-soft)" }}
       initial={{ opacity: 0, y: 18 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay, ease: "easeOut" }}
@@ -44,14 +44,14 @@ export function UpcomingDeadlinesCard({ tasksHook, delay = 0, bare = false, maxV
       <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="flex h-9 w-9 items-center justify-center rounded-xl">
-            <CalendarClock size={17} style={{ color: "#ffffff" }} />
+            <CalendarClock size={17} style={{ color: "var(--text-title)" }} />
           </div>
           <div>
-            <p className="text-[13px] font-semibold leading-tight" style={{ color: "#b4b4b4" }}>Próximas Entregas</p>
+            <p className="text-[13px] font-semibold leading-tight" style={{ color: "var(--silver)" }}>Próximas Entregas</p>
             <p className="text-[10px] text-[var(--muted-foreground)]">Mais urgente primeiro</p>
           </div>
         </div>
-        <Link href="/workspace/kanban" className="text-[var(--muted-foreground)] hover:text-white/80">
+        <Link href="/workspace/kanban" className="text-[var(--muted-foreground)] hover:text-[var(--text-title)]">
           <ArrowUpRight size={15} />
         </Link>
       </div>
@@ -68,7 +68,7 @@ export function UpcomingDeadlinesCard({ tasksHook, delay = 0, bare = false, maxV
             <button
               key={task.id}
               onClick={() => { setOpenTaskId(task.id); setIsPanelOpen(true); }}
-              className="flex items-center gap-2.5 rounded-lg px-1 py-1.5 text-left transition-colors hover:bg-white/[0.03]"
+              className="flex items-center gap-2.5 rounded-lg px-1 py-1.5 text-left transition-colors hover:bg-[var(--hover)]"
             >
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm" style={{ color: "var(--text-title)" }}>{task.title}</p>

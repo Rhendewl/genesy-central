@@ -38,7 +38,7 @@ export function CrmFunnelPanel({ totalLeads, agendadas, realizadas, vendas, heig
     <motion.a
       href="/crm"
       className="lc-card group flex flex-col cursor-pointer overflow-hidden p-6"
-      style={{ background: "rgba(0,0,0,0.31)", height }}
+      style={{ background: "var(--glass-bg-soft)", height }}
       initial={{ opacity: 0, y: 18 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay, ease: "easeOut" }}
@@ -46,10 +46,10 @@ export function CrmFunnelPanel({ totalLeads, agendadas, realizadas, vendas, heig
       <div className="mb-5 flex flex-shrink-0 items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="flex h-9 w-9 items-center justify-center rounded-xl">
-            <Users size={17} style={{ color: "#ffffff" }} />
+            <Users size={17} style={{ color: "var(--text-title)" }} />
           </div>
           <div>
-            <p className="text-[13px] font-semibold leading-tight" style={{ color: "#b4b4b4" }}>Funil CRM</p>
+            <p className="text-[13px] font-semibold leading-tight" style={{ color: "var(--silver)" }}>Funil CRM</p>
             <p className="text-[10px] text-[var(--muted-foreground)]">Mês atual</p>
           </div>
         </div>
@@ -73,10 +73,10 @@ export function CrmFunnelPanel({ totalLeads, agendadas, realizadas, vendas, heig
                 transition={{ duration: 0.35, delay: delay + 0.1 + i * 0.07, ease: "easeOut" }}
               >
                 <div className="mb-2 flex items-center justify-between">
-                  <span className="text-sm" style={{ color: "rgba(255,255,255,0.85)" }}>{stage.label}</span>
-                  <span className="text-sm font-semibold tabular-nums" style={{ color: "#ffffff" }}>{stage.value}</span>
+                  <span className="text-sm" style={{ color: "var(--text-body)" }}>{stage.label}</span>
+                  <span className="text-sm font-semibold tabular-nums" style={{ color: "var(--text-title)" }}>{stage.value}</span>
                 </div>
-                <div className="h-2 w-full overflow-hidden rounded-full" style={{ background: "rgba(255,255,255,0.06)" }}>
+                <div className="h-2 w-full overflow-hidden rounded-full" style={{ background: "var(--border)" }}>
                   <motion.div
                     className="h-full rounded-full"
                     style={{ background: BAR_GRADIENT }}

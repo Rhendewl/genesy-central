@@ -50,7 +50,7 @@ export function PipelineFormModal({ open, pipeline, onClose, onSave }: Props) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 lc-scrim"
       style={{ background: "rgba(0,0,0,0.60)" }}
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
     >
@@ -69,7 +69,7 @@ export function PipelineFormModal({ open, pipeline, onClose, onSave }: Props) {
           <button
             type="button"
             onClick={onClose}
-            className="p-1 rounded-lg hover:bg-white/5 transition-colors"
+            className="p-1 rounded-lg hover:bg-[var(--hover)] transition-colors"
             style={{ color: "var(--muted-foreground)" }}
           >
             <X size={15} />
@@ -93,7 +93,7 @@ export function PipelineFormModal({ open, pipeline, onClose, onSave }: Props) {
               autoFocus
               className="w-full rounded-lg px-3 py-2 text-sm outline-none"
               style={{
-                background: "rgba(255,255,255,0.04)",
+                background: "var(--hover)",
                 border: "1px solid var(--border)",
                 color: "var(--text-title)",
               }}
@@ -112,7 +112,7 @@ export function PipelineFormModal({ open, pipeline, onClose, onSave }: Props) {
               rows={2}
               className="w-full rounded-lg px-3 py-2 text-sm outline-none resize-none"
               style={{
-                background: "rgba(255,255,255,0.04)",
+                background: "var(--hover)",
                 border: "1px solid var(--border)",
                 color: "var(--text-title)",
               }}

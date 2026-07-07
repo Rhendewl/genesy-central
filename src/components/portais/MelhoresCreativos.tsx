@@ -45,7 +45,7 @@ function MetricCard({ icon: Icon, label, value, accent }: MetricCardProps) {
       className="flex flex-col gap-1 rounded-[14px] px-3 py-2.5"
       style={{
         background: "rgba(0,0,0,0.45)",
-        border: "1px solid rgba(255,255,255,0.07)",
+        border: "1px solid var(--border-color)",
         backdropFilter: "blur(8px)",
         WebkitBackdropFilter: "blur(8px)",
       }}
@@ -54,14 +54,14 @@ function MetricCard({ icon: Icon, label, value, accent }: MetricCardProps) {
         <Icon size={10} style={{ color: accent }} strokeWidth={1.8} />
         <span
           className="text-[9px] font-semibold tracking-widest uppercase"
-          style={{ color: "rgba(255,255,255,0.35)" }}
+          style={{ color: "var(--icon)" }}
         >
           {label}
         </span>
       </div>
       <span
         className="text-[13px] font-bold leading-none tabular-nums"
-        style={{ color: "#fff" }}
+        style={{ color: "var(--text-title)" }}
       >
         {value}
       </span>
@@ -76,22 +76,22 @@ function SkeletonCard() {
     <div
       className="rounded-2xl overflow-hidden"
       style={{
-        background: "rgba(255,255,255,0.03)",
-        border: "1px solid rgba(255,255,255,0.07)",
+        background: "var(--shimmer-light)",
+        border: "1px solid var(--border-color)",
       }}
     >
       {/* Thumb */}
-      <div className="aspect-[4/3] bg-white/[0.04] animate-pulse" />
+      <div className="aspect-[4/3] bg-[var(--shimmer-light)] animate-pulse" />
       {/* Body */}
       <div className="p-3.5 space-y-3">
-        <div className="h-3 bg-white/[0.06] rounded-full animate-pulse w-3/4" />
-        <div className="h-2 bg-white/[0.04] rounded-full animate-pulse w-1/2" />
+        <div className="h-3 bg-[var(--shimmer-base)] rounded-full animate-pulse w-3/4" />
+        <div className="h-2 bg-[var(--shimmer-light)] rounded-full animate-pulse w-1/2" />
         <div className="grid grid-cols-2 gap-1.5 pt-1">
           {[0, 1, 2, 3].map(i => (
             <div
               key={i}
               className="h-12 rounded-[14px] animate-pulse"
-              style={{ background: "rgba(255,255,255,0.04)" }}
+              style={{ background: "var(--shimmer-light)" }}
             />
           ))}
         </div>
@@ -120,22 +120,22 @@ function CreativeCard({ creative, index }: { creative: PortalCreative; index: nu
       transition={{ delay: index * 0.06, duration: 0.32 }}
       className="rounded-2xl overflow-hidden flex flex-col"
       style={{
-        background: "rgba(255,255,255,0.03)",
-        border: "1px solid rgba(255,255,255,0.08)",
+        background: "var(--shimmer-light)",
+        border: "1px solid var(--glass-border)",
         backdropFilter: "blur(24px) saturate(160%)",
         WebkitBackdropFilter: "blur(24px) saturate(160%)",
-        boxShadow: "0 4px 24px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.05)",
+        boxShadow: "0 4px 24px rgba(0,0,0,0.28), inset 0 1px 0 var(--border)",
         transition: "border-color .22s, background .22s",
       }}
       onMouseEnter={e => {
         const el = e.currentTarget as HTMLElement;
-        el.style.borderColor = "rgba(255,255,255,0.14)";
-        el.style.background = "rgba(255,255,255,0.05)";
+        el.style.borderColor = "var(--border-card-hover)";
+        el.style.background = "var(--hover)";
       }}
       onMouseLeave={e => {
         const el = e.currentTarget as HTMLElement;
-        el.style.borderColor = "rgba(255,255,255,0.08)";
-        el.style.background = "rgba(255,255,255,0.03)";
+        el.style.borderColor = "var(--glass-border)";
+        el.style.background = "var(--shimmer-light)";
       }}
     >
       {/* ── Thumbnail ──────────────────────────────────────────────────── */}
@@ -164,7 +164,7 @@ function CreativeCard({ creative, index }: { creative: PortalCreative; index: nu
           >
             <span
               className="text-[10px] font-medium tracking-widest uppercase"
-              style={{ color: "rgba(255,255,255,0.18)" }}
+              style={{ color: "var(--text-empty)" }}
             >
               Sem preview
             </span>
@@ -237,7 +237,7 @@ function CreativeCard({ creative, index }: { creative: PortalCreative; index: nu
         {/* Name + campaign */}
         <div className="min-w-0">
           <p
-            className="text-white text-[13px] font-semibold leading-snug truncate"
+            className="text-[var(--text-title)] text-[13px] font-semibold leading-snug truncate"
             title={creative.creative_name}
           >
             {creative.creative_name}
@@ -292,8 +292,8 @@ function EmptyCreatives() {
     <div
       className="rounded-2xl p-10 text-center"
       style={{
-        background: "rgba(255,255,255,0.02)",
-        border: "1px solid rgba(255,255,255,0.07)",
+        background: "var(--shimmer-light)",
+        border: "1px solid var(--border-color)",
       }}
     >
       <ImageOff size={22} className="mx-auto mb-3" style={{ color: "rgba(255,255,255,0.12)" }} strokeWidth={1.3} />
@@ -332,8 +332,8 @@ export function MelhoresCreativos({ slug, since, until }: MelhoresCreativosProps
     <section>
       {/* Header */}
       <div className="mb-4">
-        <h3 className="text-white font-semibold text-sm">Melhores Criativos</h3>
-        <p className="mt-0.5 text-xs" style={{ color: "rgba(255,255,255,0.35)" }}>
+        <h3 className="text-[var(--text-title)] font-semibold text-sm">Melhores Criativos</h3>
+        <p className="mt-0.5 text-xs" style={{ color: "var(--icon)" }}>
           Campanhas com maior volume de leads e melhor eficiência.
         </p>
       </div>

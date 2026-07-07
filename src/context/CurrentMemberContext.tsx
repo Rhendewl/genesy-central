@@ -25,6 +25,7 @@ export interface MemberProfile {
   is_active: boolean;
   avatar_url: string | null;
   permissions: string[];
+  theme: "dark" | "light";
 }
 
 interface CurrentMemberContextValue {
@@ -70,7 +71,7 @@ export function CurrentMemberProvider({ children }: { children: ReactNode }) {
     const { data } = await supabase
       .from("user_profiles")
       .select(
-        "id, owner_id, auth_user_id, full_name, email, role, job_title, is_active, avatar_url, permissions"
+        "id, owner_id, auth_user_id, full_name, email, role, job_title, is_active, avatar_url, permissions, theme"
       )
       .eq("auth_user_id", user.id)
       .maybeSingle();

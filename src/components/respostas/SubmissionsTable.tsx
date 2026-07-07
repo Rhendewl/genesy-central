@@ -129,7 +129,7 @@ function BulkActionBar({ count, onDelete, onClear }: {
     <div
       className="flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl mb-3"
       style={{
-        background: "rgba(255,255,255,0.04)",
+        background: "var(--hover)",
         border: "1px solid var(--border)",
       }}
     >
@@ -140,7 +140,7 @@ function BulkActionBar({ count, onDelete, onClear }: {
       <div className="flex items-center gap-2">
         <button
           onClick={onClear}
-          className="px-2.5 py-1.5 rounded-lg text-xs transition-colors hover:bg-white/5"
+          className="px-2.5 py-1.5 rounded-lg text-xs transition-colors hover:bg-[var(--hover)]"
           style={{ color: "var(--muted-foreground)" }}
         >
           Cancelar
@@ -154,7 +154,7 @@ function BulkActionBar({ count, onDelete, onClear }: {
             <button
               onClick={() => setConfirm(false)}
               disabled={deleting}
-              className="px-2.5 py-1.5 rounded-lg text-xs transition-colors hover:bg-white/5"
+              className="px-2.5 py-1.5 rounded-lg text-xs transition-colors hover:bg-[var(--hover)]"
               style={{ color: "var(--muted-foreground)" }}
             >
               Não
@@ -297,7 +297,7 @@ export function SubmissionsTable({
                   <tr
                     key={s.id}
                     style={{
-                      background:   isChecked ? "rgba(255,255,255,0.04)" : "var(--card)",
+                      background:   isChecked ? "var(--hover)" : "var(--card)",
                       borderBottom: isLast ? "none" : "1px solid var(--border)",
                       transition:   "background 0.12s",
                     }}
@@ -356,7 +356,7 @@ export function SubmissionsTable({
               key={s.id}
               className="rounded-xl p-3"
               style={{
-                background: isChecked ? "rgba(255,255,255,0.05)" : "var(--card)",
+                background: isChecked ? "var(--hover)" : "var(--card)",
                 border: "1px solid var(--border)",
                 transition: "background 0.12s",
               }}
@@ -374,7 +374,7 @@ export function SubmissionsTable({
                 </span>
                 <button
                   onClick={() => onOpenDetail(s.id)}
-                  className="p-1 rounded hover:bg-white/10 transition-colors"
+                  className="p-1 rounded hover:bg-[var(--hover)] transition-colors"
                   style={{ color: "var(--muted-foreground)" }}
                 >
                   <ChevronRight size={14} />

@@ -39,15 +39,15 @@ export function CalendarCard({ calendar, onArchive }: CalendarCardProps) {
     >
       {/* Header */}
       <div className="flex items-start justify-between gap-2 mb-3">
-        <Calendar size={14} style={{ color: "#ffffff" }} />
+        <Calendar size={14} style={{ color: "var(--text-title)" }} />
         <div className="flex items-center gap-2">
           <span
             className="text-xs font-medium px-2 py-0.5 rounded-full"
             style={{
               background: calendar.status === "active"
                 ? "rgba(34,197,94,0.12)"
-                : "rgba(255,255,255,0.08)",
-              color: calendar.status === "active" ? "#22c55e" : "rgba(255,255,255,0.35)",
+                : "var(--border)",
+              color: calendar.status === "active" ? "#22c55e" : "var(--muted-foreground)",
             }}
           >
             {calendar.status === "active" ? "Ativo" : "Arquivado"}
@@ -57,7 +57,7 @@ export function CalendarCard({ calendar, onArchive }: CalendarCardProps) {
           <div className="relative">
             <button
               onClick={e => { e.stopPropagation(); setMenuOpen(o => !o); }}
-              className="p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white/10"
+              className="p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity hover:bg-[var(--hover)]"
             >
               <MoreHorizontal size={14} style={{ color: "var(--muted-foreground)" }} />
             </button>
@@ -71,16 +71,16 @@ export function CalendarCard({ calendar, onArchive }: CalendarCardProps) {
                 <div
                   className="absolute right-0 top-full mt-1 z-20 min-w-[160px] rounded-xl overflow-hidden"
                   style={{
-                    background:           "rgba(12,12,18,0.96)",
+                    background:           "var(--bg-tooltip)",
                     backdropFilter:       "blur(20px)",
                     WebkitBackdropFilter: "blur(20px)",
-                    border:               "1px solid rgba(255,255,255,0.09)",
-                    boxShadow:            "0 12px 40px rgba(0,0,0,0.6)",
+                    border:               "1px solid var(--border-tooltip)",
+                    boxShadow:            "0 12px 40px var(--shadow-lg)",
                   }}
                   onClick={e => e.stopPropagation()}
                 >
                   <button
-                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-white/[0.06] transition-colors"
+                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-[var(--hover)] transition-colors"
                     style={{ color: "var(--muted-foreground)" }}
                     onClick={e => {
                       e.stopPropagation();

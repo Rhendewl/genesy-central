@@ -61,14 +61,14 @@ function ChartTooltip({ active, payload, label }: {
   return (
     <div
       className="rounded-xl px-3 py-2.5 text-xs shadow-2xl"
-      style={{ background: "rgba(0,0,0,0.85)", border: "1px solid rgba(255,255,255,0.09)" }}
+      style={{ background: "var(--chart-tooltip-bg)", border: "1px solid var(--chart-tooltip-border)" }}
     >
-      {label && <p className="text-white/50 mb-1.5 font-medium">{label}</p>}
+      {label && <p className="mb-1.5 font-medium" style={{ color: "var(--chart-tooltip-label)" }}>{label}</p>}
       {payload.map((p, i) => (
         <div key={i} className="flex items-center gap-2 mb-0.5">
           <span className="w-2 h-2 rounded-full shrink-0" style={{ background: p.color }} />
-          <span className="text-white/60">{p.name}:</span>
-          <span className="text-white font-semibold">
+          <span style={{ color: "var(--chart-tooltip-entry)" }}>{p.name}:</span>
+          <span className="font-semibold" style={{ color: "var(--chart-tooltip-text)" }}>
             {p.name.includes("CPL") || p.name.includes("Invest")
               ? fmtBRL(p.value)
               : p.name.includes("CTR")
@@ -112,8 +112,8 @@ function KpiCard({
           <Icon size={15} style={{ color }} strokeWidth={1.8} />
         </div>
       </div>
-      <p className="text-white/50 text-xs font-medium mb-1 uppercase tracking-wide">{label}</p>
-      <p className="text-white font-bold text-xl leading-tight">{formatted}</p>
+      <p className="text-[color-mix(in_srgb,var(--text-title)_50%,transparent)] text-xs font-medium mb-1 uppercase tracking-wide">{label}</p>
+      <p className="text-[var(--text-title)] font-bold text-xl leading-tight">{formatted}</p>
     </motion.div>
   );
 }
@@ -141,7 +141,7 @@ function FilterSelect({
         <span className="flex-1 text-left truncate">
           {selected?.label ?? placeholder ?? "Selecionar..."}
         </span>
-        <ChevronDown size={13} className={cn("text-white/40 transition-transform shrink-0", open && "rotate-180")} />
+        <ChevronDown size={13} className={cn("text-[color-mix(in_srgb,var(--text-title)_40%,transparent)] transition-transform shrink-0", open && "rotate-180")} />
       </button>
 
       <AnimatePresence>
@@ -154,7 +154,7 @@ function FilterSelect({
               exit={{ opacity: 0, y: -4 }}
               transition={{ duration: 0.12 }}
               className="absolute left-0 right-0 top-full mt-1.5 z-[9999] rounded-xl overflow-hidden shadow-2xl"
-              style={{ background: "rgba(8,10,18,0.97)", border: "1px solid rgba(255,255,255,0.10)" }}
+              style={{ background: "var(--bg-tooltip)", border: "1px solid var(--border-tooltip)" }}
             >
               <div className="py-1 max-h-56 overflow-y-auto">
                 {options.map(opt => (
@@ -164,8 +164,8 @@ function FilterSelect({
                     className={cn(
                       "w-full flex items-center gap-2 px-3.5 py-2 text-sm text-left transition-colors",
                       value === opt.value
-                        ? "bg-[#27a3ff]/10 text-white"
-                        : "text-white/55 hover:bg-white/5 hover:text-white"
+                        ? "bg-[#27a3ff]/10 text-[var(--text-title)]"
+                        : "text-[color-mix(in_srgb,var(--text-title)_55%,transparent)] hover:bg-[var(--hover)] hover:text-[var(--text-title)]"
                     )}
                   >
                     <span className="flex-1">{opt.label}</span>
@@ -267,7 +267,7 @@ export function PortalPublicDashboard({ slug }: Props) {
 
   if (!loading && error) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: "#060606" }}>
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: "var(--background)" }}>
         <div className="text-center">
           <div
             className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-6"
@@ -275,10 +275,10 @@ export function PortalPublicDashboard({ slug }: Props) {
           >
             <AlertTriangle size={28} className="text-red-400" strokeWidth={1.4} />
           </div>
-          <h1 className="text-white font-semibold text-lg mb-2">
+          <h1 className="text-[var(--text-title)] font-semibold text-lg mb-2">
             {error === "Portal pausado" ? "Portal pausado" : "Portal não encontrado"}
           </h1>
-          <p className="text-white/40 text-sm">
+          <p className="text-[color-mix(in_srgb,var(--text-title)_40%,transparent)] text-sm">
             {error === "Portal pausado"
               ? "Este dashboard está temporariamente indisponível."
               : "O link que você acessou não existe ou foi removido."}
@@ -302,7 +302,7 @@ export function PortalPublicDashboard({ slug }: Props) {
   return (
     <div
       className="min-h-screen"
-      style={{ backgroundColor: "#060606" }}
+      style={{ backgroundColor: "var(--background)" }}
     >
       {/* Background exato do portal */}
       <div
@@ -321,11 +321,11 @@ export function PortalPublicDashboard({ slug }: Props) {
       <header
         className="relative z-50 sticky top-0"
         style={{
-          background: "rgba(0,0,0,0.12)",
+          background: "var(--glass-bg)",
           backdropFilter: "blur(32px) saturate(200%)",
           WebkitBackdropFilter: "blur(32px) saturate(200%)",
-          borderBottom: "1px solid rgba(255,255,255,0.09)",
-          boxShadow: "0 1px 0 rgba(255,255,255,0.04), 0 4px 24px rgba(0,0,0,0.2)",
+          borderBottom: "1px solid var(--glass-border)",
+          boxShadow: "var(--glass-shadow)",
         }}
       >
         {/* ── Linha 1: branding + botão PDF ────────────────────────── */}
@@ -339,13 +339,13 @@ export function PortalPublicDashboard({ slug }: Props) {
             />
             {!loading && (
               <>
-                <div className="w-px h-5 shrink-0" style={{ background: "rgba(255,255,255,0.18)" }} />
-                <span className="text-white/65 text-[11px] sm:text-sm font-light tracking-[0.18em] uppercase truncate">
+                <div className="w-px h-5 shrink-0" style={{ background: "var(--silver-border)" }} />
+                <span className="text-[color-mix(in_srgb,var(--text-title)_65%,transparent)] text-[11px] sm:text-sm font-light tracking-[0.18em] uppercase truncate">
                   {data?.portal.client_name ?? data?.portal.name ?? ""}
                 </span>
               </>
             )}
-            {loading && <div className="h-4 w-28 rounded-lg bg-white/[0.06] animate-pulse" />}
+            {loading && <div className="h-4 w-28 rounded-lg bg-[var(--shimmer-base)] animate-pulse" />}
           </div>
 
           {/* PDF button hidden temporarily */}
@@ -397,7 +397,7 @@ export function PortalPublicDashboard({ slug }: Props) {
 
           {/* Desktop: layout em linha ───────────────────────────── */}
           <div className="hidden sm:flex items-center gap-2 flex-wrap">
-            <Filter size={13} className="text-white/30 shrink-0" />
+            <Filter size={13} className="text-[color-mix(in_srgb,var(--text-title)_30%,transparent)] shrink-0" />
             <FilterSelect
               value={period}
               onChange={p => { setPeriod(p); setCampaignId("all"); }}
@@ -430,7 +430,7 @@ export function PortalPublicDashboard({ slug }: Props) {
               ]}
               className="min-w-[160px]"
             />
-            <span className="ml-auto text-xs text-white/30">
+            <span className="ml-auto text-xs text-[color-mix(in_srgb,var(--text-title)_30%,transparent)]">
               <CalendarDays size={12} className="inline mr-1" />
               {format(new Date(since), "dd/MM/yyyy")} – {format(new Date(until), "dd/MM/yyyy")}
             </span>
@@ -445,7 +445,7 @@ export function PortalPublicDashboard({ slug }: Props) {
           <div className="flex items-center justify-center py-20">
             <div className="text-center">
               <Loader2 size={32} className="animate-spin text-[#27a3ff]/60 mx-auto mb-4" />
-              <p className="text-white/40 text-sm">Carregando dados...</p>
+              <p className="text-[color-mix(in_srgb,var(--text-title)_40%,transparent)] text-sm">Carregando dados...</p>
             </div>
           </div>
         )}
@@ -475,7 +475,7 @@ export function PortalPublicDashboard({ slug }: Props) {
             <section className="grid grid-cols-1 lg:grid-cols-3 gap-4">
               {/* Performance no tempo */}
               <div className="lg:col-span-2 lc-portal-card rounded-2xl p-5">
-                <h3 className="text-white font-semibold text-sm mb-4">Performance no tempo</h3>
+                <h3 className="text-[var(--text-title)] font-semibold text-sm mb-4">Performance no tempo</h3>
                 {data?.daily && data.daily.length > 0 ? (
                   <ResponsiveContainer width="100%" height={240}>
                     <ComposedChart data={data.daily} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
@@ -485,18 +485,18 @@ export function PortalPublicDashboard({ slug }: Props) {
                           <stop offset="100%" stopColor="#f97316" stopOpacity={0} />
                         </linearGradient>
                       </defs>
-                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+                      <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
                       <XAxis
                         dataKey="data"
                         tickFormatter={v => format(new Date(v + "T00:00:00"), "dd/MM", { locale: ptBR })}
-                        tick={{ fill: "rgba(255,255,255,0.35)", fontSize: 11 }}
+                        tick={{ fill: "var(--icon)", fontSize: 11 }}
                         axisLine={false} tickLine={false}
                       />
-                      <YAxis yAxisId="left" tick={{ fill: "rgba(255,255,255,0.35)", fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={v => fmtBRL(v)} width={70} />
-                      <YAxis yAxisId="right" orientation="right" tick={{ fill: "rgba(255,255,255,0.35)", fontSize: 11 }} axisLine={false} tickLine={false} width={36} />
+                      <YAxis yAxisId="left" tick={{ fill: "var(--icon)", fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={v => fmtBRL(v)} width={70} />
+                      <YAxis yAxisId="right" orientation="right" tick={{ fill: "var(--icon)", fontSize: 11 }} axisLine={false} tickLine={false} width={36} />
                       <YAxis yAxisId="cpl" orientation="right" tick={false} axisLine={false} tickLine={false} width={0} />
                       <Tooltip content={<ChartTooltip />} />
-                      <Legend wrapperStyle={{ fontSize: 11, color: "rgba(255,255,255,0.5)" }} />
+                      <Legend wrapperStyle={{ fontSize: 11, color: "var(--chart-tooltip-label)" }} />
                       <Line yAxisId="left"  type="monotone" dataKey="investimento" name="Investimento" stroke="#27a3ff" strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
                       <Line yAxisId="right" type="monotone" dataKey="leads"        name="Leads"        stroke="#22c55e" strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
                       <Area
@@ -519,17 +519,17 @@ export function PortalPublicDashboard({ slug }: Props) {
 
               {/* Funil */}
               <div className="lc-portal-card rounded-2xl p-5">
-                <h3 className="text-white font-semibold text-sm mb-4">Funil</h3>
+                <h3 className="text-[var(--text-title)] font-semibold text-sm mb-4">Funil</h3>
                 <div className="space-y-2">
                   {funnelData.map((item, i) => {
                     const pct = funnelData[0].value > 0 ? (item.value / funnelData[0].value) * 100 : 0;
                     return (
                       <div key={i}>
                         <div className="flex items-center justify-between mb-1">
-                          <span className="text-white/60 text-xs font-medium">{item.name}</span>
-                          <span className="text-white text-sm font-semibold">{fmtNum(item.value)}</span>
+                          <span className="text-[color-mix(in_srgb,var(--text-title)_60%,transparent)] text-xs font-medium">{item.name}</span>
+                          <span className="text-[var(--text-title)] text-sm font-semibold">{fmtNum(item.value)}</span>
                         </div>
-                        <div className="h-2 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.06)" }}>
+                        <div className="h-2 rounded-full overflow-hidden" style={{ background: "var(--shimmer-base)" }}>
                           <motion.div
                             initial={{ width: 0 }}
                             animate={{ width: `${pct}%` }}
@@ -539,7 +539,7 @@ export function PortalPublicDashboard({ slug }: Props) {
                           />
                         </div>
                         {i < funnelData.length - 1 && (
-                          <p className="text-white/25 text-xs mt-0.5 text-right">{pct.toFixed(1)}% do alcance</p>
+                          <p className="text-[color-mix(in_srgb,var(--text-title)_25%,transparent)] text-xs mt-0.5 text-right">{pct.toFixed(1)}% do alcance</p>
                         )}
                       </div>
                     );
@@ -555,28 +555,28 @@ export function PortalPublicDashboard({ slug }: Props) {
             {/* ── Distribuição de leads por campanha ───────────────── */}
             {campaigns.length > 0 && (
               <section className="lc-portal-card rounded-2xl p-5">
-                <h3 className="text-white font-semibold text-sm mb-5">Distribuição por campanha</h3>
+                <h3 className="text-[var(--text-title)] font-semibold text-sm mb-5">Distribuição por campanha</h3>
                 <DonutCampaignChart campaigns={campaigns} />
               </section>
             )}
 
             {/* ── Campaign table ────────────────────────────────────── */}
             <section>
-              <h3 className="text-white font-semibold text-sm mb-3">Detalhamento de campanhas</h3>
+              <h3 className="text-[var(--text-title)] font-semibold text-sm mb-3">Detalhamento de campanhas</h3>
               {campaigns.length === 0 ? (
                 <div className="lc-portal-card rounded-2xl p-8 text-center">
-                  <p className="text-white/40 text-sm">Nenhuma campanha encontrada no período.</p>
+                  <p className="text-[color-mix(in_srgb,var(--text-title)_40%,transparent)] text-sm">Nenhuma campanha encontrada no período.</p>
                 </div>
               ) : (
                 <div className="lc-portal-card rounded-2xl overflow-hidden" style={{ padding: 0 }}>
                   <div className="overflow-x-auto">
                     <table className="w-full">
                       <thead>
-                        <tr className="border-b border-white/[0.07]">
+                        <tr className="border-b border-[color-mix(in_srgb,var(--text-title)_7%,transparent)]">
                           {["Campanha", "Status", "Investimento", "Leads", "CPL", "CTR", "Impressões", "Cliques"].map(col => (
                             <th
                               key={col}
-                              className="px-4 py-3.5 text-left text-xs font-semibold text-white/40 uppercase tracking-wider whitespace-nowrap"
+                              className="px-4 py-3.5 text-left text-xs font-semibold text-[color-mix(in_srgb,var(--text-title)_40%,transparent)] uppercase tracking-wider whitespace-nowrap"
                             >
                               {col}
                             </th>
@@ -590,10 +590,10 @@ export function PortalPublicDashboard({ slug }: Props) {
                             initial={{ opacity: 0, y: 4 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: i * 0.04 }}
-                            className="border-b border-white/[0.04] hover:bg-white/[0.025] transition-colors"
+                            className="border-b border-[color-mix(in_srgb,var(--text-title)_4%,transparent)] hover:bg-[var(--hover)] transition-colors"
                           >
                             <td className="px-4 py-3">
-                              <p className="text-white text-sm font-medium truncate max-w-[220px]">{c.nome}</p>
+                              <p className="text-[var(--text-title)] text-sm font-medium truncate max-w-[220px]">{c.nome}</p>
                             </td>
                             <td className="px-4 py-3">
                               <span
@@ -607,12 +607,12 @@ export function PortalPublicDashboard({ slug }: Props) {
                                 {c.status}
                               </span>
                             </td>
-                            <td className="px-4 py-3 text-white/80 text-sm">{fmtBRL(c.investimento)}</td>
-                            <td className="px-4 py-3 text-white/80 text-sm font-semibold">{fmtNum(c.leads)}</td>
-                            <td className="px-4 py-3 text-white/80 text-sm">{c.leads > 0 ? fmtBRL(c.cpl) : "—"}</td>
-                            <td className="px-4 py-3 text-white/80 text-sm">{fmtPct(c.ctr)}</td>
-                            <td className="px-4 py-3 text-white/60 text-sm">{fmtNum(c.impressoes)}</td>
-                            <td className="px-4 py-3 text-white/60 text-sm">{fmtNum(c.cliques)}</td>
+                            <td className="px-4 py-3 text-[color-mix(in_srgb,var(--text-title)_80%,transparent)] text-sm">{fmtBRL(c.investimento)}</td>
+                            <td className="px-4 py-3 text-[color-mix(in_srgb,var(--text-title)_80%,transparent)] text-sm font-semibold">{fmtNum(c.leads)}</td>
+                            <td className="px-4 py-3 text-[color-mix(in_srgb,var(--text-title)_80%,transparent)] text-sm">{c.leads > 0 ? fmtBRL(c.cpl) : "—"}</td>
+                            <td className="px-4 py-3 text-[color-mix(in_srgb,var(--text-title)_80%,transparent)] text-sm">{fmtPct(c.ctr)}</td>
+                            <td className="px-4 py-3 text-[color-mix(in_srgb,var(--text-title)_60%,transparent)] text-sm">{fmtNum(c.impressoes)}</td>
+                            <td className="px-4 py-3 text-[color-mix(in_srgb,var(--text-title)_60%,transparent)] text-sm">{fmtNum(c.cliques)}</td>
                           </motion.tr>
                         ))}
                       </tbody>
@@ -626,7 +626,7 @@ export function PortalPublicDashboard({ slug }: Props) {
             <SaldoContaMeta slug={slug} />
 
             {/* Footer */}
-            <footer className="text-center py-4 text-white/20 text-xs print:hidden">
+            <footer className="text-center py-4 text-[color-mix(in_srgb,var(--text-title)_20%,transparent)] text-xs print:hidden">
               Dashboard gerado em tempo real · {format(new Date(), "dd/MM/yyyy 'às' HH:mm")}
             </footer>
           </>
@@ -678,13 +678,13 @@ function DonutCampaignChart({ campaigns }: { campaigns: PortalCampaignSummary[] 
             <Tooltip
               formatter={(value) => [fmtNum(Number(value)), metricLabel]}
               contentStyle={{
-                background: "rgba(0,0,0,0.85)",
-                border: "1px solid rgba(255,255,255,0.09)",
+                background: "var(--chart-tooltip-bg)",
+                border: "1px solid var(--chart-tooltip-border)",
                 borderRadius: 10,
                 fontSize: 12,
               }}
-              labelStyle={{ color: "rgba(255,255,255,0.5)" }}
-              itemStyle={{ color: "#fff" }}
+              labelStyle={{ color: "var(--chart-tooltip-label)" }}
+              itemStyle={{ color: "var(--chart-tooltip-text)" }}
             />
           </PieChart>
         </ResponsiveContainer>
@@ -699,15 +699,15 @@ function DonutCampaignChart({ campaigns }: { campaigns: PortalCampaignSummary[] 
                 className="w-2.5 h-2.5 rounded-full shrink-0"
                 style={{ background: DONUT_COLORS[i % DONUT_COLORS.length] }}
               />
-              <span className="text-white/55 text-xs flex-1 min-w-0 truncate">{entry.name}</span>
-              <span className="text-white/35 text-xs shrink-0 tabular-nums">{fmtNum(entry.value)}</span>
-              <span className="text-white text-xs font-semibold shrink-0 w-10 text-right tabular-nums">
+              <span className="text-[color-mix(in_srgb,var(--text-title)_55%,transparent)] text-xs flex-1 min-w-0 truncate">{entry.name}</span>
+              <span className="text-[color-mix(in_srgb,var(--text-title)_35%,transparent)] text-xs shrink-0 tabular-nums">{fmtNum(entry.value)}</span>
+              <span className="text-[var(--text-title)] text-xs font-semibold shrink-0 w-10 text-right tabular-nums">
                 {pct}%
               </span>
             </div>
           );
         })}
-        <p className="text-white/20 text-xs pt-1">Distribuição por {metricLabel}</p>
+        <p className="text-[color-mix(in_srgb,var(--text-title)_20%,transparent)] text-xs pt-1">Distribuição por {metricLabel}</p>
       </div>
     </div>
   );
@@ -716,7 +716,7 @@ function DonutCampaignChart({ campaigns }: { campaigns: PortalCampaignSummary[] 
 function EmptyChart({ label }: { label: string }) {
   return (
     <div className="flex items-center justify-center h-32">
-      <p className="text-white/25 text-sm">{label}</p>
+      <p className="text-[color-mix(in_srgb,var(--text-title)_25%,transparent)] text-sm">{label}</p>
     </div>
   );
 }
