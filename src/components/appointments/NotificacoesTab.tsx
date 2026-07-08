@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Loader2, Bell, BellOff } from "lucide-react";
+import { ensurePushSubscription } from "@/lib/notifications/push-client";
 import type {
   AppointmentCalendar,
   AppointmentNotificationSettings,
@@ -171,6 +172,8 @@ export function NotificacoesTab({ calendar, onSave }: Props) {
     const opts  = { body, icon: "/favicon.png", badge: "/favicon.png" };
 
     try {
+      await ensurePushSubscription();
+
       // Tenta via Service Worker (necessário em mobile e para push server-side).
       // Promise.race com 3 s de timeout — se o SW ainda está instalando, não trava.
       if ("serviceWorker" in navigator) {

@@ -1,10 +1,5 @@
-// Shared push notification dispatcher.
-// Used by both the Agenda and CRM consumers — zero duplication.
-//
-// NOTE: actual web-push sending requires VAPID keys + `web-push` package.
-// Until configured, calls are logged. See sendPushNotification() below.
-
 import type { SupabaseClient } from "@supabase/supabase-js";
+import webpush from "web-push";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Db = SupabaseClient<any, any, any>;
@@ -27,30 +22,36 @@ interface PushSubscriptionRow {
   auth_key: string;
 }
 
+let vapidConfigured = false;
+
+function ensureVapidConfigured(): boolean {
+  if (vapidConfigured) return true;
+
+  const subject    = process.env.VAPID_SUBJECT;
+  const publicKey  = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+  const privateKey = process.env.VAPID_PRIVATE_KEY;
+
+  if (!subject || !publicKey || !privateKey) {
+    console.warn("[push-dispatcher] VAPID env vars missing; push delivery skipped.");
+    return false;
+  }
+
+  webpush.setVapidDetails(subject, publicKey, privateKey);
+  vapidConfigured = true;
+  return true;
+}
+
 async function sendPushNotification(
   sub:   PushSubscriptionRow,
   title: string,
   body:  string,
 ): Promise<void> {
-  // TODO: configure web-push once VAPID keys are available:
-  //
-  //   npm install web-push
-  //   npm install --save-dev @types/web-push
-  //
-  // Then replace this log with:
-  //   import webpush from "web-push";
-  //   webpush.setVapidDetails(
-  //     process.env.VAPID_SUBJECT!,          // "mailto:admin@genesy.com.br"
-  //     process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
-  //     process.env.VAPID_PRIVATE_KEY!,
-  //   );
-  //   await webpush.sendNotification(
-  //     { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth_key } },
-  //     JSON.stringify({ title, body, icon: "/favicon.png" }),
-  //   );
+  if (!ensureVapidConfigured()) return;
 
-  console.log("[push-dispatcher] would send to", sub.endpoint.slice(0, 50) + "…", "|", title);
-  void body;
+  await webpush.sendNotification(
+    { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth_key } },
+    JSON.stringify({ title, body, icon: "/favicon.png", tag: "genesy-workflow" }),
+  );
 }
 
 // ── Public dispatch function ──────────────────────────────────────────────────
@@ -72,7 +73,26 @@ export async function dispatchPushToUser(
 
   if (!subs?.length) return;
 
-  await Promise.allSettled(
-    subs.map(sub => sendPushNotification(sub as PushSubscriptionRow, title, body)),
+  const results = await Promise.allSettled(
+    subs.map(async (sub) => {
+      try {
+        await sendPushNotification(sub as PushSubscriptionRow, title, body);
+      } catch (err) {
+        const statusCode = typeof err === "object" && err !== null && "statusCode" in err
+          ? Number((err as { statusCode?: number }).statusCode)
+          : null;
+
+        if (statusCode === 404 || statusCode === 410) {
+          await db.from("push_subscriptions").delete().eq("endpoint", (sub as PushSubscriptionRow).endpoint);
+        }
+
+        throw err;
+      }
+    }),
   );
+
+  const rejected = results.filter(r => r.status === "rejected");
+  if (rejected.length > 0) {
+    console.warn(`[push-dispatcher] ${rejected.length}/${results.length} push deliveries failed.`);
+  }
 }

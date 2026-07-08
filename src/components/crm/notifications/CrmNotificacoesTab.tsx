@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { Bell, Loader2, Plus, Trash2, X } from "lucide-react";
+import { ensurePushSubscription } from "@/lib/notifications/push-client";
 import { useCrmNotificationRules }  from "@/hooks/useCrmNotificationRules";
 import { usePipelines }             from "@/hooks/usePipelines";
 import type {
@@ -172,6 +173,8 @@ function RuleModal({ rule, onSave, onClose }: ModalProps) {
     const opts  = { body, icon: "/favicon.png" };
 
     try {
+      await ensurePushSubscription();
+
       if ("serviceWorker" in navigator) {
         const timeoutPromise = new Promise<null>(res => setTimeout(() => res(null), 3000));
         const reg = await Promise.race([navigator.serviceWorker.ready, timeoutPromise]);
