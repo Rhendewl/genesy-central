@@ -1,7 +1,9 @@
 "use client";
 
-import { Plus, Trash2 } from "lucide-react";
+import { useState } from "react";
+import { Loader2, Plus, TestTube2, Trash2 } from "lucide-react";
 import { useUsers } from "@/hooks/useUsers";
+import { ensurePushSubscription } from "@/lib/notifications/push-client";
 import { ACTION_DEFINITIONS, RECIPIENT_TYPE_LABELS, WORKFLOW_VARIABLES } from "./catalog";
 import type { NotificationActionConfig } from "@/lib/workflow-engine/actions/notification-action";
 
@@ -13,13 +15,34 @@ const INPUT_STYLE: React.CSSProperties = {
   color:      "var(--text-title)",
 };
 
+const PREVIEW_VARS: Record<string, string> = {
+  "lead.nome":        "João Silva",
+  "lead.email":       "joao@email.com",
+  "lead.telefone":    "(11) 99999-9999",
+  "pipeline.nome":    "Comercial",
+  "etapa.nome":       "Novo Lead",
+  "responsavel.nome": "Maria Santos",
+  "empresa":          "Genesy",
+  "data":             "08/07/2026",
+  "hora":             "14:30",
+  "iq":               "82",
+  "ie":               "40",
+  "dias_na_etapa":    "2",
+};
+
 interface ActionsEditorProps {
   actions:  ActionRowValue[];
   onChange: (actions: ActionRowValue[]) => void;
 }
 
+function renderPreview(template: string): string {
+  return template.replace(/\{\{([^}]+)\}\}/g, (_, key) => PREVIEW_VARS[key.trim()] ?? `{{${key.trim()}}}`);
+}
+
 export function ActionsEditor({ actions, onChange }: ActionsEditorProps) {
   const { profiles } = useUsers();
+  const [testingIndex, setTestingIndex] = useState<number | null>(null);
+  const [testMessage, setTestMessage] = useState<{ index: number; text: string } | null>(null);
 
   function addAction() {
     onChange([...actions, {
@@ -34,6 +57,49 @@ export function ActionsEditor({ actions, onChange }: ActionsEditorProps) {
 
   function removeAction(index: number) {
     onChange(actions.filter((_, i) => i !== index));
+  }
+
+  async function testNotification(index: number, config: NotificationActionConfig) {
+    setTestingIndex(index);
+    setTestMessage(null);
+
+    try {
+      if (!("Notification" in window)) {
+        setTestMessage({ index, text: "Seu navegador não suporta notificações." });
+        return;
+      }
+
+      let permission = Notification.permission;
+      if (permission === "default") permission = await Notification.requestPermission();
+      if (permission !== "granted") {
+        setTestMessage({ index, text: "Permissão negada. Habilite notificações no navegador." });
+        return;
+      }
+
+      await ensurePushSubscription();
+
+      const title = renderPreview(config.title?.trim() || "Teste de automação CRM");
+      const body = renderPreview(config.body?.trim() || "Esta é uma prévia da notificação da automação.");
+      const opts = { body, icon: "/favicon.png", badge: "/favicon.png", tag: "genesy-workflow-test" };
+
+      if ("serviceWorker" in navigator) {
+        const timeoutPromise = new Promise<null>(res => setTimeout(() => res(null), 3000));
+        const reg = await Promise.race([navigator.serviceWorker.ready, timeoutPromise]);
+        if (reg) {
+          await reg.showNotification(title, opts);
+          setTestMessage({ index, text: "Notificação de teste enviada." });
+          return;
+        }
+      }
+
+      new Notification(title, opts);
+      setTestMessage({ index, text: "Notificação de teste enviada." });
+    } catch (err) {
+      setTestMessage({ index, text: err instanceof Error ? err.message : "Erro ao testar notificação." });
+    } finally {
+      setTestingIndex(null);
+      setTimeout(() => setTestMessage(null), 4000);
+    }
   }
 
   return (
@@ -94,6 +160,25 @@ export function ActionsEditor({ actions, onChange }: ActionsEditorProps) {
                 {profiles.map(u => <option key={u.id} value={u.id}>{u.full_name}</option>)}
               </select>
             )}
+
+            <div className="flex items-center justify-between gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => testNotification(index, config)}
+                disabled={testingIndex === index}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all hover:opacity-90 disabled:opacity-50"
+                style={{ background: "var(--hover)", border: "1px solid var(--border)", color: "var(--text-title)" }}
+              >
+                {testingIndex === index ? <Loader2 size={12} className="animate-spin" /> : <TestTube2 size={12} />}
+                {testingIndex === index ? "Testando..." : "Testar notificação"}
+              </button>
+
+              {testMessage?.index === index && (
+                <span className="text-[10px] text-right" style={{ color: "var(--text-placeholder)" }}>
+                  {testMessage.text}
+                </span>
+              )}
+            </div>
 
             <p className="text-[10px]" style={{ color: "var(--text-placeholder)" }}>
               Variáveis: {WORKFLOW_VARIABLES.map(v => `{{${v}}}`).join(", ")}
