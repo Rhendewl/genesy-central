@@ -30,7 +30,10 @@ SELECT cron.schedule(
                  'Content-Type',  'application/json',
                  'X-Cron-Secret', 'SEU_CRON_SECRET_AQUI'
                ),
-    body    := '{}'::jsonb
+    body    := '{}'::jsonb,
+    -- padrão do pg_net é 5000ms — pouco pra processar um lote de jobs
+    -- atrasados (várias consultas por job); 25s dá bastante margem.
+    timeout_milliseconds := 25000
   );
   $$
 );
