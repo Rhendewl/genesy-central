@@ -6,6 +6,7 @@ import { createConversionEngine }            from "@/lib/conversion-engine/engin
 import { crmResolver }                       from "@/lib/conversion-engine/event-resolvers/crm";
 import { bookingResolver }                   from "@/lib/conversion-engine/event-resolvers/booking";
 import { createPushNotificationConsumer }      from "@/lib/event-bus/appointments/consumers/push-notification";
+import { createConversationCrmFlowTriggerConsumer } from "@/lib/event-bus/conversations/consumers/crm-flow-trigger";
 import { createCrmStageNotificationConsumer } from "@/lib/event-bus/crm/consumers/stage-notification";
 import { createTaskNotificationConsumer }     from "@/lib/event-bus/workspace/consumers/task-notification";
 import { createWorkflowJobCanceller }         from "@/lib/event-bus/workflow/canceller";
@@ -55,6 +56,9 @@ export function getPlatformEventBus(): EventBus<DomainEventType> {
   // eventualmente agendar novos para o mesmo lead (ordem importa).
   _bus.subscribe(createWorkflowJobCanceller(db));
   _bus.subscribe(createWorkflowTriggerConsumer(db));
+
+  // Conversas: transforma eventos do CRM em jobs de fluxos de WhatsApp.
+  _bus.subscribe(createConversationCrmFlowTriggerConsumer(db));
 
   return _bus;
 }

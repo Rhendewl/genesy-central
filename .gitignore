@@ -31,6 +31,9 @@ yarn-error.log*
 # vercel
 .vercel
 
+# whatsapp worker local sessions
+/workers/whatsapp-qr-worker/sessions/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
