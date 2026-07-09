@@ -654,6 +654,22 @@ const flowCategoryMeta: Record<FlowBlockCategory, { label: string; color: string
   action: { label: "Ações", color: "#34d399" },
 };
 
+const triggerEventLabels: Record<string, string> = {
+  form_submitted: "Formulário preenchido",
+  appointment_created: "Agendamento realizado",
+  lead_created: "Lead criado",
+  message_received: "Mensagem recebida",
+  stage_changed: "Etapa do CRM alterada",
+};
+
+const triggerEventDescriptions: Record<string, string> = {
+  form_submitted: "Inicia quando uma resposta de formulário entra.",
+  appointment_created: "Inicia quando um agendamento é criado.",
+  lead_created: "Inicia quando um lead entra no CRM.",
+  message_received: "Inicia quando uma mensagem inbound chega no WhatsApp.",
+  stage_changed: "Inicia quando um lead muda de etapa no CRM.",
+};
+
 const flowBlockLibrary: FlowBlockDefinition[] = [
   {
     id: "form_submitted",
@@ -674,6 +690,36 @@ const flowBlockLibrary: FlowBlockDefinition[] = [
     icon: CalendarCheck,
     color: flowCategoryMeta.trigger.color,
     initialConfig: { trigger_type: "appointment_created" },
+  },
+  {
+    id: "lead_created",
+    category: "trigger",
+    nodeType: "trigger",
+    name: "Lead criado",
+    description: "Dispara quando um lead entra no CRM.",
+    icon: UserPlus,
+    color: flowCategoryMeta.trigger.color,
+    initialConfig: { trigger_type: "lead_created" },
+  },
+  {
+    id: "message_received",
+    category: "trigger",
+    nodeType: "trigger",
+    name: "Mensagem recebida",
+    description: "Dispara quando chega uma mensagem no WhatsApp.",
+    icon: MessageCircle,
+    color: flowCategoryMeta.trigger.color,
+    initialConfig: { trigger_type: "message_received" },
+  },
+  {
+    id: "stage_changed",
+    category: "trigger",
+    nodeType: "trigger",
+    name: "Etapa do CRM alterada",
+    description: "Dispara quando um lead muda de etapa.",
+    icon: MoveRight,
+    color: flowCategoryMeta.trigger.color,
+    initialConfig: { trigger_type: "stage_changed" },
   },
   {
     id: "wait_timer",
@@ -727,7 +773,10 @@ function nodeIcon(node: ConversationFlowNode) {
 }
 
 function nodeDescription(node: ConversationFlowNode) {
-  if (node.node_type === "trigger") return "Ponto de entrada da automação";
+  if (node.node_type === "trigger") {
+    const triggerType = typeof node.config?.trigger_type === "string" ? node.config.trigger_type : "";
+    return triggerEventDescriptions[triggerType] ?? "Ponto de entrada da automação";
+  }
   if (node.node_type === "wait") return `${Number(node.config?.wait_minutes ?? 0)} minuto(s) de espera`;
   if (node.node_type === "condition") return "Valida dados antes de continuar";
   if (node.node_type === "end") return "Finaliza a jornada";
@@ -1114,7 +1163,6 @@ function FlowInspector({
   onDeleteNode: (nodeId: string) => void;
 }) {
   const [label, setLabel] = useState("");
-  const [triggerType, setTriggerType] = useState("form_submitted");
   const [targetScope, setTargetScope] = useState("all_leads");
   const [minIq, setMinIq] = useState("");
   const [minIe, setMinIe] = useState("");
@@ -1129,7 +1177,6 @@ function FlowInspector({
   useEffect(() => {
     if (!node) return;
     setLabel(node.label);
-    setTriggerType(typeof node.config?.trigger_type === "string" ? node.config.trigger_type : "form_submitted");
     setTargetScope(typeof node.config?.target_scope === "string" ? node.config.target_scope : "all_leads");
     setMinIq(typeof node.config?.min_iq === "number" ? String(node.config.min_iq) : "");
     setMinIe(typeof node.config?.min_ie === "number" ? String(node.config.min_ie) : "");
@@ -1149,13 +1196,17 @@ function FlowInspector({
   const Icon = node ? nodeIcon(node) : GitBranch;
   const color = node ? nodeColor(node) : "#38bdf8";
   const isMoveCrmNode = node?.node_type === "action" && node.config?.action_type === "move_crm";
+  const fixedTriggerType = node?.node_type === "trigger" && typeof node.config?.trigger_type === "string"
+    ? node.config.trigger_type
+    : "";
+  const fixedTriggerLabel = triggerEventLabels[fixedTriggerType] ?? "Gatilho não definido";
 
   function buildNodeConfig() {
     if (!node) return {};
     if (node.node_type === "trigger") {
       return {
         ...node.config,
-        trigger_type: triggerType,
+        trigger_type: fixedTriggerType,
         target_scope: targetScope,
         min_iq: minIq.trim() ? Number(minIq) : null,
         min_ie: minIe.trim() ? Number(minIe) : null,
@@ -1217,16 +1268,13 @@ function FlowInspector({
 
           {node.node_type === "trigger" && (
             <div className="space-y-3">
-              <label className="block">
-                <span className="text-xs font-semibold" style={{ color: "var(--muted-foreground)" }}>Evento automático</span>
-                <select value={triggerType} onChange={(event) => setTriggerType(event.target.value)} className="mt-1 w-full rounded-2xl px-4 py-3 text-sm outline-none" style={{ background: "var(--hover)", color: "var(--text-title)", border: "1px solid var(--glass-border)" }}>
-                  <option value="form_submitted">Formulário preenchido</option>
-                  <option value="appointment_created">Agendamento realizado</option>
-                  <option value="lead_created">Lead criado</option>
-                  <option value="message_received">Mensagem recebida</option>
-                  <option value="stage_changed">Etapa do CRM alterada</option>
-                </select>
-              </label>
+              <div className="rounded-2xl px-4 py-3" style={{ background: "rgba(56,189,248,0.10)", border: "1px solid rgba(56,189,248,0.22)" }}>
+                <span className="text-xs font-semibold" style={{ color: "#38bdf8" }}>Quando iniciar este fluxo</span>
+                <p className="mt-1 text-sm font-semibold" style={{ color: "var(--text-title)" }}>{fixedTriggerLabel}</p>
+                <p className="mt-1 text-xs leading-relaxed" style={{ color: "var(--muted-foreground)" }}>
+                  Este evento é definido pelo bloco escolhido na biblioteca. Para trocar o evento, apague este gatilho e adicione outro bloco de gatilho.
+                </p>
+              </div>
               <label className="block">
                 <span className="text-xs font-semibold" style={{ color: "var(--muted-foreground)" }}>Executar para</span>
                 <select value={targetScope} onChange={(event) => setTargetScope(event.target.value)} className="mt-1 w-full rounded-2xl px-4 py-3 text-sm outline-none" style={{ background: "var(--hover)", color: "var(--text-title)", border: "1px solid var(--glass-border)" }}>
