@@ -55,7 +55,7 @@ function sessionSnapshot(accountId) {
 }
 
 function jidToPhone(jid) {
-  return String(jid || "").split("@")[0].replace(/\D/g, "");
+  return String(jid || "").split("@")[0].split(":")[0].replace(/\D/g, "");
 }
 
 function normalizeRecipientDigits(value) {
