@@ -60,13 +60,35 @@ function jidToPhone(jid) {
 
 function extractMessageText(message) {
   if (!message) return "";
+  const nestedMessage =
+    message.ephemeralMessage?.message ||
+    message.viewOnceMessage?.message ||
+    message.viewOnceMessageV2?.message ||
+    message.documentWithCaptionMessage?.message;
+
+  if (nestedMessage) return extractMessageText(nestedMessage);
+
   return (
     message.conversation ||
     message.extendedTextMessage?.text ||
     message.imageMessage?.caption ||
     message.videoMessage?.caption ||
+    message.documentMessage?.caption ||
+    message.buttonsResponseMessage?.selectedDisplayText ||
+    message.buttonsResponseMessage?.selectedButtonId ||
+    message.listResponseMessage?.title ||
+    message.listResponseMessage?.singleSelectReply?.selectedRowId ||
+    message.templateButtonReplyMessage?.selectedDisplayText ||
+    message.templateButtonReplyMessage?.selectedId ||
     ""
   ).trim();
+}
+
+function messageTimestampToIso(timestamp) {
+  const raw = Number(timestamp || 0);
+  if (!Number.isFinite(raw) || raw <= 0) return new Date().toISOString();
+  const milliseconds = raw > 10_000_000_000 ? raw : raw * 1000;
+  return new Date(milliseconds).toISOString();
 }
 
 async function notifyConnectionStatus(accountId) {
@@ -132,14 +154,17 @@ async function notifyInboundMessage(accountId, message) {
       body,
       name: message.pushName || "",
       provider_message_id: message.key?.id || null,
-      received_at: new Date(Number(message.messageTimestamp || Date.now()) * 1000).toISOString(),
+      received_at: messageTimestampToIso(message.messageTimestamp),
     }),
   });
 
   if (!response.ok) {
     const error = await response.text().catch(() => "");
     logger.warn({ accountId, status: response.status, error }, "Falha ao encaminhar mensagem recebida.");
+    return;
   }
+
+  logger.info({ accountId, from: jidToPhone(remoteJid), providerMessageId: message.key?.id || null }, "Mensagem recebida encaminhada ao dashboard.");
 }
 
 async function notifyHistoryMessages(accountId, messages) {
@@ -237,6 +262,7 @@ async function startSession(accountId) {
   });
 
   sock.ev.on("messages.upsert", async ({ messages }) => {
+    logger.info({ accountId, count: messages?.length ?? 0 }, "Evento de mensagens recebido do WhatsApp.");
     for (const message of messages || []) {
       await notifyInboundMessage(accountId, message).catch((err) => {
         logger.warn({ err, accountId }, "Erro ao processar mensagem recebida.");

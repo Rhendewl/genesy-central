@@ -157,12 +157,15 @@ export function useConversationsDashboard(): UseConversationsDashboardReturn {
   const [isMutating, setIsMutating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (options?: { silent?: boolean }) => {
     if (memberLoading) return;
+    const silent = options?.silent === true;
 
     try {
-      setIsLoading(true);
-      setError(null);
+      if (!silent) {
+        setIsLoading(true);
+        setError(null);
+      }
 
       const supabase = getSupabaseClient();
       const { data: { user } } = await supabase.auth.getUser();
@@ -348,13 +351,23 @@ export function useConversationsDashboard(): UseConversationsDashboardReturn {
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao carregar conversas");
     } finally {
-      setIsLoading(false);
+      if (!silent) setIsLoading(false);
     }
   }, [member, memberLoading]);
 
   useEffect(() => {
     void fetchData();
   }, [fetchData]);
+
+  useEffect(() => {
+    if (memberLoading || !member) return undefined;
+
+    const interval = window.setInterval(() => {
+      void fetchData({ silent: true });
+    }, 5000);
+
+    return () => window.clearInterval(interval);
+  }, [fetchData, member, memberLoading]);
 
   const createAccount = useCallback(async (sessionName?: string) => {
     if (!member) return null;
