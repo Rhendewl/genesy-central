@@ -812,7 +812,7 @@ function formatDateTime(date: string | null) {
 }
 
 function FlowsTab() {
-  const { inbox, flows, metrics, resources, isLoading, isMutating, createFlow, updateFlowStatus, deleteFlow, testFlow, addFlowNode, updateFlowNode, deleteFlowNode, createFlowEdge, deleteFlowEdge } = useConversationsDashboard();
+  const { inbox, flows, metrics, resources, isLoading, isMutating, error, createFlow, updateFlowStatus, deleteFlow, testFlow, addFlowNode, updateFlowNode, deleteFlowNode, createFlowEdge, deleteFlowEdge } = useConversationsDashboard();
   const [selectedId, setSelectedId] = useState(flows[0]?.id ?? "");
   const [selectedNodeId, setSelectedNodeId] = useState("");
   const [showNewFlow, setShowNewFlow] = useState(false);
@@ -1085,6 +1085,13 @@ function FlowsTab() {
             </button>
           </div>
         </div>
+
+        {error && (
+          <div className="mx-4 mt-3 flex items-start gap-2 rounded-2xl px-4 py-3 text-sm" style={{ background: "rgba(239,68,68,0.10)", color: "#fecaca", border: "1px solid rgba(239,68,68,0.24)" }}>
+            <AlertTriangle size={16} className="mt-0.5 shrink-0" />
+            <span>{error}</span>
+          </div>
+        )}
 
         <div className="grid min-h-[calc(100vh-235px)] grid-cols-1 xl:grid-cols-[280px_minmax(0,1fr)_340px]">
           <aside className="border-r p-4" style={{ borderColor: "var(--glass-border)" }}>
