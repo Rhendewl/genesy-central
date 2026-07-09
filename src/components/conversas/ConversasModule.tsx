@@ -817,8 +817,6 @@ function FlowsTab() {
   const [selectedNodeId, setSelectedNodeId] = useState("");
   const [showNewFlow, setShowNewFlow] = useState(false);
   const [showTestFlow, setShowTestFlow] = useState(false);
-  const [blockToAdd, setBlockToAdd] = useState<FlowBlockDefinition | null>(null);
-  const [dropPosition, setDropPosition] = useState<{ x: number; y: number } | null>(null);
   const [quickInsertAfter, setQuickInsertAfter] = useState("");
   const [quickSearch, setQuickSearch] = useState("");
   const [selectedEdgeId, setSelectedEdgeId] = useState("");
@@ -834,6 +832,7 @@ function FlowsTab() {
     moved: boolean;
   } | null>(null);
   const canvasRef = useRef<HTMLDivElement | null>(null);
+  const canvasInnerRef = useRef<HTMLDivElement | null>(null);
   const selected = flows.find((flow) => flow.id === selectedId) ?? flows[0];
   const selectedNodes = selected?.nodes ?? [];
   const selectedEdges = selected?.edges ?? [];
@@ -857,24 +856,19 @@ function FlowsTab() {
     setShowNewFlow(false);
   }
 
-  async function handleAddNode(block: FlowBlockDefinition, input: {
-    nodeType: ConversationFlowNodeType;
-    label: string;
-    config: Record<string, unknown>;
-  }) {
+  async function handleAddBlock(block: FlowBlockDefinition, position?: { x: number; y: number } | null) {
     if (!selected) return;
     const node = await addFlowNode(selected.id, {
-      ...input,
-      config: { ...(block.initialConfig ?? {}), ...input.config },
+      nodeType: block.nodeType,
+      label: block.name,
+      config: block.initialConfig ?? {},
     });
     if (!node) return;
-    if (dropPosition) {
+    if (position) {
       await updateFlowNode(selected.id, node.id, {
-        position: dropPosition,
+        position,
       });
     }
-    setBlockToAdd(null);
-    setDropPosition(null);
     setQuickInsertAfter("");
     setSelectedNodeId(node.id);
   }
@@ -898,9 +892,6 @@ function FlowsTab() {
 
   async function handleDeleteNode(nodeId: string) {
     if (!selected || !nodeId) return;
-    const node = selectedNodes.find((item) => item.id === nodeId);
-    const confirmed = window.confirm(`Apagar o bloco "${node?.label ?? "selecionado"}"?`);
-    if (!confirmed) return;
     const ok = await deleteFlowNode(selected.id, nodeId);
     if (ok) setSelectedNodeId("");
   }
@@ -922,16 +913,15 @@ function FlowsTab() {
     const block = flowBlockLibrary.find((item) => item.id === event.dataTransfer.getData("application/x-genesy-flow-block"));
     if (!block || block.locked) return;
     const point = getCanvasPoint(event);
-    setDropPosition(point ? { x: Math.max(24, point.x - 180), y: Math.max(24, point.y - 40) } : null);
-    setBlockToAdd(block);
+    void handleAddBlock(block, point ? { x: Math.max(24, point.x - 180), y: Math.max(24, point.y - 40) } : null);
   }
 
   function getCanvasPoint(event: { clientX: number; clientY: number }) {
-    const rect = canvasRef.current?.getBoundingClientRect();
+    const rect = canvasInnerRef.current?.getBoundingClientRect();
     if (!rect) return null;
     return {
-      x: event.clientX - rect.left + (canvasRef.current?.scrollLeft ?? 0),
-      y: event.clientY - rect.top + (canvasRef.current?.scrollTop ?? 0),
+      x: event.clientX - rect.left,
+      y: event.clientY - rect.top,
     };
   }
 
@@ -1032,8 +1022,6 @@ function FlowsTab() {
 
   async function handleDeleteEdge(edge: ConversationFlowEdge) {
     if (!selected) return;
-    const confirmed = window.confirm("Apagar esta conexão?");
-    if (!confirmed) return;
     await deleteFlowEdge(selected.id, edge.id);
     setSelectedEdgeId("");
   }
@@ -1162,6 +1150,7 @@ function FlowsTab() {
                   Zoom 100% · Arraste livre · {connectionDraft ? "Solte no ponto superior do destino" : "Arraste uma conexão pelo ponto inferior"}
                 </div>
                 <div
+                  ref={canvasInnerRef}
                   className="relative"
                   style={{
                     width: canvasWidth,
@@ -1305,6 +1294,7 @@ function FlowsTab() {
                             onPointerDown={(event) => {
                               event.stopPropagation();
                               event.preventDefault();
+                              event.currentTarget.setPointerCapture(event.pointerId);
                               const point = getCanvasPoint(event);
                               setSelectedEdgeId("");
                               setConnectionDraft({
@@ -1349,7 +1339,7 @@ function FlowsTab() {
                           {filteredQuickBlocks.map((block) => {
                             const BlockIcon = block.icon;
                             return (
-                              <button key={block.id} type="button" onClick={() => { setDropPosition(null); setBlockToAdd(block); }} className="flex w-full items-center gap-2 rounded-xl px-2 py-2 text-left transition-colors hover:bg-[var(--hover)]">
+                              <button key={block.id} type="button" onClick={() => void handleAddBlock(block, null)} className="flex w-full items-center gap-2 rounded-xl px-2 py-2 text-left transition-colors hover:bg-[var(--hover)]">
                                 <span className="flex h-7 w-7 items-center justify-center rounded-lg" style={{ background: `${block.color}18`, color: block.color }}>
                                   <BlockIcon size={14} />
                                 </span>
@@ -1394,16 +1384,6 @@ function FlowsTab() {
             isMutating={isMutating}
             onClose={() => setShowNewFlow(false)}
             onSubmit={(input) => void handleCreateFlow(input)}
-          />
-        )}
-        {blockToAdd && selected && (
-          <AddFlowNodeModal
-            nodeType={blockToAdd.nodeType}
-            initialLabel={blockToAdd.name}
-            initialConfig={blockToAdd.initialConfig ?? {}}
-            isMutating={isMutating}
-            onClose={() => setBlockToAdd(null)}
-            onSubmit={(input) => void handleAddNode(blockToAdd, input)}
           />
         )}
         {showTestFlow && selected && (
