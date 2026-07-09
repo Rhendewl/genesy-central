@@ -950,8 +950,9 @@ function FlowsTab() {
   function edgePath(source: ConversationFlowNode, sourceIndex: number, target: ConversationFlowNode, targetIndex: number) {
     const start = getNodeCenter(source, sourceIndex, "out");
     const end = getNodeCenter(target, targetIndex, "in");
-    const distance = Math.max(80, Math.abs(end.y - start.y) * 0.5);
-    return `M ${start.x} ${start.y} C ${start.x} ${start.y + distance}, ${end.x} ${end.y - distance}, ${end.x} ${end.y}`;
+    const dy = end.y - start.y;
+    const bend = Math.max(64, Math.abs(dy) * 0.35);
+    return `M ${start.x} ${start.y} C ${start.x} ${start.y + bend}, ${end.x} ${end.y - bend}, ${end.x} ${end.y}`;
   }
 
   function handleNodePointerDown(event: React.PointerEvent<HTMLButtonElement>, node: ConversationFlowNode, index: number) {
@@ -1011,6 +1012,15 @@ function FlowsTab() {
     if (!confirmed) return;
     await deleteFlowEdge(selected.id, edge.id);
   }
+
+  const canvasWidth = Math.max(
+    1320,
+    ...selectedNodes.map((node, index) => getNodePosition(node, index).x + 460),
+  );
+  const canvasHeight = Math.max(
+    900,
+    ...selectedNodes.map((node, index) => getNodePosition(node, index).y + 220),
+  );
 
   return (
     <>
@@ -1126,7 +1136,14 @@ function FlowsTab() {
                 <div className="pointer-events-none absolute left-5 top-5 rounded-full px-3 py-1.5 text-xs" style={{ background: "var(--glass-bg-soft)", color: "var(--muted-foreground)", border: "1px solid var(--glass-border)" }}>
                   Zoom 100% · Arraste livre · {connectionStart ? "Clique no ponto superior do destino" : "Conecte pelos pontos"}
                 </div>
-                <div className="relative min-h-[calc(100vh-300px)] min-w-[1320px]">
+                <div
+                  className="relative"
+                  style={{
+                    width: canvasWidth,
+                    height: Math.max(canvasHeight, 640),
+                    minHeight: "calc(100vh - 300px)",
+                  }}
+                >
                   {selectedNodes.length === 0 && (
                     <div className="absolute left-1/2 top-1/2 max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-[28px] p-8 text-center" style={{ background: "linear-gradient(135deg, rgba(255,255,255,0.10), rgba(255,255,255,0.035))", border: "1px dashed var(--glass-border)", boxShadow: "0 24px 80px rgba(0,0,0,0.12)" }}>
                       <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl" style={{ background: "rgba(56,189,248,0.12)", color: "#38bdf8" }}>
@@ -1138,7 +1155,7 @@ function FlowsTab() {
                       </p>
                     </div>
                   )}
-                  <svg className="pointer-events-none absolute inset-0 h-full w-full overflow-visible" viewBox="0 0 1320 900" preserveAspectRatio="none" aria-hidden="true">
+                  <svg className="pointer-events-none absolute left-0 top-0 overflow-visible" width={canvasWidth} height={canvasHeight} aria-hidden="true">
                     {selectedEdges.map((edge) => {
                       const sourceIndex = selectedNodes.findIndex((item) => item.node_key === edge.source_key);
                       const targetIndex = selectedNodes.findIndex((item) => item.node_key === edge.target_key);
@@ -1157,7 +1174,7 @@ function FlowsTab() {
                       );
                     })}
                   </svg>
-                  <svg className="pointer-events-none absolute inset-0 h-full w-full overflow-visible" viewBox="0 0 1320 900" preserveAspectRatio="none" aria-hidden="true">
+                  <svg className="pointer-events-none absolute left-0 top-0 overflow-visible" width={canvasWidth} height={canvasHeight} aria-hidden="true">
                     {selectedEdges.map((edge) => {
                       const sourceIndex = selectedNodes.findIndex((item) => item.node_key === edge.source_key);
                       const targetIndex = selectedNodes.findIndex((item) => item.node_key === edge.target_key);
