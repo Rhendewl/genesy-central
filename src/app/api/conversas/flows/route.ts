@@ -66,49 +66,5 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: flowError?.message ?? "Erro ao criar fluxo." }, { status: 500 });
   }
 
-  const nodes = [
-    {
-      user_id: profile.owner_id,
-      flow_id: flow.id,
-      node_key: "trigger",
-      node_type: "trigger",
-      label: "Gatilho inicial",
-      config: { trigger_type: triggerType },
-      position: { x: 80, y: 120 },
-    },
-    {
-      user_id: profile.owner_id,
-      flow_id: flow.id,
-      node_key: "end",
-      node_type: "end",
-      label: "Fim do fluxo",
-      config: {},
-      position: { x: 80, y: 280 },
-    },
-  ];
-
-  const { error: nodesError } = await admin
-    .from("conversation_flow_nodes")
-    .insert(nodes);
-
-  if (nodesError) {
-    return NextResponse.json({ error: nodesError.message }, { status: 500 });
-  }
-
-  const { error: edgeError } = await admin
-    .from("conversation_flow_edges")
-    .insert({
-      user_id: profile.owner_id,
-      flow_id: flow.id,
-      source_key: "trigger",
-      target_key: "end",
-      label: null,
-      config: {},
-    });
-
-  if (edgeError) {
-    return NextResponse.json({ error: edgeError.message }, { status: 500 });
-  }
-
   return NextResponse.json({ flow });
 }

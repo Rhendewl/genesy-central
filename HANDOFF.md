@@ -1,204 +1,226 @@
-# HANDOFF — Lancaster SaaS
+# HANDOFF — Lancaster SaaS (Genesy)
 
-**Data:** 2026-06-26  
-**Branch:** `main` (commit `b08756b`)  
-**Deploy:** Vercel — push disparou deploy automático  
-**Testes:** 710/710 passing · 38 test files  
-**Typecheck:** EXIT:0  
-**Build:** limpo  
+**Data:** 2026-07-08
+**Branch:** `main` (commit `ae6016a`, 102 commits)
+**Deploy:** Vercel — push em `main` dispara deploy automático
+**Testes:** 770/770 passing · 39 arquivos de teste
+**Typecheck:** `npx tsc --noEmit` → EXIT 0
+**Working tree:** limpo (sem alterações pendentes)
 
 ---
 
-## Estado atual do projeto
+## O que é este projeto
 
-### O que está pronto
+SaaS multiusuário para gestão de operações de marketing/vendas de uma agência (ou empresa que gerencia tráfego pago, CRM, agendamentos e formulários para clientes). Cada conta tem um dono (owner), membros de equipe com papéis, e clientes finais que acessam portais públicos.
 
-| Módulo | Status | Notas |
+**Domínio de produção:** `dash.genesycompany.com`
+
+---
+
+## Checkpoint ativo — Conversas / WhatsApp QR (2026-07-09)
+
+**Status:** implementação commitada e enviada para `main`.
+
+**Commit:** `cc4f59f` — `feat: add conversations module and whatsapp worker`
+
+### O que foi entregue
+
+- Módulo **Conversas** adicionado em `/conversas`.
+- Schema/RLS em `supabase/migrations/20260708_conversations_module.sql`.
+- Cron de fluxos em `supabase/migrations/20260708_conversation_flow_jobs_cron.sql`.
+- APIs de inbox, mensagens, conversas, fluxos, teste de fluxo, webhook inbound e cron.
+- Executor de fluxos em `src/lib/conversations/flow-executor.ts`.
+- Trigger service + consumer do Event Bus para eventos do CRM:
+  - `src/lib/conversations/trigger-service.ts`
+  - `src/lib/event-bus/conversations/consumers/crm-flow-trigger.ts`
+  - inscrito em `src/lib/event-bus/platform.ts`
+- Worker WhatsApp QR separado em `workers/whatsapp-qr-worker`.
+- Provider QR do app agora chama worker HTTP via variáveis server-side:
+  - `WHATSAPP_QR_WORKER_URL`
+  - `WHATSAPP_QR_WORKER_SECRET`
+  - `CONVERSATIONS_WORKER_SECRET`
+
+### Estado externo já realizado
+
+- SQL do cron de `conversation-flow-jobs-tick` foi aplicado no Supabase.
+- `pg_cron` e `pg_net` estão habilitados.
+- Consulta em `cron.job_run_details` mostrou `status = succeeded` para o job de Conversas.
+- Railway: conta criada e repositório `Rhendewl/genesy-central` selecionado para o worker.
+- O usuário estava na etapa de configurar o serviço Railway gerado a partir do repo.
+
+### Próximo passo exato ao retomar
+
+No Railway, no serviço do worker:
+
+1. Em **Settings → Source**, definir **Root Directory**:
+   ```txt
+   workers/whatsapp-qr-worker
+   ```
+2. Em **Variables**, configurar:
+   ```txt
+   WHATSAPP_QR_WORKER_SECRET=<valor real gerado fora do Git>
+   DASHBOARD_URL=https://dash.genesycompany.com
+   CONVERSATIONS_WORKER_SECRET=<mesmo segredo aceito por /api/conversas/webhook/message>
+   WHATSAPP_SESSIONS_DIR=/data/sessions
+   LOG_LEVEL=info
+   ```
+3. Criar **Volume** com mount path:
+   ```txt
+   /data
+   ```
+4. Em **Networking**, gerar domínio público.
+5. Testar:
+   ```txt
+   https://<worker>.up.railway.app/health
+   ```
+   Esperado:
+   ```json
+   {"ok":true}
+   ```
+6. Na Vercel do dashboard, configurar:
+   ```txt
+   WHATSAPP_QR_WORKER_URL=https://<worker>.up.railway.app
+   WHATSAPP_QR_WORKER_SECRET=<mesmo valor do Railway>
+   CONVERSATIONS_WORKER_SECRET=<mesmo valor do webhook>
+   ```
+7. Fazer redeploy da Vercel.
+8. Testar em produção:
+   - `/conversas` → Conectar WhatsApp
+   - QR real deve aparecer
+   - mensagem recebida deve cair no webhook `/api/conversas/webhook/message`
+   - fluxo ativo deve criar job e cron deve executar.
+
+### Notas de segurança
+
+- Não registrar segredos reais no Git nem no `HANDOFF.md`.
+- O arquivo de cron commitado em `main` está com placeholders; valores reais foram aplicados diretamente no Supabase.
+- Se algum segredo real foi exposto em tela/chat, rotacionar antes de uso definitivo em produção.
+
+### Validação local da etapa
+
+```bash
+npx tsc --noEmit
+```
+
+Resultado antes do commit: EXIT 0.
+
+---
+
+## Stack técnica
+
+| Tecnologia | Versão | Uso |
 |---|---|---|
-| Auth + middleware | Completo | |
-| Dashboard / tráfego / financeiro | Completo | |
-| Meta Integration (Lead Ads) | Completo | |
-| Criativos | Completo | |
-| **Formulários — data layer** | **Completo** | Sprint 7.1 |
-| **Formulários — performance** | **Completo** | Indexes + EXPLAIN |
-| Formulários — UI Central de Respostas | **NÃO INICIADO** | Sprint 7.2 |
+| Next.js | 14.2.35 (App Router) | Framework |
+| TypeScript | 5.x | Linguagem |
+| Supabase | 2.103.0 | Postgres + Auth + Storage + RLS |
+| Tailwind CSS | 3.4.x | Estilo |
+| shadcn/ui | `@base-ui/react` (NÃO `@radix-ui`) | Componentes |
+| Zustand | 5.x | Estado global client-side |
+| TipTap | 3.27.x | Rich text (Formulários, Notas) |
+| Vitest | 4.1.9 | Testes |
+| Resend | — | E-mails transacionais |
+| OpenAI SDK / Anthropic SDK / Google Generative AI | — | Integrações de IA (uso pontual) |
+
+**Atenção shadcn:** `TooltipTrigger` usa render prop, não `asChild`. Padrão fixo do projeto — não "corrigir" para `asChild`.
 
 ---
 
-## Sprint 7.1 — O que foi feito (data layer completo)
+## Módulos ativos (estado atual)
 
-### APIs implementadas
-
-| Endpoint | Método | Descrição |
+| Módulo | Rota | Status |
 |---|---|---|
-| `/api/respostas` | GET | Lista paginada com cursor, filtros, FTS, stats |
-| `/api/respostas/[id]` | GET | Detalhe completo: submission + sessão + eventos + deliveries |
-| `/api/respostas/[id]` | PATCH | Atualiza starred, archived, read_at, status |
+| Auth + Middleware | `src/middleware.ts`, `/auth` | Completo |
+| Dashboard Geral (contextual por papel) | `/` | Completo |
+| CRM (Kanban + Pipelines + Automações) | `/crm` | Completo — inclui Workflow Engine |
+| Financeiro | `/financeiro` | Completo |
+| Tráfego Pago (Meta Ads) | `/trafego` | Completo |
+| Clientes | `/clientes` | Completo |
+| Portais (dashboard público do cliente) | `/portais`, `/portal/[slug]` | Completo |
+| Formulários (builder + central de respostas) | `/formularios`, `/form/[slug]` | Completo |
+| Agendamentos (booking público + Google Calendar) | `/agendamentos`, `/agendar/[slug]` | Completo — production-ready |
+| Workspace (Tarefas/Notas/Objetivos/Calendário pessoal) | `/workspace` | Completo |
+| Configurações (perfil, segurança, usuários, convites) | `/configuracoes` | Completo |
+| ~~Criativos (canvas IA / DALL-E)~~ | — | **Removido** (commit `d3e733d`) |
 
-### Hooks implementados
-
-| Hook | Arquivo | Descrição |
-|---|---|---|
-| `useRespostas` | `src/hooks/useRespostas.ts` | Paginação cursor, optimistic patch, rollback |
-| `useRespostaDetail` | `src/hooks/useRespostaDetail.ts` | Fetch lazy, LRU cache (30 entries) |
-
-### Tipos principais
-
-```typescript
-// src/lib/respostas/types.ts
-SubmissionListItem     // item da listagem (achatado com session + form)
-SubmissionDetail       // detalhe completo
-SubmissionsListResponse // { items, nextCursor, stats }
-SubmissionStats        // { total, completed, abandoned, completionRate, avgTimeOnFormMs }
-RespostasParams        // parâmetros da listagem (form_id, status, starred, archived, q, sort, direction, limit)
-SubmissionPatch        // { starred?, archived?, read_at?, status? }
-Cursor                 // { ca: string, id: string }
-```
-
-### Cursor pagination
-
-```typescript
-// src/lib/respostas/cursor.ts
-encodeCursor(created_at: string, id: string): string  // → base64url
-decodeCursor(raw: string): Cursor | null
-```
-
-Estratégia keyset OR: `(created_at < ca) OR (created_at = ca AND id < id)`  
-Limit+1 trick: busca `limit+1` rows; se `> limit` → `hasMore=true`.
-
-### Decisões arquiteturais importantes
-
-**Stats via RPC:** `get_submission_stats(p_user_id, p_archived, p_form_id?)` — 1 aggregate pass em vez de 3 COUNT queries separadas. Os stats ignoram filtros de `status` e `starred` intencionalmente — refletem a saúde geral do formulário.
-
-**Paralelização em 2 fases:**
-```
-Fase 1: Promise.all([rpc(stats), dataQuery])
-Fase 2: Promise.all([sessions batch, forms batch])
-```
-
-**SESSION_COLS:** select explícito de 14 colunas em `form_sessions` — evita trazer colunas grandes não usadas.
-
-**ALLOWED_PATCH_KEYS:** Set com `Array.from()` — necessário porque tsconfig sem `target` padrão para ES3 (Set não é iterável com spread).
-
-**Optimistic update com rollback:** aplica localmente → PATCH → sincroniza com resposta. Em erro: `setRev(r+1)` dispara refetch da página 1.
+**Nota importante:** o módulo Criativos (React Flow + SSE + DALL-E 3), documentado em memórias antigas como "completo", foi **removido do produto** no commit `d3e733d` ("motor de automações do CRM + tema claro completo + remoção do módulo Criativos"). Qualquer referência a ele em memória ou documentação anterior está obsoleta.
 
 ---
 
-## Performance — Migrations aplicadas ao banco
+## Arquitetura multiusuário
 
-### Migrations aplicadas (em ordem)
-
-```
-20260625_forms_module.sql           — tabelas base (forms, form_sessions, form_submissions, form_events)
-20260626_integrations.sql           — form_integrations (versão original com bug de FK)
-20260626_analytics_events.sql       — eventos de analytics, form_events indexes complementares
-20260626_phase7_responses_center.sql — augmenta form_submissions, cria integration_deliveries, form_saved_views
-20260627_phase7_perf_indexes.sql    — 6 índices compostos + RPC get_submission_stats
-20260628_phase7_explain_helpers.sql — funções _diag_explain_* (DIAGNÓSTICO — remover após uso)
-```
-
-### Índices criados em 20260627
-
-```sql
--- Listagem geral (Q1) — elimina Sort + Bitmap Heap Scan
-form_submissions_user_archived_cursor_idx
-  ON form_submissions(user_id, archived, created_at DESC, id DESC)
-
--- Listagem por formulário (Q2)
-form_submissions_user_form_archived_cursor_idx
-  ON form_submissions(user_id, form_id, archived, created_at DESC, id DESC)
-
--- Filtro por status
-form_submissions_user_archived_status_cursor_idx
-  ON form_submissions(user_id, archived, status, created_at DESC, id DESC)
-
--- Sort por completed_at
-form_submissions_user_archived_completed_cursor_idx
-  ON form_submissions(user_id, archived, completed_at DESC NULLS LAST, id DESC)
-
--- integration_deliveries detalhe (Q4) — elimina Sort
-integration_deliveries_form_corr_delivered_idx
-  ON integration_deliveries(form_id, correlation_id, delivered_at ASC)
-
--- form_events timeline (Q5) — elimina Bitmap Heap Scan
-form_events_session_created_asc_idx
-  ON form_events(session_id, created_at ASC)
-```
-
-### RPC criada em 20260627
-
-```sql
-get_submission_stats(p_user_id UUID, p_archived BOOLEAN, p_form_id UUID DEFAULT NULL)
-RETURNS TABLE(total BIGINT, completed BIGINT, abandoned BIGINT)
-LANGUAGE sql STABLE PARALLEL SAFE
-```
-
-### Resultado do EXPLAIN ANALYZE (banco real, commit b08756b)
-
-| Query | Seq Scan | Bitmap | Sort | Índice |
-|---|---|---|---|---|
-| Q1 LIST all forms | Não | Não | Não | `user_archived_cursor_idx` |
-| Q2 LIST by form | Não | Não | Não | `user_form_archived_cursor_idx` |
-| Q3 Stats RPC | Não | Não | Não | `user_id_idx`* |
-| Q4 Deliveries | Não | Não | Não | `form_corr_delivered_idx` |
-| Q5 Events | Não | Sim** | Sim** | `session_seq_idx` |
-
-*Q3 usa `user_id_idx` em banco vazio — com dados reais e ANALYZE, o planner escolherá `user_archived_cursor_idx`.  
-**Q5: Bitmap+Sort com banco vazio é comportamento esperado (25kB quicksort, < 1ms). Com dados reais o planner usa Index Scan.
+- Fundação multiusuário implementada (`eacba8b`): cada conta tem um **owner** com perfil pessoal + Workspace 100% pessoal por padrão.
+- Papéis e taxonomia de acesso corrigidos em `20260718_role_taxonomy_fix.sql` e `1051906` (dashboard contextual por papel + bloqueio real de acesso a Tráfego/Financeiro para papéis sem permissão).
+- Convites de equipe: `/api/invite/send`, `/validate`, `/accept` + página `/convite/[token]`.
+- Painel Equipe do admin: correção de RLS e responsável no CRM (`b1fa806`).
+- RLS ativo em todas as tabelas — `service_role` bypassa, `authenticated` só vê dados próprios/compartilhados conforme papel.
 
 ---
 
-## Pendências no banco
+## CRM — Workflow Engine (automações)
 
-### Remover funções de diagnóstico (opcional mas recomendado)
+Motor de automações do CRM adicionado em `d3e733d` e refinado desde então:
 
-Cole no SQL Editor do Supabase:
-
-```sql
-DROP FUNCTION IF EXISTS _diag_explain_list_all_forms(UUID,BOOLEAN);
-DROP FUNCTION IF EXISTS _diag_explain_list_by_form(UUID,UUID,BOOLEAN);
-DROP FUNCTION IF EXISTS _diag_explain_stats(UUID,BOOLEAN,UUID);
-DROP FUNCTION IF EXISTS _diag_explain_deliveries(UUID,TEXT);
-DROP FUNCTION IF EXISTS _diag_explain_events(UUID);
-```
-
-### Migrations ainda NÃO aplicadas
-
-`20260626_analytics_events.sql` — adiciona `meta JSONB` e `idempotency_key` em `form_events`. Verificado: essas colunas não existem no banco. Aplicar quando começar Sprint 7.2 (a UI de timeline usa `meta`).
+- **Migrations:** `20260726_workflow_engine.sql`, `20260726_workflow_jobs_cron.sql`
+- **Cron:** `/api/cron/workflow-jobs` — processa jobs agendados via `pg_cron`; protegido por `CRON_SECRET` compartilhado entre o cron do Supabase e a rota.
+- Último commit (`ae6016a`) ajustou timeout do cron e reduziu o tamanho do lote por execução — atenção a isso se automações começarem a falhar por timeout de novo.
+- APIs: `src/app/api/crm/automations/**` (regras, condições, ações, dashboard, histórico).
+- Notificações por etapa de pipeline: `src/app/api/crm/notification-rules`.
+- Event bus interno para disparo de eventos (`src/lib/event-bus/`), com retries e dead-letter (`bus.test.ts` cobre cenários de falha/offline).
 
 ---
 
-## Estrutura de arquivos criados na Sprint 7.1
+## Módulo Agendamentos (production-ready)
 
-```
-src/
-├── lib/respostas/
-│   ├── types.ts              — todos os tipos TypeScript do módulo
-│   ├── cursor.ts             — encode/decode cursor base64url
-│   └── __tests__/
-│       ├── cursor.test.ts    — 9 testes
-│       ├── types.test.ts     — 8 testes
-│       ├── api-list.test.ts  — 13 testes
-│       └── api-detail.test.ts — 10 testes
-├── hooks/
-│   ├── useRespostas.ts       — listagem com paginação e optimistic patch
-│   ├── useRespostaDetail.ts  — detalhe com LRU cache (clearDetailCache exportada)
-│   └── __tests__/
-│       ├── useRespostas.test.ts      — 12 testes
-│       └── useRespostaDetail.test.ts — 13 testes
-└── app/api/
-    ├── respostas/
-    │   └── route.ts          — GET /api/respostas
-    └── respostas/[id]/
-        └── route.ts          — GET + PATCH /api/respostas/[id]
+Construído em sprints sucessivas, hoje completo:
 
-supabase/migrations/
-├── 20260627_phase7_perf_indexes.sql   — 6 índices + RPC stats
-└── 20260628_phase7_explain_helpers.sql — diagnóstico (dropar após uso)
+- Painel admin: `/agendamentos/[id]` — múltiplos intervalos de disponibilidade, exceções, config.
+- Página pública: `/agendar/[slug]` — layout isolado (`PublicLayout` dedicado, sem Dock/padding/fundo admin).
+- Integração Google Calendar: OAuth 2.0 completo (`connect`/`callback`/`disconnect`/`status`/`events`), sync automático no momento da **criação** do booking (não apenas na confirmação) para sobreviver a shutdown serverless da Vercel.
+- Integração com CRM: conversões vinculadas a agendamentos (`conversion-sources`, `calendars/[id]/conversions`).
+- Concorrência tratada (`20260704_appointments_concurrency.sql`) para evitar double-booking.
 
-scripts/
-└── explain-queries.mjs       — runner de EXPLAIN ANALYZE via Supabase RPC
-```
+---
+
+## Módulo Workspace (pessoal)
+
+Adicionado em `bd0210e`, expandido com multi-assignee e preferências de notificação:
+
+- **Tarefas:** board Kanban pessoal/compartilhado, checklist, comentários, anexos (`workspace/tasks/**`).
+- **Notas:** editor rich text (TipTap) com upload de imagem.
+- **Objetivos:** steps, comentários, anexos.
+- **Calendário:** agenda pessoal integrada.
+- Banner de "visualizando como outro membro" (`WorkspaceViewingBanner.tsx`) para admins auditando o workspace de terceiros — RLS específica em `20260721_workspace_personal_rls.sql` e `20260722_workspace_admin_view.sql`.
+
+---
+
+## Módulo Formulários — estado detalhado
+
+### Builder (editor 3 painéis)
+- **Esquerda** `ContentSidebar.tsx` — lista estrutural (Welcome → Steps → Ending), dnd-kit.
+- **Centro** `LivePreview.tsx` — preview always-on, Desktop/Tablet/Mobile.
+- **Direita** — painel de propriedades condicional.
+- Rich text via TipTap (`RichTextEditor.tsx`, modos `inline`/`block`).
+- Upload de imagem: signed URL → Supabase Storage, bucket `criativos` (nome do bucket mantido por herança histórica, não indica dependência do módulo removido).
+
+### Rota pública `/form/[slug]`
+- Usa `h-dvh overflow-hidden` (não `min-h-[100dvh]`) em todos os estados — bug de tela branca resolvido definitivamente (causa raiz: altura não-definitiva + `overflow-hidden` clipando conteúdo).
+- Cores hardcoded nos estados loading/not_found/error (CSS vars resolvem para tema escuro fixo no layout raiz).
+
+### Central de Respostas (Sprint 7.1 + 7.2, completo)
+- Paginação cursor (keyset) em `src/lib/respostas/cursor.ts`.
+- Stats via RPC `get_submission_stats` — 1 pass agregado.
+- Hooks `useRespostas` / `useRespostaDetail` (LRU cache 30 entradas) com optimistic update + rollback.
+- PATCH whitelist rígido: `starred`, `archived`, `read_at`, `status`.
+
+---
+
+## Segurança — referência rápida
+
+- API routes: sempre `supabase.auth.getUser()` antes de qualquer query.
+- RLS ativo em todas as tabelas.
+- Secrets de integrações (API keys) retornam sempre `"__masked__"` nas respostas de API.
+- `SUPABASE_SERVICE_ROLE_KEY` e `CRON_SECRET` nunca expostos ao cliente — apenas Server Components/API routes.
+- Tokens OAuth (Meta, Google Calendar) criptografados com `TOKEN_ENCRYPTION_KEY` antes de persistir.
 
 ---
 
@@ -207,126 +229,62 @@ scripts/
 ```bash
 cd "lancaster-saas"
 
-# Instalar dependências
 npm install
-
-# Dev server
 npm run dev                    # http://localhost:3000
 
-# Testes
-npm test                       # run once
-npm run test:watch             # watch mode
-npm run test:coverage          # com cobertura
+npm test                       # run once (770 testes)
+npm run test:watch
+npm run test:coverage
 
-# Typecheck
-npx tsc --noEmit
-
-# Build
-npm run build
-
-# EXPLAIN ANALYZE (requer migrations aplicadas ao banco)
-npx tsx scripts/explain-queries.mjs                   # banco vazio (dummy UUID)
-npx tsx scripts/explain-queries.mjs <user_id>         # com dados reais
-npx tsx scripts/explain-queries.mjs <user_id> <form_id> <corr_id> <session_id>
+npx tsc --noEmit                # typecheck
+npm run build                   # build de produção
 ```
 
-### Variáveis de ambiente necessárias (.env.local)
+### Variáveis de ambiente (`.env.local`)
+
+Ver `.env.local.example` para o template completo e comentado. Grupos principais:
 
 ```
+# Supabase
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
 SUPABASE_SERVICE_ROLE_KEY=
+
+# App
 NEXT_PUBLIC_APP_URL=
-RESEND_API_KEY=
-RESEND_FROM_EMAIL=
-ANTHROPIC_API_KEY=
-OPENAI_API_KEY=
+
+# Meta Ads / Lead Ads
+NEXT_PUBLIC_META_APP_ID=
 META_APP_ID=
 META_APP_SECRET=
 META_VERIFY_TOKEN=
-NEXT_PUBLIC_META_APP_ID=
 TOKEN_ENCRYPTION_KEY=
+
+# Workflow Engine (cron)
+CRON_SECRET=
+
+# E-mail
+RESEND_API_KEY=
+RESEND_FROM_EMAIL=
+
+# IA (uso pontual — não há módulo Criativos ativo)
+ANTHROPIC_API_KEY=
+OPENAI_API_KEY=
 ```
+
+Google Calendar usa OAuth próprio (client id/secret) — checar `src/app/api/google-calendar/` para variáveis específicas se for mexer nessa integração.
 
 ---
 
-## Próximo passo — Sprint 7.2: UI da Central de Respostas
+## Migrations — como estão organizadas
 
-O data layer está completo. A Sprint 7.2 implementa a interface gráfica sobre os hooks já existentes.
+`supabase/migrations/` tem duas eras de nomenclatura:
+- **Numéricas** (`001_initial.sql` ... `033_workflow_json.sql`): schema inicial até o módulo Criativos (hoje removido do produto, mas as tabelas/migrations permanecem no histórico).
+- **Datadas** (`20260426_...` até `20260727_...`): tudo a partir da reestruturação de abril/2026 — forms, CRM pipelines, appointments, workspace, workflow engine, multiusuário.
 
-### Páginas já scaffolded (sem conteúdo real ainda)
+`000_apply_all_idempotent.sql` existe para aplicar o schema completo de forma idempotente (útil para ambientes novos/reset).
 
-```
-src/app/formularios/[id]/respostas/page.tsx   — lista de respostas por formulário
-```
-
-### O que construir na Sprint 7.2
-
-**1. Listagem de respostas** (`/formularios/[id]/respostas`)
-- Usar `useRespostas({ formId, ... })` já pronto
-- Cards/tabela com: status badge, timestamp, device, país, starred toggle
-- Filtros: status, starred, archived, search (FTS)
-- Paginação: botão "Carregar mais" (cursor-based, `loadMore()` do hook)
-- Stats cards no topo: total, completados, abandonados, completionRate
-
-**2. Drawer de detalhe**
-- Usar `useRespostaDetail(id)` já pronto
-- Tabs: Respostas | Timeline | Integrações
-- Tab Respostas: render das answers do formulário
-- Tab Timeline: lista de `sessionEvents` (step_view, field_focus, etc.)
-- Tab Integrações: lista de `integrationDeliveries` com status ok/fail
-
-**3. Ações inline**
-- Starred: `patch(id, { starred: true }, { starred: true })` — optimistic já implementado
-- Archived: `patch(id, { archived: true }, { archived: true })`
-- Read at: chamado automaticamente ao abrir o drawer (PATCH read_at)
-
-**4. Central global** (`/respostas`) — todos os formulários
-- Mesmos componentes, sem `formId` no hook
-
-### Padrão de uso dos hooks
-
-```typescript
-// Listagem
-const { submissions, stats, isLoading, hasMore, loadMore, patch } = useRespostas({
-  formId: "...",
-  status: "completed",
-  limit: 50,
-});
-
-// Detalhe (aberto quando usuário clica em uma submission)
-const { detail, isLoading, refresh } = useRespostaDetail(selectedId);
-
-// Marcar como lido ao abrir
-useEffect(() => {
-  if (detail && !detail.submission.read_at) {
-    patch(detail.submission.id, { read_at: new Date().toISOString() }, { read_at: new Date().toISOString() });
-  }
-}, [detail?.submission.id]);
-```
-
-### Componentes existentes que podem ser reutilizados
-
-```
-src/components/integracoes/IntegrationDrawer.tsx — padrão de drawer com tabs
-src/components/integracoes/panels/HistoryPanel.tsx — padrão de lista de deliveries
-```
-
----
-
-## Stack técnica
-
-| Tecnologia | Versão | Uso |
-|---|---|---|
-| Next.js | 15 (App Router) | Framework |
-| TypeScript | 5.x | Linguagem |
-| Supabase | 2.103.0 | DB + Auth + Realtime |
-| Tailwind CSS | 4.x | Estilo |
-| shadcn/ui | base-ui | Componentes |
-| Vitest | 4.1.9 | Testes |
-| tsx | 4.22.4 | Scripts Node.js |
-
-**Atenção shadcn:** `TooltipTrigger` usa render prop, não `asChild`. Padrão do projeto.
+**Não há migrations pendentes conhecidas** no momento — a única pendência registrada em handoffs anteriores (`20260626_analytics_events.sql`) já está aplicada (colunas `meta`/`idempotency_key` em `form_events` presentes no histórico de migrations até `20260727`).
 
 ---
 
@@ -335,13 +293,17 @@ src/components/integracoes/panels/HistoryPanel.tsx — padrão de lista de deliv
 - **GitHub:** https://github.com/Rhendewl/genesy-central
 - **Vercel:** https://vercel.com/dashboard (deploy automático no push para `main`)
 - **Supabase:** https://supabase.com/dashboard/project/cvgraytzgbsmgpvsviav
+- **Produção:** https://dash.genesycompany.com
 
 ---
 
-## Referência rápida de segurança
+## O que fazer a seguir (em aberto)
 
-- API routes: sempre `supabase.auth.getUser()` antes de qualquer query
-- RLS ativo em todas as tabelas — `service_role` bypassa, `authenticated` só vê próprios dados
-- PATCH whitelist rígido: `["starred", "archived", "read_at", "status"]`
-- `SUPABASE_SERVICE_ROLE_KEY` nunca exposto ao cliente — somente em Server Components e API routes
-- API keys/secrets retornam sempre `"__masked__"` nas respostas de API
+Sprint em andamento: **Conversas / WhatsApp QR**.
+
+1. Finalizar deploy do worker no Railway seguindo o checkpoint acima.
+2. Configurar env vars do worker no Railway e do dashboard na Vercel.
+3. Redeploy da Vercel.
+4. Testar conexão QR real no módulo `/conversas`.
+5. Validar envio/recebimento e execução de fluxo ponta a ponta.
+6. Depois disso, confirmar com o time se o cron do Workflow Engine segue estável em produção após o ajuste de `ae6016a`.

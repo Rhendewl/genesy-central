@@ -61,3 +61,41 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
   return NextResponse.json({ flow: updated });
 }
+
+export async function DELETE(_request: NextRequest, context: RouteContext) {
+  const { flowId } = await context.params;
+  const supabase = await createServerSupabaseClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return NextResponse.json({ error: "Não autenticado." }, { status: 401 });
+  }
+
+  const { data: flow, error: flowError } = await supabase
+    .from("conversation_flows")
+    .select("id,user_id,status")
+    .eq("id", flowId)
+    .maybeSingle<FlowRow>();
+
+  if (flowError) {
+    return NextResponse.json({ error: flowError.message }, { status: 500 });
+  }
+
+  if (!flow) {
+    return NextResponse.json({ error: "Fluxo não encontrado ou sem permissão." }, { status: 404 });
+  }
+
+  const admin = createAdminSupabaseClient();
+  const { error: deleteError } = await admin
+    .from("conversation_flows")
+    .delete()
+    .eq("id", flow.id);
+
+  if (deleteError) {
+    return NextResponse.json({ error: deleteError.message }, { status: 500 });
+  }
+
+  return NextResponse.json({ ok: true });
+}

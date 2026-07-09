@@ -48,12 +48,14 @@ export interface UseConversationsDashboardReturn {
     flowId: string,
     status: ConversationFlow["status"],
   ) => Promise<ConversationFlow | null>;
+  deleteFlow: (flowId: string) => Promise<boolean>;
   testFlow: (flowId: string, threadId?: string | null) => Promise<boolean>;
   addFlowNode: (flowId: string, input: {
     nodeType: ConversationFlowNode["node_type"];
     label?: string;
     config?: Record<string, unknown>;
   }) => Promise<ConversationFlowNode | null>;
+  deleteFlowNode: (flowId: string, nodeId: string) => Promise<boolean>;
 }
 
 const emptyMetrics: ConversationMetrics = {
@@ -482,6 +484,30 @@ export function useConversationsDashboard(): UseConversationsDashboardReturn {
     }
   }, [fetchData]);
 
+  const deleteFlow = useCallback(async (flowId: string) => {
+    if (!flowId) return false;
+
+    setIsMutating(true);
+    try {
+      const response = await fetch(`/api/conversas/flows/${flowId}`, {
+        method: "DELETE",
+      });
+      const payload = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(payload?.error ?? "Erro ao apagar fluxo");
+      }
+
+      await fetchData();
+      return true;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro ao apagar fluxo");
+      return false;
+    } finally {
+      setIsMutating(false);
+    }
+  }, [fetchData]);
+
   const testFlow = useCallback(async (flowId: string, threadId?: string | null) => {
     if (!flowId) return false;
 
@@ -543,6 +569,32 @@ export function useConversationsDashboard(): UseConversationsDashboardReturn {
     }
   }, [fetchData]);
 
+  const deleteFlowNode = useCallback(async (flowId: string, nodeId: string) => {
+    if (!flowId || !nodeId) return false;
+
+    setIsMutating(true);
+    try {
+      const response = await fetch(`/api/conversas/flows/${flowId}/nodes`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ node_id: nodeId }),
+      });
+      const payload = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(payload?.error ?? "Erro ao apagar bloco");
+      }
+
+      await fetchData();
+      return true;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro ao apagar bloco");
+      return false;
+    } finally {
+      setIsMutating(false);
+    }
+  }, [fetchData]);
+
   return useMemo(() => ({
     accounts,
     inbox,
@@ -560,8 +612,10 @@ export function useConversationsDashboard(): UseConversationsDashboardReturn {
     createConversation,
     createFlow,
     updateFlowStatus,
+    deleteFlow,
     testFlow,
     addFlowNode,
+    deleteFlowNode,
   }), [
     accounts,
     inbox,
@@ -579,7 +633,9 @@ export function useConversationsDashboard(): UseConversationsDashboardReturn {
     createConversation,
     createFlow,
     updateFlowStatus,
+    deleteFlow,
     testFlow,
     addFlowNode,
+    deleteFlowNode,
   ]);
 }

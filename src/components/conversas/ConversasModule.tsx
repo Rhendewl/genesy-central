@@ -5,14 +5,23 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   AlertTriangle,
   ArrowRight,
+  Archive,
   Bot,
+  CalendarCheck,
   CheckCircle2,
   Clock3,
+  Copy,
   Filter,
+  FileText,
   GitBranch,
+  Hourglass,
   MessageCircle,
+  MoveRight,
   Phone,
+  Play,
+  Plus,
   QrCode,
+  Save,
   Search,
   Send,
   Smartphone,
@@ -26,6 +35,7 @@ import {
 import { useConversationsDashboard } from "@/hooks/useConversationsDashboard";
 import type {
   ConversationFlow,
+  ConversationFlowNode,
   ConversationFlowNodeType,
   ConversationInboxItem,
   ConversationMessage,
@@ -611,17 +621,105 @@ function QrModal({ account, onClose }: { account: ConversationWhatsAppAccount; o
   );
 }
 
-function FlowNode({ label, type }: { label: string; type: string }) {
-  const color = type === "trigger" ? "#38bdf8" : type === "condition" ? "#d97706" : type === "action" ? "#34d399" : type === "wait" ? "#a78bfa" : "var(--muted-foreground)";
-  return (
-    <div className="flex items-center gap-3 rounded-2xl p-3" style={{ background: "var(--hover)", border: "1px solid var(--glass-border)" }}>
-      <span className="h-2.5 w-2.5 rounded-full" style={{ background: color }} />
-      <div>
-        <p className="text-sm font-semibold" style={{ color: "var(--text-title)" }}>{label}</p>
-        <p className="text-[11px] uppercase tracking-[0.12em]" style={{ color: "var(--muted-foreground)" }}>{type}</p>
-      </div>
-    </div>
-  );
+type FlowBlockCategory = "trigger" | "logic" | "action";
+
+type FlowBlockDefinition = {
+  id: string;
+  category: FlowBlockCategory;
+  nodeType: ConversationFlowNodeType;
+  name: string;
+  description: string;
+  icon: React.ElementType;
+  color: string;
+  initialConfig?: Record<string, unknown>;
+  locked?: boolean;
+};
+
+const flowCategoryMeta: Record<FlowBlockCategory, { label: string; color: string }> = {
+  trigger: { label: "Gatilhos", color: "#38bdf8" },
+  logic: { label: "Lógica", color: "#a78bfa" },
+  action: { label: "Ações", color: "#34d399" },
+};
+
+const flowBlockLibrary: FlowBlockDefinition[] = [
+  {
+    id: "form_submitted",
+    category: "trigger",
+    nodeType: "trigger",
+    name: "Formulário preenchido",
+    description: "Inicia quando uma resposta entra.",
+    icon: FileText,
+    color: flowCategoryMeta.trigger.color,
+    initialConfig: { trigger_type: "form_submitted" },
+  },
+  {
+    id: "appointment_created",
+    category: "trigger",
+    nodeType: "trigger",
+    name: "Agendamento realizado",
+    description: "Dispara ao criar um agendamento.",
+    icon: CalendarCheck,
+    color: flowCategoryMeta.trigger.color,
+    initialConfig: { trigger_type: "appointment_created" },
+  },
+  {
+    id: "wait_timer",
+    category: "logic",
+    nodeType: "wait",
+    name: "Timer / Espera",
+    description: "Aguarda minutos, horas ou dias.",
+    icon: Hourglass,
+    color: flowCategoryMeta.logic.color,
+    initialConfig: { wait_minutes: 10 },
+  },
+  {
+    id: "send_whatsapp",
+    category: "action",
+    nodeType: "action",
+    name: "Enviar WhatsApp",
+    description: "Envia uma mensagem automática.",
+    icon: MessageCircle,
+    color: flowCategoryMeta.action.color,
+    initialConfig: { action_type: "send_message", message: "" },
+  },
+  {
+    id: "move_crm",
+    category: "action",
+    nodeType: "action",
+    name: "Mover no CRM",
+    description: "Move o lead para uma etapa.",
+    icon: MoveRight,
+    color: flowCategoryMeta.action.color,
+    initialConfig: { action_type: "move_crm" },
+  },
+];
+
+function categoryForNode(node: ConversationFlowNode): FlowBlockCategory {
+  if (node.node_type === "trigger") return "trigger";
+  if (node.node_type === "wait" || node.node_type === "condition") return "logic";
+  return "action";
+}
+
+function nodeColor(node: ConversationFlowNode) {
+  return flowCategoryMeta[categoryForNode(node)].color;
+}
+
+function nodeIcon(node: ConversationFlowNode) {
+  if (node.node_type === "trigger") return FileText;
+  if (node.node_type === "wait") return Hourglass;
+  if (node.node_type === "condition") return GitBranch;
+  if (node.node_type === "end") return CheckCircle2;
+  if (node.config?.action_type === "move_crm") return MoveRight;
+  return MessageCircle;
+}
+
+function nodeDescription(node: ConversationFlowNode) {
+  if (node.node_type === "trigger") return "Ponto de entrada da automação";
+  if (node.node_type === "wait") return `${Number(node.config?.wait_minutes ?? 0)} minuto(s) de espera`;
+  if (node.node_type === "condition") return "Valida dados antes de continuar";
+  if (node.node_type === "end") return "Finaliza a jornada";
+  if (node.config?.action_type === "move_crm") return "Atualiza etapa do lead";
+  return "Envia mensagem pelo WhatsApp";
 }
 
 function flowRunColor(status: string) {
@@ -647,12 +745,18 @@ function formatDateTime(date: string | null) {
 }
 
 function FlowsTab() {
-  const { inbox, flows, metrics, isLoading, isMutating, createFlow, updateFlowStatus, testFlow, addFlowNode } = useConversationsDashboard();
+  const { inbox, flows, metrics, isLoading, isMutating, createFlow, updateFlowStatus, deleteFlow, testFlow, addFlowNode, deleteFlowNode } = useConversationsDashboard();
   const [selectedId, setSelectedId] = useState(flows[0]?.id ?? "");
+  const [selectedNodeId, setSelectedNodeId] = useState("");
   const [showNewFlow, setShowNewFlow] = useState(false);
   const [showTestFlow, setShowTestFlow] = useState(false);
-  const [nodeTypeToAdd, setNodeTypeToAdd] = useState<ConversationFlowNodeType | null>(null);
+  const [blockToAdd, setBlockToAdd] = useState<FlowBlockDefinition | null>(null);
+  const [quickInsertAfter, setQuickInsertAfter] = useState("");
+  const [quickSearch, setQuickSearch] = useState("");
   const selected = flows.find((flow) => flow.id === selectedId) ?? flows[0];
+  const selectedNodes = selected?.nodes ?? [];
+  const selectedNode = selectedNodes.find((node) => node.id === selectedNodeId) ?? selectedNodes[0] ?? null;
+  const filteredQuickBlocks = flowBlockLibrary.filter((block) => !block.locked && block.name.toLowerCase().includes(quickSearch.toLowerCase()));
 
   async function handleCreateFlow(input: {
     name: string;
@@ -666,15 +770,20 @@ function FlowsTab() {
     setShowNewFlow(false);
   }
 
-  async function handleAddNode(input: {
+  async function handleAddNode(block: FlowBlockDefinition, input: {
     nodeType: ConversationFlowNodeType;
     label: string;
     config: Record<string, unknown>;
   }) {
     if (!selected) return;
-    const node = await addFlowNode(selected.id, input);
+    const node = await addFlowNode(selected.id, {
+      ...input,
+      config: { ...(block.initialConfig ?? {}), ...input.config },
+    });
     if (!node) return;
-    setNodeTypeToAdd(null);
+    setBlockToAdd(null);
+    setQuickInsertAfter("");
+    setSelectedNodeId(node.id);
   }
 
   async function handleStatusChange(status: ConversationFlow["status"]) {
@@ -683,200 +792,254 @@ function FlowsTab() {
     if (flow) setSelectedId(flow.id);
   }
 
+  async function handleDeleteFlow() {
+    if (!selected) return;
+    const confirmed = window.confirm(`Apagar o fluxo "${selected.name}"? Essa ação não pode ser desfeita.`);
+    if (!confirmed) return;
+    const ok = await deleteFlow(selected.id);
+    if (!ok) return;
+    const nextFlow = flows.find((flow) => flow.id !== selected.id);
+    setSelectedId(nextFlow?.id ?? "");
+    setSelectedNodeId("");
+  }
+
+  async function handleDeleteNode(nodeId: string) {
+    if (!selected || !nodeId) return;
+    const node = selectedNodes.find((item) => item.id === nodeId);
+    const confirmed = window.confirm(`Apagar o bloco "${node?.label ?? "selecionado"}"?`);
+    if (!confirmed) return;
+    const ok = await deleteFlowNode(selected.id, nodeId);
+    if (ok) setSelectedNodeId("");
+  }
+
   async function handleTestFlow(threadId: string) {
     if (!selected) return;
     const ok = await testFlow(selected.id, threadId || null);
     if (ok) setShowTestFlow(false);
   }
 
+  function handleDrop(event: React.DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    const block = flowBlockLibrary.find((item) => item.id === event.dataTransfer.getData("application/x-genesy-flow-block"));
+    if (!block || block.locked) return;
+    setBlockToAdd(block);
+  }
+
   return (
     <>
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[360px_1fr]">
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-3">
-            <MetricCard label="Executadas" value={String(metrics.automationsExecuted)} hint="Fluxos no período" accent="#34d399" />
-            <MetricCard label="Canceladas" value={String(metrics.automationsCancelled)} hint="Jobs obsoletos" accent="#d97706" />
+      <div className="lc-card overflow-hidden" style={{ background: "var(--glass-bg-soft)" }}>
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3" style={{ borderColor: "var(--glass-border)" }}>
+          <div className="flex min-w-0 items-center gap-3">
+            <select
+              value={selected?.id ?? ""}
+              onChange={(event) => {
+                setSelectedId(event.target.value);
+                setSelectedNodeId("");
+              }}
+              className="max-w-[280px] rounded-full px-4 py-2 text-sm font-semibold outline-none"
+              style={{ background: "var(--surface)", color: "var(--text-title)", border: "1px solid var(--glass-border)" }}
+            >
+              {flows.map((flow) => <option key={flow.id} value={flow.id}>{flow.name}</option>)}
+            </select>
+            <span className="rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.12em]" style={{ background: selected?.status === "active" ? "rgba(52,211,153,0.12)" : "var(--hover)", color: selected?.status === "active" ? "#34d399" : "var(--muted-foreground)" }}>
+              {selected?.status ?? "sem fluxo"}
+            </span>
           </div>
-          <div className="lc-card p-4" style={{ background: "var(--glass-bg-soft)" }}>
-            <div className="mb-4 flex items-center justify-between">
-              <div>
-                <h2 className="text-sm font-semibold" style={{ color: "var(--text-title)" }}>Fluxos</h2>
-                <p className="text-xs" style={{ color: "var(--muted-foreground)" }}>Automações visuais de mensagens</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowNewFlow(true)}
-                className="rounded-full px-3 py-1.5 text-xs font-semibold"
-                style={{ background: "var(--primary)", color: "#ffffff" }}
-              >
-                Novo fluxo
+          <div className="flex flex-wrap items-center gap-2">
+            <button type="button" onClick={() => setShowNewFlow(true)} className="rounded-full px-3 py-2 text-xs font-semibold" style={{ background: "var(--surface)", color: "var(--text-title)", border: "1px solid var(--glass-border)" }}>
+              Novo fluxo
+            </button>
+            <button type="button" className="flex items-center gap-1.5 rounded-full px-3 py-2 text-xs font-semibold" style={{ background: "var(--surface)", color: "var(--muted-foreground)", border: "1px solid var(--glass-border)" }}>
+              <Save size={13} /> Salvar
+            </button>
+            <button type="button" onClick={() => setShowTestFlow(true)} disabled={!selected || isMutating} className="flex items-center gap-1.5 rounded-full px-3 py-2 text-xs font-semibold disabled:opacity-50" style={{ background: "rgba(56,189,248,0.12)", color: "#38bdf8", border: "1px solid rgba(56,189,248,0.22)" }}>
+              <Play size={13} /> Testar fluxo
+            </button>
+            <button type="button" className="flex items-center gap-1.5 rounded-full px-3 py-2 text-xs font-semibold" style={{ background: "var(--surface)", color: "var(--muted-foreground)", border: "1px solid var(--glass-border)" }}>
+              <Copy size={13} /> Duplicar
+            </button>
+            {selected?.status === "active" ? (
+              <button type="button" onClick={() => void handleStatusChange("paused")} disabled={isMutating} className="rounded-full px-3 py-2 text-xs font-semibold disabled:opacity-50" style={{ background: "rgba(217,119,6,0.12)", color: "#d97706", border: "1px solid rgba(217,119,6,0.22)" }}>
+                Pausar
               </button>
-            </div>
-            <div className="space-y-2">
-              {isLoading ? (
-                <EmptyState icon={GitBranch} title="Carregando fluxos" description="Buscando automações de mensagens..." compact />
-              ) : flows.length > 0 ? flows.map((flow) => (
-                <button
-                  key={flow.id}
-                  onClick={() => setSelectedId(flow.id)}
-                  className="w-full rounded-2xl p-3 text-left transition-colors hover:bg-[var(--hover)]"
-                  style={{ background: selected?.id === flow.id ? "var(--hover)" : "transparent", border: selected?.id === flow.id ? "1px solid var(--glass-border)" : "1px solid transparent" }}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold" style={{ color: "var(--text-title)" }}>{flow.name}</p>
-                      <p className="mt-1 line-clamp-2 text-xs" style={{ color: "var(--muted-foreground)" }}>{flow.description}</p>
-                    </div>
-                    <span className="rounded-full px-2 py-0.5 text-[10px] font-bold" style={{ background: flow.status === "active" ? "rgba(52,211,153,0.12)" : "var(--hover)", color: flow.status === "active" ? "#34d399" : "var(--muted-foreground)" }}>
-                      {flow.status}
-                    </span>
-                  </div>
-                </button>
-              )) : (
-                <EmptyState icon={GitBranch} title="Nenhum fluxo" description="Crie o primeiro fluxo visual de WhatsApp." compact />
-              )}
-            </div>
+            ) : (
+              <button type="button" onClick={() => void handleStatusChange("active")} disabled={!selected || isMutating} className="rounded-full px-3 py-2 text-xs font-semibold disabled:opacity-50" style={{ background: "rgba(52,211,153,0.12)", color: "#34d399", border: "1px solid rgba(52,211,153,0.22)" }}>
+                Publicar
+              </button>
+            )}
+            <button type="button" onClick={() => selected && void handleStatusChange("archived")} disabled={!selected || isMutating} className="flex items-center gap-1.5 rounded-full px-3 py-2 text-xs font-semibold disabled:opacity-50" style={{ background: "var(--surface)", color: "var(--muted-foreground)", border: "1px solid var(--glass-border)" }}>
+              <Archive size={13} /> Arquivar
+            </button>
+            <button type="button" onClick={() => void handleDeleteFlow()} disabled={!selected || isMutating} className="rounded-full px-3 py-2 text-xs font-semibold disabled:opacity-50" style={{ background: "rgba(239,68,68,0.12)", color: "#ef4444", border: "1px solid rgba(239,68,68,0.22)" }}>
+              Apagar
+            </button>
           </div>
         </div>
 
-        <div className="lc-card min-h-[620px] overflow-hidden p-5" style={{ background: "var(--glass-bg-soft)" }}>
-          {selected ? (
-            <div className="grid h-full grid-cols-1 gap-5 lg:grid-cols-[1fr_300px]">
-              <div>
-                <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <h2 className="text-lg font-bold" style={{ color: "var(--text-title)" }}>{selected.name}</h2>
-                    <p className="mt-1 text-sm" style={{ color: "var(--muted-foreground)" }}>{selected.description}</p>
-                  </div>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setShowTestFlow(true)}
-                      disabled={isMutating}
-                      className="rounded-full px-3 py-1.5 text-xs font-semibold disabled:opacity-50"
-                      style={{ background: "rgba(56,189,248,0.12)", color: "#38bdf8", border: "1px solid rgba(56,189,248,0.22)" }}
-                    >
-                      Testar
-                    </button>
-                    {selected.status === "active" ? (
-                      <button
-                        type="button"
-                        onClick={() => void handleStatusChange("paused")}
-                        disabled={isMutating}
-                        className="rounded-full px-3 py-1.5 text-xs font-semibold disabled:opacity-50"
-                        style={{ background: "rgba(217,119,6,0.12)", color: "#d97706", border: "1px solid rgba(217,119,6,0.22)" }}
-                      >
-                        Pausar
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => void handleStatusChange("active")}
-                        disabled={isMutating}
-                        className="rounded-full px-3 py-1.5 text-xs font-semibold disabled:opacity-50"
-                        style={{ background: "rgba(52,211,153,0.12)", color: "#34d399", border: "1px solid rgba(52,211,153,0.22)" }}
-                      >
-                        Ativar
-                      </button>
-                    )}
-                    {selected.status !== "archived" && (
-                      <button
-                        type="button"
-                        onClick={() => void handleStatusChange("archived")}
-                        disabled={isMutating}
-                        className="rounded-full px-3 py-1.5 text-xs font-semibold disabled:opacity-50"
-                        style={{ background: "var(--hover)", color: "var(--muted-foreground)", border: "1px solid var(--glass-border)" }}
-                      >
-                        Arquivar
-                      </button>
-                    )}
-                  </div>
-                </div>
-                <div className="relative space-y-3">
-                  {(selected.nodes ?? []).map((node, index, nodes) => (
-                    <div key={node.id}>
-                      <FlowNode label={node.label} type={node.node_type} />
-                      {index < nodes.length - 1 && (
-                        <div className="flex h-8 items-center justify-center">
-                          <ArrowRight className="rotate-90" size={18} style={{ color: "var(--muted-foreground)" }} />
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-              <div className="rounded-2xl p-4" style={{ background: "var(--hover)", border: "1px solid var(--glass-border)" }}>
-                <h3 className="text-sm font-semibold" style={{ color: "var(--text-title)" }}>Blocos disponíveis</h3>
-                <div className="mt-4 space-y-2">
-                  {[
-                    { label: "Condição", type: "condition" as const },
-                    { label: "Espera", type: "wait" as const },
-                    { label: "Ação", type: "action" as const },
-                  ].map((block) => (
-                    <button
-                      key={block.type}
-                      type="button"
-                      onClick={() => setNodeTypeToAdd(block.type)}
-                      className="w-full rounded-xl px-3 py-2 text-left text-sm transition-colors hover:bg-[var(--hover)] disabled:opacity-50"
-                      disabled={!selected || isMutating}
-                      style={{ background: "var(--surface)", color: "var(--text-title)", border: "1px solid var(--glass-border)" }}
-                    >
-                      {block.label}
-                    </button>
-                  ))}
-                </div>
-                <div className="mt-5 rounded-2xl p-3" style={{ background: "rgba(56,189,248,0.10)", border: "1px solid rgba(56,189,248,0.22)" }}>
-                  <p className="text-xs leading-relaxed" style={{ color: "#38bdf8" }}>
-                    Editor visual preparado para drag-and-drop. A primeira fase preserva nodes/edges e separa execução em jobs.
-                  </p>
-                </div>
-                <div className="mt-5 border-t pt-4" style={{ borderColor: "var(--glass-border)" }}>
-                  <h3 className="text-sm font-semibold" style={{ color: "var(--text-title)" }}>Execuções recentes</h3>
-                  <div className="mt-3 space-y-2">
-                    {(selected.runs ?? []).length > 0 ? (
-                      (selected.runs ?? []).slice(0, 4).map((run) => (
-                        <div key={run.id} className="rounded-xl px-3 py-2" style={{ background: "var(--surface)", border: "1px solid var(--glass-border)" }}>
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="text-xs font-semibold" style={{ color: flowRunColor(run.status) }}>{run.status}</span>
-                            <span className="text-[11px]" style={{ color: "var(--muted-foreground)" }}>{formatDateTime(run.started_at)}</span>
-                          </div>
-                          {run.reason && (
-                            <p className="mt-1 line-clamp-2 text-[11px]" style={{ color: "var(--muted-foreground)" }}>{run.reason}</p>
-                          )}
-                        </div>
-                      ))
-                    ) : (
-                      <p className="rounded-xl px-3 py-2 text-xs" style={{ background: "var(--surface)", color: "var(--muted-foreground)", border: "1px solid var(--glass-border)" }}>
-                        Nenhuma execução registrada.
-                      </p>
-                    )}
-                  </div>
-                </div>
-                <div className="mt-5 border-t pt-4" style={{ borderColor: "var(--glass-border)" }}>
-                  <h3 className="text-sm font-semibold" style={{ color: "var(--text-title)" }}>Logs</h3>
-                  <div className="mt-3 space-y-2">
-                    {(selected.logs ?? []).length > 0 ? (
-                      (selected.logs ?? []).slice(0, 5).map((log) => (
-                        <div key={log.id} className="rounded-xl px-3 py-2" style={{ background: "var(--surface)", border: "1px solid var(--glass-border)" }}>
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="text-[11px] font-semibold" style={{ color: flowLogColor(log.level) }}>{log.level}</span>
-                            <span className="text-[11px]" style={{ color: "var(--muted-foreground)" }}>{formatDateTime(log.created_at)}</span>
-                          </div>
-                          <p className="mt-1 line-clamp-2 text-xs" style={{ color: "var(--text-title)" }}>{log.message}</p>
-                        </div>
-                      ))
-                    ) : (
-                      <p className="rounded-xl px-3 py-2 text-xs" style={{ background: "var(--surface)", color: "var(--muted-foreground)", border: "1px solid var(--glass-border)" }}>
-                        Logs aparecerão após a execução do fluxo.
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </div>
+        <div className="grid min-h-[720px] grid-cols-1 xl:grid-cols-[280px_minmax(0,1fr)_340px]">
+          <aside className="border-r p-4" style={{ borderColor: "var(--glass-border)" }}>
+            <div>
+              <h2 className="text-sm font-semibold" style={{ color: "var(--text-title)" }}>Biblioteca</h2>
+              <p className="mt-1 text-xs" style={{ color: "var(--muted-foreground)" }}>Arraste blocos para o canvas.</p>
             </div>
-          ) : (
-            <EmptyState icon={GitBranch} title="Nenhum fluxo selecionado" description="Os blocos do fluxo aparecerão aqui quando você criar uma automação." />
-          )}
+            <div className="mt-5 space-y-5">
+              {(Object.keys(flowCategoryMeta) as FlowBlockCategory[]).map((category) => (
+                <div key={category}>
+                  <div className="mb-2 flex items-center gap-2">
+                    <span className="h-2 w-2 rounded-full" style={{ background: flowCategoryMeta[category].color }} />
+                    <p className="text-[11px] font-bold uppercase tracking-[0.14em]" style={{ color: "var(--muted-foreground)" }}>{flowCategoryMeta[category].label}</p>
+                  </div>
+                  <div className="space-y-2">
+                    {flowBlockLibrary.filter((block) => block.category === category).map((block) => {
+                      const Icon = block.icon;
+                      return (
+                        <button
+                          key={block.id}
+                          type="button"
+                          draggable={!block.locked}
+                          onDragStart={(event) => event.dataTransfer.setData("application/x-genesy-flow-block", block.id)}
+                          className="group w-full cursor-grab rounded-2xl p-3 text-left transition-all hover:-translate-y-0.5 active:cursor-grabbing disabled:cursor-not-allowed disabled:opacity-60"
+                          disabled={block.locked}
+                          style={{ background: "rgba(255,255,255,0.035)", border: "1px solid var(--glass-border)", boxShadow: "0 16px 40px rgba(0,0,0,0.10)" }}
+                        >
+                          <div className="flex items-start gap-3">
+                            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl" style={{ background: `${block.color}18`, color: block.color }}>
+                              <Icon size={17} />
+                            </span>
+                            <span className="min-w-0">
+                              <span className="block text-sm font-semibold" style={{ color: "var(--text-title)" }}>{block.name}</span>
+                              <span className="mt-0.5 block text-xs leading-snug" style={{ color: "var(--muted-foreground)" }}>{block.description}</span>
+                            </span>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </aside>
+
+          <main
+            className="relative overflow-hidden p-6"
+            onDragOver={(event) => event.preventDefault()}
+            onDrop={handleDrop}
+            style={{
+              backgroundImage: "radial-gradient(circle, rgba(148,163,184,0.20) 1px, transparent 1px)",
+              backgroundSize: "22px 22px",
+              backgroundColor: "rgba(255,255,255,0.015)",
+            }}
+          >
+            {selected ? (
+              <>
+                <div className="pointer-events-none absolute left-5 top-5 rounded-full px-3 py-1.5 text-xs" style={{ background: "var(--glass-bg-soft)", color: "var(--muted-foreground)", border: "1px solid var(--glass-border)" }}>
+                  Zoom 100% · Pan pronto · Snap ativo
+                </div>
+                <div className="mx-auto flex min-h-[640px] max-w-[560px] flex-col items-center justify-center py-10">
+                  {selectedNodes.length === 0 && (
+                    <div className="max-w-sm rounded-[28px] p-8 text-center" style={{ background: "linear-gradient(135deg, rgba(255,255,255,0.10), rgba(255,255,255,0.035))", border: "1px dashed var(--glass-border)", boxShadow: "0 24px 80px rgba(0,0,0,0.12)" }}>
+                      <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl" style={{ background: "rgba(56,189,248,0.12)", color: "#38bdf8" }}>
+                        <GitBranch size={26} />
+                      </div>
+                      <h3 className="mt-4 text-base font-bold" style={{ color: "var(--text-title)" }}>Canvas vazio</h3>
+                      <p className="mt-2 text-sm leading-relaxed" style={{ color: "var(--muted-foreground)" }}>
+                        Arraste um bloco da biblioteca para começar a desenhar este fluxo.
+                      </p>
+                    </div>
+                  )}
+                  {selectedNodes.map((node, index) => {
+                    const Icon = nodeIcon(node);
+                    const color = nodeColor(node);
+                    const isSelected = selectedNode?.id === node.id;
+                    return (
+                      <div key={node.id} className="flex w-full flex-col items-center">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedNodeId(node.id)}
+                          className="group relative w-full max-w-[360px] rounded-[24px] p-4 text-left transition-all hover:-translate-y-0.5"
+                          style={{
+                            background: "linear-gradient(135deg, rgba(255,255,255,0.10), rgba(255,255,255,0.035))",
+                            border: `1px solid ${isSelected ? color : "var(--glass-border)"}`,
+                            boxShadow: isSelected ? `0 0 0 1px ${color}40, 0 24px 80px ${color}22` : "0 24px 70px rgba(0,0,0,0.14)",
+                          }}
+                        >
+                          <span className="absolute left-1/2 top-0 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full" style={{ background: color, boxShadow: `0 0 20px ${color}` }} />
+                          <span className="absolute bottom-0 left-1/2 h-2.5 w-2.5 -translate-x-1/2 translate-y-1/2 rounded-full" style={{ background: color, boxShadow: `0 0 20px ${color}` }} />
+                          <div className="flex items-start gap-3">
+                            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl" style={{ background: `${color}18`, color }}>
+                              <Icon size={20} />
+                            </span>
+                            <span className="min-w-0">
+                              <span className="block text-sm font-bold" style={{ color: "var(--text-title)" }}>{node.label}</span>
+                              <span className="mt-1 block text-xs leading-relaxed" style={{ color: "var(--muted-foreground)" }}>{nodeDescription(node)}</span>
+                            </span>
+                          </div>
+                        </button>
+                        {index < selectedNodes.length - 1 && (
+                          <div className="relative flex h-24 w-full max-w-[360px] items-center justify-center">
+                            <svg className="absolute inset-0 h-full w-full overflow-visible" viewBox="0 0 360 96" preserveAspectRatio="none" aria-hidden="true">
+                              <path d="M180 8 C180 32 180 62 180 88" fill="none" stroke="rgba(148,163,184,0.42)" strokeWidth="2" strokeLinecap="round" strokeDasharray="6 8" />
+                            </svg>
+                            <div className="relative">
+                              <button
+                                type="button"
+                                onClick={() => setQuickInsertAfter(quickInsertAfter === node.id ? "" : node.id)}
+                                className="flex h-9 w-9 items-center justify-center rounded-full transition-all hover:scale-105"
+                                style={{ background: "var(--surface)", color: "var(--text-title)", border: "1px solid var(--glass-border)", boxShadow: "0 18px 50px rgba(0,0,0,0.18)" }}
+                                aria-label="Adicionar bloco"
+                              >
+                                <Plus size={16} />
+                              </button>
+                              {quickInsertAfter === node.id && (
+                                <div className="absolute left-1/2 top-11 z-20 w-72 -translate-x-1/2 rounded-2xl p-3" style={{ background: "var(--surface)", border: "1px solid var(--glass-border)", boxShadow: "0 24px 80px rgba(0,0,0,0.22)" }}>
+                                  <p className="text-xs font-semibold" style={{ color: "var(--text-title)" }}>Adicionar bloco</p>
+                                  <div className="mt-2 flex items-center gap-2 rounded-xl px-3 py-2" style={{ background: "var(--hover)", border: "1px solid var(--glass-border)" }}>
+                                    <Search size={13} style={{ color: "var(--muted-foreground)" }} />
+                                    <input value={quickSearch} onChange={(event) => setQuickSearch(event.target.value)} placeholder="Pesquisar" className="min-w-0 flex-1 bg-transparent text-xs outline-none" style={{ color: "var(--text-title)" }} />
+                                  </div>
+                                  <div className="mt-2 max-h-52 space-y-1 overflow-auto">
+                                    {filteredQuickBlocks.map((block) => {
+                                      const BlockIcon = block.icon;
+                                      return (
+                                        <button key={block.id} type="button" onClick={() => setBlockToAdd(block)} className="flex w-full items-center gap-2 rounded-xl px-2 py-2 text-left transition-colors hover:bg-[var(--hover)]">
+                                          <span className="flex h-7 w-7 items-center justify-center rounded-lg" style={{ background: `${block.color}18`, color: block.color }}>
+                                            <BlockIcon size={14} />
+                                          </span>
+                                          <span>
+                                            <span className="block text-xs font-semibold" style={{ color: "var(--text-title)" }}>{block.name}</span>
+                                            <span className="block text-[11px]" style={{ color: "var(--muted-foreground)" }}>{flowCategoryMeta[block.category].label}</span>
+                                          </span>
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            ) : (
+              <EmptyState icon={GitBranch} title="Nenhum fluxo selecionado" description="Crie o primeiro fluxo para abrir o canvas." />
+            )}
+          </main>
+
+          <aside className="border-l p-4" style={{ borderColor: "var(--glass-border)" }}>
+            <FlowInspector
+              flow={selected}
+              node={selectedNode}
+              metrics={metrics}
+              isMutating={isMutating}
+              onTest={() => setShowTestFlow(true)}
+              onPublish={() => selected && void handleStatusChange("active")}
+              onDeleteFlow={() => void handleDeleteFlow()}
+              onDeleteNode={(nodeId) => void handleDeleteNode(nodeId)}
+            />
+          </aside>
         </div>
       </div>
 
@@ -888,12 +1051,14 @@ function FlowsTab() {
             onSubmit={(input) => void handleCreateFlow(input)}
           />
         )}
-        {nodeTypeToAdd && selected && (
+        {blockToAdd && selected && (
           <AddFlowNodeModal
-            nodeType={nodeTypeToAdd}
+            nodeType={blockToAdd.nodeType}
+            initialLabel={blockToAdd.name}
+            initialConfig={blockToAdd.initialConfig ?? {}}
             isMutating={isMutating}
-            onClose={() => setNodeTypeToAdd(null)}
-            onSubmit={(input) => void handleAddNode(input)}
+            onClose={() => setBlockToAdd(null)}
+            onSubmit={(input) => void handleAddNode(blockToAdd, input)}
           />
         )}
         {showTestFlow && selected && (
@@ -906,6 +1071,175 @@ function FlowsTab() {
         )}
       </AnimatePresence>
     </>
+  );
+}
+
+function FlowInspector({
+  flow,
+  node,
+  metrics,
+  isMutating,
+  onTest,
+  onPublish,
+  onDeleteFlow,
+  onDeleteNode,
+}: {
+  flow: ConversationFlow | undefined;
+  node: ConversationFlowNode | null;
+  metrics: ReturnType<typeof useConversationsDashboard>["metrics"];
+  isMutating: boolean;
+  onTest: () => void;
+  onPublish: () => void;
+  onDeleteFlow: () => void;
+  onDeleteNode: (nodeId: string) => void;
+}) {
+  if (!flow) {
+    return <EmptyState icon={GitBranch} title="Sem fluxo" description="Crie ou selecione um fluxo para editar." compact />;
+  }
+
+  const Icon = node ? nodeIcon(node) : GitBranch;
+  const color = node ? nodeColor(node) : "#38bdf8";
+
+  return (
+    <div className="flex h-full flex-col">
+      <div>
+        <p className="text-[11px] font-bold uppercase tracking-[0.16em]" style={{ color: "var(--muted-foreground)" }}>Configuração</p>
+        <div className="mt-3 rounded-2xl p-4" style={{ background: "var(--hover)", border: "1px solid var(--glass-border)" }}>
+          <div className="flex items-start gap-3">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl" style={{ background: `${color}18`, color }}>
+              <Icon size={20} />
+            </span>
+            <div className="min-w-0">
+              <h3 className="truncate text-sm font-bold" style={{ color: "var(--text-title)" }}>{node?.label ?? flow.name}</h3>
+              <p className="mt-1 text-xs leading-relaxed" style={{ color: "var(--muted-foreground)" }}>
+                {node ? nodeDescription(node) : flow.description || "Configurações gerais do fluxo"}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {node ? (
+        <div className="mt-4 space-y-3">
+          <label className="block">
+            <span className="text-xs font-semibold" style={{ color: "var(--muted-foreground)" }}>Nome do bloco</span>
+            <input value={node.label} readOnly className="mt-1 w-full rounded-2xl px-4 py-3 text-sm outline-none" style={{ background: "var(--hover)", color: "var(--text-title)", border: "1px solid var(--glass-border)" }} />
+          </label>
+
+          {node.node_type === "trigger" && (
+            <div className="space-y-3">
+              <InspectorSelect label="Qual evento" value="Formulário preenchido" />
+              <InspectorSelect label="Executar apenas se" value="Todos os leads" />
+              <InspectorInput label="IQ mínimo" value="Sem mínimo" />
+              <InspectorInput label="IE mínimo" value="Sem mínimo" />
+            </div>
+          )}
+
+          {node.node_type === "wait" && (
+            <div className="space-y-3">
+              <InspectorInput label="Tempo" value={String(node.config?.wait_minutes ?? 10)} />
+              <InspectorSelect label="Unidade" value="Minutos" />
+              <InspectorSelect label="Horário comercial" value="Não limitar" />
+              <InspectorSelect label="Dias úteis" value="Todos os dias" />
+            </div>
+          )}
+
+          {node.node_type === "action" && node.config?.action_type !== "move_crm" && (
+            <div className="space-y-3">
+              <InspectorSelect label="Conta do WhatsApp" value="Conta vinculada à conversa" />
+              <InspectorSelect label="Destinatário" value="Telefone do lead" />
+              <label className="block">
+                <span className="text-xs font-semibold" style={{ color: "var(--muted-foreground)" }}>Mensagem</span>
+                <textarea value={typeof node.config?.message === "string" ? node.config.message : ""} readOnly rows={5} className="mt-1 w-full resize-none rounded-2xl px-4 py-3 text-sm outline-none" style={{ background: "var(--hover)", color: "var(--text-title)", border: "1px solid var(--glass-border)" }} />
+              </label>
+              <div className="rounded-2xl p-3" style={{ background: "rgba(52,211,153,0.10)", border: "1px solid rgba(52,211,153,0.22)" }}>
+                <p className="text-xs font-semibold" style={{ color: "#34d399" }}>Preview</p>
+                <p className="mt-1 text-xs leading-relaxed" style={{ color: "var(--text-title)" }}>{typeof node.config?.message === "string" && node.config.message ? node.config.message : "Mensagem ainda não configurada."}</p>
+              </div>
+            </div>
+          )}
+
+          {node.node_type === "action" && node.config?.action_type === "move_crm" && (
+            <div className="space-y-3">
+              <InspectorSelect label="Pipeline" value="Pipeline principal" />
+              <InspectorSelect label="Etapa destino" value="Selecionar etapa" />
+              <InspectorSelect label="Responsável" value="Manter responsável atual" />
+              <InspectorSelect label="Execução" value="Mover após execução" />
+              <InspectorInput label="Criar observação" value="Opcional" />
+            </div>
+          )}
+
+          {node.node_type === "condition" && (
+            <div className="space-y-3">
+              <InspectorSelect label="Campo" value={String(node.config?.field ?? "Texto da mensagem")} />
+              <InspectorSelect label="Operador" value="Contém" />
+              <InspectorInput label="Valor" value={String(node.config?.value ?? "")} />
+            </div>
+          )}
+
+          <div className="flex gap-2 pt-1">
+            <button type="button" className="flex-1 rounded-full px-3 py-2 text-xs font-semibold" style={{ background: "var(--primary)", color: "#ffffff" }}>Salvar</button>
+            <button type="button" onClick={() => onDeleteNode(node.id)} disabled={isMutating} className="rounded-full px-3 py-2 text-xs font-semibold disabled:opacity-50" style={{ background: "rgba(239,68,68,0.12)", color: "#ef4444", border: "1px solid rgba(239,68,68,0.22)" }}>Excluir bloco</button>
+          </div>
+        </div>
+      ) : (
+        <div className="mt-4 space-y-3">
+          <InspectorInput label="Nome do fluxo" value={flow.name} />
+          <InspectorSelect label="Status" value={flow.status} />
+          <button type="button" onClick={onPublish} className="w-full rounded-full px-3 py-2 text-xs font-semibold" style={{ background: "rgba(52,211,153,0.12)", color: "#34d399", border: "1px solid rgba(52,211,153,0.22)" }}>Publicar</button>
+          <button type="button" onClick={onDeleteFlow} disabled={isMutating} className="w-full rounded-full px-3 py-2 text-xs font-semibold disabled:opacity-50" style={{ background: "rgba(239,68,68,0.12)", color: "#ef4444", border: "1px solid rgba(239,68,68,0.22)" }}>Apagar fluxo salvo</button>
+        </div>
+      )}
+
+      <div className="mt-5 grid grid-cols-2 gap-2">
+        <MetricCard label="Executadas" value={String(metrics.automationsExecuted)} hint="Período" accent="#34d399" />
+        <MetricCard label="Falhas" value={String(metrics.failures)} hint="Erros" accent="#ef4444" />
+      </div>
+
+      <div className="mt-5 border-t pt-4" style={{ borderColor: "var(--glass-border)" }}>
+        <div className="flex items-center justify-between gap-2">
+          <h3 className="text-sm font-semibold" style={{ color: "var(--text-title)" }}>Últimas execuções</h3>
+          <button type="button" onClick={onTest} className="rounded-full px-3 py-1.5 text-xs font-semibold" style={{ background: "rgba(56,189,248,0.12)", color: "#38bdf8", border: "1px solid rgba(56,189,248,0.22)" }}>Executar teste</button>
+        </div>
+        <div className="mt-3 space-y-2">
+          {(flow.runs ?? []).length > 0 ? (
+            (flow.runs ?? []).slice(0, 4).map((run) => (
+              <div key={run.id} className="rounded-xl px-3 py-2" style={{ background: "var(--hover)", border: "1px solid var(--glass-border)" }}>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs font-semibold" style={{ color: flowRunColor(run.status) }}>{run.status}</span>
+                  <span className="text-[11px]" style={{ color: "var(--muted-foreground)" }}>{formatDateTime(run.started_at)}</span>
+                </div>
+                {run.reason && <p className="mt-1 line-clamp-2 text-[11px]" style={{ color: "var(--muted-foreground)" }}>{run.reason}</p>}
+              </div>
+            ))
+          ) : (
+            <p className="rounded-xl px-3 py-2 text-xs" style={{ background: "var(--hover)", color: "var(--muted-foreground)", border: "1px solid var(--glass-border)" }}>
+              Sem execuções recentes.
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function InspectorInput({ label, value }: { label: string; value: string }) {
+  return (
+    <label className="block">
+      <span className="text-xs font-semibold" style={{ color: "var(--muted-foreground)" }}>{label}</span>
+      <input value={value} readOnly className="mt-1 w-full rounded-2xl px-4 py-3 text-sm outline-none" style={{ background: "var(--hover)", color: "var(--text-title)", border: "1px solid var(--glass-border)" }} />
+    </label>
+  );
+}
+
+function InspectorSelect({ label, value }: { label: string; value: string }) {
+  return (
+    <label className="block">
+      <span className="text-xs font-semibold" style={{ color: "var(--muted-foreground)" }}>{label}</span>
+      <select value={value} disabled className="mt-1 w-full rounded-2xl px-4 py-3 text-sm outline-none disabled:opacity-100" style={{ background: "var(--hover)", color: "var(--text-title)", border: "1px solid var(--glass-border)" }}>
+        <option>{value}</option>
+      </select>
+    </label>
   );
 }
 
@@ -990,25 +1324,32 @@ function TestFlowModal({
 
 function AddFlowNodeModal({
   nodeType,
+  initialLabel,
+  initialConfig,
   isMutating,
   onClose,
   onSubmit,
 }: {
   nodeType: ConversationFlowNodeType;
+  initialLabel?: string;
+  initialConfig?: Record<string, unknown>;
   isMutating: boolean;
   onClose: () => void;
   onSubmit: (input: { nodeType: ConversationFlowNodeType; label: string; config: Record<string, unknown> }) => void;
 }) {
   const defaultLabel = nodeType === "condition" ? "Condição" : nodeType === "wait" ? "Esperar" : "Enviar mensagem";
-  const [label, setLabel] = useState(defaultLabel);
-  const [message, setMessage] = useState("");
-  const [waitMinutes, setWaitMinutes] = useState("10");
-  const [conditionField, setConditionField] = useState("message_body");
-  const [conditionValue, setConditionValue] = useState("");
+  const [label, setLabel] = useState(initialLabel ?? defaultLabel);
+  const [message, setMessage] = useState(typeof initialConfig?.message === "string" ? initialConfig.message : "");
+  const [waitMinutes, setWaitMinutes] = useState(String(initialConfig?.wait_minutes ?? "10"));
+  const [conditionField, setConditionField] = useState(typeof initialConfig?.field === "string" ? initialConfig.field : "message_body");
+  const [conditionValue, setConditionValue] = useState(typeof initialConfig?.value === "string" ? initialConfig.value : "");
+  const actionType = typeof initialConfig?.action_type === "string" ? initialConfig.action_type : "send_message";
 
   function buildConfig() {
     if (nodeType === "action") {
-      return { action_type: "send_message", message };
+      return actionType === "move_crm"
+        ? { action_type: "move_crm", pipeline_id: "", stage_id: "", assignee: "current", create_note: false }
+        : { action_type: "send_message", message };
     }
     if (nodeType === "wait") {
       return { wait_minutes: Number(waitMinutes) || 0 };
@@ -1062,7 +1403,7 @@ function AddFlowNodeModal({
             />
           </label>
 
-          {nodeType === "action" && (
+          {nodeType === "action" && actionType !== "move_crm" && (
             <label className="block">
               <span className="text-xs font-semibold" style={{ color: "var(--muted-foreground)" }}>Mensagem</span>
               <textarea
@@ -1074,6 +1415,23 @@ function AddFlowNodeModal({
                 style={{ background: "var(--hover)", color: "var(--text-title)", border: "1px solid var(--glass-border)" }}
               />
             </label>
+          )}
+
+          {nodeType === "action" && actionType === "move_crm" && (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <label className="block">
+                <span className="text-xs font-semibold" style={{ color: "var(--muted-foreground)" }}>Pipeline</span>
+                <select className="mt-1 w-full rounded-2xl px-4 py-3 text-sm outline-none" style={{ background: "var(--hover)", color: "var(--text-title)", border: "1px solid var(--glass-border)" }}>
+                  <option>Pipeline principal</option>
+                </select>
+              </label>
+              <label className="block">
+                <span className="text-xs font-semibold" style={{ color: "var(--muted-foreground)" }}>Etapa destino</span>
+                <select className="mt-1 w-full rounded-2xl px-4 py-3 text-sm outline-none" style={{ background: "var(--hover)", color: "var(--text-title)", border: "1px solid var(--glass-border)" }}>
+                  <option>Selecionar etapa depois</option>
+                </select>
+              </label>
+            </div>
           )}
 
           {nodeType === "wait" && (
