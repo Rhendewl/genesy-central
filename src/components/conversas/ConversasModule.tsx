@@ -8,6 +8,7 @@ import {
   Archive,
   Bot,
   CalendarCheck,
+  ChevronDown,
   CheckCircle2,
   Clock3,
   Copy,
@@ -25,6 +26,7 @@ import {
   Search,
   Send,
   Smartphone,
+  Trash2,
   UserPlus,
   UserRound,
   Users,
@@ -493,19 +495,31 @@ function InfoRow({ icon: Icon, label, value }: { icon: React.ElementType; label:
 }
 
 function AccountsTab() {
-  const { accounts, createAccount, startConnection, disconnectAccount, isMutating } = useConversationsDashboard();
+  const { accounts, createAccount, startConnection, disconnectAccount, deleteAccount, isMutating } = useConversationsDashboard();
   const [qrAccount, setQrAccount] = useState<ConversationWhatsAppAccount | null>(null);
+  const [showHistory, setShowHistory] = useState(false);
+  const primaryAccount = accounts.find((account) => account.status === "connected")
+    ?? accounts.find((account) => account.status === "awaiting_qr" || account.status === "connecting")
+    ?? accounts[0]
+    ?? null;
+  const historyAccounts = accounts.filter((account) => account.id !== primaryAccount?.id);
 
   async function handleCreateAndConnect() {
-    const created = await createAccount();
-    if (!created) return;
-    const connected = await startConnection(created.id);
-    setQrAccount(connected ?? created);
+    const account = primaryAccount ?? await createAccount();
+    if (!account) return;
+    const connected = await startConnection(account.id);
+    setQrAccount(connected ?? account);
   }
 
   async function handleStartConnection(account: ConversationWhatsAppAccount) {
     const updated = await startConnection(account.id);
     setQrAccount(updated ?? account);
+  }
+
+  async function handleClearHistory() {
+    for (const account of historyAccounts) {
+      await deleteAccount(account.id);
+    }
   }
 
   return (
@@ -516,7 +530,7 @@ function AccountsTab() {
         <MetricCard label="Provider ativo" value="QR Code" hint="WhatsApp Web adapter" accent="#38bdf8" />
       </div>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(280px,380px)_minmax(0,1fr)]">
         <button
           type="button"
           onClick={() => void handleCreateAndConnect()}
@@ -528,45 +542,99 @@ function AccountsTab() {
             <QrCode size={28} />
           </div>
           <div>
-            <h2 className="font-semibold" style={{ color: "var(--text-title)" }}>Conectar WhatsApp</h2>
+            <h2 className="font-semibold" style={{ color: "var(--text-title)" }}>{primaryAccount ? "Conectar conta principal" : "Conectar WhatsApp"}</h2>
             <p className="mt-1 text-sm" style={{ color: "var(--muted-foreground)" }}>
-              {isMutating ? "Preparando sessão..." : "Leia o QR Code no WhatsApp Business/App."}
+              {isMutating ? "Preparando sessão..." : primaryAccount ? "Reutiliza a tentativa mais recente." : "Leia o QR Code no WhatsApp Business/App."}
             </p>
           </div>
         </button>
 
-        {accounts.map((account) => (
-          <div key={account.id} className="lc-card p-5" style={{ background: "var(--glass-bg-soft)" }}>
+        {primaryAccount ? (
+          <div className="lc-card p-5" style={{ background: "var(--glass-bg-soft)" }}>
             <div className="flex items-start justify-between gap-4">
               <div>
-                <h2 className="font-semibold" style={{ color: "var(--text-title)" }}>{account.session_name}</h2>
-                <p className="mt-1 text-sm" style={{ color: "var(--muted-foreground)" }}>{account.phone ?? "Telefone pendente"}</p>
+                <p className="text-[11px] font-bold uppercase tracking-[0.16em]" style={{ color: "var(--muted-foreground)" }}>Conta principal</p>
+                <h2 className="mt-1 font-semibold" style={{ color: "var(--text-title)" }}>{primaryAccount.session_name}</h2>
+                <p className="mt-1 text-sm" style={{ color: "var(--muted-foreground)" }}>{primaryAccount.phone ?? "Telefone pendente"}</p>
               </div>
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl" style={{ background: `${accountStatusColor(account.status)}18`, color: accountStatusColor(account.status) }}>
-                {account.status === "connected" ? <Wifi size={20} /> : <WifiOff size={20} />}
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl" style={{ background: `${accountStatusColor(primaryAccount.status)}18`, color: accountStatusColor(primaryAccount.status) }}>
+                {primaryAccount.status === "connected" ? <Wifi size={20} /> : <WifiOff size={20} />}
               </div>
             </div>
             <div className="mt-5 space-y-2">
-              <InfoPill label="Status" value={statusLabels[account.status]} color={accountStatusColor(account.status)} />
-              <InfoPill label="Última sincronização" value={account.last_sync_at ? new Date(account.last_sync_at).toLocaleString("pt-BR") : "Nunca"} />
+              <InfoPill label="Status" value={statusLabels[primaryAccount.status]} color={accountStatusColor(primaryAccount.status)} />
+              <InfoPill label="Última sincronização" value={primaryAccount.last_sync_at ? new Date(primaryAccount.last_sync_at).toLocaleString("pt-BR") : "Nunca"} />
               <InfoPill label="Provider" value="QR Code" />
             </div>
-            {account.last_error && (
+            {primaryAccount.last_error && (
               <div className="mt-4 rounded-2xl p-3 text-xs" style={{ background: "rgba(217,119,6,0.10)", color: "#d97706", border: "1px solid rgba(217,119,6,0.22)" }}>
-                {account.last_error}
+                {primaryAccount.last_error}
+                {primaryAccount.last_error.includes("WHATSAPP_QR_WORKER") && (
+                  <p className="mt-2 leading-relaxed">
+                    Verifique se as variáveis foram adicionadas em Production na Vercel e faça um novo redeploy.
+                  </p>
+                )}
               </div>
             )}
-            <div className="mt-5 flex gap-2">
-              <button onClick={() => void handleStartConnection(account)} disabled={isMutating} className="rounded-full px-4 py-2 text-sm font-semibold disabled:opacity-50" style={{ background: "var(--primary)", color: "#ffffff" }}>
-                {account.status === "connected" ? "Ver status" : "Reconectar"}
+            <div className="mt-5 flex flex-wrap gap-2">
+              <button onClick={() => void handleStartConnection(primaryAccount)} disabled={isMutating} className="rounded-full px-4 py-2 text-sm font-semibold disabled:opacity-50" style={{ background: "var(--primary)", color: "#ffffff" }}>
+                {primaryAccount.status === "connected" ? "Ver status" : "Reconectar"}
               </button>
-              <button onClick={() => void disconnectAccount(account.id)} disabled={isMutating} className="rounded-full px-4 py-2 text-sm font-semibold disabled:opacity-50" style={{ background: "var(--hover)", color: "var(--text-title)", border: "1px solid var(--glass-border)" }}>
+              <button onClick={() => void disconnectAccount(primaryAccount.id)} disabled={isMutating} className="rounded-full px-4 py-2 text-sm font-semibold disabled:opacity-50" style={{ background: "var(--hover)", color: "var(--text-title)", border: "1px solid var(--glass-border)" }}>
                 Desconectar
+              </button>
+              <button onClick={() => void deleteAccount(primaryAccount.id)} disabled={isMutating} className="inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold disabled:opacity-50" style={{ background: "rgba(239,68,68,0.12)", color: "#ef4444", border: "1px solid rgba(239,68,68,0.22)" }}>
+                <Trash2 size={14} /> Apagar
               </button>
             </div>
           </div>
-        ))}
+        ) : (
+          <div className="lc-card flex min-h-[220px] items-center justify-center p-6 text-center" style={{ background: "var(--glass-bg-soft)" }}>
+            <EmptyState icon={Smartphone} title="Nenhuma conta criada" description="Clique em Conectar WhatsApp para iniciar uma sessão QR Code." compact />
+          </div>
+        )}
       </div>
+
+      {historyAccounts.length > 0 && (
+        <div className="lc-card overflow-hidden" style={{ background: "var(--glass-bg-soft)" }}>
+          <button
+            type="button"
+            onClick={() => setShowHistory((current) => !current)}
+            className="flex w-full items-center justify-between gap-3 px-5 py-4 text-left"
+          >
+            <div>
+              <h2 className="text-sm font-semibold" style={{ color: "var(--text-title)" }}>Histórico de tentativas</h2>
+              <p className="mt-1 text-xs" style={{ color: "var(--muted-foreground)" }}>{historyAccounts.length} conta(s) antiga(s) ocultas para manter a tela limpa.</p>
+            </div>
+            <ChevronDown size={18} className={`transition-transform ${showHistory ? "rotate-180" : ""}`} style={{ color: "var(--muted-foreground)" }} />
+          </button>
+
+          {showHistory && (
+            <div className="border-t p-4" style={{ borderColor: "var(--glass-border)" }}>
+              <div className="mb-3 flex justify-end">
+                <button type="button" onClick={() => void handleClearHistory()} disabled={isMutating} className="inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-xs font-semibold disabled:opacity-50" style={{ background: "rgba(239,68,68,0.12)", color: "#ef4444", border: "1px solid rgba(239,68,68,0.22)" }}>
+                  <Trash2 size={13} /> Limpar histórico
+                </button>
+              </div>
+              <div className="space-y-2">
+                {historyAccounts.map((account) => (
+                  <div key={account.id} className="flex flex-wrap items-center justify-between gap-3 rounded-2xl px-4 py-3" style={{ background: "var(--hover)", border: "1px solid var(--glass-border)" }}>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold" style={{ color: "var(--text-title)" }}>{account.session_name}</p>
+                      <p className="mt-1 text-xs" style={{ color: "var(--muted-foreground)" }}>
+                        {statusLabels[account.status]} · {account.last_sync_at ? new Date(account.last_sync_at).toLocaleString("pt-BR") : "Nunca sincronizada"}
+                      </p>
+                    </div>
+                    <button type="button" onClick={() => void deleteAccount(account.id)} disabled={isMutating} className="inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-xs font-semibold disabled:opacity-50" style={{ background: "rgba(239,68,68,0.12)", color: "#ef4444", border: "1px solid rgba(239,68,68,0.22)" }}>
+                      <Trash2 size={13} /> Apagar
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       <AnimatePresence>
         {qrAccount && <QrModal account={qrAccount} onClose={() => setQrAccount(null)} />}

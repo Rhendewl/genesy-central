@@ -49,6 +49,7 @@ export interface UseConversationsDashboardReturn {
   createAccount: (sessionName?: string) => Promise<ConversationWhatsAppAccount | null>;
   startConnection: (accountId: string) => Promise<ConversationWhatsAppAccount | null>;
   disconnectAccount: (accountId: string) => Promise<ConversationWhatsAppAccount | null>;
+  deleteAccount: (accountId: string) => Promise<boolean>;
   sendMessage: (threadId: string, body: string) => Promise<ConversationMessage | null>;
   createConversation: (input: {
     name?: string;
@@ -422,6 +423,34 @@ export function useConversationsDashboard(): UseConversationsDashboardReturn {
     }
   }, []);
 
+  const deleteAccount = useCallback(async (accountId: string) => {
+    if (!accountId) return false;
+
+    setIsMutating(true);
+    try {
+      await fetch(`/api/conversas/accounts/${accountId}/connection`, {
+        method: "DELETE",
+      }).catch(() => null);
+
+      const supabase = getSupabaseClient();
+      const { error: deleteError } = await supabase
+        .from("conversation_whatsapp_accounts")
+        .delete()
+        .eq("id", accountId);
+
+      if (deleteError) throw deleteError;
+
+      setAccounts((current) => current.filter((account) => account.id !== accountId));
+      await fetchData();
+      return true;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro ao apagar conta WhatsApp");
+      return false;
+    } finally {
+      setIsMutating(false);
+    }
+  }, [fetchData]);
+
   const sendMessage = useCallback(async (threadId: string, body: string) => {
     const trimmed = body.trim();
     if (!threadId || !trimmed) return null;
@@ -769,6 +798,7 @@ export function useConversationsDashboard(): UseConversationsDashboardReturn {
     createAccount,
     startConnection,
     disconnectAccount,
+    deleteAccount,
     sendMessage,
     createConversation,
     createFlow,
@@ -794,6 +824,7 @@ export function useConversationsDashboard(): UseConversationsDashboardReturn {
     createAccount,
     startConnection,
     disconnectAccount,
+    deleteAccount,
     sendMessage,
     createConversation,
     createFlow,
