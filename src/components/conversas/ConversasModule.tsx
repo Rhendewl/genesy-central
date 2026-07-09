@@ -821,7 +821,11 @@ function FlowsTab() {
   const [dropPosition, setDropPosition] = useState<{ x: number; y: number } | null>(null);
   const [quickInsertAfter, setQuickInsertAfter] = useState("");
   const [quickSearch, setQuickSearch] = useState("");
-  const [connectionStart, setConnectionStart] = useState<string | null>(null);
+  const [selectedEdgeId, setSelectedEdgeId] = useState("");
+  const [connectionDraft, setConnectionDraft] = useState<{
+    sourceKey: string;
+    pointer: { x: number; y: number };
+  } | null>(null);
   const [draftPositions, setDraftPositions] = useState<Record<string, { x: number; y: number }>>({});
   const [dragState, setDragState] = useState<{
     nodeId: string;
@@ -838,7 +842,8 @@ function FlowsTab() {
 
   useEffect(() => {
     setDraftPositions({});
-    setConnectionStart(null);
+    setSelectedEdgeId("");
+    setConnectionDraft(null);
     setDragState(null);
   }, [selected?.id]);
 
@@ -950,6 +955,10 @@ function FlowsTab() {
   function edgePath(source: ConversationFlowNode, sourceIndex: number, target: ConversationFlowNode, targetIndex: number) {
     const start = getNodeCenter(source, sourceIndex, "out");
     const end = getNodeCenter(target, targetIndex, "in");
+    return connectionPath(start, end);
+  }
+
+  function connectionPath(start: { x: number; y: number }, end: { x: number; y: number }) {
     const dy = end.y - start.y;
     const bend = Math.max(64, Math.abs(dy) * 0.35);
     return `M ${start.x} ${start.y} C ${start.x} ${start.y + bend}, ${end.x} ${end.y - bend}, ${end.x} ${end.y}`;
@@ -972,6 +981,13 @@ function FlowsTab() {
   }
 
   function handleCanvasPointerMove(event: React.PointerEvent<HTMLDivElement>) {
+    if (connectionDraft) {
+      const point = getCanvasPoint(event);
+      if (point) {
+        setConnectionDraft((current) => current ? { ...current, pointer: point } : null);
+      }
+      return;
+    }
     if (!dragState) return;
     const point = getCanvasPoint(event);
     if (!point) return;
@@ -994,16 +1010,24 @@ function FlowsTab() {
     await updateFlowNode(selected.id, node.id, { position });
   }
 
-  async function handleConnect(targetNode: ConversationFlowNode) {
-    if (!selected || !connectionStart || connectionStart === targetNode.node_key) {
-      setConnectionStart(null);
+  async function handleCanvasPointerUpEvent(event: React.PointerEvent<HTMLElement>) {
+    if (connectionDraft && selected) {
+      const draft = connectionDraft;
+      setConnectionDraft(null);
+      const element = document.elementFromPoint(event.clientX, event.clientY);
+      const targetKey = element instanceof HTMLElement
+        ? element.closest<HTMLElement>("[data-flow-port='in']")?.dataset.nodeKey ?? ""
+        : "";
+
+      if (targetKey && targetKey !== draft.sourceKey) {
+        await createFlowEdge(selected.id, {
+          sourceKey: draft.sourceKey,
+          targetKey,
+        });
+      }
       return;
     }
-    await createFlowEdge(selected.id, {
-      sourceKey: connectionStart,
-      targetKey: targetNode.node_key,
-    });
-    setConnectionStart(null);
+    await handleCanvasPointerUp();
   }
 
   async function handleDeleteEdge(edge: ConversationFlowEdge) {
@@ -1011,6 +1035,7 @@ function FlowsTab() {
     const confirmed = window.confirm("Apagar esta conexão?");
     if (!confirmed) return;
     await deleteFlowEdge(selected.id, edge.id);
+    setSelectedEdgeId("");
   }
 
   const canvasWidth = Math.max(
@@ -1123,8 +1148,8 @@ function FlowsTab() {
             onDragOver={(event) => event.preventDefault()}
             onDrop={handleDrop}
             onPointerMove={handleCanvasPointerMove}
-            onPointerUp={() => void handleCanvasPointerUp()}
-            onPointerLeave={() => void handleCanvasPointerUp()}
+            onPointerUp={(event) => void handleCanvasPointerUpEvent(event)}
+            onPointerLeave={(event) => void handleCanvasPointerUpEvent(event)}
             style={{
               backgroundImage: "radial-gradient(circle, rgba(148,163,184,0.20) 1px, transparent 1px)",
               backgroundSize: "22px 22px",
@@ -1134,7 +1159,7 @@ function FlowsTab() {
             {selected ? (
               <>
                 <div className="pointer-events-none absolute left-5 top-5 rounded-full px-3 py-1.5 text-xs" style={{ background: "var(--glass-bg-soft)", color: "var(--muted-foreground)", border: "1px solid var(--glass-border)" }}>
-                  Zoom 100% · Arraste livre · {connectionStart ? "Clique no ponto superior do destino" : "Conecte pelos pontos"}
+                  Zoom 100% · Arraste livre · {connectionDraft ? "Solte no ponto superior do destino" : "Arraste uma conexão pelo ponto inferior"}
                 </div>
                 <div
                   className="relative"
@@ -1167,14 +1192,29 @@ function FlowsTab() {
                           key={edge.id}
                           d={edgePath(source, sourceIndex, target, targetIndex)}
                           fill="none"
-                          stroke="rgba(56,189,248,0.52)"
-                          strokeWidth="2"
+                          stroke={selectedEdgeId === edge.id ? "rgba(255,255,255,0.86)" : "rgba(56,189,248,0.52)"}
+                          strokeWidth={selectedEdgeId === edge.id ? "3" : "2"}
                           strokeLinecap="round"
                         />
                       );
                     })}
+                    {connectionDraft && (() => {
+                      const sourceIndex = selectedNodes.findIndex((item) => item.node_key === connectionDraft.sourceKey);
+                      const source = selectedNodes[sourceIndex];
+                      if (!source) return null;
+                      return (
+                        <path
+                          d={connectionPath(getNodeCenter(source, sourceIndex, "out"), connectionDraft.pointer)}
+                          fill="none"
+                          stroke="rgba(255,255,255,0.72)"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeDasharray="7 8"
+                        />
+                      );
+                    })()}
                   </svg>
-                  <svg className="pointer-events-none absolute left-0 top-0 overflow-visible" width={canvasWidth} height={canvasHeight} aria-hidden="true">
+                  <svg className="pointer-events-auto absolute left-0 top-0 overflow-visible" width={canvasWidth} height={canvasHeight} aria-hidden="true">
                     {selectedEdges.map((edge) => {
                       const sourceIndex = selectedNodes.findIndex((item) => item.node_key === edge.source_key);
                       const targetIndex = selectedNodes.findIndex((item) => item.node_key === edge.target_key);
@@ -1186,14 +1226,19 @@ function FlowsTab() {
                           key={`${edge.id}-glow`}
                           d={edgePath(source, sourceIndex, target, targetIndex)}
                           fill="none"
-                          stroke="rgba(56,189,248,0.10)"
-                          strokeWidth="12"
+                          stroke="transparent"
+                          strokeWidth="20"
                           strokeLinecap="round"
+                          className="cursor-pointer"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setSelectedEdgeId(selectedEdgeId === edge.id ? "" : edge.id);
+                          }}
                         />
                       );
                     })}
                   </svg>
-                  {selectedEdges.map((edge) => {
+                  {selectedEdges.filter((edge) => edge.id === selectedEdgeId).map((edge) => {
                     const sourceIndex = selectedNodes.findIndex((item) => item.node_key === edge.source_key);
                     const targetIndex = selectedNodes.findIndex((item) => item.node_key === edge.target_key);
                     const source = selectedNodes[sourceIndex];
@@ -1203,14 +1248,14 @@ function FlowsTab() {
                     const targetPoint = getNodeCenter(target, targetIndex, "in");
                     return (
                       <button
-                        key={`${edge.id}-hit`}
+                        key={`${edge.id}-delete`}
                         type="button"
                         data-flow-action="edge"
                         onClick={() => void handleDeleteEdge(edge)}
-                        className="absolute rounded-full px-2 py-1 text-[10px] font-semibold opacity-0 transition-opacity hover:opacity-100"
+                        className="absolute rounded-full px-3 py-1.5 text-[11px] font-semibold shadow-lg"
                         style={{
-                          left: (sourcePoint.x + targetPoint.x) / 2 - 28,
-                          top: (sourcePoint.y + targetPoint.y) / 2 - 12,
+                          left: (sourcePoint.x + targetPoint.x) / 2 - 42,
+                          top: (sourcePoint.y + targetPoint.y) / 2 - 15,
                           background: "rgba(239,68,68,0.16)",
                           color: "#ef4444",
                           border: "1px solid rgba(239,68,68,0.24)",
@@ -1246,23 +1291,30 @@ function FlowsTab() {
                         >
                           <span
                             data-flow-port="in"
-                            onClick={(event) => {
+                            data-node-key={node.node_key}
+                            onPointerUp={(event) => {
                               event.stopPropagation();
-                              void handleConnect(node);
+                              void handleCanvasPointerUpEvent(event);
                             }}
                             className="absolute left-1/2 top-0 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full ring-4 ring-black/20"
-                            style={{ background: connectionStart && connectionStart !== node.node_key ? "#38bdf8" : color, boxShadow: `0 0 20px ${color}` }}
-                            title="Conectar aqui"
+                            style={{ background: connectionDraft && connectionDraft.sourceKey !== node.node_key ? "#38bdf8" : color, boxShadow: `0 0 20px ${color}` }}
+                            title="Soltar conexão aqui"
                           />
                           <span
                             data-flow-port="out"
-                            onClick={(event) => {
+                            onPointerDown={(event) => {
                               event.stopPropagation();
-                              setConnectionStart(connectionStart === node.node_key ? null : node.node_key);
+                              event.preventDefault();
+                              const point = getCanvasPoint(event);
+                              setSelectedEdgeId("");
+                              setConnectionDraft({
+                                sourceKey: node.node_key,
+                                pointer: point ?? getNodeCenter(node, index, "out"),
+                              });
                             }}
                             className="absolute bottom-0 left-1/2 h-3.5 w-3.5 -translate-x-1/2 translate-y-1/2 rounded-full ring-4 ring-black/20 transition-transform hover:scale-125"
-                            style={{ background: connectionStart === node.node_key ? "#ffffff" : color, boxShadow: `0 0 20px ${color}` }}
-                            title="Iniciar conexão"
+                            style={{ background: connectionDraft?.sourceKey === node.node_key ? "#ffffff" : color, boxShadow: `0 0 20px ${color}` }}
+                            title="Arrastar para conectar"
                           />
                           <div className="flex items-start gap-3">
                             <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl" style={{ background: `${color}18`, color }}>
