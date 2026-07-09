@@ -495,7 +495,7 @@ function InfoRow({ icon: Icon, label, value }: { icon: React.ElementType; label:
 }
 
 function AccountsTab() {
-  const { accounts, createAccount, startConnection, disconnectAccount, deleteAccount, isMutating } = useConversationsDashboard();
+  const { accounts, createAccount, startConnection, refreshConnectionStatus, disconnectAccount, deleteAccount, isMutating } = useConversationsDashboard();
   const [qrAccount, setQrAccount] = useState<ConversationWhatsAppAccount | null>(null);
   const [showHistory, setShowHistory] = useState(false);
   const primaryAccount = accounts.find((account) => account.status === "connected")
@@ -503,6 +503,31 @@ function AccountsTab() {
     ?? accounts[0]
     ?? null;
   const historyAccounts = accounts.filter((account) => account.id !== primaryAccount?.id);
+  const accountToPoll = qrAccount ?? primaryAccount;
+  const accountToPollId = accountToPoll?.id ?? "";
+  const accountToPollStatus = accountToPoll?.status ?? "";
+  const shouldPollStatus = accountToPollId
+    ? ["awaiting_qr", "connecting", "reconnect"].includes(accountToPollStatus)
+    : false;
+
+  useEffect(() => {
+    if (!accountToPollId || !shouldPollStatus) return undefined;
+
+    let cancelled = false;
+    const poll = async () => {
+      const updated = await refreshConnectionStatus(accountToPollId);
+      if (!cancelled && updated) {
+        setQrAccount((current) => current?.id === updated.id ? updated : current);
+      }
+    };
+    const interval = window.setInterval(() => void poll(), 2500);
+    void poll();
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [accountToPollId, refreshConnectionStatus, shouldPollStatus]);
 
   async function handleCreateAndConnect() {
     const account = primaryAccount ?? await createAccount();
@@ -656,6 +681,7 @@ function QrModal({ account, onClose }: { account: ConversationWhatsAppAccount; o
   const qrImageUrl = account.qr_code_payload
     ? `https://api.qrserver.com/v1/create-qr-code/?size=240x240&margin=12&data=${encodeURIComponent(account.qr_code_payload)}`
     : "";
+  const isConnected = account.status === "connected";
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -673,7 +699,15 @@ function QrModal({ account, onClose }: { account: ConversationWhatsAppAccount; o
           <h2 className="text-lg font-bold" style={{ color: "var(--text-title)" }}>Conectar WhatsApp</h2>
           <p className="mt-1 text-sm" style={{ color: "var(--muted-foreground)" }}>{account.session_name}</p>
         </div>
-        {account.qr_code_payload ? (
+        {isConnected ? (
+          <div className="mx-auto mt-6 flex h-64 w-64 flex-col items-center justify-center rounded-2xl p-6 text-center" style={{ background: "rgba(52,211,153,0.10)", border: "1px solid rgba(52,211,153,0.24)" }}>
+            <CheckCircle2 size={42} style={{ color: "#34d399" }} />
+            <p className="mt-4 text-sm font-semibold" style={{ color: "var(--text-title)" }}>WhatsApp conectado</p>
+            <p className="mt-2 text-xs leading-relaxed" style={{ color: "var(--muted-foreground)" }}>
+              A sessão foi reconhecida pelo worker e sincronizada com a plataforma.
+            </p>
+          </div>
+        ) : account.qr_code_payload ? (
           <div className="mx-auto mt-6 flex h-64 w-64 items-center justify-center rounded-2xl p-3" style={{ background: "#ffffff" }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={qrImageUrl} alt="QR Code real para conectar WhatsApp" className="h-full w-full rounded-xl object-contain" />
@@ -688,9 +722,11 @@ function QrModal({ account, onClose }: { account: ConversationWhatsAppAccount; o
           </div>
         )}
         <div className="mt-6 rounded-2xl p-4" style={{ background: "var(--hover)", border: "1px solid var(--glass-border)" }}>
-          <p className="text-sm font-semibold" style={{ color: "var(--text-title)" }}>Como conectar</p>
+          <p className="text-sm font-semibold" style={{ color: "var(--text-title)" }}>{isConnected ? "Status" : "Como conectar"}</p>
           <p className="mt-1 text-xs leading-relaxed" style={{ color: "var(--muted-foreground)" }}>
-            Abra o WhatsApp, acesse Aparelhos conectados e leia o QR Code real exibido acima.
+            {isConnected
+              ? "Você já pode fechar esta janela e usar a conta no inbox e nos fluxos."
+              : "Abra o WhatsApp, acesse Aparelhos conectados e leia o QR Code real exibido acima."}
           </p>
           {account.qr_code_payload && (
             <p className="mt-3 break-all rounded-xl px-3 py-2 text-[11px]" style={{ background: "var(--surface)", color: "var(--muted-foreground)", border: "1px solid var(--glass-border)" }}>

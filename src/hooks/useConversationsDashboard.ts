@@ -48,6 +48,7 @@ export interface UseConversationsDashboardReturn {
   refetch: () => Promise<void>;
   createAccount: (sessionName?: string) => Promise<ConversationWhatsAppAccount | null>;
   startConnection: (accountId: string) => Promise<ConversationWhatsAppAccount | null>;
+  refreshConnectionStatus: (accountId: string) => Promise<ConversationWhatsAppAccount | null>;
   disconnectAccount: (accountId: string) => Promise<ConversationWhatsAppAccount | null>;
   deleteAccount: (accountId: string) => Promise<boolean>;
   sendMessage: (threadId: string, body: string) => Promise<ConversationMessage | null>;
@@ -400,6 +401,25 @@ export function useConversationsDashboard(): UseConversationsDashboardReturn {
       return null;
     } finally {
       setIsMutating(false);
+    }
+  }, []);
+
+  const refreshConnectionStatus = useCallback(async (accountId: string) => {
+    if (!accountId) return null;
+
+    try {
+      const response = await fetch(`/api/conversas/accounts/${accountId}/connection`, {
+        method: "GET",
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload?.error ?? "Erro ao consultar conexão WhatsApp");
+
+      const account = payload.account as ConversationWhatsAppAccount;
+      setAccounts((current) => current.map((item) => item.id === account.id ? account : item));
+      return account;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro ao consultar conexão WhatsApp");
+      return null;
     }
   }, []);
 
@@ -797,6 +817,7 @@ export function useConversationsDashboard(): UseConversationsDashboardReturn {
     refetch: fetchData,
     createAccount,
     startConnection,
+    refreshConnectionStatus,
     disconnectAccount,
     deleteAccount,
     sendMessage,
@@ -823,6 +844,7 @@ export function useConversationsDashboard(): UseConversationsDashboardReturn {
     fetchData,
     createAccount,
     startConnection,
+    refreshConnectionStatus,
     disconnectAccount,
     deleteAccount,
     sendMessage,
