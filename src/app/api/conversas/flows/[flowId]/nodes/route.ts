@@ -22,12 +22,6 @@ type NodeRow = {
   position: { x?: number; y?: number };
 };
 
-type EdgeRow = {
-  id: string;
-  source_key: string;
-  target_key: string;
-};
-
 const allowedNodeTypes: ConversationFlowNodeType[] = ["trigger", "condition", "wait", "action"];
 
 function makeNodeKey(type: ConversationFlowNodeType) {
@@ -90,8 +84,6 @@ export async function POST(request: NextRequest, context: RouteContext) {
   }
 
   const currentNodes = (nodes ?? []) as NodeRow[];
-  const endNode = currentNodes.find((node) => node.node_key === "end");
-  const beforeEndNode = [...currentNodes].reverse().find((node) => node.node_key !== "end");
   const y = Math.max(120, currentNodes.length * 150);
   const hasTrigger = currentNodes.some((node) => node.node_key === "trigger");
   const nodeKey = nodeType === "trigger" && !hasTrigger ? "trigger" : makeNodeKey(nodeType);
@@ -122,60 +114,6 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     if (triggerUpdateError) {
       return NextResponse.json({ error: triggerUpdateError.message }, { status: 500 });
-    }
-  }
-
-  if (endNode && beforeEndNode) {
-    await admin
-      .from("conversation_flow_edges")
-      .delete()
-      .eq("flow_id", flow.id)
-      .eq("source_key", beforeEndNode.node_key)
-      .eq("target_key", endNode.node_key);
-
-    const { error: firstEdgeError } = await admin
-      .from("conversation_flow_edges")
-      .insert({
-        user_id: flow.user_id,
-        flow_id: flow.id,
-        source_key: beforeEndNode.node_key,
-        target_key: nodeKey,
-        label: null,
-        config: {},
-      });
-
-    if (firstEdgeError) {
-      return NextResponse.json({ error: firstEdgeError.message }, { status: 500 });
-    }
-
-    const { error: secondEdgeError } = await admin
-      .from("conversation_flow_edges")
-      .insert({
-        user_id: flow.user_id,
-        flow_id: flow.id,
-        source_key: nodeKey,
-        target_key: endNode.node_key,
-        label: null,
-        config: {},
-      });
-
-    if (secondEdgeError) {
-      return NextResponse.json({ error: secondEdgeError.message }, { status: 500 });
-    }
-  } else if (beforeEndNode) {
-    const { error: edgeError } = await admin
-      .from("conversation_flow_edges")
-      .insert({
-        user_id: flow.user_id,
-        flow_id: flow.id,
-        source_key: beforeEndNode.node_key,
-        target_key: nodeKey,
-        label: null,
-        config: {},
-      });
-
-    if (edgeError) {
-      return NextResponse.json({ error: edgeError.message }, { status: 500 });
     }
   }
 
@@ -307,36 +245,22 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
   }
 
   const admin = createAdminSupabaseClient();
-  const [{ data: nodes, error: nodesError }, { data: edges, error: edgesError }] = await Promise.all([
-    admin
-      .from("conversation_flow_nodes")
-      .select("id,flow_id,node_key,node_type,label,position")
-      .eq("flow_id", flow.id)
-      .order("created_at", { ascending: true }),
-    admin
-      .from("conversation_flow_edges")
-      .select("id,source_key,target_key")
-      .eq("flow_id", flow.id),
-  ]);
+  const { data: nodes, error: nodesError } = await admin
+    .from("conversation_flow_nodes")
+    .select("id,flow_id,node_key,node_type,label,position")
+    .eq("flow_id", flow.id)
+    .order("created_at", { ascending: true });
 
   if (nodesError) {
     return NextResponse.json({ error: nodesError.message }, { status: 500 });
   }
 
-  if (edgesError) {
-    return NextResponse.json({ error: edgesError.message }, { status: 500 });
-  }
-
   const currentNodes = (nodes ?? []) as NodeRow[];
-  const currentEdges = (edges ?? []) as EdgeRow[];
   const node = currentNodes.find((item) => item.id === nodeId);
 
   if (!node) {
     return NextResponse.json({ error: "Bloco não encontrado." }, { status: 404 });
   }
-
-  const incoming = currentEdges.find((edge) => edge.target_key === node.node_key);
-  const outgoing = currentEdges.find((edge) => edge.source_key === node.node_key);
 
   const { error: edgeDeleteError } = await admin
     .from("conversation_flow_edges")
@@ -355,23 +279,6 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
 
   if (nodeDeleteError) {
     return NextResponse.json({ error: nodeDeleteError.message }, { status: 500 });
-  }
-
-  if (incoming && outgoing && incoming.source_key !== outgoing.target_key) {
-    const { error: bridgeError } = await admin
-      .from("conversation_flow_edges")
-      .insert({
-        user_id: flow.user_id,
-        flow_id: flow.id,
-        source_key: incoming.source_key,
-        target_key: outgoing.target_key,
-        label: null,
-        config: {},
-      });
-
-    if (bridgeError) {
-      return NextResponse.json({ error: bridgeError.message }, { status: 500 });
-    }
   }
 
   return NextResponse.json({ ok: true });
