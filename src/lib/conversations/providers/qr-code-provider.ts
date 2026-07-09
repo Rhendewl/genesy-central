@@ -20,13 +20,26 @@ type WorkerSendResponse = Partial<{
   error: string;
 }>;
 
-const workerUrl = process.env.WHATSAPP_QR_WORKER_URL?.replace(/\/$/, "");
-const workerSecret = process.env.WHATSAPP_QR_WORKER_SECRET;
+function getWorkerConfig() {
+  const workerUrl = process.env.WHATSAPP_QR_WORKER_URL?.trim().replace(/\/$/, "");
+  const workerSecret = process.env.WHATSAPP_QR_WORKER_SECRET?.trim();
+  const missing: string[] = [];
+  if (!workerUrl) missing.push("WHATSAPP_QR_WORKER_URL");
+  if (!workerSecret) missing.push("WHATSAPP_QR_WORKER_SECRET");
+
+  if (!workerUrl || !workerSecret) {
+    const environment = process.env.VERCEL_ENV ?? process.env.NODE_ENV ?? "desconhecido";
+    throw new Error(
+      `Worker QR Code não configurado no runtime (${environment}). Variáveis ausentes: ${missing.join(", ")}. ` +
+      "Confirme se elas estão no ambiente correto da Vercel e faça redeploy.",
+    );
+  }
+
+  return { workerUrl, workerSecret };
+}
 
 async function requestWorker<T>(path: string, init: RequestInit = {}): Promise<T> {
-  if (!workerUrl || !workerSecret) {
-    throw new Error("Worker QR Code não configurado. Defina WHATSAPP_QR_WORKER_URL e WHATSAPP_QR_WORKER_SECRET.");
-  }
+  const { workerUrl, workerSecret } = getWorkerConfig();
 
   const response = await fetch(`${workerUrl}${path}`, {
     ...init,
