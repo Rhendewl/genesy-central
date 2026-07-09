@@ -777,7 +777,11 @@ function nodeDescription(node: ConversationFlowNode) {
     const triggerType = typeof node.config?.trigger_type === "string" ? node.config.trigger_type : "";
     return triggerEventDescriptions[triggerType] ?? "Ponto de entrada da automação";
   }
-  if (node.node_type === "wait") return `${Number(node.config?.wait_minutes ?? 0)} minuto(s) de espera`;
+  if (node.node_type === "wait") {
+    const waitValue = Number(node.config?.wait_value ?? node.config?.wait_minutes ?? 0);
+    const waitUnit = node.config?.wait_unit === "seconds" ? "segundo(s)" : "minuto(s)";
+    return `${waitValue} ${waitUnit} de espera`;
+  }
   if (node.node_type === "condition") return "Valida dados antes de continuar";
   if (node.node_type === "end") return "Finaliza a jornada";
   if (node.config?.action_type === "move_crm") return "Atualiza etapa do lead";
@@ -807,7 +811,7 @@ function formatDateTime(date: string | null) {
 }
 
 function FlowsTab() {
-  const { inbox, flows, metrics, isLoading, isMutating, createFlow, updateFlowStatus, deleteFlow, testFlow, addFlowNode, updateFlowNode, deleteFlowNode } = useConversationsDashboard();
+  const { inbox, flows, metrics, resources, isLoading, isMutating, createFlow, updateFlowStatus, deleteFlow, testFlow, addFlowNode, updateFlowNode, deleteFlowNode } = useConversationsDashboard();
   const [selectedId, setSelectedId] = useState(flows[0]?.id ?? "");
   const [selectedNodeId, setSelectedNodeId] = useState("");
   const [showNewFlow, setShowNewFlow] = useState(false);
@@ -893,7 +897,7 @@ function FlowsTab() {
 
   return (
     <>
-      <div className="lc-card overflow-hidden" style={{ background: "var(--glass-bg-soft)" }}>
+      <div className="lc-card min-h-[calc(100vh-170px)] overflow-hidden" style={{ background: "var(--glass-bg-soft)" }}>
         <div className="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3" style={{ borderColor: "var(--glass-border)" }}>
           <div className="flex min-w-0 items-center gap-3">
             <select
@@ -942,7 +946,7 @@ function FlowsTab() {
           </div>
         </div>
 
-        <div className="grid min-h-[720px] grid-cols-1 xl:grid-cols-[280px_minmax(0,1fr)_340px]">
+        <div className="grid min-h-[calc(100vh-235px)] grid-cols-1 xl:grid-cols-[280px_minmax(0,1fr)_340px]">
           <aside className="border-r p-4" style={{ borderColor: "var(--glass-border)" }}>
             <div>
               <h2 className="text-sm font-semibold" style={{ color: "var(--text-title)" }}>Biblioteca</h2>
@@ -1001,7 +1005,7 @@ function FlowsTab() {
                 <div className="pointer-events-none absolute left-5 top-5 rounded-full px-3 py-1.5 text-xs" style={{ background: "var(--glass-bg-soft)", color: "var(--muted-foreground)", border: "1px solid var(--glass-border)" }}>
                   Zoom 100% · Pan pronto · Snap ativo
                 </div>
-                <div className="mx-auto flex min-h-[640px] max-w-[560px] flex-col items-center justify-center py-10">
+                <div className="mx-auto flex min-h-[calc(100vh-300px)] max-w-[560px] flex-col items-center justify-center py-10">
                   {selectedNodes.length === 0 && (
                     <div className="max-w-sm rounded-[28px] p-8 text-center" style={{ background: "linear-gradient(135deg, rgba(255,255,255,0.10), rgba(255,255,255,0.035))", border: "1px dashed var(--glass-border)", boxShadow: "0 24px 80px rgba(0,0,0,0.12)" }}>
                       <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl" style={{ background: "rgba(56,189,248,0.12)", color: "#38bdf8" }}>
@@ -1099,6 +1103,7 @@ function FlowsTab() {
               flow={selected}
               node={selectedNode}
               metrics={metrics}
+              resources={resources}
               isMutating={isMutating}
               onTest={() => setShowTestFlow(true)}
               onPublish={() => selected && void handleStatusChange("active")}
@@ -1145,6 +1150,7 @@ function FlowInspector({
   flow,
   node,
   metrics,
+  resources,
   isMutating,
   onTest,
   onPublish,
@@ -1155,6 +1161,7 @@ function FlowInspector({
   flow: ConversationFlow | undefined;
   node: ConversationFlowNode | null;
   metrics: ReturnType<typeof useConversationsDashboard>["metrics"];
+  resources: ReturnType<typeof useConversationsDashboard>["resources"];
   isMutating: boolean;
   onTest: () => void;
   onPublish: () => void;
@@ -1164,10 +1171,16 @@ function FlowInspector({
 }) {
   const [label, setLabel] = useState("");
   const [targetScope, setTargetScope] = useState("all_leads");
+  const [formId, setFormId] = useState("");
+  const [skipWhenScheduled, setSkipWhenScheduled] = useState("true");
+  const [calendarId, setCalendarId] = useState("");
   const [minIq, setMinIq] = useState("");
   const [minIe, setMinIe] = useState("");
-  const [waitMinutes, setWaitMinutes] = useState("10");
+  const [waitValue, setWaitValue] = useState("10");
+  const [waitUnit, setWaitUnit] = useState("minutes");
   const [message, setMessage] = useState("");
+  const [mediaType, setMediaType] = useState("none");
+  const [mediaUrl, setMediaUrl] = useState("");
   const [conditionField, setConditionField] = useState("message_body");
   const [conditionOperator, setConditionOperator] = useState("contains");
   const [conditionValue, setConditionValue] = useState("");
@@ -1178,10 +1191,16 @@ function FlowInspector({
     if (!node) return;
     setLabel(node.label);
     setTargetScope(typeof node.config?.target_scope === "string" ? node.config.target_scope : "all_leads");
+    setFormId(typeof node.config?.form_id === "string" ? node.config.form_id : "");
+    setSkipWhenScheduled(node.config?.skip_when_scheduled === false ? "false" : "true");
+    setCalendarId(typeof node.config?.calendar_id === "string" ? node.config.calendar_id : "");
     setMinIq(typeof node.config?.min_iq === "number" ? String(node.config.min_iq) : "");
     setMinIe(typeof node.config?.min_ie === "number" ? String(node.config.min_ie) : "");
-    setWaitMinutes(String(node.config?.wait_minutes ?? "10"));
+    setWaitValue(String(node.config?.wait_value ?? node.config?.wait_minutes ?? "10"));
+    setWaitUnit(typeof node.config?.wait_unit === "string" ? node.config.wait_unit : "minutes");
     setMessage(typeof node.config?.message === "string" ? node.config.message : "");
+    setMediaType(typeof node.config?.media_type === "string" ? node.config.media_type : "none");
+    setMediaUrl(typeof node.config?.media_url === "string" ? node.config.media_url : "");
     setConditionField(typeof node.config?.field === "string" ? node.config.field : "message_body");
     setConditionOperator(typeof node.config?.operator === "string" ? node.config.operator : "contains");
     setConditionValue(typeof node.config?.value === "string" ? node.config.value : "");
@@ -1200,6 +1219,8 @@ function FlowInspector({
     ? node.config.trigger_type
     : "";
   const fixedTriggerLabel = triggerEventLabels[fixedTriggerType] ?? "Gatilho não definido";
+  const selectedPipeline = resources.pipelines.find((pipeline) => pipeline.id === pipelineId);
+  const availableStages = (selectedPipeline?.crm_stages ?? []).filter((stage) => stage.is_active !== false);
 
   function buildNodeConfig() {
     if (!node) return {};
@@ -1208,12 +1229,26 @@ function FlowInspector({
         ...node.config,
         trigger_type: fixedTriggerType,
         target_scope: targetScope,
+        form_id: formId || null,
+        skip_when_scheduled: skipWhenScheduled === "true",
+        calendar_id: calendarId || null,
+        pipeline_id: pipelineId || null,
+        stage_id: stageId || null,
+        message_operator: conditionOperator,
+        message_value: conditionValue.trim() || null,
         min_iq: minIq.trim() ? Number(minIq) : null,
         min_ie: minIe.trim() ? Number(minIe) : null,
       };
     }
     if (node.node_type === "wait") {
-      return { ...node.config, wait_minutes: Math.max(0, Number(waitMinutes) || 0) };
+      return {
+        ...node.config,
+        wait_value: Math.max(0, Number(waitValue) || 0),
+        wait_unit: waitUnit,
+        wait_minutes: waitUnit === "seconds"
+          ? Math.max(0, Number(waitValue) || 0) / 60
+          : Math.max(0, Number(waitValue) || 0),
+      };
     }
     if (node.node_type === "condition") {
       return {
@@ -1231,7 +1266,13 @@ function FlowInspector({
         stage_id: stageId || null,
       };
     }
-    return { ...node.config, action_type: "send_message", message };
+    return {
+      ...node.config,
+      action_type: "send_message",
+      message,
+      media_type: mediaType,
+      media_url: mediaType === "none" ? null : mediaUrl.trim() || null,
+    };
   }
 
   function handleSaveNode(event: React.FormEvent<HTMLFormElement>) {
@@ -1282,6 +1323,76 @@ function FlowInspector({
                   <option value="assigned_to_owner">Leads do responsável do fluxo</option>
                 </select>
               </label>
+              {fixedTriggerType === "form_submitted" && (
+                <>
+                  <label className="block">
+                    <span className="text-xs font-semibold" style={{ color: "var(--muted-foreground)" }}>Formulário</span>
+                    <select value={formId} onChange={(event) => setFormId(event.target.value)} className="mt-1 w-full rounded-2xl px-4 py-3 text-sm outline-none" style={{ background: "var(--hover)", color: "var(--text-title)", border: "1px solid var(--glass-border)" }}>
+                      <option value="">Todos os formulários</option>
+                      {resources.forms.map((form) => (
+                        <option key={form.id} value={form.id}>{form.name}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="block">
+                    <span className="text-xs font-semibold" style={{ color: "var(--muted-foreground)" }}>Se houver agendamento no mesmo envio</span>
+                    <select value={skipWhenScheduled} onChange={(event) => setSkipWhenScheduled(event.target.value)} className="mt-1 w-full rounded-2xl px-4 py-3 text-sm outline-none" style={{ background: "var(--hover)", color: "var(--text-title)", border: "1px solid var(--glass-border)" }}>
+                      <option value="true">Não disparar este fluxo de formulário</option>
+                      <option value="false">Disparar mesmo assim</option>
+                    </select>
+                  </label>
+                </>
+              )}
+              {fixedTriggerType === "appointment_created" && (
+                <label className="block">
+                  <span className="text-xs font-semibold" style={{ color: "var(--muted-foreground)" }}>Calendário</span>
+                  <select value={calendarId} onChange={(event) => setCalendarId(event.target.value)} className="mt-1 w-full rounded-2xl px-4 py-3 text-sm outline-none" style={{ background: "var(--hover)", color: "var(--text-title)", border: "1px solid var(--glass-border)" }}>
+                    <option value="">Todos os calendários</option>
+                    {resources.calendars.map((calendar) => (
+                      <option key={calendar.id} value={calendar.id}>{calendar.name}</option>
+                    ))}
+                  </select>
+                </label>
+              )}
+              {(fixedTriggerType === "lead_created" || fixedTriggerType === "stage_changed") && (
+                <label className="block">
+                  <span className="text-xs font-semibold" style={{ color: "var(--muted-foreground)" }}>Pipeline</span>
+                  <select value={pipelineId} onChange={(event) => { setPipelineId(event.target.value); setStageId(""); }} className="mt-1 w-full rounded-2xl px-4 py-3 text-sm outline-none" style={{ background: "var(--hover)", color: "var(--text-title)", border: "1px solid var(--glass-border)" }}>
+                    <option value="">Todas as pipelines</option>
+                    {resources.pipelines.map((pipeline) => (
+                      <option key={pipeline.id} value={pipeline.id}>{pipeline.name}</option>
+                    ))}
+                  </select>
+                </label>
+              )}
+              {fixedTriggerType === "stage_changed" && (
+                <label className="block">
+                  <span className="text-xs font-semibold" style={{ color: "var(--muted-foreground)" }}>Etapa de entrada</span>
+                  <select value={stageId} onChange={(event) => setStageId(event.target.value)} disabled={!pipelineId} className="mt-1 w-full rounded-2xl px-4 py-3 text-sm outline-none disabled:opacity-60" style={{ background: "var(--hover)", color: "var(--text-title)", border: "1px solid var(--glass-border)" }}>
+                    <option value="">Todas as etapas</option>
+                    {availableStages.map((stage) => (
+                      <option key={stage.id} value={stage.id}>{stage.name}</option>
+                    ))}
+                  </select>
+                </label>
+              )}
+              {fixedTriggerType === "message_received" && (
+                <div className="grid grid-cols-1 gap-3">
+                  <label className="block">
+                    <span className="text-xs font-semibold" style={{ color: "var(--muted-foreground)" }}>Mensagem deve</span>
+                    <select value={conditionOperator} onChange={(event) => setConditionOperator(event.target.value)} className="mt-1 w-full rounded-2xl px-4 py-3 text-sm outline-none" style={{ background: "var(--hover)", color: "var(--text-title)", border: "1px solid var(--glass-border)" }}>
+                      <option value="contains">Conter</option>
+                      <option value="equals">Ser exatamente</option>
+                      <option value="not_contains">Não conter</option>
+                      <option value="not_empty">Estar preenchida</option>
+                    </select>
+                  </label>
+                  <label className="block">
+                    <span className="text-xs font-semibold" style={{ color: "var(--muted-foreground)" }}>Texto / palavra-chave</span>
+                    <input value={conditionValue} onChange={(event) => setConditionValue(event.target.value)} placeholder="Ex.: preço, orçamento, quero agendar" className="mt-1 w-full rounded-2xl px-4 py-3 text-sm outline-none" style={{ background: "var(--hover)", color: "var(--text-title)", border: "1px solid var(--glass-border)" }} />
+                  </label>
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-2">
                 <label className="block">
                   <span className="text-xs font-semibold" style={{ color: "var(--muted-foreground)" }}>IQ mínimo</span>
@@ -1296,10 +1407,17 @@ function FlowInspector({
           )}
 
           {node.node_type === "wait" && (
-            <div className="space-y-3">
+            <div className="grid grid-cols-[1fr_140px] gap-2">
               <label className="block">
-                <span className="text-xs font-semibold" style={{ color: "var(--muted-foreground)" }}>Tempo de espera em minutos</span>
-                <input type="number" min="0" value={waitMinutes} onChange={(event) => setWaitMinutes(event.target.value)} className="mt-1 w-full rounded-2xl px-4 py-3 text-sm outline-none" style={{ background: "var(--hover)", color: "var(--text-title)", border: "1px solid var(--glass-border)" }} />
+                <span className="text-xs font-semibold" style={{ color: "var(--muted-foreground)" }}>Tempo de espera</span>
+                <input type="number" min="0" value={waitValue} onChange={(event) => setWaitValue(event.target.value)} className="mt-1 w-full rounded-2xl px-4 py-3 text-sm outline-none" style={{ background: "var(--hover)", color: "var(--text-title)", border: "1px solid var(--glass-border)" }} />
+              </label>
+              <label className="block">
+                <span className="text-xs font-semibold" style={{ color: "var(--muted-foreground)" }}>Unidade</span>
+                <select value={waitUnit} onChange={(event) => setWaitUnit(event.target.value)} className="mt-1 w-full rounded-2xl px-4 py-3 text-sm outline-none" style={{ background: "var(--hover)", color: "var(--text-title)", border: "1px solid var(--glass-border)" }}>
+                  <option value="seconds">Segundos</option>
+                  <option value="minutes">Minutos</option>
+                </select>
               </label>
             </div>
           )}
@@ -1310,9 +1428,30 @@ function FlowInspector({
                 <span className="text-xs font-semibold" style={{ color: "var(--muted-foreground)" }}>Mensagem</span>
                 <textarea value={message} onChange={(event) => setMessage(event.target.value)} rows={5} placeholder="Digite a mensagem que será enviada" className="mt-1 w-full resize-none rounded-2xl px-4 py-3 text-sm outline-none" style={{ background: "var(--hover)", color: "var(--text-title)", border: "1px solid var(--glass-border)" }} />
               </label>
+              <div className="grid grid-cols-1 gap-3">
+                <label className="block">
+                  <span className="text-xs font-semibold" style={{ color: "var(--muted-foreground)" }}>Mídia</span>
+                  <select value={mediaType} onChange={(event) => setMediaType(event.target.value)} className="mt-1 w-full rounded-2xl px-4 py-3 text-sm outline-none" style={{ background: "var(--hover)", color: "var(--text-title)", border: "1px solid var(--glass-border)" }}>
+                    <option value="none">Somente texto</option>
+                    <option value="image">Imagem</option>
+                    <option value="video">Vídeo</option>
+                  </select>
+                </label>
+                {mediaType !== "none" && (
+                  <label className="block">
+                    <span className="text-xs font-semibold" style={{ color: "var(--muted-foreground)" }}>URL da mídia</span>
+                    <input value={mediaUrl} onChange={(event) => setMediaUrl(event.target.value)} placeholder="https://..." className="mt-1 w-full rounded-2xl px-4 py-3 text-sm outline-none" style={{ background: "var(--hover)", color: "var(--text-title)", border: "1px solid var(--glass-border)" }} />
+                  </label>
+                )}
+              </div>
               <div className="rounded-2xl p-3" style={{ background: "rgba(52,211,153,0.10)", border: "1px solid rgba(52,211,153,0.22)" }}>
                 <p className="text-xs font-semibold" style={{ color: "#34d399" }}>Preview</p>
                 <p className="mt-1 text-xs leading-relaxed" style={{ color: "var(--text-title)" }}>{message.trim() ? message : "Mensagem ainda não configurada."}</p>
+                {mediaType !== "none" && (
+                  <p className="mt-2 break-all text-[11px]" style={{ color: "var(--muted-foreground)" }}>
+                    {mediaType === "image" ? "Imagem" : "Vídeo"}: {mediaUrl || "URL ainda não informada"}
+                  </p>
+                )}
               </div>
             </div>
           )}
@@ -1320,12 +1459,22 @@ function FlowInspector({
           {isMoveCrmNode && (
             <div className="space-y-3">
               <label className="block">
-                <span className="text-xs font-semibold" style={{ color: "var(--muted-foreground)" }}>Pipeline ID</span>
-                <input value={pipelineId} onChange={(event) => setPipelineId(event.target.value)} placeholder="Selecionador de pipeline entra na próxima fase" className="mt-1 w-full rounded-2xl px-4 py-3 text-sm outline-none" style={{ background: "var(--hover)", color: "var(--text-title)", border: "1px solid var(--glass-border)" }} />
+                <span className="text-xs font-semibold" style={{ color: "var(--muted-foreground)" }}>Pipeline</span>
+                <select value={pipelineId} onChange={(event) => { setPipelineId(event.target.value); setStageId(""); }} className="mt-1 w-full rounded-2xl px-4 py-3 text-sm outline-none" style={{ background: "var(--hover)", color: "var(--text-title)", border: "1px solid var(--glass-border)" }}>
+                  <option value="">Selecionar pipeline</option>
+                  {resources.pipelines.map((pipeline) => (
+                    <option key={pipeline.id} value={pipeline.id}>{pipeline.name}</option>
+                  ))}
+                </select>
               </label>
               <label className="block">
-                <span className="text-xs font-semibold" style={{ color: "var(--muted-foreground)" }}>Etapa destino ID</span>
-                <input value={stageId} onChange={(event) => setStageId(event.target.value)} placeholder="Selecionador de etapa entra na próxima fase" className="mt-1 w-full rounded-2xl px-4 py-3 text-sm outline-none" style={{ background: "var(--hover)", color: "var(--text-title)", border: "1px solid var(--glass-border)" }} />
+                <span className="text-xs font-semibold" style={{ color: "var(--muted-foreground)" }}>Etapa destino</span>
+                <select value={stageId} onChange={(event) => setStageId(event.target.value)} disabled={!pipelineId} className="mt-1 w-full rounded-2xl px-4 py-3 text-sm outline-none disabled:opacity-60" style={{ background: "var(--hover)", color: "var(--text-title)", border: "1px solid var(--glass-border)" }}>
+                  <option value="">Selecionar etapa</option>
+                  {availableStages.map((stage) => (
+                    <option key={stage.id} value={stage.id}>{stage.name}</option>
+                  ))}
+                </select>
               </label>
             </div>
           )}
@@ -1518,7 +1667,8 @@ function AddFlowNodeModal({
   const defaultLabel = nodeType === "condition" ? "Condição" : nodeType === "wait" ? "Esperar" : "Enviar mensagem";
   const [label, setLabel] = useState(initialLabel ?? defaultLabel);
   const [message, setMessage] = useState(typeof initialConfig?.message === "string" ? initialConfig.message : "");
-  const [waitMinutes, setWaitMinutes] = useState(String(initialConfig?.wait_minutes ?? "10"));
+  const [waitValue, setWaitValue] = useState(String(initialConfig?.wait_value ?? initialConfig?.wait_minutes ?? "10"));
+  const [waitUnit, setWaitUnit] = useState(typeof initialConfig?.wait_unit === "string" ? initialConfig.wait_unit : "minutes");
   const [conditionField, setConditionField] = useState(typeof initialConfig?.field === "string" ? initialConfig.field : "message_body");
   const [conditionValue, setConditionValue] = useState(typeof initialConfig?.value === "string" ? initialConfig.value : "");
   const actionType = typeof initialConfig?.action_type === "string" ? initialConfig.action_type : "send_message";
@@ -1530,7 +1680,12 @@ function AddFlowNodeModal({
         : { action_type: "send_message", message };
     }
     if (nodeType === "wait") {
-      return { wait_minutes: Number(waitMinutes) || 0 };
+      const value = Number(waitValue) || 0;
+      return {
+        wait_value: value,
+        wait_unit: waitUnit,
+        wait_minutes: waitUnit === "seconds" ? value / 60 : value,
+      };
     }
     if (nodeType === "condition") {
       return { field: conditionField, operator: "contains", value: conditionValue };
@@ -1613,17 +1768,31 @@ function AddFlowNodeModal({
           )}
 
           {nodeType === "wait" && (
-            <label className="block">
-              <span className="text-xs font-semibold" style={{ color: "var(--muted-foreground)" }}>Tempo de espera em minutos</span>
-              <input
-                type="number"
-                min="0"
-                value={waitMinutes}
-                onChange={(event) => setWaitMinutes(event.target.value)}
-                className="mt-1 w-full rounded-2xl px-4 py-3 text-sm outline-none"
-                style={{ background: "var(--hover)", color: "var(--text-title)", border: "1px solid var(--glass-border)" }}
-              />
-            </label>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <label className="block">
+                <span className="text-xs font-semibold" style={{ color: "var(--muted-foreground)" }}>Tempo de espera</span>
+                <input
+                  type="number"
+                  min="0"
+                  value={waitValue}
+                  onChange={(event) => setWaitValue(event.target.value)}
+                  className="mt-1 w-full rounded-2xl px-4 py-3 text-sm outline-none"
+                  style={{ background: "var(--hover)", color: "var(--text-title)", border: "1px solid var(--glass-border)" }}
+                />
+              </label>
+              <label className="block">
+                <span className="text-xs font-semibold" style={{ color: "var(--muted-foreground)" }}>Unidade</span>
+                <select
+                  value={waitUnit}
+                  onChange={(event) => setWaitUnit(event.target.value)}
+                  className="mt-1 w-full rounded-2xl px-4 py-3 text-sm outline-none"
+                  style={{ background: "var(--hover)", color: "var(--text-title)", border: "1px solid var(--glass-border)" }}
+                >
+                  <option value="seconds">Segundos</option>
+                  <option value="minutes">Minutos</option>
+                </select>
+              </label>
+            </div>
           )}
 
           {nodeType === "condition" && (
@@ -1783,21 +1952,25 @@ export function ConversasModule() {
         {activeTab === "fluxos" && <FlowsTab />}
       </motion.div>
 
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-        <MetricCard label="Mensagens enviadas" value={String(metrics.sent)} hint="Manual + automações" accent="#38bdf8" />
-        <MetricCard label="Mensagens recebidas" value={String(metrics.received)} hint="Entradas no WhatsApp" accent="#34d399" />
-        <MetricCard label="Falhas" value={String(metrics.failures)} hint="Envios ou jobs com erro" accent="#ef4444" />
-      </div>
+      {activeTab !== "fluxos" && (
+        <>
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+            <MetricCard label="Mensagens enviadas" value={String(metrics.sent)} hint="Manual + automações" accent="#38bdf8" />
+            <MetricCard label="Mensagens recebidas" value={String(metrics.received)} hint="Entradas no WhatsApp" accent="#34d399" />
+            <MetricCard label="Falhas" value={String(metrics.failures)} hint="Envios ou jobs com erro" accent="#ef4444" />
+          </div>
 
-      <div className="lc-card flex items-start gap-3 p-4" style={{ background: "var(--glass-bg-soft)" }}>
-        <AlertTriangle size={18} style={{ color: "#d97706" }} />
-        <div>
-          <p className="text-sm font-semibold" style={{ color: "var(--text-title)" }}>MVP interno via QR Code</p>
-          <p className="mt-1 text-xs leading-relaxed" style={{ color: "var(--muted-foreground)" }}>
-            A interface e o schema já estão preparados para WhatsApp Web via worker persistente. A Cloud API oficial fica isolada para um provider futuro.
-          </p>
-        </div>
-      </div>
+          <div className="lc-card flex items-start gap-3 p-4" style={{ background: "var(--glass-bg-soft)" }}>
+            <AlertTriangle size={18} style={{ color: "#d97706" }} />
+            <div>
+              <p className="text-sm font-semibold" style={{ color: "var(--text-title)" }}>MVP interno via QR Code</p>
+              <p className="mt-1 text-xs leading-relaxed" style={{ color: "var(--muted-foreground)" }}>
+                A interface e o schema já estão preparados para WhatsApp Web via worker persistente. A Cloud API oficial fica isolada para um provider futuro.
+              </p>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }

@@ -174,8 +174,12 @@ export class ConversationFlowExecutor {
         }
 
         if (nextNode.node_type === "wait") {
-          const minutes = Number(nextNode.config.wait_minutes ?? 0);
-          const scheduledFor = new Date(Date.now() + Math.max(minutes, 0) * 60000).toISOString();
+          const waitUnit = typeof nextNode.config.wait_unit === "string" ? nextNode.config.wait_unit : "minutes";
+          const waitValue = Number(nextNode.config.wait_value ?? nextNode.config.wait_minutes ?? 0);
+          const delayMs = waitUnit === "seconds"
+            ? Math.max(waitValue, 0) * 1000
+            : Math.max(waitValue, 0) * 60000;
+          const scheduledFor = new Date(Date.now() + delayMs).toISOString();
           await this.db
             .from("conversation_flow_jobs")
             .update({
@@ -184,7 +188,7 @@ export class ConversationFlowExecutor {
               scheduled_for: scheduledFor,
             })
             .eq("id", job.id);
-          await this.log(job, run?.id ?? null, "info", `Job reagendado por ${minutes} minuto(s).`);
+          await this.log(job, run?.id ?? null, "info", `Job reagendado por ${waitValue} ${waitUnit === "seconds" ? "segundo(s)" : "minuto(s)"}.`);
           return { processed: true, failed: false };
         }
 
@@ -213,10 +217,16 @@ export class ConversationFlowExecutor {
 
   private async executeAction(job: FlowJobRow, node: FlowNodeRow, runId: string | null) {
     const actionType = typeof node.config.action_type === "string" ? node.config.action_type : "send_message";
+    if (actionType === "move_crm") {
+      await this.moveLead(job, node, runId);
+      return;
+    }
     if (actionType !== "send_message") return;
 
     const message = typeof node.config.message === "string" ? node.config.message.trim() : "";
-    if (!message || !job.thread_id) return;
+    const mediaType = typeof node.config.media_type === "string" ? node.config.media_type : "none";
+    const mediaUrl = typeof node.config.media_url === "string" ? node.config.media_url.trim() : "";
+    if ((!message && !mediaUrl) || !job.thread_id) return;
 
     const { data: thread } = await this.db
       .from("conversation_threads")
@@ -273,6 +283,8 @@ export class ConversationFlowExecutor {
         accountId: account.id,
         to: contact.phone,
         body: message,
+        mediaType,
+        mediaUrl: mediaUrl || undefined,
         idempotencyKey: queuedMessage.id,
       });
       finalStatus = result.ok ? "sent" : "failed";
@@ -301,6 +313,23 @@ export class ConversationFlowExecutor {
       .eq("id", thread.id);
 
     await this.log(job, runId, finalStatus === "sent" ? "info" : "warning", providerError || `Mensagem enviada pelo bloco ${node.label}.`);
+  }
+
+  private async moveLead(job: FlowJobRow, node: FlowNodeRow, runId: string | null) {
+    const stageId = typeof node.config.stage_id === "string" ? node.config.stage_id : "";
+    if (!stageId || !job.lead_id) return;
+
+    const { data, error } = await this.db.rpc("crm_move_lead", {
+      p_lead_id: job.lead_id,
+      p_stage_id: stageId,
+      p_note: `Movido automaticamente pelo fluxo ${node.label}`,
+      p_moved_by: job.owner_profile_id,
+    });
+
+    if (error) throw new Error(error.message);
+    if (!data) throw new Error("Falha ao mover lead no CRM.");
+
+    await this.log(job, runId, "info", `Lead movido pelo bloco ${node.label}.`);
   }
 
   private async finishJob(job: FlowJobRow, runId: string | null, status: "executed" | "failed") {

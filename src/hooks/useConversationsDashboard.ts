@@ -19,12 +19,29 @@ import type {
 
 type ProfileNameRow = { id: string; full_name: string };
 
+export type ConversationFlowFormOption = { id: string; name: string; slug: string | null };
+export type ConversationFlowCalendarOption = { id: string; name: string; slug: string | null; status?: string };
+export type ConversationFlowStageOption = { id: string; name: string; is_active?: boolean; order_index?: number };
+export type ConversationFlowPipelineOption = {
+  id: string;
+  name: string;
+  is_active?: boolean;
+  crm_stages?: ConversationFlowStageOption[];
+};
+
+export type ConversationFlowResources = {
+  forms: ConversationFlowFormOption[];
+  calendars: ConversationFlowCalendarOption[];
+  pipelines: ConversationFlowPipelineOption[];
+};
+
 export interface UseConversationsDashboardReturn {
   accounts: ConversationWhatsAppAccount[];
   inbox: ConversationInboxItem[];
   messages: ConversationMessage[];
   flows: ConversationFlow[];
   metrics: ConversationMetrics;
+  resources: ConversationFlowResources;
   isLoading: boolean;
   isMutating: boolean;
   error: string | null;
@@ -74,6 +91,12 @@ const emptyMetrics: ConversationMetrics = {
   needsResponse: 0,
 };
 
+const emptyResources: ConversationFlowResources = {
+  forms: [],
+  calendars: [],
+  pipelines: [],
+};
+
 function toMap<T extends { id: string }>(rows: T[]) {
   return new Map(rows.map((row) => [row.id, row]));
 }
@@ -121,6 +144,7 @@ export function useConversationsDashboard(): UseConversationsDashboardReturn {
   const [messages, setMessages] = useState<ConversationMessage[]>([]);
   const [flows, setFlows] = useState<ConversationFlow[]>([]);
   const [metrics, setMetrics] = useState<ConversationMetrics>(emptyMetrics);
+  const [resources, setResources] = useState<ConversationFlowResources>(emptyResources);
   const [isLoading, setIsLoading] = useState(true);
   const [isMutating, setIsMutating] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -140,6 +164,7 @@ export function useConversationsDashboard(): UseConversationsDashboardReturn {
         setMessages([]);
         setFlows([]);
         setMetrics(emptyMetrics);
+        setResources(emptyResources);
         return;
       }
 
@@ -149,6 +174,9 @@ export function useConversationsDashboard(): UseConversationsDashboardReturn {
         threadsRes,
         profilesRes,
         flowsRes,
+        formsFetch,
+        calendarsFetch,
+        pipelinesFetch,
       ] = await Promise.all([
         supabase
           .from("conversation_whatsapp_accounts")
@@ -169,6 +197,9 @@ export function useConversationsDashboard(): UseConversationsDashboardReturn {
           .from("conversation_flows")
           .select("*")
           .order("updated_at", { ascending: false }),
+        fetch("/api/formularios").then((res) => res.ok ? res.json() : { formularios: [] }).catch(() => ({ formularios: [] })),
+        fetch("/api/appointments/calendars").then((res) => res.ok ? res.json() : { calendars: [] }).catch(() => ({ calendars: [] })),
+        fetch("/api/crm/pipelines").then((res) => res.ok ? res.json() : { pipelines: [] }).catch(() => ({ pipelines: [] })),
       ]);
 
       if (accountsRes.error) throw accountsRes.error;
@@ -282,6 +313,30 @@ export function useConversationsDashboard(): UseConversationsDashboardReturn {
       setMessages(nextMessages);
       setFlows(nextFlows);
       setMetrics(nextMetrics);
+      setResources({
+        forms: ((formsFetch.formularios ?? []) as Array<{ id: string; name: string; slug?: string | null }>).map((form) => ({
+          id: form.id,
+          name: form.name,
+          slug: form.slug ?? null,
+        })),
+        calendars: ((calendarsFetch.calendars ?? []) as Array<{ id: string; name: string; slug?: string | null; status?: string }>).map((calendar) => ({
+          id: calendar.id,
+          name: calendar.name,
+          slug: calendar.slug ?? null,
+          status: calendar.status,
+        })),
+        pipelines: ((pipelinesFetch.pipelines ?? []) as ConversationFlowPipelineOption[]).map((pipeline) => ({
+          id: pipeline.id,
+          name: pipeline.name,
+          is_active: pipeline.is_active,
+          crm_stages: (pipeline.crm_stages ?? []).map((stage) => ({
+            id: stage.id,
+            name: stage.name,
+            is_active: stage.is_active,
+            order_index: stage.order_index,
+          })),
+        })),
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao carregar conversas");
     } finally {
@@ -639,6 +694,7 @@ export function useConversationsDashboard(): UseConversationsDashboardReturn {
     messages,
     flows,
     metrics,
+    resources,
     isLoading,
     isMutating,
     error,
@@ -661,6 +717,7 @@ export function useConversationsDashboard(): UseConversationsDashboardReturn {
     messages,
     flows,
     metrics,
+    resources,
     isLoading,
     isMutating,
     error,

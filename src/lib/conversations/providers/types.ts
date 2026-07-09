@@ -13,6 +13,8 @@ export interface SendWhatsAppMessageInput {
   accountId: string;
   to: string;
   body: string;
+  mediaType?: string;
+  mediaUrl?: string;
   idempotencyKey?: string;
 }
 

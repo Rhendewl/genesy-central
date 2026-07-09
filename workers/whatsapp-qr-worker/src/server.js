@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/rules-of-hooks */
 import express from "express";
 import pino from "pino";
 import makeWASocket, {
@@ -226,7 +227,7 @@ app.post("/accounts/:accountId/disconnect", async (request, response) => {
 });
 
 app.post("/messages", async (request, response) => {
-  const { accountId, to, body, idempotencyKey } = request.body || {};
+  const { accountId, to, body, mediaType, mediaUrl, idempotencyKey } = request.body || {};
   const session = sessions.get(accountId);
 
   if (!session?.sock || session.status !== "connected") {
@@ -236,7 +237,14 @@ app.post("/messages", async (request, response) => {
 
   try {
     const digits = String(to || "").replace(/\D/g, "");
-    const result = await session.sock.sendMessage(`${digits}@s.whatsapp.net`, { text: String(body || "") });
+    const caption = String(body || "");
+    const media = String(mediaUrl || "").trim();
+    const message = mediaType === "image" && media
+      ? { image: { url: media }, caption }
+      : mediaType === "video" && media
+        ? { video: { url: media }, caption }
+        : { text: caption };
+    const result = await session.sock.sendMessage(`${digits}@s.whatsapp.net`, message);
     response.json({
       ok: true,
       providerMessageId: result?.key?.id || idempotencyKey || null,

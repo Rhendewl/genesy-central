@@ -12,6 +12,8 @@ export type DomainEventType =
   | "lead.deal.lost"
   | "lead.tag.added"
   | "lead.tag.removed"
+  // Forms module
+  | "form.submitted"
   // Appointments module — calendar lifecycle
   | "calendar.created"
   | "calendar.updated"
@@ -87,6 +89,23 @@ export interface LeadTagChangedPayload {
   leadId: string;
   tagId:  string;
   userId: string;
+}
+
+// ── Forms module payloads ────────────────────────────────────────────────────
+
+export interface FormSubmittedPayload {
+  formId:              string;
+  formSlug:            string;
+  formName:            string;
+  submissionId:        string;
+  userId:              string;
+  leadId:              string | null;
+  visitorName:         string | null;
+  visitorEmail:        string | null;
+  visitorPhone:        string | null;
+  hasScheduledBooking: boolean;
+  calendarId:          string | null;
+  bookingId:           string | null;
 }
 
 // ── Appointments module payloads ──────────────────────────────────────────────

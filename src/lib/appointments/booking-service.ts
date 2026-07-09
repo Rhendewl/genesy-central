@@ -149,6 +149,7 @@ export class BookingService {
       this.bus.publish("booking.created", {
         bookingId:    result.booking_id,
         calendarId:   calendar.id,
+        calendarName: calendar.name,
         userId:       ownerId,
         visitorName:  payload.visitor_name.trim(),
         visitorEmail: payload.visitor_email.trim().toLowerCase(),
