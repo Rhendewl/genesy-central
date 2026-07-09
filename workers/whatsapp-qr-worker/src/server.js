@@ -58,6 +58,14 @@ function jidToPhone(jid) {
   return String(jid || "").split("@")[0].replace(/\D/g, "");
 }
 
+function normalizeRecipientDigits(value) {
+  const digits = String(value || "").replace(/\D/g, "").replace(/^0+/, "");
+  if (!digits) return "";
+  if (digits.startsWith("55")) return digits;
+  if (digits.length === 10 || digits.length === 11) return `55${digits}`;
+  return digits;
+}
+
 function extractMessageText(message) {
   if (!message) return "";
   const nestedMessage =
@@ -142,29 +150,41 @@ async function notifyInboundMessage(accountId, message) {
   const body = extractMessageText(message.message);
   if (!body) return;
 
-  const response = await fetch(`${dashboardUrl}/api/conversas/webhook/message`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-Conversations-Secret": dashboardSecret,
-    },
-    body: JSON.stringify({
-      whatsapp_account_id: accountId,
-      from: jidToPhone(remoteJid),
-      body,
-      name: message.pushName || "",
-      provider_message_id: message.key?.id || null,
-      received_at: messageTimestampToIso(message.messageTimestamp),
-    }),
-  });
+  const payload = {
+    whatsapp_account_id: accountId,
+    from: jidToPhone(remoteJid),
+    body,
+    name: message.pushName || "",
+    provider_message_id: message.key?.id || null,
+    received_at: messageTimestampToIso(message.messageTimestamp),
+  };
+  const endpoints = [
+    "/api/conversas/webhook/whatsapp-message",
+    "/api/conversas/webhook/message",
+  ];
 
-  if (!response.ok) {
+  for (const endpoint of endpoints) {
+    const response = await fetch(`${dashboardUrl}${endpoint}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Conversations-Secret": dashboardSecret,
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (response.ok) {
+      logger.info(
+        { accountId, endpoint, from: payload.from, providerMessageId: payload.provider_message_id },
+        "Mensagem recebida encaminhada ao dashboard.",
+      );
+      return;
+    }
+
     const error = await response.text().catch(() => "");
-    logger.warn({ accountId, status: response.status, error }, "Falha ao encaminhar mensagem recebida.");
-    return;
+    logger.warn({ accountId, endpoint, status: response.status, error }, "Falha ao encaminhar mensagem recebida.");
+    if (![404, 405].includes(response.status)) return;
   }
-
-  logger.info({ accountId, from: jidToPhone(remoteJid), providerMessageId: message.key?.id || null }, "Mensagem recebida encaminhada ao dashboard.");
 }
 
 async function notifyHistoryMessages(accountId, messages) {
@@ -343,7 +363,23 @@ app.post("/messages", async (request, response) => {
   }
 
   try {
-    const digits = String(to || "").replace(/\D/g, "");
+    const digits = normalizeRecipientDigits(to);
+    if (!digits) {
+      response.status(400).json({ ok: false, error: "Número de destino inválido." });
+      return;
+    }
+
+    const candidateJid = `${digits}@s.whatsapp.net`;
+    const [recipient] = await session.sock.onWhatsApp(candidateJid);
+    if (!recipient?.exists) {
+      response.status(404).json({
+        ok: false,
+        error: "Número não encontrado no WhatsApp. Confirme DDI, DDD e telefone.",
+      });
+      return;
+    }
+
+    const jid = recipient.jid || candidateJid;
     const caption = String(body || "");
     const media = String(mediaUrl || "").trim();
     const message = mediaType === "image" && media
@@ -351,7 +387,9 @@ app.post("/messages", async (request, response) => {
       : mediaType === "video" && media
         ? { video: { url: media }, caption }
         : { text: caption };
-    const result = await session.sock.sendMessage(`${digits}@s.whatsapp.net`, message);
+    logger.info({ accountId, to: digits, jid }, "Enviando mensagem WhatsApp.");
+    const result = await session.sock.sendMessage(jid, message);
+    logger.info({ accountId, jid, providerMessageId: result?.key?.id || null }, "Mensagem enviada pelo WhatsApp.");
     response.json({
       ok: true,
       providerMessageId: result?.key?.id || idempotencyKey || null,
