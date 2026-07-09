@@ -61,6 +61,29 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Conta WhatsApp não encontrada." }, { status: 404 });
   }
 
+  if (providerMessageId) {
+    const { data: existingMessage, error: existingMessageError } = await db
+      .from("conversation_messages")
+      .select("id,thread_id")
+      .eq("whatsapp_account_id", account.id)
+      .eq("provider_message_id", providerMessageId)
+      .maybeSingle<Pick<ConversationMessage, "id" | "thread_id">>();
+
+    if (existingMessageError) {
+      return NextResponse.json({ error: existingMessageError.message }, { status: 500 });
+    }
+
+    if (existingMessage) {
+      return NextResponse.json({
+        received: true,
+        duplicate: true,
+        thread_id: existingMessage.thread_id,
+        message_id: existingMessage.id,
+        queued_jobs: 0,
+      });
+    }
+  }
+
   const { data: contact, error: contactError } = await db
     .from("conversation_contacts")
     .upsert({

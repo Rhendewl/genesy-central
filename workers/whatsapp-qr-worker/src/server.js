@@ -13,6 +13,7 @@ const dashboardUrl = process.env.DASHBOARD_URL?.replace(/\/$/, "");
 const dashboardSecret = process.env.CONVERSATIONS_WORKER_SECRET || process.env.CRON_SECRET;
 const sessionsDir = process.env.WHATSAPP_SESSIONS_DIR || "sessions";
 const logger = pino({ level: process.env.LOG_LEVEL || "info" });
+const maxHistoryMessages = Number(process.env.WHATSAPP_HISTORY_SYNC_LIMIT || 50);
 
 const sessions = new Map();
 
@@ -141,6 +142,25 @@ async function notifyInboundMessage(accountId, message) {
   }
 }
 
+async function notifyHistoryMessages(accountId, messages) {
+  const inboundMessages = (messages || [])
+    .filter((message) => {
+      const remoteJid = message.key?.remoteJid;
+      return remoteJid && !remoteJid.endsWith("@g.us") && !message.key?.fromMe && extractMessageText(message.message);
+    })
+    .sort((a, b) => Number(a.messageTimestamp || 0) - Number(b.messageTimestamp || 0))
+    .slice(-Math.max(0, maxHistoryMessages));
+
+  if (inboundMessages.length === 0) return;
+
+  logger.info({ accountId, count: inboundMessages.length }, "Sincronizando mensagens recentes do histórico.");
+  for (const message of inboundMessages) {
+    await notifyInboundMessage(accountId, message).catch((err) => {
+      logger.warn({ err, accountId }, "Erro ao sincronizar mensagem do histórico.");
+    });
+  }
+}
+
 async function startSession(accountId) {
   const current = sessions.get(accountId);
   if (current?.sock && current.status !== "expired") {
@@ -222,6 +242,12 @@ async function startSession(accountId) {
         logger.warn({ err, accountId }, "Erro ao processar mensagem recebida.");
       });
     }
+  });
+
+  sock.ev.on("messaging-history.set", async ({ messages }) => {
+    await notifyHistoryMessages(accountId, messages).catch((err) => {
+      logger.warn({ err, accountId }, "Erro ao sincronizar histórico de mensagens.");
+    });
   });
 
   return sessionSnapshot(accountId);
