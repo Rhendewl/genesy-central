@@ -18,6 +18,7 @@ type NodeRow = {
   node_key: string;
   node_type: ConversationFlowNodeType;
   label: string;
+  config?: Record<string, unknown>;
   position: { x?: number; y?: number };
 };
 
@@ -113,6 +114,17 @@ export async function POST(request: NextRequest, context: RouteContext) {
     return NextResponse.json({ error: insertNodeError?.message ?? "Erro ao criar bloco." }, { status: 500 });
   }
 
+  if (nodeType === "trigger" && typeof config.trigger_type === "string" && config.trigger_type) {
+    const { error: triggerUpdateError } = await admin
+      .from("conversation_flows")
+      .update({ trigger_type: config.trigger_type, trigger_config: config })
+      .eq("id", flow.id);
+
+    if (triggerUpdateError) {
+      return NextResponse.json({ error: triggerUpdateError.message }, { status: 500 });
+    }
+  }
+
   if (endNode && beforeEndNode) {
     await admin
       .from("conversation_flow_edges")
@@ -168,6 +180,85 @@ export async function POST(request: NextRequest, context: RouteContext) {
   }
 
   return NextResponse.json({ node: newNode });
+}
+
+export async function PATCH(request: NextRequest, context: RouteContext) {
+  const { flowId } = await context.params;
+  const body = await request.json().catch(() => null);
+  const nodeId = typeof body?.node_id === "string" ? body.node_id : "";
+  const label = typeof body?.label === "string" && body.label.trim() ? body.label.trim() : "";
+  const config = body?.config && typeof body.config === "object" ? body.config : {};
+
+  if (!nodeId) {
+    return NextResponse.json({ error: "node_id é obrigatório." }, { status: 400 });
+  }
+
+  if (!label) {
+    return NextResponse.json({ error: "Nome do bloco é obrigatório." }, { status: 400 });
+  }
+
+  const supabase = await createServerSupabaseClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return NextResponse.json({ error: "Não autenticado." }, { status: 401 });
+  }
+
+  const { data: flow, error: flowError } = await supabase
+    .from("conversation_flows")
+    .select("id,user_id")
+    .eq("id", flowId)
+    .maybeSingle<FlowRow>();
+
+  if (flowError) {
+    return NextResponse.json({ error: flowError.message }, { status: 500 });
+  }
+
+  if (!flow) {
+    return NextResponse.json({ error: "Fluxo não encontrado ou sem permissão." }, { status: 404 });
+  }
+
+  const admin = createAdminSupabaseClient();
+  const { data: currentNode, error: currentNodeError } = await admin
+    .from("conversation_flow_nodes")
+    .select("id,flow_id,node_key,node_type,label,config,position")
+    .eq("flow_id", flow.id)
+    .eq("id", nodeId)
+    .maybeSingle<NodeRow>();
+
+  if (currentNodeError) {
+    return NextResponse.json({ error: currentNodeError.message }, { status: 500 });
+  }
+
+  if (!currentNode) {
+    return NextResponse.json({ error: "Bloco não encontrado." }, { status: 404 });
+  }
+
+  const { data: updatedNode, error: updateNodeError } = await admin
+    .from("conversation_flow_nodes")
+    .update({ label, config })
+    .eq("id", currentNode.id)
+    .select("*")
+    .single();
+
+  if (updateNodeError || !updatedNode) {
+    return NextResponse.json({ error: updateNodeError?.message ?? "Erro ao atualizar bloco." }, { status: 500 });
+  }
+
+  if (currentNode.node_type === "trigger" && typeof config.trigger_type === "string" && config.trigger_type) {
+    const { error: triggerUpdateError } = await admin
+      .from("conversation_flows")
+      .update({ trigger_type: config.trigger_type, trigger_config: config })
+      .eq("id", flow.id);
+
+    if (triggerUpdateError) {
+      return NextResponse.json({ error: triggerUpdateError.message }, { status: 500 });
+    }
+  }
+
+  return NextResponse.json({ node: updatedNode });
 }
 
 export async function DELETE(request: NextRequest, context: RouteContext) {

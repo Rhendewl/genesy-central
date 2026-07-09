@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => null);
   const name = typeof body?.name === "string" ? body.name.trim() : "";
   const description = typeof body?.description === "string" ? body.description.trim() : "";
-  const triggerType = typeof body?.trigger_type === "string" ? body.trigger_type.trim() : "manual_start";
+  const triggerType = typeof body?.trigger_type === "string" ? body.trigger_type.trim() : "visual_builder";
   const scope = body?.scope === "personal" ? "personal" : "team";
 
   if (!name) {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   AlertTriangle,
@@ -584,6 +584,10 @@ function InfoPill({ label, value, color }: { label: string; value: string; color
 }
 
 function QrModal({ account, onClose }: { account: ConversationWhatsAppAccount; onClose: () => void }) {
+  const qrImageUrl = account.qr_code_payload
+    ? `https://api.qrserver.com/v1/create-qr-code/?size=240x240&margin=12&data=${encodeURIComponent(account.qr_code_payload)}`
+    : "";
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <motion.div className="absolute inset-0" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} style={{ background: "rgba(0,0,0,0.45)", backdropFilter: "blur(8px)" }} />
@@ -600,15 +604,24 @@ function QrModal({ account, onClose }: { account: ConversationWhatsAppAccount; o
           <h2 className="text-lg font-bold" style={{ color: "var(--text-title)" }}>Conectar WhatsApp</h2>
           <p className="mt-1 text-sm" style={{ color: "var(--muted-foreground)" }}>{account.session_name}</p>
         </div>
-        <div className="mx-auto mt-6 grid h-56 w-56 grid-cols-7 gap-1 rounded-2xl p-4" style={{ background: "#ffffff" }}>
-          {Array.from({ length: 49 }).map((_, index) => (
-            <span key={index} className="rounded-[3px]" style={{ background: index % 2 === 0 || index % 5 === 0 || index % 11 === 0 ? "#111827" : "transparent" }} />
-          ))}
-        </div>
+        {account.qr_code_payload ? (
+          <div className="mx-auto mt-6 flex h-64 w-64 items-center justify-center rounded-2xl p-3" style={{ background: "#ffffff" }}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={qrImageUrl} alt="QR Code real para conectar WhatsApp" className="h-full w-full rounded-xl object-contain" />
+          </div>
+        ) : (
+          <div className="mx-auto mt-6 flex h-64 w-64 flex-col items-center justify-center rounded-2xl p-6 text-center" style={{ background: "var(--hover)", border: "1px dashed var(--glass-border)" }}>
+            <QrCode size={34} style={{ color: "var(--muted-foreground)" }} />
+            <p className="mt-4 text-sm font-semibold" style={{ color: "var(--text-title)" }}>QR Code ainda não disponível</p>
+            <p className="mt-2 text-xs leading-relaxed" style={{ color: "var(--muted-foreground)" }}>
+              O worker precisa retornar um payload de QR real para esta sessão.
+            </p>
+          </div>
+        )}
         <div className="mt-6 rounded-2xl p-4" style={{ background: "var(--hover)", border: "1px solid var(--glass-border)" }}>
           <p className="text-sm font-semibold" style={{ color: "var(--text-title)" }}>Como conectar</p>
           <p className="mt-1 text-xs leading-relaxed" style={{ color: "var(--muted-foreground)" }}>
-            Abra o WhatsApp, acesse Aparelhos conectados e leia o QR Code. Este QR é demonstrativo até o worker persistente ser ativado.
+            Abra o WhatsApp, acesse Aparelhos conectados e leia o QR Code real exibido acima.
           </p>
           {account.qr_code_payload && (
             <p className="mt-3 break-all rounded-xl px-3 py-2 text-[11px]" style={{ background: "var(--surface)", color: "var(--muted-foreground)", border: "1px solid var(--glass-border)" }}>
@@ -745,7 +758,7 @@ function formatDateTime(date: string | null) {
 }
 
 function FlowsTab() {
-  const { inbox, flows, metrics, isLoading, isMutating, createFlow, updateFlowStatus, deleteFlow, testFlow, addFlowNode, deleteFlowNode } = useConversationsDashboard();
+  const { inbox, flows, metrics, isLoading, isMutating, createFlow, updateFlowStatus, deleteFlow, testFlow, addFlowNode, updateFlowNode, deleteFlowNode } = useConversationsDashboard();
   const [selectedId, setSelectedId] = useState(flows[0]?.id ?? "");
   const [selectedNodeId, setSelectedNodeId] = useState("");
   const [showNewFlow, setShowNewFlow] = useState(false);
@@ -761,8 +774,6 @@ function FlowsTab() {
   async function handleCreateFlow(input: {
     name: string;
     description: string;
-    triggerType: string;
-    scope: "team" | "personal";
   }) {
     const flow = await createFlow(input);
     if (!flow) return;
@@ -810,6 +821,12 @@ function FlowsTab() {
     if (!confirmed) return;
     const ok = await deleteFlowNode(selected.id, nodeId);
     if (ok) setSelectedNodeId("");
+  }
+
+  async function handleUpdateNode(nodeId: string, input: { label: string; config: Record<string, unknown> }) {
+    if (!selected || !nodeId) return;
+    const node = await updateFlowNode(selected.id, nodeId, input);
+    if (node) setSelectedNodeId(node.id);
   }
 
   async function handleTestFlow(threadId: string) {
@@ -1037,6 +1054,7 @@ function FlowsTab() {
               onTest={() => setShowTestFlow(true)}
               onPublish={() => selected && void handleStatusChange("active")}
               onDeleteFlow={() => void handleDeleteFlow()}
+              onUpdateNode={(nodeId, input) => void handleUpdateNode(nodeId, input)}
               onDeleteNode={(nodeId) => void handleDeleteNode(nodeId)}
             />
           </aside>
@@ -1082,6 +1100,7 @@ function FlowInspector({
   onTest,
   onPublish,
   onDeleteFlow,
+  onUpdateNode,
   onDeleteNode,
 }: {
   flow: ConversationFlow | undefined;
@@ -1091,14 +1110,84 @@ function FlowInspector({
   onTest: () => void;
   onPublish: () => void;
   onDeleteFlow: () => void;
+  onUpdateNode: (nodeId: string, input: { label: string; config: Record<string, unknown> }) => void;
   onDeleteNode: (nodeId: string) => void;
 }) {
+  const [label, setLabel] = useState("");
+  const [triggerType, setTriggerType] = useState("form_submitted");
+  const [targetScope, setTargetScope] = useState("all_leads");
+  const [minIq, setMinIq] = useState("");
+  const [minIe, setMinIe] = useState("");
+  const [waitMinutes, setWaitMinutes] = useState("10");
+  const [message, setMessage] = useState("");
+  const [conditionField, setConditionField] = useState("message_body");
+  const [conditionOperator, setConditionOperator] = useState("contains");
+  const [conditionValue, setConditionValue] = useState("");
+  const [pipelineId, setPipelineId] = useState("");
+  const [stageId, setStageId] = useState("");
+
+  useEffect(() => {
+    if (!node) return;
+    setLabel(node.label);
+    setTriggerType(typeof node.config?.trigger_type === "string" ? node.config.trigger_type : "form_submitted");
+    setTargetScope(typeof node.config?.target_scope === "string" ? node.config.target_scope : "all_leads");
+    setMinIq(typeof node.config?.min_iq === "number" ? String(node.config.min_iq) : "");
+    setMinIe(typeof node.config?.min_ie === "number" ? String(node.config.min_ie) : "");
+    setWaitMinutes(String(node.config?.wait_minutes ?? "10"));
+    setMessage(typeof node.config?.message === "string" ? node.config.message : "");
+    setConditionField(typeof node.config?.field === "string" ? node.config.field : "message_body");
+    setConditionOperator(typeof node.config?.operator === "string" ? node.config.operator : "contains");
+    setConditionValue(typeof node.config?.value === "string" ? node.config.value : "");
+    setPipelineId(typeof node.config?.pipeline_id === "string" ? node.config.pipeline_id : "");
+    setStageId(typeof node.config?.stage_id === "string" ? node.config.stage_id : "");
+  }, [node]);
+
   if (!flow) {
     return <EmptyState icon={GitBranch} title="Sem fluxo" description="Crie ou selecione um fluxo para editar." compact />;
   }
 
   const Icon = node ? nodeIcon(node) : GitBranch;
   const color = node ? nodeColor(node) : "#38bdf8";
+  const isMoveCrmNode = node?.node_type === "action" && node.config?.action_type === "move_crm";
+
+  function buildNodeConfig() {
+    if (!node) return {};
+    if (node.node_type === "trigger") {
+      return {
+        ...node.config,
+        trigger_type: triggerType,
+        target_scope: targetScope,
+        min_iq: minIq.trim() ? Number(minIq) : null,
+        min_ie: minIe.trim() ? Number(minIe) : null,
+      };
+    }
+    if (node.node_type === "wait") {
+      return { ...node.config, wait_minutes: Math.max(0, Number(waitMinutes) || 0) };
+    }
+    if (node.node_type === "condition") {
+      return {
+        ...node.config,
+        field: conditionField,
+        operator: conditionOperator,
+        value: conditionValue,
+      };
+    }
+    if (isMoveCrmNode) {
+      return {
+        ...node.config,
+        action_type: "move_crm",
+        pipeline_id: pipelineId || null,
+        stage_id: stageId || null,
+      };
+    }
+    return { ...node.config, action_type: "send_message", message };
+  }
+
+  function handleSaveNode(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!node || !label.trim() || isMutating) return;
+    onUpdateNode(node.id, { label: label.trim(), config: buildNodeConfig() });
+  }
 
   return (
     <div className="flex h-full flex-col">
@@ -1120,68 +1209,109 @@ function FlowInspector({
       </div>
 
       {node ? (
-        <div className="mt-4 space-y-3">
+        <form onSubmit={handleSaveNode} className="mt-4 space-y-3">
           <label className="block">
             <span className="text-xs font-semibold" style={{ color: "var(--muted-foreground)" }}>Nome do bloco</span>
-            <input value={node.label} readOnly className="mt-1 w-full rounded-2xl px-4 py-3 text-sm outline-none" style={{ background: "var(--hover)", color: "var(--text-title)", border: "1px solid var(--glass-border)" }} />
+            <input value={label} onChange={(event) => setLabel(event.target.value)} className="mt-1 w-full rounded-2xl px-4 py-3 text-sm outline-none" style={{ background: "var(--hover)", color: "var(--text-title)", border: "1px solid var(--glass-border)" }} />
           </label>
 
           {node.node_type === "trigger" && (
             <div className="space-y-3">
-              <InspectorSelect label="Qual evento" value="Formulário preenchido" />
-              <InspectorSelect label="Executar apenas se" value="Todos os leads" />
-              <InspectorInput label="IQ mínimo" value="Sem mínimo" />
-              <InspectorInput label="IE mínimo" value="Sem mínimo" />
+              <label className="block">
+                <span className="text-xs font-semibold" style={{ color: "var(--muted-foreground)" }}>Evento automático</span>
+                <select value={triggerType} onChange={(event) => setTriggerType(event.target.value)} className="mt-1 w-full rounded-2xl px-4 py-3 text-sm outline-none" style={{ background: "var(--hover)", color: "var(--text-title)", border: "1px solid var(--glass-border)" }}>
+                  <option value="form_submitted">Formulário preenchido</option>
+                  <option value="appointment_created">Agendamento realizado</option>
+                  <option value="lead_created">Lead criado</option>
+                  <option value="message_received">Mensagem recebida</option>
+                  <option value="stage_changed">Etapa do CRM alterada</option>
+                </select>
+              </label>
+              <label className="block">
+                <span className="text-xs font-semibold" style={{ color: "var(--muted-foreground)" }}>Executar para</span>
+                <select value={targetScope} onChange={(event) => setTargetScope(event.target.value)} className="mt-1 w-full rounded-2xl px-4 py-3 text-sm outline-none" style={{ background: "var(--hover)", color: "var(--text-title)", border: "1px solid var(--glass-border)" }}>
+                  <option value="all_leads">Todos os leads elegíveis</option>
+                  <option value="assigned_to_owner">Leads do responsável do fluxo</option>
+                </select>
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <label className="block">
+                  <span className="text-xs font-semibold" style={{ color: "var(--muted-foreground)" }}>IQ mínimo</span>
+                  <input type="number" value={minIq} onChange={(event) => setMinIq(event.target.value)} placeholder="Sem mínimo" className="mt-1 w-full rounded-2xl px-4 py-3 text-sm outline-none" style={{ background: "var(--hover)", color: "var(--text-title)", border: "1px solid var(--glass-border)" }} />
+                </label>
+                <label className="block">
+                  <span className="text-xs font-semibold" style={{ color: "var(--muted-foreground)" }}>IE mínimo</span>
+                  <input type="number" value={minIe} onChange={(event) => setMinIe(event.target.value)} placeholder="Sem mínimo" className="mt-1 w-full rounded-2xl px-4 py-3 text-sm outline-none" style={{ background: "var(--hover)", color: "var(--text-title)", border: "1px solid var(--glass-border)" }} />
+                </label>
+              </div>
             </div>
           )}
 
           {node.node_type === "wait" && (
             <div className="space-y-3">
-              <InspectorInput label="Tempo" value={String(node.config?.wait_minutes ?? 10)} />
-              <InspectorSelect label="Unidade" value="Minutos" />
-              <InspectorSelect label="Horário comercial" value="Não limitar" />
-              <InspectorSelect label="Dias úteis" value="Todos os dias" />
+              <label className="block">
+                <span className="text-xs font-semibold" style={{ color: "var(--muted-foreground)" }}>Tempo de espera em minutos</span>
+                <input type="number" min="0" value={waitMinutes} onChange={(event) => setWaitMinutes(event.target.value)} className="mt-1 w-full rounded-2xl px-4 py-3 text-sm outline-none" style={{ background: "var(--hover)", color: "var(--text-title)", border: "1px solid var(--glass-border)" }} />
+              </label>
             </div>
           )}
 
           {node.node_type === "action" && node.config?.action_type !== "move_crm" && (
             <div className="space-y-3">
-              <InspectorSelect label="Conta do WhatsApp" value="Conta vinculada à conversa" />
-              <InspectorSelect label="Destinatário" value="Telefone do lead" />
               <label className="block">
                 <span className="text-xs font-semibold" style={{ color: "var(--muted-foreground)" }}>Mensagem</span>
-                <textarea value={typeof node.config?.message === "string" ? node.config.message : ""} readOnly rows={5} className="mt-1 w-full resize-none rounded-2xl px-4 py-3 text-sm outline-none" style={{ background: "var(--hover)", color: "var(--text-title)", border: "1px solid var(--glass-border)" }} />
+                <textarea value={message} onChange={(event) => setMessage(event.target.value)} rows={5} placeholder="Digite a mensagem que será enviada" className="mt-1 w-full resize-none rounded-2xl px-4 py-3 text-sm outline-none" style={{ background: "var(--hover)", color: "var(--text-title)", border: "1px solid var(--glass-border)" }} />
               </label>
               <div className="rounded-2xl p-3" style={{ background: "rgba(52,211,153,0.10)", border: "1px solid rgba(52,211,153,0.22)" }}>
                 <p className="text-xs font-semibold" style={{ color: "#34d399" }}>Preview</p>
-                <p className="mt-1 text-xs leading-relaxed" style={{ color: "var(--text-title)" }}>{typeof node.config?.message === "string" && node.config.message ? node.config.message : "Mensagem ainda não configurada."}</p>
+                <p className="mt-1 text-xs leading-relaxed" style={{ color: "var(--text-title)" }}>{message.trim() ? message : "Mensagem ainda não configurada."}</p>
               </div>
             </div>
           )}
 
-          {node.node_type === "action" && node.config?.action_type === "move_crm" && (
+          {isMoveCrmNode && (
             <div className="space-y-3">
-              <InspectorSelect label="Pipeline" value="Pipeline principal" />
-              <InspectorSelect label="Etapa destino" value="Selecionar etapa" />
-              <InspectorSelect label="Responsável" value="Manter responsável atual" />
-              <InspectorSelect label="Execução" value="Mover após execução" />
-              <InspectorInput label="Criar observação" value="Opcional" />
+              <label className="block">
+                <span className="text-xs font-semibold" style={{ color: "var(--muted-foreground)" }}>Pipeline ID</span>
+                <input value={pipelineId} onChange={(event) => setPipelineId(event.target.value)} placeholder="Selecionador de pipeline entra na próxima fase" className="mt-1 w-full rounded-2xl px-4 py-3 text-sm outline-none" style={{ background: "var(--hover)", color: "var(--text-title)", border: "1px solid var(--glass-border)" }} />
+              </label>
+              <label className="block">
+                <span className="text-xs font-semibold" style={{ color: "var(--muted-foreground)" }}>Etapa destino ID</span>
+                <input value={stageId} onChange={(event) => setStageId(event.target.value)} placeholder="Selecionador de etapa entra na próxima fase" className="mt-1 w-full rounded-2xl px-4 py-3 text-sm outline-none" style={{ background: "var(--hover)", color: "var(--text-title)", border: "1px solid var(--glass-border)" }} />
+              </label>
             </div>
           )}
 
           {node.node_type === "condition" && (
             <div className="space-y-3">
-              <InspectorSelect label="Campo" value={String(node.config?.field ?? "Texto da mensagem")} />
-              <InspectorSelect label="Operador" value="Contém" />
-              <InspectorInput label="Valor" value={String(node.config?.value ?? "")} />
+              <label className="block">
+                <span className="text-xs font-semibold" style={{ color: "var(--muted-foreground)" }}>Campo</span>
+                <select value={conditionField} onChange={(event) => setConditionField(event.target.value)} className="mt-1 w-full rounded-2xl px-4 py-3 text-sm outline-none" style={{ background: "var(--hover)", color: "var(--text-title)", border: "1px solid var(--glass-border)" }}>
+                  <option value="message_body">Texto da mensagem</option>
+                  <option value="lead_stage">Etapa do lead</option>
+                  <option value="lead_source">Origem do lead</option>
+                </select>
+              </label>
+              <label className="block">
+                <span className="text-xs font-semibold" style={{ color: "var(--muted-foreground)" }}>Operador</span>
+                <select value={conditionOperator} onChange={(event) => setConditionOperator(event.target.value)} className="mt-1 w-full rounded-2xl px-4 py-3 text-sm outline-none" style={{ background: "var(--hover)", color: "var(--text-title)", border: "1px solid var(--glass-border)" }}>
+                  <option value="contains">Contém</option>
+                  <option value="equals">É igual a</option>
+                  <option value="not_empty">Está preenchido</option>
+                </select>
+              </label>
+              <label className="block">
+                <span className="text-xs font-semibold" style={{ color: "var(--muted-foreground)" }}>Valor</span>
+                <input value={conditionValue} onChange={(event) => setConditionValue(event.target.value)} placeholder="Valor esperado" className="mt-1 w-full rounded-2xl px-4 py-3 text-sm outline-none" style={{ background: "var(--hover)", color: "var(--text-title)", border: "1px solid var(--glass-border)" }} />
+              </label>
             </div>
           )}
 
           <div className="flex gap-2 pt-1">
-            <button type="button" className="flex-1 rounded-full px-3 py-2 text-xs font-semibold" style={{ background: "var(--primary)", color: "#ffffff" }}>Salvar</button>
+            <button type="submit" disabled={!label.trim() || isMutating} className="flex-1 rounded-full px-3 py-2 text-xs font-semibold disabled:opacity-50" style={{ background: "var(--primary)", color: "#ffffff" }}>{isMutating ? "Salvando..." : "Salvar"}</button>
             <button type="button" onClick={() => onDeleteNode(node.id)} disabled={isMutating} className="rounded-full px-3 py-2 text-xs font-semibold disabled:opacity-50" style={{ background: "rgba(239,68,68,0.12)", color: "#ef4444", border: "1px solid rgba(239,68,68,0.22)" }}>Excluir bloco</button>
           </div>
-        </div>
+        </form>
       ) : (
         <div className="mt-4 space-y-3">
           <InspectorInput label="Nome do fluxo" value={flow.name} />
@@ -1496,17 +1626,15 @@ function NewFlowModal({
 }: {
   isMutating: boolean;
   onClose: () => void;
-  onSubmit: (input: { name: string; description: string; triggerType: string; scope: "team" | "personal" }) => void;
+  onSubmit: (input: { name: string; description: string }) => void;
 }) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [triggerType, setTriggerType] = useState("manual_start");
-  const [scope, setScope] = useState<"team" | "personal">("team");
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!name.trim() || isMutating) return;
-    onSubmit({ name, description, triggerType, scope });
+    onSubmit({ name, description });
   }
 
   return (
@@ -1532,7 +1660,7 @@ function NewFlowModal({
         <div className="pr-8">
           <h2 className="text-lg font-bold" style={{ color: "var(--text-title)" }}>Novo fluxo</h2>
           <p className="mt-1 text-sm" style={{ color: "var(--muted-foreground)" }}>
-            Crie a automação base com gatilho e fim. Os próximos blocos serão adicionados no editor visual.
+            Crie um rascunho vazio. Os gatilhos, condições e ações serão adicionados no editor visual.
           </p>
         </div>
         <div className="mt-6 space-y-4">
@@ -1557,34 +1685,6 @@ function NewFlowModal({
               style={{ background: "var(--hover)", color: "var(--text-title)", border: "1px solid var(--glass-border)" }}
             />
           </label>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <label className="block">
-              <span className="text-xs font-semibold" style={{ color: "var(--muted-foreground)" }}>Gatilho</span>
-              <select
-                value={triggerType}
-                onChange={(event) => setTriggerType(event.target.value)}
-                className="mt-1 w-full rounded-2xl px-4 py-3 text-sm outline-none"
-                style={{ background: "var(--hover)", color: "var(--text-title)", border: "1px solid var(--glass-border)" }}
-              >
-                <option value="manual_start">Início manual</option>
-                <option value="lead_created">Lead criado</option>
-                <option value="message_received">Mensagem recebida</option>
-                <option value="stage_changed">Etapa do CRM alterada</option>
-              </select>
-            </label>
-            <label className="block">
-              <span className="text-xs font-semibold" style={{ color: "var(--muted-foreground)" }}>Escopo</span>
-              <select
-                value={scope}
-                onChange={(event) => setScope(event.target.value as "team" | "personal")}
-                className="mt-1 w-full rounded-2xl px-4 py-3 text-sm outline-none"
-                style={{ background: "var(--hover)", color: "var(--text-title)", border: "1px solid var(--glass-border)" }}
-              >
-                <option value="team">Equipe</option>
-                <option value="personal">Pessoal</option>
-              </select>
-            </label>
-          </div>
         </div>
         <div className="mt-6 flex justify-end gap-2">
           <button type="button" onClick={onClose} className="rounded-full px-4 py-2 text-sm font-semibold" style={{ background: "var(--hover)", color: "var(--text-title)", border: "1px solid var(--glass-border)" }}>

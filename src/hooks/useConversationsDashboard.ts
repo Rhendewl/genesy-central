@@ -55,6 +55,10 @@ export interface UseConversationsDashboardReturn {
     label?: string;
     config?: Record<string, unknown>;
   }) => Promise<ConversationFlowNode | null>;
+  updateFlowNode: (flowId: string, nodeId: string, input: {
+    label?: string;
+    config?: Record<string, unknown>;
+  }) => Promise<ConversationFlowNode | null>;
   deleteFlowNode: (flowId: string, nodeId: string) => Promise<boolean>;
 }
 
@@ -436,7 +440,7 @@ export function useConversationsDashboard(): UseConversationsDashboardReturn {
         body: JSON.stringify({
           name: input.name.trim(),
           description: input.description?.trim() || null,
-          trigger_type: input.triggerType || "manual_start",
+          trigger_type: input.triggerType || "visual_builder",
           scope: input.scope || "team",
         }),
       });
@@ -595,6 +599,40 @@ export function useConversationsDashboard(): UseConversationsDashboardReturn {
     }
   }, [fetchData]);
 
+  const updateFlowNode = useCallback(async (flowId: string, nodeId: string, input: {
+    label?: string;
+    config?: Record<string, unknown>;
+  }) => {
+    if (!flowId || !nodeId) return null;
+
+    setIsMutating(true);
+    try {
+      const response = await fetch(`/api/conversas/flows/${flowId}/nodes`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          node_id: nodeId,
+          label: input.label?.trim() || null,
+          config: input.config ?? {},
+        }),
+      });
+      const payload = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(payload?.error ?? "Erro ao atualizar bloco");
+      }
+
+      const node = payload?.node as ConversationFlowNode;
+      await fetchData();
+      return node;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro ao atualizar bloco");
+      return null;
+    } finally {
+      setIsMutating(false);
+    }
+  }, [fetchData]);
+
   return useMemo(() => ({
     accounts,
     inbox,
@@ -615,6 +653,7 @@ export function useConversationsDashboard(): UseConversationsDashboardReturn {
     deleteFlow,
     testFlow,
     addFlowNode,
+    updateFlowNode,
     deleteFlowNode,
   }), [
     accounts,
@@ -636,6 +675,7 @@ export function useConversationsDashboard(): UseConversationsDashboardReturn {
     deleteFlow,
     testFlow,
     addFlowNode,
+    updateFlowNode,
     deleteFlowNode,
   ]);
 }
