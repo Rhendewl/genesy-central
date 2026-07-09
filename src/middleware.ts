@@ -11,7 +11,23 @@ import { NextResponse, type NextRequest } from "next/server";
 // api/cron/ é chamada pelo pg_cron do Supabase (sem cookie de sessão) — a
 // própria rota valida o header X-Cron-Secret, então fica de fora do
 // middleware de auth por sessão, como api/meta/webhook.
-const PUBLIC_ROUTES = ["/auth", "/data-deletion", "/privacy-policy", "/portal/", "/api/portal/", "/convite/", "/api/invite/", "/api/leads", "/form/", "/api/form/", "/agendar/", "/api/agendar/", "/api/google-calendar/callback", "/api/cron/"];
+const PUBLIC_ROUTES = [
+  "/auth",
+  "/data-deletion",
+  "/privacy-policy",
+  "/portal/",
+  "/api/portal/",
+  "/convite/",
+  "/api/invite/",
+  "/api/leads",
+  "/form/",
+  "/api/form/",
+  "/agendar/",
+  "/api/agendar/",
+  "/api/google-calendar/callback",
+  "/api/cron/",
+  "/api/conversas/webhook/",
+];
 // Redirect authenticated users away from these (login page only)
 const AUTH_REDIRECT_ROUTES = ["/auth"];
 
