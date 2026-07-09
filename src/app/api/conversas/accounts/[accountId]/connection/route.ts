@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getWhatsAppProvider } from "@/lib/conversations/providers";
+import type { WhatsAppConnectionStatus } from "@/lib/conversations/providers/types";
 import { createAdminSupabaseClient } from "@/lib/supabase-admin";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import type { ConversationWhatsAppAccount } from "@/types/conversations";
@@ -40,13 +41,38 @@ async function loadAccount(accountId: string) {
   return { account };
 }
 
+function wait(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function waitForQrPayload(account: AccountRow, initialStatus: WhatsAppConnectionStatus) {
+  if (initialStatus.qrCodePayload || initialStatus.status === "connected" || initialStatus.status === "error") {
+    return initialStatus;
+  }
+
+  const provider = getWhatsAppProvider(account.provider);
+
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    await wait(1000);
+    const nextStatus = await provider.getConnectionStatus(account.id);
+    if (nextStatus.qrCodePayload || nextStatus.status === "awaiting_qr" || nextStatus.status === "connected" || nextStatus.status === "error") {
+      return nextStatus;
+    }
+  }
+
+  return initialStatus;
+}
+
 async function persistStatus(account: AccountRow, mode: "connect" | "status" | "disconnect") {
   const provider = getWhatsAppProvider(account.provider);
-  const status = mode === "connect"
+  const initialStatus = mode === "connect"
     ? await provider.startConnection(account.id)
     : mode === "disconnect"
       ? await provider.disconnect(account.id)
       : await provider.getConnectionStatus(account.id);
+  const status = mode === "connect"
+    ? await waitForQrPayload(account, initialStatus)
+    : initialStatus;
 
   const admin = createAdminSupabaseClient();
   const update: Partial<ConversationWhatsAppAccount> = {
