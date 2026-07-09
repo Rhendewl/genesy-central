@@ -75,25 +75,35 @@ async function notifyConnectionStatus(accountId) {
   }
 
   const snapshot = sessionSnapshot(accountId);
-  const response = await fetch(`${dashboardUrl}/api/conversas/webhook/status`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-Conversations-Secret": dashboardSecret,
-    },
-    body: JSON.stringify({
-      whatsapp_account_id: accountId,
-      status: snapshot.status,
-      phone: snapshot.phone,
-      display_name: snapshot.displayName,
-      qr_code_payload: snapshot.qrCodePayload,
-      error: snapshot.error,
-    }),
-  });
+  const payload = {
+    whatsapp_account_id: accountId,
+    status: snapshot.status,
+    phone: snapshot.phone,
+    display_name: snapshot.displayName,
+    qr_code_payload: snapshot.qrCodePayload,
+    error: snapshot.error,
+  };
+  const endpoints = [
+    "/api/conversas/webhook/whatsapp-status",
+    "/api/conversas/webhook/status",
+  ];
 
-  if (!response.ok) {
+  for (const endpoint of endpoints) {
+    const url = `${dashboardUrl}${endpoint}`;
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Conversations-Secret": dashboardSecret,
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (response.ok) return;
+
     const error = await response.text().catch(() => "");
-    logger.warn({ accountId, status: response.status, error }, "Falha ao atualizar status da conexão no dashboard.");
+    logger.warn({ accountId, endpoint, status: response.status, error }, "Falha ao atualizar status da conexão no dashboard.");
+    if (![404, 405].includes(response.status)) return;
   }
 }
 
