@@ -68,6 +68,35 @@ function extractMessageText(message) {
   ).trim();
 }
 
+async function notifyConnectionStatus(accountId) {
+  if (!dashboardUrl || !dashboardSecret) {
+    logger.warn({ accountId }, "Dashboard webhook não configurado; status da conexão não enviado.");
+    return;
+  }
+
+  const snapshot = sessionSnapshot(accountId);
+  const response = await fetch(`${dashboardUrl}/api/conversas/webhook/status`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Conversations-Secret": dashboardSecret,
+    },
+    body: JSON.stringify({
+      whatsapp_account_id: accountId,
+      status: snapshot.status,
+      phone: snapshot.phone,
+      display_name: snapshot.displayName,
+      qr_code_payload: snapshot.qrCodePayload,
+      error: snapshot.error,
+    }),
+  });
+
+  if (!response.ok) {
+    const error = await response.text().catch(() => "");
+    logger.warn({ accountId, status: response.status, error }, "Falha ao atualizar status da conexão no dashboard.");
+  }
+}
+
 async function notifyInboundMessage(accountId, message) {
   if (!dashboardUrl || !dashboardSecret) {
     logger.warn({ accountId }, "Dashboard webhook não configurado; mensagem recebida ignorada.");
@@ -121,6 +150,9 @@ async function startSession(accountId) {
   };
 
   sessions.set(accountId, session);
+  notifyConnectionStatus(accountId).catch((err) => {
+    logger.warn({ err, accountId }, "Erro ao enviar status inicial da sessão.");
+  });
 
   const sock = makeWASocket({
     auth: state,
@@ -140,6 +172,9 @@ async function startSession(accountId) {
       session.status = "awaiting_qr";
       session.qrCodePayload = qr;
       session.error = null;
+      notifyConnectionStatus(accountId).catch((err) => {
+        logger.warn({ err, accountId }, "Erro ao enviar QR para o dashboard.");
+      });
     }
 
     if (connection === "open") {
@@ -148,6 +183,9 @@ async function startSession(accountId) {
       session.phone = jidToPhone(sock.user?.id);
       session.displayName = sock.user?.name || sock.user?.verifiedName || null;
       session.error = null;
+      notifyConnectionStatus(accountId).catch((err) => {
+        logger.warn({ err, accountId }, "Erro ao enviar status conectado para o dashboard.");
+      });
     }
 
     if (connection === "close") {
@@ -156,6 +194,9 @@ async function startSession(accountId) {
       session.status = shouldReconnect ? "reconnect" : "expired";
       session.error = lastDisconnect?.error?.message || null;
       session.sock = null;
+      notifyConnectionStatus(accountId).catch((err) => {
+        logger.warn({ err, accountId }, "Erro ao enviar status fechado para o dashboard.");
+      });
 
       if (shouldReconnect) {
         setTimeout(() => {
@@ -190,6 +231,10 @@ async function disconnectSession(accountId) {
     phone: session?.phone ?? null,
     displayName: session?.displayName ?? null,
     error: null,
+  });
+
+  await notifyConnectionStatus(accountId).catch((err) => {
+    logger.warn({ err, accountId }, "Erro ao enviar status desconectado para o dashboard.");
   });
 
   return sessionSnapshot(accountId);
