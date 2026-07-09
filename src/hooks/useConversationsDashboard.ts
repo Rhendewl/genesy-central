@@ -75,8 +75,14 @@ export interface UseConversationsDashboardReturn {
   updateFlowNode: (flowId: string, nodeId: string, input: {
     label?: string;
     config?: Record<string, unknown>;
+    position?: { x?: number; y?: number };
   }) => Promise<ConversationFlowNode | null>;
   deleteFlowNode: (flowId: string, nodeId: string) => Promise<boolean>;
+  createFlowEdge: (flowId: string, input: {
+    sourceKey: string;
+    targetKey: string;
+  }) => Promise<ConversationFlowEdge | null>;
+  deleteFlowEdge: (flowId: string, edgeId: string) => Promise<boolean>;
 }
 
 const emptyMetrics: ConversationMetrics = {
@@ -657,6 +663,7 @@ export function useConversationsDashboard(): UseConversationsDashboardReturn {
   const updateFlowNode = useCallback(async (flowId: string, nodeId: string, input: {
     label?: string;
     config?: Record<string, unknown>;
+    position?: { x?: number; y?: number };
   }) => {
     if (!flowId || !nodeId) return null;
 
@@ -668,7 +675,8 @@ export function useConversationsDashboard(): UseConversationsDashboardReturn {
         body: JSON.stringify({
           node_id: nodeId,
           label: input.label?.trim() || null,
-          config: input.config ?? {},
+          config: input.config ?? null,
+          position: input.position ?? null,
         }),
       });
       const payload = await response.json().catch(() => null);
@@ -683,6 +691,65 @@ export function useConversationsDashboard(): UseConversationsDashboardReturn {
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao atualizar bloco");
       return null;
+    } finally {
+      setIsMutating(false);
+    }
+  }, [fetchData]);
+
+  const createFlowEdge = useCallback(async (flowId: string, input: {
+    sourceKey: string;
+    targetKey: string;
+  }) => {
+    if (!flowId || !input.sourceKey || !input.targetKey) return null;
+
+    setIsMutating(true);
+    try {
+      const response = await fetch(`/api/conversas/flows/${flowId}/edges`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          source_key: input.sourceKey,
+          target_key: input.targetKey,
+        }),
+      });
+      const payload = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(payload?.error ?? "Erro ao criar conexão");
+      }
+
+      const edge = payload?.edge as ConversationFlowEdge;
+      await fetchData();
+      return edge;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro ao criar conexão");
+      return null;
+    } finally {
+      setIsMutating(false);
+    }
+  }, [fetchData]);
+
+  const deleteFlowEdge = useCallback(async (flowId: string, edgeId: string) => {
+    if (!flowId || !edgeId) return false;
+
+    setIsMutating(true);
+    try {
+      const response = await fetch(`/api/conversas/flows/${flowId}/edges`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ edge_id: edgeId }),
+      });
+      const payload = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(payload?.error ?? "Erro ao apagar conexão");
+      }
+
+      await fetchData();
+      return true;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro ao apagar conexão");
+      return false;
     } finally {
       setIsMutating(false);
     }
@@ -711,6 +778,8 @@ export function useConversationsDashboard(): UseConversationsDashboardReturn {
     addFlowNode,
     updateFlowNode,
     deleteFlowNode,
+    createFlowEdge,
+    deleteFlowEdge,
   }), [
     accounts,
     inbox,
@@ -734,5 +803,7 @@ export function useConversationsDashboard(): UseConversationsDashboardReturn {
     addFlowNode,
     updateFlowNode,
     deleteFlowNode,
+    createFlowEdge,
+    deleteFlowEdge,
   ]);
 }

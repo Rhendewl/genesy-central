@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   AlertTriangle,
@@ -35,6 +35,7 @@ import {
 import { useConversationsDashboard } from "@/hooks/useConversationsDashboard";
 import type {
   ConversationFlow,
+  ConversationFlowEdge,
   ConversationFlowNode,
   ConversationFlowNodeType,
   ConversationInboxItem,
@@ -811,18 +812,35 @@ function formatDateTime(date: string | null) {
 }
 
 function FlowsTab() {
-  const { inbox, flows, metrics, resources, isLoading, isMutating, createFlow, updateFlowStatus, deleteFlow, testFlow, addFlowNode, updateFlowNode, deleteFlowNode } = useConversationsDashboard();
+  const { inbox, flows, metrics, resources, isLoading, isMutating, createFlow, updateFlowStatus, deleteFlow, testFlow, addFlowNode, updateFlowNode, deleteFlowNode, createFlowEdge, deleteFlowEdge } = useConversationsDashboard();
   const [selectedId, setSelectedId] = useState(flows[0]?.id ?? "");
   const [selectedNodeId, setSelectedNodeId] = useState("");
   const [showNewFlow, setShowNewFlow] = useState(false);
   const [showTestFlow, setShowTestFlow] = useState(false);
   const [blockToAdd, setBlockToAdd] = useState<FlowBlockDefinition | null>(null);
+  const [dropPosition, setDropPosition] = useState<{ x: number; y: number } | null>(null);
   const [quickInsertAfter, setQuickInsertAfter] = useState("");
   const [quickSearch, setQuickSearch] = useState("");
+  const [connectionStart, setConnectionStart] = useState<string | null>(null);
+  const [draftPositions, setDraftPositions] = useState<Record<string, { x: number; y: number }>>({});
+  const [dragState, setDragState] = useState<{
+    nodeId: string;
+    offsetX: number;
+    offsetY: number;
+    moved: boolean;
+  } | null>(null);
+  const canvasRef = useRef<HTMLDivElement | null>(null);
   const selected = flows.find((flow) => flow.id === selectedId) ?? flows[0];
   const selectedNodes = selected?.nodes ?? [];
+  const selectedEdges = selected?.edges ?? [];
   const selectedNode = selectedNodes.find((node) => node.id === selectedNodeId) ?? selectedNodes[0] ?? null;
   const filteredQuickBlocks = flowBlockLibrary.filter((block) => !block.locked && block.name.toLowerCase().includes(quickSearch.toLowerCase()));
+
+  useEffect(() => {
+    setDraftPositions({});
+    setConnectionStart(null);
+    setDragState(null);
+  }, [selected?.id]);
 
   async function handleCreateFlow(input: {
     name: string;
@@ -845,7 +863,13 @@ function FlowsTab() {
       config: { ...(block.initialConfig ?? {}), ...input.config },
     });
     if (!node) return;
+    if (dropPosition) {
+      await updateFlowNode(selected.id, node.id, {
+        position: dropPosition,
+      });
+    }
     setBlockToAdd(null);
+    setDropPosition(null);
     setQuickInsertAfter("");
     setSelectedNodeId(node.id);
   }
@@ -892,7 +916,100 @@ function FlowsTab() {
     event.preventDefault();
     const block = flowBlockLibrary.find((item) => item.id === event.dataTransfer.getData("application/x-genesy-flow-block"));
     if (!block || block.locked) return;
+    const point = getCanvasPoint(event);
+    setDropPosition(point ? { x: Math.max(24, point.x - 180), y: Math.max(24, point.y - 40) } : null);
     setBlockToAdd(block);
+  }
+
+  function getCanvasPoint(event: { clientX: number; clientY: number }) {
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (!rect) return null;
+    return {
+      x: event.clientX - rect.left + (canvasRef.current?.scrollLeft ?? 0),
+      y: event.clientY - rect.top + (canvasRef.current?.scrollTop ?? 0),
+    };
+  }
+
+  function getNodePosition(node: ConversationFlowNode, index: number) {
+    const draft = draftPositions[node.id];
+    if (draft) return draft;
+    return {
+      x: Number(node.position?.x ?? 360),
+      y: Number(node.position?.y ?? 120 + index * 150),
+    };
+  }
+
+  function getNodeCenter(node: ConversationFlowNode, index: number, port: "in" | "out") {
+    const position = getNodePosition(node, index);
+    return {
+      x: position.x + 180,
+      y: position.y + (port === "in" ? 0 : 84),
+    };
+  }
+
+  function edgePath(source: ConversationFlowNode, sourceIndex: number, target: ConversationFlowNode, targetIndex: number) {
+    const start = getNodeCenter(source, sourceIndex, "out");
+    const end = getNodeCenter(target, targetIndex, "in");
+    const distance = Math.max(80, Math.abs(end.y - start.y) * 0.5);
+    return `M ${start.x} ${start.y} C ${start.x} ${start.y + distance}, ${end.x} ${end.y - distance}, ${end.x} ${end.y}`;
+  }
+
+  function handleNodePointerDown(event: React.PointerEvent<HTMLButtonElement>, node: ConversationFlowNode, index: number) {
+    if (event.button !== 0) return;
+    const target = event.target as HTMLElement;
+    if (target.closest("[data-flow-port]") || target.closest("[data-flow-action]")) return;
+    const point = getCanvasPoint(event);
+    if (!point) return;
+    const position = getNodePosition(node, index);
+    event.currentTarget.setPointerCapture(event.pointerId);
+    setDragState({
+      nodeId: node.id,
+      offsetX: point.x - position.x,
+      offsetY: point.y - position.y,
+      moved: false,
+    });
+  }
+
+  function handleCanvasPointerMove(event: React.PointerEvent<HTMLDivElement>) {
+    if (!dragState) return;
+    const point = getCanvasPoint(event);
+    if (!point) return;
+    setDragState((current) => current ? { ...current, moved: true } : null);
+    setDraftPositions((current) => ({
+      ...current,
+      [dragState.nodeId]: {
+        x: Math.max(16, Math.min(1260, point.x - dragState.offsetX)),
+        y: Math.max(16, Math.min(820, point.y - dragState.offsetY)),
+      },
+    }));
+  }
+
+  async function handleCanvasPointerUp() {
+    if (!dragState || !selected) return;
+    const node = selectedNodes.find((item) => item.id === dragState.nodeId);
+    const position = draftPositions[dragState.nodeId];
+    setDragState(null);
+    if (!node || !position || !dragState.moved) return;
+    await updateFlowNode(selected.id, node.id, { position });
+  }
+
+  async function handleConnect(targetNode: ConversationFlowNode) {
+    if (!selected || !connectionStart || connectionStart === targetNode.node_key) {
+      setConnectionStart(null);
+      return;
+    }
+    await createFlowEdge(selected.id, {
+      sourceKey: connectionStart,
+      targetKey: targetNode.node_key,
+    });
+    setConnectionStart(null);
+  }
+
+  async function handleDeleteEdge(edge: ConversationFlowEdge) {
+    if (!selected) return;
+    const confirmed = window.confirm("Apagar esta conexão?");
+    if (!confirmed) return;
+    await deleteFlowEdge(selected.id, edge.id);
   }
 
   return (
@@ -991,9 +1108,13 @@ function FlowsTab() {
           </aside>
 
           <main
-            className="relative overflow-hidden p-6"
+            ref={canvasRef}
+            className="relative overflow-auto p-6"
             onDragOver={(event) => event.preventDefault()}
             onDrop={handleDrop}
+            onPointerMove={handleCanvasPointerMove}
+            onPointerUp={() => void handleCanvasPointerUp()}
+            onPointerLeave={() => void handleCanvasPointerUp()}
             style={{
               backgroundImage: "radial-gradient(circle, rgba(148,163,184,0.20) 1px, transparent 1px)",
               backgroundSize: "22px 22px",
@@ -1003,11 +1124,11 @@ function FlowsTab() {
             {selected ? (
               <>
                 <div className="pointer-events-none absolute left-5 top-5 rounded-full px-3 py-1.5 text-xs" style={{ background: "var(--glass-bg-soft)", color: "var(--muted-foreground)", border: "1px solid var(--glass-border)" }}>
-                  Zoom 100% · Pan pronto · Snap ativo
+                  Zoom 100% · Arraste livre · {connectionStart ? "Clique no ponto superior do destino" : "Conecte pelos pontos"}
                 </div>
-                <div className="mx-auto flex min-h-[calc(100vh-300px)] max-w-[560px] flex-col items-center justify-center py-10">
+                <div className="relative min-h-[calc(100vh-300px)] min-w-[1320px]">
                   {selectedNodes.length === 0 && (
-                    <div className="max-w-sm rounded-[28px] p-8 text-center" style={{ background: "linear-gradient(135deg, rgba(255,255,255,0.10), rgba(255,255,255,0.035))", border: "1px dashed var(--glass-border)", boxShadow: "0 24px 80px rgba(0,0,0,0.12)" }}>
+                    <div className="absolute left-1/2 top-1/2 max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-[28px] p-8 text-center" style={{ background: "linear-gradient(135deg, rgba(255,255,255,0.10), rgba(255,255,255,0.035))", border: "1px dashed var(--glass-border)", boxShadow: "0 24px 80px rgba(0,0,0,0.12)" }}>
                       <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl" style={{ background: "rgba(56,189,248,0.12)", color: "#38bdf8" }}>
                         <GitBranch size={26} />
                       </div>
@@ -1017,24 +1138,115 @@ function FlowsTab() {
                       </p>
                     </div>
                   )}
+                  <svg className="pointer-events-none absolute inset-0 h-full w-full overflow-visible" viewBox="0 0 1320 900" preserveAspectRatio="none" aria-hidden="true">
+                    {selectedEdges.map((edge) => {
+                      const sourceIndex = selectedNodes.findIndex((item) => item.node_key === edge.source_key);
+                      const targetIndex = selectedNodes.findIndex((item) => item.node_key === edge.target_key);
+                      const source = selectedNodes[sourceIndex];
+                      const target = selectedNodes[targetIndex];
+                      if (!source || !target) return null;
+                      return (
+                        <path
+                          key={edge.id}
+                          d={edgePath(source, sourceIndex, target, targetIndex)}
+                          fill="none"
+                          stroke="rgba(56,189,248,0.52)"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                        />
+                      );
+                    })}
+                  </svg>
+                  <svg className="pointer-events-none absolute inset-0 h-full w-full overflow-visible" viewBox="0 0 1320 900" preserveAspectRatio="none" aria-hidden="true">
+                    {selectedEdges.map((edge) => {
+                      const sourceIndex = selectedNodes.findIndex((item) => item.node_key === edge.source_key);
+                      const targetIndex = selectedNodes.findIndex((item) => item.node_key === edge.target_key);
+                      const source = selectedNodes[sourceIndex];
+                      const target = selectedNodes[targetIndex];
+                      if (!source || !target) return null;
+                      return (
+                        <path
+                          key={`${edge.id}-glow`}
+                          d={edgePath(source, sourceIndex, target, targetIndex)}
+                          fill="none"
+                          stroke="rgba(56,189,248,0.10)"
+                          strokeWidth="12"
+                          strokeLinecap="round"
+                        />
+                      );
+                    })}
+                  </svg>
+                  {selectedEdges.map((edge) => {
+                    const sourceIndex = selectedNodes.findIndex((item) => item.node_key === edge.source_key);
+                    const targetIndex = selectedNodes.findIndex((item) => item.node_key === edge.target_key);
+                    const source = selectedNodes[sourceIndex];
+                    const target = selectedNodes[targetIndex];
+                    if (!source || !target) return null;
+                    const sourcePoint = getNodeCenter(source, sourceIndex, "out");
+                    const targetPoint = getNodeCenter(target, targetIndex, "in");
+                    return (
+                      <button
+                        key={`${edge.id}-hit`}
+                        type="button"
+                        data-flow-action="edge"
+                        onClick={() => void handleDeleteEdge(edge)}
+                        className="absolute rounded-full px-2 py-1 text-[10px] font-semibold opacity-0 transition-opacity hover:opacity-100"
+                        style={{
+                          left: (sourcePoint.x + targetPoint.x) / 2 - 28,
+                          top: (sourcePoint.y + targetPoint.y) / 2 - 12,
+                          background: "rgba(239,68,68,0.16)",
+                          color: "#ef4444",
+                          border: "1px solid rgba(239,68,68,0.24)",
+                        }}
+                      >
+                        apagar
+                      </button>
+                    );
+                  })}
                   {selectedNodes.map((node, index) => {
                     const Icon = nodeIcon(node);
                     const color = nodeColor(node);
                     const isSelected = selectedNode?.id === node.id;
+                    const position = getNodePosition(node, index);
                     return (
-                      <div key={node.id} className="flex w-full flex-col items-center">
+                      <div
+                        key={node.id}
+                        className="absolute"
+                        style={{ left: position.x, top: position.y, width: 360 }}
+                      >
                         <button
                           type="button"
-                          onClick={() => setSelectedNodeId(node.id)}
-                          className="group relative w-full max-w-[360px] rounded-[24px] p-4 text-left transition-all hover:-translate-y-0.5"
+                          onClick={() => {
+                            if (!dragState?.moved) setSelectedNodeId(node.id);
+                          }}
+                          onPointerDown={(event) => handleNodePointerDown(event, node, index)}
+                          className="group relative w-full cursor-grab rounded-[24px] p-4 text-left transition-all active:cursor-grabbing"
                           style={{
                             background: "linear-gradient(135deg, rgba(255,255,255,0.10), rgba(255,255,255,0.035))",
                             border: `1px solid ${isSelected ? color : "var(--glass-border)"}`,
                             boxShadow: isSelected ? `0 0 0 1px ${color}40, 0 24px 80px ${color}22` : "0 24px 70px rgba(0,0,0,0.14)",
                           }}
                         >
-                          <span className="absolute left-1/2 top-0 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full" style={{ background: color, boxShadow: `0 0 20px ${color}` }} />
-                          <span className="absolute bottom-0 left-1/2 h-2.5 w-2.5 -translate-x-1/2 translate-y-1/2 rounded-full" style={{ background: color, boxShadow: `0 0 20px ${color}` }} />
+                          <span
+                            data-flow-port="in"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              void handleConnect(node);
+                            }}
+                            className="absolute left-1/2 top-0 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full ring-4 ring-black/20"
+                            style={{ background: connectionStart && connectionStart !== node.node_key ? "#38bdf8" : color, boxShadow: `0 0 20px ${color}` }}
+                            title="Conectar aqui"
+                          />
+                          <span
+                            data-flow-port="out"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              setConnectionStart(connectionStart === node.node_key ? null : node.node_key);
+                            }}
+                            className="absolute bottom-0 left-1/2 h-3.5 w-3.5 -translate-x-1/2 translate-y-1/2 rounded-full ring-4 ring-black/20 transition-transform hover:scale-125"
+                            style={{ background: connectionStart === node.node_key ? "#ffffff" : color, boxShadow: `0 0 20px ${color}` }}
+                            title="Iniciar conexão"
+                          />
                           <div className="flex items-start gap-3">
                             <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl" style={{ background: `${color}18`, color }}>
                               <Icon size={20} />
@@ -1045,52 +1257,44 @@ function FlowsTab() {
                             </span>
                           </div>
                         </button>
-                        {index < selectedNodes.length - 1 && (
-                          <div className="relative flex h-24 w-full max-w-[360px] items-center justify-center">
-                            <svg className="absolute inset-0 h-full w-full overflow-visible" viewBox="0 0 360 96" preserveAspectRatio="none" aria-hidden="true">
-                              <path d="M180 8 C180 32 180 62 180 88" fill="none" stroke="rgba(148,163,184,0.42)" strokeWidth="2" strokeLinecap="round" strokeDasharray="6 8" />
-                            </svg>
-                            <div className="relative">
-                              <button
-                                type="button"
-                                onClick={() => setQuickInsertAfter(quickInsertAfter === node.id ? "" : node.id)}
-                                className="flex h-9 w-9 items-center justify-center rounded-full transition-all hover:scale-105"
-                                style={{ background: "var(--surface)", color: "var(--text-title)", border: "1px solid var(--glass-border)", boxShadow: "0 18px 50px rgba(0,0,0,0.18)" }}
-                                aria-label="Adicionar bloco"
-                              >
-                                <Plus size={16} />
-                              </button>
-                              {quickInsertAfter === node.id && (
-                                <div className="absolute left-1/2 top-11 z-20 w-72 -translate-x-1/2 rounded-2xl p-3" style={{ background: "var(--surface)", border: "1px solid var(--glass-border)", boxShadow: "0 24px 80px rgba(0,0,0,0.22)" }}>
-                                  <p className="text-xs font-semibold" style={{ color: "var(--text-title)" }}>Adicionar bloco</p>
-                                  <div className="mt-2 flex items-center gap-2 rounded-xl px-3 py-2" style={{ background: "var(--hover)", border: "1px solid var(--glass-border)" }}>
-                                    <Search size={13} style={{ color: "var(--muted-foreground)" }} />
-                                    <input value={quickSearch} onChange={(event) => setQuickSearch(event.target.value)} placeholder="Pesquisar" className="min-w-0 flex-1 bg-transparent text-xs outline-none" style={{ color: "var(--text-title)" }} />
-                                  </div>
-                                  <div className="mt-2 max-h-52 space-y-1 overflow-auto">
-                                    {filteredQuickBlocks.map((block) => {
-                                      const BlockIcon = block.icon;
-                                      return (
-                                        <button key={block.id} type="button" onClick={() => setBlockToAdd(block)} className="flex w-full items-center gap-2 rounded-xl px-2 py-2 text-left transition-colors hover:bg-[var(--hover)]">
-                                          <span className="flex h-7 w-7 items-center justify-center rounded-lg" style={{ background: `${block.color}18`, color: block.color }}>
-                                            <BlockIcon size={14} />
-                                          </span>
-                                          <span>
-                                            <span className="block text-xs font-semibold" style={{ color: "var(--text-title)" }}>{block.name}</span>
-                                            <span className="block text-[11px]" style={{ color: "var(--muted-foreground)" }}>{flowCategoryMeta[block.category].label}</span>
-                                          </span>
-                                        </button>
-                                      );
-                                    })}
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        )}
                       </div>
                     );
                   })}
+                  <div className="absolute right-6 top-6 z-20">
+                    <button
+                      type="button"
+                      onClick={() => setQuickInsertAfter(quickInsertAfter ? "" : "canvas")}
+                      className="flex items-center gap-2 rounded-full px-3 py-2 text-xs font-semibold"
+                      style={{ background: "var(--surface)", color: "var(--text-title)", border: "1px solid var(--glass-border)", boxShadow: "0 18px 50px rgba(0,0,0,0.18)" }}
+                    >
+                      <Plus size={14} /> Adicionar bloco
+                    </button>
+                    {quickInsertAfter && (
+                      <div className="absolute right-0 top-11 z-20 w-72 rounded-2xl p-3" style={{ background: "var(--surface)", border: "1px solid var(--glass-border)", boxShadow: "0 24px 80px rgba(0,0,0,0.22)" }}>
+                        <p className="text-xs font-semibold" style={{ color: "var(--text-title)" }}>Adicionar bloco</p>
+                        <div className="mt-2 flex items-center gap-2 rounded-xl px-3 py-2" style={{ background: "var(--hover)", border: "1px solid var(--glass-border)" }}>
+                          <Search size={13} style={{ color: "var(--muted-foreground)" }} />
+                          <input value={quickSearch} onChange={(event) => setQuickSearch(event.target.value)} placeholder="Pesquisar" className="min-w-0 flex-1 bg-transparent text-xs outline-none" style={{ color: "var(--text-title)" }} />
+                        </div>
+                        <div className="mt-2 max-h-52 space-y-1 overflow-auto">
+                          {filteredQuickBlocks.map((block) => {
+                            const BlockIcon = block.icon;
+                            return (
+                              <button key={block.id} type="button" onClick={() => { setDropPosition(null); setBlockToAdd(block); }} className="flex w-full items-center gap-2 rounded-xl px-2 py-2 text-left transition-colors hover:bg-[var(--hover)]">
+                                <span className="flex h-7 w-7 items-center justify-center rounded-lg" style={{ background: `${block.color}18`, color: block.color }}>
+                                  <BlockIcon size={14} />
+                                </span>
+                                <span>
+                                  <span className="block text-xs font-semibold" style={{ color: "var(--text-title)" }}>{block.name}</span>
+                                  <span className="block text-[11px]" style={{ color: "var(--muted-foreground)" }}>{flowCategoryMeta[block.category].label}</span>
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </>
             ) : (

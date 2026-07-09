@@ -187,14 +187,17 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
   const body = await request.json().catch(() => null);
   const nodeId = typeof body?.node_id === "string" ? body.node_id : "";
   const label = typeof body?.label === "string" && body.label.trim() ? body.label.trim() : "";
-  const config = body?.config && typeof body.config === "object" ? body.config : {};
+  const config = body?.config && typeof body.config === "object" ? body.config : null;
+  const position = body?.position && typeof body.position === "object" && !Array.isArray(body.position)
+    ? body.position as { x?: number; y?: number }
+    : null;
 
   if (!nodeId) {
     return NextResponse.json({ error: "node_id é obrigatório." }, { status: 400 });
   }
 
-  if (!label) {
-    return NextResponse.json({ error: "Nome do bloco é obrigatório." }, { status: 400 });
+  if (!label && !position) {
+    return NextResponse.json({ error: "Informe nome/configuração ou posição para atualizar o bloco." }, { status: 400 });
   }
 
   const supabase = await createServerSupabaseClient();
@@ -236,9 +239,19 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     return NextResponse.json({ error: "Bloco não encontrado." }, { status: 404 });
   }
 
+  const updatePayload: Record<string, unknown> = {};
+  if (label) updatePayload.label = label;
+  if (config) updatePayload.config = config;
+  if (position) {
+    updatePayload.position = {
+      x: Number(position.x ?? currentNode.position?.x ?? 80),
+      y: Number(position.y ?? currentNode.position?.y ?? 120),
+    };
+  }
+
   const { data: updatedNode, error: updateNodeError } = await admin
     .from("conversation_flow_nodes")
-    .update({ label, config })
+    .update(updatePayload)
     .eq("id", currentNode.id)
     .select("*")
     .single();
@@ -247,7 +260,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     return NextResponse.json({ error: updateNodeError?.message ?? "Erro ao atualizar bloco." }, { status: 500 });
   }
 
-  if (currentNode.node_type === "trigger" && typeof config.trigger_type === "string" && config.trigger_type) {
+  if (config && currentNode.node_type === "trigger" && typeof config.trigger_type === "string" && config.trigger_type) {
     const { error: triggerUpdateError } = await admin
       .from("conversation_flows")
       .update({ trigger_type: config.trigger_type, trigger_config: config })
