@@ -613,6 +613,49 @@ export function NpsModule({ year, month }: Props) {
         ))}
       </div>
 
+      {/* ── 1.5. Formulários de NPS ──────────────────────────────────── */}
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.08 }}
+        className="lc-card p-5"
+      >
+        <div className="flex items-center gap-2 mb-4">
+          <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
+            style={{ background: "rgba(74,143,212,0.15)", border: "1px solid rgba(74,143,212,0.25)" }}>
+            <Link2 size={13} style={{ color: "#4a8fd4" }} />
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-[var(--text-title)]">Formulários de NPS</p>
+            <p className="text-[11px] text-[var(--text-muted)]">Link público para o cliente responder — a nota entra automaticamente aqui</p>
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          {clients.filter(c => c.status === "ativo").length === 0 ? (
+            <p className="text-sm text-[var(--text-muted)] text-center py-6">Nenhum cliente ativo cadastrado ainda.</p>
+          ) : (
+            clients.filter(c => c.status === "ativo").map(client => (
+              <div
+                key={client.id}
+                className="flex items-center justify-between gap-3 rounded-xl px-4 py-3"
+                style={{ background: "var(--hover)", border: "1px solid var(--border)" }}
+              >
+                <p className="text-sm font-medium text-[var(--text-title)] truncate">{client.name}</p>
+                <button
+                  onClick={() => setNpsFormClient(client)}
+                  className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium shrink-0 transition-colors hover:opacity-80"
+                  style={{ background: "rgba(74,143,212,0.12)", color: "#4a8fd4", border: "1px solid rgba(74,143,212,0.25)" }}
+                >
+                  <Link2 size={12} />
+                  Gerenciar formulário
+                </button>
+              </div>
+            ))
+          )}
+        </div>
+      </motion.div>
+
       {/* ── 2. Insights ────────────────────────────────────────────────── */}
       <AnimatePresence>
         {metrics.insights.length > 0 && (
