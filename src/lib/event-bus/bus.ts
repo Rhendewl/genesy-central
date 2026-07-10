@@ -176,11 +176,11 @@ export function createEventBus<TType extends string = string>(
 
   // ── Public API ─────────────────────────────────────────────────────────────
 
-  function publish(type: TType, payload?: unknown): void {
+  async function publish(type: TType, payload?: unknown): Promise<void> {
     if (destroyed) return;
     cntPublished++;
     const event = buildEvent(type, payload);
-    void dispatch(event);
+    await dispatch(event);
   }
 
   function publishBatch(events: ReadonlyArray<PublishInput<TType>>): void {

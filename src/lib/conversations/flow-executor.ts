@@ -1,4 +1,5 @@
 import { getWhatsAppProvider } from "@/lib/conversations/providers";
+import { renderTemplate, resolveFlowVariables } from "@/lib/conversations/variable-resolver";
 import type { ConversationMessage } from "@/types/conversations";
 
 type Db = ReturnType<typeof import("@/lib/supabase-admin").createAdminSupabaseClient>;
@@ -15,6 +16,7 @@ type FlowJobRow = {
   status: string;
   trigger_event_type: string;
   trigger_snapshot: Record<string, unknown>;
+  graph_snapshot: { nodes: FlowNodeRow[]; edges: FlowEdgeRow[] } | null;
   attempts: number;
   max_attempts: number;
 };
@@ -23,6 +25,7 @@ type FlowRow = {
   id: string;
   user_id: string;
   status: "draft" | "active" | "paused" | "archived";
+  trigger_config: Record<string, unknown> | null;
 };
 
 type FlowNodeRow = {
@@ -127,7 +130,7 @@ export class ConversationFlowExecutor {
     try {
       const { data: flow } = await this.db
         .from("conversation_flows")
-        .select("id,user_id,status")
+        .select("id,user_id,status,trigger_config")
         .eq("id", job.flow_id)
         .maybeSingle<FlowRow>();
 
@@ -136,18 +139,32 @@ export class ConversationFlowExecutor {
         return { processed: true, failed: false };
       }
 
-      const [{ data: nodes }, { data: edges }] = await Promise.all([
-        this.db
-          .from("conversation_flow_nodes")
-          .select("id,node_key,node_type,label,config")
-          .eq("flow_id", flow.id)
-          .order("created_at", { ascending: true }),
-        this.db
-          .from("conversation_flow_edges")
-          .select("source_key,target_key")
-          .eq("flow_id", flow.id)
-          .order("created_at", { ascending: true }),
-      ]);
+      // Um job criado com graph_snapshot (ver trigger-service.ts) usa o grafo
+      // congelado no momento da criação, não o estado atual das tabelas —
+      // assim, editar o fluxo enquanto um job está em espera não muda o
+      // comportamento de uma execução já em andamento. Jobs sem snapshot
+      // (criados antes desta migration) caem no comportamento anterior.
+      let nodes: FlowNodeRow[] | null;
+      let edges: FlowEdgeRow[] | null;
+      if (job.graph_snapshot?.nodes) {
+        nodes = job.graph_snapshot.nodes;
+        edges = job.graph_snapshot.edges;
+      } else {
+        const [nodesRes, edgesRes] = await Promise.all([
+          this.db
+            .from("conversation_flow_nodes")
+            .select("id,node_key,node_type,label,config")
+            .eq("flow_id", flow.id)
+            .order("created_at", { ascending: true }),
+          this.db
+            .from("conversation_flow_edges")
+            .select("source_key,target_key")
+            .eq("flow_id", flow.id)
+            .order("created_at", { ascending: true }),
+        ]);
+        nodes = nodesRes.data as FlowNodeRow[] | null;
+        edges = edgesRes.data as FlowEdgeRow[] | null;
+      }
 
       const nodeRows = ((nodes ?? []) as FlowNodeRow[]).map((node) => ({
         ...node,
@@ -193,7 +210,8 @@ export class ConversationFlowExecutor {
         }
 
         if (nextNode.node_type === "action") {
-          await this.executeAction(job, nextNode, run?.id ?? null);
+          const result = await this.executeAction(job, nextNode, run?.id ?? null, flow.trigger_config ?? {});
+          if (result.cancelled) return { processed: true, failed: false };
         }
 
         nextNode = getNextNode(nextNode.node_key, nodesByKey, edgeRows);
@@ -215,18 +233,54 @@ export class ConversationFlowExecutor {
     return expected ? actual.toLowerCase().includes(expected.toLowerCase()) : true;
   }
 
-  private async executeAction(job: FlowJobRow, node: FlowNodeRow, runId: string | null) {
+  private async executeAction(
+    job: FlowJobRow,
+    node: FlowNodeRow,
+    runId: string | null,
+    flowTriggerConfig: Record<string, unknown>,
+  ): Promise<{ cancelled: boolean }> {
     const actionType = typeof node.config.action_type === "string" ? node.config.action_type : "send_message";
     if (actionType === "move_crm") {
       await this.moveLead(job, node, runId);
-      return;
+      return { cancelled: false };
     }
-    if (actionType !== "send_message") return;
+    if (actionType !== "send_message") return { cancelled: false };
 
     const message = typeof node.config.message === "string" ? node.config.message.trim() : "";
     const mediaType = typeof node.config.media_type === "string" ? node.config.media_type : "none";
     const mediaUrl = typeof node.config.media_url === "string" ? node.config.media_url.trim() : "";
-    if ((!message && !mediaUrl) || !job.thread_id) return;
+    if ((!message && !mediaUrl) || !job.thread_id) return { cancelled: false };
+
+    // Reavaliação defensiva: mesmo que o job tenha sido criado quando o lead
+    // ainda não tinha reunião marcada (snapshot congelado no momento do
+    // gatilho), a realidade pode ter mudado durante a espera — ex.: lead
+    // preencheu formulário parcial, foi criado job de recuperação em 10min,
+    // mas o lead agendou 3min depois. Sem isso, a mensagem de recuperação
+    // seria enviada mesmo já tendo uma reunião marcada. Não se aplica a jobs
+    // que a própria ação de agendamento gerou (apppointment_created) — aí o
+    // "agendamento" É o evento que estamos processando, não um conflito.
+    // A camada proativa (cancelConflictingConversationFlowJobs, chamada no
+    // momento do agendamento) cobre o caso comum; esta é a segunda camada,
+    // para quando aquele cancelamento não rodou por algum motivo.
+    if (
+      job.trigger_event_type !== "appointment_created" &&
+      flowTriggerConfig.skip_when_scheduled !== false &&
+      job.lead_id
+    ) {
+      const { data: upcomingBooking } = await this.db
+        .from("appointment_bookings")
+        .select("id")
+        .eq("lead_id", job.lead_id)
+        .in("status", ["pending", "confirmed"])
+        .gt("starts_at", new Date().toISOString())
+        .limit(1)
+        .maybeSingle();
+
+      if (upcomingBooking) {
+        await this.cancelJob(job, runId, "Lead já possui reunião agendada — ação cancelada automaticamente.");
+        return { cancelled: true };
+      }
+    }
 
     const { data: thread } = await this.db
       .from("conversation_threads")
@@ -251,6 +305,16 @@ export class ConversationFlowExecutor {
     ]);
     if (!contact) throw new Error("Contato do job não encontrado.");
 
+    const vars = await resolveFlowVariables(this.db, {
+      leadId: job.lead_id,
+      ownerProfileId: job.owner_profile_id,
+      snapshot: job.trigger_snapshot ?? {},
+    });
+    const { text: renderedMessage, missing } = renderTemplate(message, vars);
+    if (missing.length) {
+      await this.log(job, runId, "warning", `Variáveis não resolvidas na mensagem: ${missing.join(", ")}`);
+    }
+
     const now = new Date().toISOString();
     const { data: queuedMessage, error: insertError } = await this.db
       .from("conversation_messages")
@@ -263,7 +327,7 @@ export class ConversationFlowExecutor {
         lead_id: thread.lead_id,
         direction: "outbound",
         source: "automation",
-        body: message,
+        body: renderedMessage,
         status: "queued",
         flow_id: job.flow_id,
         flow_job_id: job.id,
@@ -276,13 +340,16 @@ export class ConversationFlowExecutor {
     let finalStatus: ConversationMessage["status"] = "failed";
     let providerMessageId: string | null = null;
     let providerError = "Nenhuma conta WhatsApp vinculada a esta conversa.";
+    const hasValidPhone = Boolean(contact.phone?.trim());
 
-    if (account) {
+    if (!hasValidPhone) {
+      providerError = "Contato sem telefone válido — mensagem não enviada.";
+    } else if (account) {
       const provider = getWhatsAppProvider(account.provider);
       const result = await provider.sendMessage({
         accountId: account.id,
         to: contact.phone,
-        body: message,
+        body: renderedMessage,
         mediaType,
         mediaUrl: mediaUrl || undefined,
         idempotencyKey: queuedMessage.id,
@@ -305,7 +372,7 @@ export class ConversationFlowExecutor {
     await this.db
       .from("conversation_threads")
       .update({
-        last_message_preview: message,
+        last_message_preview: renderedMessage,
         last_message_at: now,
         last_outbound_at: now,
         needs_response: false,
@@ -313,6 +380,7 @@ export class ConversationFlowExecutor {
       .eq("id", thread.id);
 
     await this.log(job, runId, finalStatus === "sent" ? "info" : "warning", providerError || `Mensagem enviada pelo bloco ${node.label}.`);
+    return { cancelled: false };
   }
 
   private async moveLead(job: FlowJobRow, node: FlowNodeRow, runId: string | null) {

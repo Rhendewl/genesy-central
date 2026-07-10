@@ -145,21 +145,30 @@ export class BookingService {
         },
       }).then();
 
-      // Publish domain event — fire-and-forget; never blocks the booking response.
-      this.bus.publish("booking.created", {
-        bookingId:    result.booking_id,
-        calendarId:   calendar.id,
-        calendarName: calendar.name,
-        userId:       ownerId,
-        visitorName:  payload.visitor_name.trim(),
-        visitorEmail: payload.visitor_email.trim().toLowerCase(),
-        visitorPhone: payload.visitor_phone?.trim() || null,
-        startsAt:     startsAt.toISOString(),
-        attribution:  (payload.attribution ?? {}) as Record<string, unknown>,
-        // O sync CRM (BookingCrmSyncService) ainda não rodou nesta request —
-        // leadId só existe a partir dos eventos de status seguintes.
-        leadId:       null,
-      });
+      // Publish domain event — aguardado (não fire-and-forget) para
+      // sobreviver ao congelamento do processo em serverless; é este evento
+      // que o consumer de Conversas (booking-flow-trigger.ts) escuta para
+      // disparar fluxos de WhatsApp de agendamento. Try/catch próprio: uma
+      // falha aqui nunca deve fazer createPublicBooking() reportar erro para
+      // um booking que já foi criado com sucesso — nunca bloqueia a resposta.
+      try {
+        await this.bus.publish("booking.created", {
+          bookingId:    result.booking_id,
+          calendarId:   calendar.id,
+          calendarName: calendar.name,
+          userId:       ownerId,
+          visitorName:  payload.visitor_name.trim(),
+          visitorEmail: payload.visitor_email.trim().toLowerCase(),
+          visitorPhone: payload.visitor_phone?.trim() || null,
+          startsAt:     startsAt.toISOString(),
+          attribution:  (payload.attribution ?? {}) as Record<string, unknown>,
+          // O sync CRM (BookingCrmSyncService) ainda não rodou nesta request —
+          // leadId só existe a partir dos eventos de status seguintes.
+          leadId:       null,
+        });
+      } catch (err) {
+        console.error("[BookingService.createPublicBooking] Falha ao publicar booking.created:", err);
+      }
 
       return { ok: true, data: result, error: null };
     } catch (err) {

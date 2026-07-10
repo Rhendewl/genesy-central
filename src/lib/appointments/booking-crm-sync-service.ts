@@ -9,6 +9,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { format }              from "date-fns";
 import { LeadService }         from "@/lib/crm/lead-service";
+import { cancelConflictingConversationFlowJobs } from "@/lib/conversations/trigger-service";
 import type { AppointmentCrmSettings } from "@/types/appointments";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -130,6 +131,15 @@ export class BookingCrmSyncService {
         .update({ lead_id: existingLeadId })
         .eq("id", payload.bookingId)
         .eq("user_id", payload.userId);
+
+      // Cancela jobs de fluxo pendentes (ex.: mensagem de recuperação de
+      // formulário abandonado) que ficariam contraditórios agora que o lead
+      // agendou uma reunião — feito aqui, e não no consumer do EventBus, porque
+      // é o primeiro ponto do request onde o lead já está resolvido de verdade.
+      await cancelConflictingConversationFlowJobs(this.db, {
+        leadId: existingLeadId,
+        reason: "Lead agendou uma reunião — ação de fluxo cancelada automaticamente.",
+      });
 
       void this.db.from("appointment_booking_history").insert({
         booking_id: payload.bookingId,

@@ -175,10 +175,14 @@ export interface EventBusConfig<TType extends string = string> {
 
 export interface EventBus<TType extends string = string> {
   /**
-   * Publica um único evento.
-   * Retorna imediatamente — despacho é assíncrono e fire-and-forget.
+   * Publica um único evento. O despacho aos consumers começa de forma
+   * síncrona no mesmo instante da chamada (comportamento inalterado para
+   * quem ignora o retorno) — mas agora publish() retorna a Promise desse
+   * despacho, para callers em ambiente serverless que precisam aguardar os
+   * consumers terminarem antes da função poder ser congelada/encerrada
+   * (ex.: Vercel encerrando o processo logo após a resposta HTTP).
    */
-  publish(type: TType, payload?: unknown): void;
+  publish(type: TType, payload?: unknown): Promise<void>;
 
   /**
    * Publica múltiplos eventos em ordem de inserção.

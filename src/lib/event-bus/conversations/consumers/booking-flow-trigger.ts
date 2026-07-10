@@ -146,6 +146,7 @@ export function createConversationBookingFlowTriggerConsumer(db: Db): EventConsu
         whatsappAccountId: threadContext.whatsappAccountId,
         ownerProfileId: threadContext.ownerProfileId,
         leadId: payload.leadId,
+        dedupeKey: `event:${event.id}`,
         snapshot: {
           event_type: "appointment_created",
           booking_id: payload.bookingId,

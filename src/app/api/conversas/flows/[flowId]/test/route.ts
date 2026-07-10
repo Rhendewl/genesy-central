@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ConversationFlowExecutor } from "@/lib/conversations/flow-executor";
+import { loadGraphSnapshot } from "@/lib/conversations/trigger-service";
 import { createAdminSupabaseClient } from "@/lib/supabase-admin";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 
@@ -93,6 +94,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
   const admin = createAdminSupabaseClient();
   const now = new Date().toISOString();
+  const graphSnapshot = await loadGraphSnapshot(admin, flow.id);
   const { data: job, error: jobError } = await admin
     .from("conversation_flow_jobs")
     .insert({
@@ -105,6 +107,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       status: "pending",
       scheduled_for: now,
       trigger_event_type: "manual_test",
+      graph_snapshot: graphSnapshot,
       trigger_snapshot: {
         test: true,
         trigger_type: flow.trigger_type,

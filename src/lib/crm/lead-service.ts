@@ -79,13 +79,21 @@ export class LeadService {
         ie_score:      ieScore,
       });
 
-      this.bus.publish("lead.stage.entered", {
-        leadId,
-        pipelineId:  stage.pipeline_id,
-        stageId:     input.stageId,
-        fromStageId: null,
-        userId:      input.user_id,
-      });
+      // Aguardado (não fire-and-forget) para sobreviver ao congelamento do
+      // processo em serverless — mas em try/catch próprio: uma falha aqui
+      // nunca deve fazer createLead() reportar erro para um lead que já foi
+      // criado com sucesso.
+      try {
+        await this.bus.publish("lead.stage.entered", {
+          leadId,
+          pipelineId:  stage.pipeline_id,
+          stageId:     input.stageId,
+          fromStageId: null,
+          userId:      input.user_id,
+        });
+      } catch (err) {
+        console.error("[LeadService.createLead] Falha ao publicar lead.stage.entered:", err);
+      }
 
       return { ok: true, leadId, error: null };
     } catch (err) {
@@ -152,13 +160,22 @@ export class LeadService {
       });
     }
 
-    this.bus.publish("lead.stage.entered", {
-      leadId,
-      pipelineId:  result.pipeline_id,
-      stageId:     targetStageId,
-      fromStageId: fromStageId ?? null,
-      userId,
-    });
+    // Aguardado (não fire-and-forget) para sobreviver ao congelamento do
+    // processo em serverless — é este evento que o consumer de Conversas
+    // (crm-flow-trigger.ts) escuta para disparar fluxos de WhatsApp. Try/catch
+    // próprio: uma falha aqui nunca deve fazer moveLead() reportar erro para
+    // um move que já foi commitado com sucesso.
+    try {
+      await this.bus.publish("lead.stage.entered", {
+        leadId,
+        pipelineId:  result.pipeline_id,
+        stageId:     targetStageId,
+        fromStageId: fromStageId ?? null,
+        userId,
+      });
+    } catch (err) {
+      console.error("[LeadService.moveLead] Falha ao publicar lead.stage.entered:", err);
+    }
 
     // Workflow Engine — gatilhos "lead ganhou venda"/"lead perdeu venda".
     // "Ganhar"/"perder" não é um conceito à parte: é simplesmente entrar numa

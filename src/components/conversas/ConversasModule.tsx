@@ -2165,7 +2165,7 @@ function AddFlowNodeModal({
   function buildConfig() {
     if (nodeType === "action") {
       return actionType === "move_crm"
-        ? { action_type: "move_crm", pipeline_id: "", stage_id: "", assignee: "current", create_note: false }
+        ? { action_type: "move_crm", pipeline_id: "", stage_id: "" }
         : { action_type: "send_message", message };
     }
     if (nodeType === "wait") {

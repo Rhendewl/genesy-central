@@ -8,7 +8,6 @@ import { CalendarRepository }               from "@/lib/appointments/repositorie
 import { BookingService }                   from "@/lib/appointments/booking-service";
 import { GoogleCalendarSyncService }        from "@/lib/google-calendar";
 import { BookingCrmSyncService }            from "@/lib/appointments/booking-crm-sync-service";
-import { getPlatformEventBus }              from "@/lib/event-bus/platform";
 import type { CreatePublicBookingPayload }  from "@/types/appointments";
 
 type Params = { params: Promise<{ slug: string }> };
@@ -106,19 +105,10 @@ export async function POST(req: NextRequest, { params }: Params) {
       iqScore: sourceIqScore,
     });
 
-    // 3. Publish booking.created — consumed by Conversion Engine and Push Notification consumer.
-    //    Fire-and-forget: never blocks the response.
-    getPlatformEventBus().publish("booking.created", {
-      bookingId:    bookingId,
-      calendarId:   calendar.id,
-      calendarName: calendar.name,
-      userId:       calendar.user_id,
-      visitorName,
-      visitorEmail,
-      visitorPhone,
-      startsAt,
-      attribution,
-    });
+    // booking.created já é publicado dentro de BookingService.createPublicBooking()
+    // (chamado acima, na criação de result.data) — publicar de novo aqui
+    // disparava o evento duas vezes por agendamento (Conversion Engine e o
+    // consumer de fluxos de Conversas processavam cada booking em dobro).
 
     return NextResponse.json({ booking: result.data }, { status: 201 });
   } catch (err) {

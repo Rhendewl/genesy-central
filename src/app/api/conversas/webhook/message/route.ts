@@ -185,6 +185,7 @@ export async function POST(request: NextRequest) {
     whatsappAccountId: account.id,
     ownerProfileId: thread.owner_profile_id,
     leadId: thread.lead_id,
+    dedupeKey: `message:${message.id}`,
     snapshot: {
       message_id: message.id,
       provider_message_id: providerMessageId,

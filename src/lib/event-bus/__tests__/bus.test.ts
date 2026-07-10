@@ -112,6 +112,27 @@ describe("publish()", () => {
     expect(consumer.calls[0].payload).toEqual({});
     bus.destroy();
   });
+
+  it("resolves its returned Promise only after every consumer has run — critical for serverless callers that must await it before the HTTP response is sent", async () => {
+    const bus = createEventBus({ source: "test" });
+    let consumerFinished = false;
+    bus.subscribe({
+      name: "slow-consumer",
+      priority: ConsumerPriority.NORMAL,
+      events: "*",
+      handle: async () => {
+        await tick(15);
+        consumerFinished = true;
+      },
+    });
+
+    await bus.publish("ev.x");
+    // Sem tick() aqui de propósito: se publish() voltasse a ser
+    // fire-and-forget, este assert falharia porque o consumer ainda
+    // não teria rodado.
+    expect(consumerFinished).toBe(true);
+    bus.destroy();
+  });
 });
 
 // ── publishBatch() ────────────────────────────────────────────────────────────

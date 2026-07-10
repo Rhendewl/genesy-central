@@ -335,6 +335,7 @@ async function queueConversationFormFlow(
       whatsappAccountId: thread.whatsapp_account_id ?? account?.id ?? null,
       ownerProfileId: thread.owner_profile_id,
       leadId: submission?.lead_id ?? null,
+      dedupeKey: `submission:${context.submissionId}`,
       snapshot: {
         event_type: "form_submitted",
         form_id: context.formId,

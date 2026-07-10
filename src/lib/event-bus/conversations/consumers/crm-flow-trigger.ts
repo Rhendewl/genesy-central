@@ -182,6 +182,10 @@ export function createConversationCrmFlowTriggerConsumer(db: Db): EventConsumer 
         whatsappAccountId: threadContext.whatsappAccountId,
         ownerProfileId: threadContext.ownerProfileId,
         leadId: lead.id,
+        // event.id é estável entre retries do próprio EventBus (dispatchToConsumer
+        // reusa o mesmo BusEvent a cada tentativa) — suprime job duplicado se
+        // este consumer for reexecutado após uma falha transitória.
+        dedupeKey: `event:${event.id}`,
         snapshot: {
           lead_id: lead.id,
           lead_name: lead.name ?? "",
