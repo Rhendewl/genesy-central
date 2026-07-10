@@ -16,7 +16,6 @@ import {
   NotepadText,
   Calendar,
   KanbanSquare,
-  MessagesSquare,
   Sun,
   Moon,
 } from "lucide-react";
@@ -30,7 +29,6 @@ const NAV_ITEMS = [
   { href: "/",              label: "Dashboard", icon: LayoutDashboard, exactMatch: true,  permKey: "dashboard" },
   { href: "/workspace",     label: "Workspace", icon: KanbanSquare,    exactMatch: false, permKey: "workspace" },
   { href: "/crm",           label: "CRM",       icon: Users,           exactMatch: false, permKey: "crm" },
-  { href: "/conversas",     label: "Conversas", icon: MessagesSquare,  exactMatch: false, permKey: "conversas" },
   { href: "/clientes",      label: "Clientes",  icon: Contact,         exactMatch: false, permKey: "clientes" },
   { href: "/financeiro",    label: "Financeiro",icon: Wallet,          exactMatch: false, permKey: "financeiro" },
   { href: "/trafego",       label: "Tráfego",   icon: TrendingUp,      exactMatch: false, permKey: "trafego" },

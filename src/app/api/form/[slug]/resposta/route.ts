@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminSupabaseClient } from "@/lib/supabase-admin";
 import { LeadService } from "@/lib/crm/lead-service";
 import { LeadScoreEngine } from "@/lib/crm/lead-score-engine";
-import { enqueueConversationTrigger } from "@/lib/conversations/trigger-service";
 import { extractContactFromAnswers } from "@/lib/forms/extract-contact";
 import type { FormStep } from "@/types";
 
@@ -133,227 +132,11 @@ export async function POST(req: NextRequest, { params }: Params) {
   // sem esperar a conclusão. Se a pessoa completar depois, o mesmo lead é
   // atualizado em vez de duplicado — ver createCrmLead().
   void createCrmLead(supabase, session.form_id, session.user_id, body.answers, submissionId);
-  if (isCompleted) {
-    void queueConversationFormFlow(supabase, {
-      formId: session.form_id,
-      userId: session.user_id,
-      slug,
-      answers: body.answers,
-      submissionId,
-    });
-  }
 
   return NextResponse.json(
     { submission_id: submissionId },
     existing ? undefined : { status: 201 },
   );
-}
-
-// ── CRM integration ───────────────────────────────────────────────────────────
-
-type FormFlowContext = {
-  formId: string;
-  userId: string;
-  slug: string;
-  answers: Record<string, unknown>;
-  submissionId: string;
-};
-
-type AccountRow = {
-  id: string;
-  owner_profile_id: string;
-};
-
-type ProfileRow = {
-  id: string;
-};
-
-type ContactRow = {
-  id: string;
-};
-
-type ThreadRow = {
-  id: string;
-  owner_profile_id: string;
-  whatsapp_account_id: string | null;
-};
-
-function normalizePhone(value: string | null | undefined) {
-  if (!value) return "";
-  const trimmed = value.trim();
-  const digits = trimmed.replace(/\D/g, "");
-  return trimmed.startsWith("+") ? `+${digits}` : digits;
-}
-
-function readAnswerObject(value: unknown): Record<string, unknown> | null {
-  return value && typeof value === "object" && !Array.isArray(value)
-    ? value as Record<string, unknown>
-    : null;
-}
-
-function extractBookingFromAnswers(steps: FormStep[], answers: Record<string, unknown>) {
-  for (const step of steps) {
-    if (step.type !== "calendar") continue;
-    const answer = readAnswerObject(answers[step.id]);
-    const bookingId = typeof answer?.bookingId === "string" ? answer.bookingId : null;
-    const calendarId = typeof answer?.calendarId === "string" ? answer.calendarId : step.calendarId ?? null;
-    if (bookingId || calendarId) {
-      return {
-        bookingId,
-        calendarId,
-      };
-    }
-  }
-
-  return {
-    bookingId: null,
-    calendarId: null,
-  };
-}
-
-async function resolveConversationAccount(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  supabase: any,
-  userId: string,
-) {
-  const { data: account } = await supabase
-    .from("conversation_whatsapp_accounts")
-    .select("id,owner_profile_id")
-    .eq("user_id", userId)
-    .eq("is_active", true)
-    .order("updated_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  return (account as AccountRow | null) ?? null;
-}
-
-async function resolveAdminProfileId(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  supabase: any,
-  userId: string,
-) {
-  const { data: profile } = await supabase
-    .from("user_profiles")
-    .select("id")
-    .eq("owner_id", userId)
-    .eq("role", "admin")
-    .eq("is_active", true)
-    .limit(1)
-    .maybeSingle();
-
-  return (profile as ProfileRow | null)?.id ?? null;
-}
-
-async function queueConversationFormFlow(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  supabase: any,
-  context: FormFlowContext,
-): Promise<void> {
-  try {
-    const { data: formData } = await supabase
-      .from("forms")
-      .select("name, slug, steps")
-      .eq("id", context.formId)
-      .single();
-
-    if (!formData) return;
-
-    const steps = (formData.steps ?? []) as FormStep[];
-    const { name, phone, email } = extractContactFromAnswers(steps, context.answers);
-    const normalizedPhone = normalizePhone(phone);
-    if (!normalizedPhone) return;
-
-    const account = await resolveConversationAccount(supabase, context.userId);
-    const ownerProfileId = account?.owner_profile_id ?? await resolveAdminProfileId(supabase, context.userId);
-    if (!ownerProfileId) return;
-
-    const { bookingId, calendarId } = extractBookingFromAnswers(steps, context.answers);
-
-    const { data: submissionRow } = await supabase
-      .from("form_submissions")
-      .select("lead_id")
-      .eq("id", context.submissionId)
-      .maybeSingle();
-    const submission = submissionRow as { lead_id: string | null } | null;
-
-    const { data: contactRow } = await supabase
-      .from("conversation_contacts")
-      .upsert({
-        user_id: context.userId,
-        lead_id: submission?.lead_id ?? null,
-        name: name ?? null,
-        phone: normalizedPhone,
-        email: email ?? null,
-      }, { onConflict: "user_id,phone" })
-      .select("id")
-      .single();
-    const contact = contactRow as ContactRow | null;
-
-    if (!contact) return;
-
-    const { data: existingThreadRow } = await supabase
-      .from("conversation_threads")
-      .select("id,owner_profile_id,whatsapp_account_id")
-      .eq("user_id", context.userId)
-      .eq("contact_id", contact.id)
-      .neq("status", "archived")
-      .order("updated_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    const existingThread = existingThreadRow as ThreadRow | null;
-
-    let thread = existingThread;
-    if (!thread) {
-      const now = new Date().toISOString();
-      const { data: createdThreadRow } = await supabase
-        .from("conversation_threads")
-        .insert({
-          user_id: context.userId,
-          whatsapp_account_id: account?.id ?? null,
-          contact_id: contact.id,
-          owner_profile_id: ownerProfileId,
-          lead_id: submission?.lead_id ?? null,
-          status: "open",
-          last_message_preview: "Fluxo iniciado por formulário",
-          last_message_at: now,
-          unread_count: 0,
-          needs_response: false,
-        })
-        .select("id,owner_profile_id,whatsapp_account_id")
-        .single();
-      const createdThread = createdThreadRow as ThreadRow | null;
-      thread = createdThread ?? null;
-    }
-
-    if (!thread) return;
-
-    await enqueueConversationTrigger(supabase, {
-      userId: context.userId,
-      triggerType: "form_submitted",
-      threadId: thread.id,
-      whatsappAccountId: thread.whatsapp_account_id ?? account?.id ?? null,
-      ownerProfileId: thread.owner_profile_id,
-      leadId: submission?.lead_id ?? null,
-      dedupeKey: `submission:${context.submissionId}`,
-      snapshot: {
-        event_type: "form_submitted",
-        form_id: context.formId,
-        form_slug: formData.slug ?? context.slug,
-        form_name: formData.name ?? "",
-        submission_id: context.submissionId,
-        lead_id: submission?.lead_id ?? null,
-        visitor_name: name ?? "",
-        visitor_phone: normalizedPhone,
-        visitor_email: email ?? "",
-        has_scheduled_booking: Boolean(bookingId),
-        booking_id: bookingId,
-        calendar_id: calendarId,
-      },
-    });
-  } catch (err) {
-    console.error("[resposta/conversas] Falha ao enfileirar fluxo:", err);
-  }
 }
 
 interface CrmSettings {
@@ -446,7 +229,7 @@ async function createCrmLead(
 
     // 4. Montar integration_notes — dado automático da resposta de formulário.
     // Nunca escreve em "notes": esse campo é reservado para observações
-    // manuais (CRM e módulo Conversas).
+    // manuais do CRM.
     const metaLines: string[] = [`Formulário: ${formName}`];
     if (settings.owner_name) metaLines.push(`Responsável: ${settings.owner_name}`);
     const noteSections: string[] = [metaLines.join("\n")];

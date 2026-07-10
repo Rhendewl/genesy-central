@@ -9,7 +9,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { format }              from "date-fns";
 import { LeadService }         from "@/lib/crm/lead-service";
-import { cancelConflictingConversationFlowJobs } from "@/lib/conversations/trigger-service";
 import type { AppointmentCrmSettings } from "@/types/appointments";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -100,7 +99,7 @@ export class BookingCrmSyncService {
       // Backfill de IQ: só se o lead existente ainda não tiver um (nunca
       // sobrescreve um IQ já calculado — "nunca muda depois de calculado").
       // Também anexa os dados deste agendamento em integration_notes (nunca
-      // em "notes" — reservado para observações manuais do CRM/Conversas).
+      // em "notes" — reservado para observações manuais do CRM).
       const { data: existingLead } = await this.db
         .from("leads")
         .select("iq_score, integration_notes")
@@ -132,15 +131,6 @@ export class BookingCrmSyncService {
         .eq("id", payload.bookingId)
         .eq("user_id", payload.userId);
 
-      // Cancela jobs de fluxo pendentes (ex.: mensagem de recuperação de
-      // formulário abandonado) que ficariam contraditórios agora que o lead
-      // agendou uma reunião — feito aqui, e não no consumer do EventBus, porque
-      // é o primeiro ponto do request onde o lead já está resolvido de verdade.
-      await cancelConflictingConversationFlowJobs(this.db, {
-        leadId: existingLeadId,
-        reason: "Lead agendou uma reunião — ação de fluxo cancelada automaticamente.",
-      });
-
       void this.db.from("appointment_booking_history").insert({
         booking_id: payload.bookingId,
         user_id:    payload.userId,
@@ -152,7 +142,7 @@ export class BookingCrmSyncService {
     } else {
       // 2b. New lead → create in configured pipeline/stage.
       // Dados do agendamento vão em integration_notes, nunca em "notes"
-      // (reservado para observações manuais do CRM/Conversas).
+      // (reservado para observações manuais do CRM).
       const integrationNotes = [
         meetingScheduledLine(payload.startsAt),
         `Calendário: ${payload.calendarName}`,
