@@ -61,6 +61,24 @@ function jidToPhone(jid) {
   return String(jid || "").split("@")[0].split(":")[0].replace(/\D/g, "");
 }
 
+function isLidJid(jid) {
+  return typeof jid === "string" && jid.endsWith("@lid");
+}
+
+// WhatsApp esconde o número real de alguns contatos atrás de um "@lid"
+// (Linked ID) opaco. Quando isso acontece, Baileys expõe o JID real
+// (baseado em telefone) em `key.remoteJidAlt`. Sem isso, os dígitos do
+// @lid não são um telefone válido e envios de resposta falham.
+function resolvePhoneFromKey(key) {
+  const remoteJid = key?.remoteJid;
+  if (!isLidJid(remoteJid)) return jidToPhone(remoteJid);
+
+  const altJid = key?.remoteJidAlt;
+  if (altJid && !isLidJid(altJid)) return jidToPhone(altJid);
+
+  return "";
+}
+
 function normalizeRecipientDigits(value) {
   const digits = String(value || "").replace(/\D/g, "").replace(/^0+/, "");
   if (!digits) return "";
@@ -188,6 +206,7 @@ async function notifyInboundMessage(accountId, message) {
     accountId,
     providerMessageId: message.key?.id || null,
     remoteJid,
+    isLid: isLidJid(remoteJid),
     fromMe: Boolean(message.key?.fromMe),
     messageTypes: messageTypeNames(message.message),
   };
@@ -213,9 +232,17 @@ async function notifyInboundMessage(accountId, message) {
     return;
   }
 
+  const resolvedPhone = resolvePhoneFromKey(message.key);
+  if (!resolvedPhone) {
+    logger.warn(
+      messageMeta,
+      "JID @lid sem remoteJidAlt: telefone real não pôde ser resolvido, usando dígitos do @lid como fallback (respostas para este contato provavelmente falharão).",
+    );
+  }
+
   const payload = {
     whatsapp_account_id: accountId,
-    from: jidToPhone(remoteJid),
+    from: resolvedPhone || jidToPhone(remoteJid),
     body,
     name: message.pushName || "",
     provider_message_id: message.key?.id || null,
