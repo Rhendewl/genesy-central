@@ -1,15 +1,15 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   AreaChart, Area, BarChart, Bar,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from "recharts";
 import {
-  Plus, X, Star, TrendingUp, TrendingDown, Users,
+  X, Star, TrendingUp, TrendingDown, Users,
   MessageSquare, CheckCircle, AlertTriangle, Zap, Info,
-  ChevronUp, ChevronDown, Minus, Search, Edit2, Trash2,
+  ChevronUp, ChevronDown, Minus, Search,
   ThumbsUp, ThumbsDown, Link2, Copy, Check, ExternalLink,
 } from "lucide-react";
 import { format } from "date-fns";
@@ -22,7 +22,7 @@ import {
 } from "@/hooks/useNps";
 import { PrimaryButton } from "@/components/ui/PrimaryButton";
 import { useModalOpen } from "@/hooks/useModalOpen";
-import type { NpsRecord, NewNpsRecord, NpsChannel, AgencyClient } from "@/types";
+import type { NpsChannel, AgencyClient } from "@/types";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // NpsModule — Satisfação Mensal de Clientes
@@ -99,221 +99,6 @@ function ChartTooltip({ active, payload, label }: {
           </span>
         </div>
       ))}
-    </div>
-  );
-}
-
-// ── NPS Modal ─────────────────────────────────────────────────────────────────
-
-interface NpsModalProps {
-  clients: AgencyClient[];
-  record?: NpsRecord;
-  defaultMonth: string; // YYYY-MM
-  onClose: () => void;
-  onSave: (data: NewNpsRecord) => Promise<{ error: string | null }>;
-  onDelete?: () => Promise<void>;
-}
-
-function NpsModal({ clients, record, defaultMonth, onClose, onSave, onDelete }: NpsModalProps) {
-  useModalOpen(true);
-
-  const [form, setForm] = useState<Partial<NewNpsRecord>>(
-    record ? {
-      client_id: record.client_id,
-      reference_month: record.reference_month,
-      score: record.score,
-      comment: record.comment ?? undefined,
-      channel: record.channel,
-      responsible: record.responsible ?? undefined,
-    } : {
-      reference_month: defaultMonth,
-      score: 8,
-      channel: "manual",
-    }
-  );
-  const [saving, setSaving] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const set = <K extends keyof NewNpsRecord>(k: K, v: NewNpsRecord[K]) =>
-    setForm(f => ({ ...f, [k]: v }));
-
-  const handleSave = async () => {
-    if (!form.client_id) { setError("Selecione um cliente"); return; }
-    if (!form.reference_month) { setError("Informe o mês de referência"); return; }
-    if (form.score === undefined || form.score === null) { setError("Informe a nota"); return; }
-    setSaving(true);
-    setError(null);
-    const result = await onSave(form as NewNpsRecord);
-    if (result.error) { setError(result.error); setSaving(false); }
-  };
-
-  const scoreValue = form.score ?? 8;
-  const cls = classifyNps(scoreValue);
-
-  const inputCls = "w-full rounded-xl bg-[color-mix(in_srgb,var(--text-title)_15%,transparent)] text-[var(--text-title)] text-sm px-3 py-2.5 outline-none placeholder:text-[var(--silver)]/50 focus:bg-[color-mix(in_srgb,var(--text-title)_20%,transparent)] transition-colors border-none";
-  const selectCls = "w-full rounded-xl bg-[color-mix(in_srgb,var(--text-title)_15%,transparent)] text-[var(--text-title)] text-sm px-3 py-2.5 outline-none focus:bg-[color-mix(in_srgb,var(--text-title)_20%,transparent)] transition-colors border-none";
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0, scale: 0.95 }}
-        className="relative w-full max-w-lg rounded-2xl shadow-2xl p-6 max-h-[90vh] overflow-y-auto"
-        style={{ background: "var(--bg-modal)", border: "1px solid var(--border-modal)", backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)" }}
-        onClick={e => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between mb-5">
-          <div>
-            <h2 className="text-lg font-bold text-[var(--text-title)]">{record ? "Editar NPS" : "Registrar NPS"}</h2>
-            <p className="text-xs text-[var(--text-muted)] mt-0.5">Satisfação mensal do cliente</p>
-          </div>
-          <button onClick={onClose} className="text-[var(--silver)] hover:text-[var(--text-title)] transition-colors p-1">
-            <X size={20} />
-          </button>
-        </div>
-
-        {error && (
-          <div className="flex items-center gap-2 text-red-400 text-sm bg-red-400/10 border border-red-400/20 rounded-xl px-4 py-2.5 mb-4">
-            <AlertTriangle size={14} className="shrink-0" />
-            {error}
-          </div>
-        )}
-
-        <div className="grid grid-cols-2 gap-3">
-          <div className="col-span-2">
-            <label className="block text-xs text-[var(--silver)] mb-1.5 font-medium">Cliente *</label>
-            <select
-              value={form.client_id ?? ""}
-              onChange={e => set("client_id", e.target.value)}
-              className={selectCls}
-            >
-              <option value="">Selecionar cliente...</option>
-              {clients.map(c => (
-                <option key={c.id} value={c.id}>{c.name}</option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-xs text-[var(--silver)] mb-1.5 font-medium">Mês de referência *</label>
-            <input
-              type="month"
-              value={form.reference_month ?? ""}
-              onChange={e => set("reference_month", e.target.value)}
-              className={inputCls}
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs text-[var(--silver)] mb-1.5 font-medium">Canal</label>
-            <select
-              value={form.channel ?? "manual"}
-              onChange={e => set("channel", e.target.value as NpsChannel)}
-              className={selectCls}
-            >
-              {Object.entries(CHANNEL_LABELS).map(([k, v]) => (
-                <option key={k} value={k}>{v}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* Score slider */}
-          <div className="col-span-2">
-            <label className="block text-xs text-[var(--silver)] mb-3 font-medium">
-              Nota NPS *
-              <span className={cn(
-                "ml-2 text-sm font-bold",
-                cls === "promotor" ? "text-emerald-400" :
-                cls === "neutro"   ? "text-[var(--nps-warning)]" : "text-red-400"
-              )}>
-                {scoreValue} — {cls === "promotor" ? "Promotor" : cls === "neutro" ? "Neutro" : "Detrator"}
-              </span>
-            </label>
-            {/* Score buttons 0–10 */}
-            <div className="flex gap-1.5 flex-wrap">
-              {Array.from({ length: 11 }, (_, i) => {
-                const c = classifyNps(i);
-                const selected = scoreValue === i;
-                return (
-                  <button
-                    key={i}
-                    onClick={() => set("score", i)}
-                    className={cn(
-                      "w-9 h-9 rounded-xl text-sm font-bold border transition-all",
-                      selected
-                        ? c === "promotor"
-                          ? "bg-emerald-400/20 border-emerald-400/50 text-emerald-400"
-                          : c === "neutro"
-                          ? "bg-[color-mix(in_srgb,var(--nps-warning)_20%,transparent)] border-[color-mix(in_srgb,var(--nps-warning)_50%,transparent)] text-[var(--nps-warning)]"
-                          : "bg-red-400/20 border-red-400/50 text-red-400"
-                        : "bg-[color-mix(in_srgb,var(--text-title)_5%,transparent)] border-[color-mix(in_srgb,var(--text-title)_10%,transparent)] text-[var(--silver)] hover:bg-[var(--hover)] hover:text-[var(--text-title)]"
-                    )}
-                  >
-                    {i}
-                  </button>
-                );
-              })}
-            </div>
-            <div className="flex justify-between text-[10px] text-[var(--text-muted)] mt-1.5">
-              <span>0 — Pior</span>
-              <span className="text-red-400/70">Detratores</span>
-              <span className="text-[color-mix(in_srgb,var(--nps-warning)_70%,transparent)]">Neutros</span>
-              <span className="text-emerald-400/70">Promotores</span>
-              <span>10 — Melhor</span>
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-xs text-[var(--silver)] mb-1.5 font-medium">Responsável</label>
-            <input
-              value={form.responsible ?? ""}
-              onChange={e => set("responsible", e.target.value || null as unknown as string)}
-              placeholder="Nome do responsável"
-              className={inputCls}
-            />
-          </div>
-
-          <div className="col-span-2">
-            <label className="block text-xs text-[var(--silver)] mb-1.5 font-medium">Comentário</label>
-            <textarea
-              value={form.comment ?? ""}
-              onChange={e => set("comment", e.target.value || null as unknown as string)}
-              rows={2}
-              placeholder="Feedback do cliente..."
-              className={cn(inputCls, "resize-none")}
-            />
-          </div>
-        </div>
-
-        <div className="flex gap-3 pt-5 mt-2">
-          {record && onDelete && (
-            <button
-              onClick={confirmDelete ? onDelete : () => setConfirmDelete(true)}
-              className={cn(
-                "px-4 py-2.5 rounded-xl text-sm font-medium transition-all border",
-                confirmDelete
-                  ? "text-red-400 bg-red-400/10 border-red-400/30"
-                  : "text-[var(--silver)] border-[color-mix(in_srgb,var(--text-title)_10%,transparent)] hover:border-red-400/30 hover:text-red-400"
-              )}
-            >
-              {confirmDelete ? "Confirmar" : "Excluir"}
-            </button>
-          )}
-          <button
-            onClick={onClose}
-            className="flex-1 rounded-xl py-2.5 text-sm font-medium text-[var(--silver)] hover:text-[var(--text-title)] transition-colors"
-            style={{ background: "var(--border)", border: "1px solid var(--border)" }}
-          >
-            Cancelar
-          </button>
-          <PrimaryButton onClick={handleSave} disabled={saving} className="flex-1 py-2.5 text-sm">
-            {saving ? "Salvando..." : record ? "Salvar" : "Registrar"}
-          </PrimaryButton>
-        </div>
-      </motion.div>
     </div>
   );
 }
@@ -492,30 +277,9 @@ function NpsFormModal({ client, onClose }: { client: AgencyClient; onClose: () =
 interface Props { year: number; month: number }
 
 export function NpsModule({ year, month }: Props) {
-  const { records, clients, isLoading, metrics, createRecord, updateRecord, deleteRecord } = useNps(year, month);
-  const [modal, setModal] = useState<{ open: boolean; record?: NpsRecord }>({ open: false });
+  const { clients, isLoading, metrics } = useNps(year, month);
   const [npsFormClient, setNpsFormClient] = useState<AgencyClient | null>(null);
   const [search, setSearch] = useState("");
-
-  const defaultMonth = `${year}-${String(month).padStart(2, "0")}`;
-
-  const handleSave = useCallback(async (data: NewNpsRecord) => {
-    const result = modal.record
-      ? await updateRecord(modal.record.id, data)
-      : await createRecord(data);
-    if (!result.error) {
-      toast.success(modal.record ? "NPS atualizado!" : "NPS registrado!");
-      setModal({ open: false });
-    }
-    return result;
-  }, [modal.record, createRecord, updateRecord]);
-
-  const handleDelete = useCallback(async () => {
-    if (!modal.record) return;
-    await deleteRecord(modal.record.id);
-    toast.success("Registro removido");
-    setModal({ open: false });
-  }, [modal.record, deleteRecord]);
 
   const filteredSummaries = metrics.clientSummaries.filter(cs =>
     cs.client.name.toLowerCase().includes(search.toLowerCase())
@@ -788,23 +552,14 @@ export function NpsModule({ year, month }: Props) {
               <p className="text-[11px] text-[var(--text-muted)]">{clients.filter(c => c.status === "ativo").length} clientes ativos</p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            <div className="relative">
-              <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] pointer-events-none" />
-              <input
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                placeholder="Buscar cliente..."
-                className="pl-8 pr-3 py-2 rounded-xl bg-[color-mix(in_srgb,var(--text-title)_5%,transparent)] text-[var(--text-title)] text-sm outline-none placeholder:text-[var(--text-muted)] focus:bg-[color-mix(in_srgb,var(--text-title)_7%,transparent)] transition-colors w-44"
-              />
-            </div>
-            <PrimaryButton
-              onClick={() => setModal({ open: true })}
-              className="flex items-center gap-2 px-4 py-2 text-sm whitespace-nowrap"
-            >
-              <Plus size={14} />
-              Registrar NPS
-            </PrimaryButton>
+          <div className="relative">
+            <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] pointer-events-none" />
+            <input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Buscar cliente..."
+              className="pl-8 pr-3 py-2 rounded-xl bg-[color-mix(in_srgb,var(--text-title)_5%,transparent)] text-[var(--text-title)] text-sm outline-none placeholder:text-[var(--text-muted)] focus:bg-[color-mix(in_srgb,var(--text-title)_7%,transparent)] transition-colors w-44"
+            />
           </div>
         </div>
 
@@ -825,7 +580,6 @@ export function NpsModule({ year, month }: Props) {
               </thead>
               <tbody>
                 {filteredSummaries.map((cs, i) => {
-                  const lastRecord = cs.records[0];
                   return (
                     <motion.tr
                       key={cs.client.id}
@@ -864,22 +618,13 @@ export function NpsModule({ year, month }: Props) {
                         <ClassificationBadge cls={cs.classification} />
                       </td>
                       <td className="px-5 py-3">
-                        <div className="flex items-center gap-1">
-                          <button
-                            onClick={() => setModal({ open: true, record: lastRecord })}
-                            className="p-1.5 rounded-lg text-[var(--silver)] hover:text-[var(--text-title)] hover:bg-[var(--hover)] transition-colors"
-                            title={lastRecord ? "Editar NPS" : "Registrar NPS"}
-                          >
-                            {lastRecord ? <Edit2 size={13} /> : <Plus size={13} />}
-                          </button>
-                          <button
-                            onClick={() => setNpsFormClient(cs.client)}
-                            className="p-1.5 rounded-lg text-[var(--silver)] hover:text-[var(--text-title)] hover:bg-[var(--hover)] transition-colors"
-                            title="Formulário de NPS (link público)"
-                          >
-                            <Link2 size={13} />
-                          </button>
-                        </div>
+                        <button
+                          onClick={() => setNpsFormClient(cs.client)}
+                          className="p-1.5 rounded-lg text-[var(--silver)] hover:text-[var(--text-title)] hover:bg-[var(--hover)] transition-colors"
+                          title="Formulário de NPS (link público)"
+                        >
+                          <Link2 size={13} />
+                        </button>
                       </td>
                     </motion.tr>
                   );
@@ -931,16 +676,10 @@ export function NpsModule({ year, month }: Props) {
                   {rec.comment && (
                     <p className="text-xs text-[var(--silver)] italic line-clamp-2">&ldquo;{rec.comment}&rdquo;</p>
                   )}
-                  <div className="flex items-center justify-between mt-2.5">
+                  <div className="mt-2.5">
                     <span className="text-[10px] text-[var(--text-muted)]">
                       {rec.responsible ?? "—"}
                     </span>
-                    <button
-                      onClick={() => setModal({ open: true, record: rec })}
-                      className="p-1 rounded-lg text-[var(--text-muted)] hover:text-[var(--text-title)] hover:bg-[var(--hover)] transition-colors"
-                    >
-                      <Edit2 size={11} />
-                    </button>
                   </div>
                 </motion.div>
               );
@@ -950,19 +689,6 @@ export function NpsModule({ year, month }: Props) {
       )}
 
       {/* ── Modal ────────────────────────────────────────────────────── */}
-      <AnimatePresence>
-        {modal.open && (
-          <NpsModal
-            clients={clients.filter(c => c.status === "ativo")}
-            record={modal.record}
-            defaultMonth={defaultMonth}
-            onClose={() => setModal({ open: false })}
-            onSave={handleSave}
-            onDelete={modal.record ? handleDelete : undefined}
-          />
-        )}
-      </AnimatePresence>
-
       <AnimatePresence>
         {npsFormClient && (
           <NpsFormModal

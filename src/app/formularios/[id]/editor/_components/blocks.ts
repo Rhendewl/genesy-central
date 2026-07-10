@@ -186,6 +186,8 @@ export function createDefaultStep(type: FormStepType): FormStep {
       };
     case "rating":
       return { ...base, maxRating: 5 };
+    case "nps_scale":
+      return { ...base, scaleLowLabel: "Pouco provável", scaleHighLabel: "Muito provável" };
     case "statement":
     case "redirect":
       return { ...base, content: "" };

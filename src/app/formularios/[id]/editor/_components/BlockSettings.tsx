@@ -223,6 +223,31 @@ function RatingSettings({ step, onChange }: BlockSettingsProps) {
   );
 }
 
+// ── Escala NPS (rótulos das pontas) ────────────────────────────────────────────
+
+function NpsScaleSettings({ step, onChange }: BlockSettingsProps) {
+  return (
+    <>
+      <Field label="Rótulo da nota 0 (ponta vermelha)" htmlFor={`bs-scale-low-${step.id}`}>
+        <StyledInput
+          id={`bs-scale-low-${step.id}`}
+          value={step.scaleLowLabel ?? ""}
+          placeholder="Pouco provável"
+          onChange={e => onChange({ scaleLowLabel: e.target.value })}
+        />
+      </Field>
+      <Field label="Rótulo da nota 10 (ponta verde)" htmlFor={`bs-scale-high-${step.id}`}>
+        <StyledInput
+          id={`bs-scale-high-${step.id}`}
+          value={step.scaleHighLabel ?? ""}
+          placeholder="Muito provável"
+          onChange={e => onChange({ scaleHighLabel: e.target.value })}
+        />
+      </Field>
+    </>
+  );
+}
+
 // ── Peso da pergunta (IQ) ──────────────────────────────────────────────────────
 // O usuário só escolhe uma destas 5 opções — nunca um número. Ver
 // src/lib/crm/lead-score-engine.ts pela escala interna peso→multiplicador.
@@ -383,6 +408,10 @@ export function BlockSettings({
 
       {step.type === "rating" && (
         <RatingSettings step={step} onChange={onChange} />
+      )}
+
+      {step.type === "nps_scale" && (
+        <NpsScaleSettings step={step} onChange={onChange} />
       )}
 
       {step.type === "statement" && (

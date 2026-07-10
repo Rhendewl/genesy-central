@@ -942,6 +942,10 @@ export interface FormStep {
   weight?: QuestionWeight;
   // rating
   maxRating?: number;
+  // nps_scale — rótulos exibidos nas pontas da escala 0-10 (padrão: "Pouco
+  // provável" / "Muito provável" se ausentes)
+  scaleLowLabel?: string;
+  scaleHighLabel?: string;
   // file_upload
   allowedTypes?: string[];
   maxFileSizeMb?: number;
