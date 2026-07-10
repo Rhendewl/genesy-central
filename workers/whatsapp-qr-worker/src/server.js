@@ -1,6 +1,6 @@
 /* eslint-disable react-hooks/rules-of-hooks */
 import express from "express";
-import { access, readdir } from "node:fs/promises";
+import { access, readdir, rm } from "node:fs/promises";
 import pino from "pino";
 import makeWASocket, {
   DisconnectReason,
@@ -171,10 +171,13 @@ function messageTimestampToIso(timestamp) {
   return new Date(milliseconds).toISOString();
 }
 
+// Retorna accountMissing: true quando o dashboard confirma (404 nos dois
+// endpoints) que essa conta não existe mais em conversation_whatsapp_accounts
+// — sinal pro chamador desistir de reconectar em vez de tentar pra sempre.
 async function notifyConnectionStatus(accountId) {
   if (!dashboardUrl || !dashboardSecret) {
     logger.warn({ accountId }, "Dashboard webhook não configurado; status da conexão não enviado.");
-    return;
+    return { accountMissing: false };
   }
 
   const snapshot = sessionSnapshot(accountId);
@@ -191,6 +194,7 @@ async function notifyConnectionStatus(accountId) {
     "/api/conversas/webhook/status",
   ];
 
+  let accountMissing = false;
   for (const endpoint of endpoints) {
     const url = `${dashboardUrl}${endpoint}`;
     const response = await fetch(url, {
@@ -202,12 +206,15 @@ async function notifyConnectionStatus(accountId) {
       body: JSON.stringify(payload),
     });
 
-    if (response.ok) return;
+    if (response.ok) return { accountMissing: false };
 
     const error = await response.text().catch(() => "");
     logger.warn({ accountId, endpoint, status: response.status, error }, "Falha ao atualizar status da conexão no dashboard.");
-    if (![404, 405].includes(response.status)) return;
+    if (response.status === 404) accountMissing = true;
+    if (![404, 405].includes(response.status)) return { accountMissing: false };
   }
+
+  return { accountMissing };
 }
 
 async function notifyInboundMessage(accountId, message) {
@@ -400,15 +407,35 @@ async function startSession(accountId) {
       session.status = shouldReconnect ? "reconnect" : "expired";
       session.error = lastDisconnect?.error?.message || null;
       session.sock = null;
-      notifyConnectionStatus(accountId).catch((err) => {
-        logger.warn({ err, accountId }, "Erro ao enviar status fechado para o dashboard.");
-      });
 
-      if (shouldReconnect) {
-        setTimeout(() => {
-          startSession(accountId).catch((err) => logger.error({ err, accountId }, "Erro ao reconectar sessão."));
-        }, 5000);
-      }
+      notifyConnectionStatus(accountId)
+        .then(({ accountMissing }) => {
+          if (accountMissing) {
+            // Conta foi apagada no dashboard, mas a sessão persistida ainda
+            // está no volume — sem isso, o worker tentava reconectar essa
+            // conta pra sempre, de 5 em 5s, a cada boot e a cada falha.
+            logger.warn({ accountId }, "Conta WhatsApp não existe mais no dashboard — encerrando e apagando sessão persistida.");
+            sessions.delete(accountId);
+            rm(`${sessionsDir}/${accountId}`, { recursive: true, force: true }).catch((err) => {
+              logger.warn({ err, accountId }, "Erro ao apagar sessão persistida órfã.");
+            });
+            return;
+          }
+
+          if (shouldReconnect) {
+            setTimeout(() => {
+              startSession(accountId).catch((err) => logger.error({ err, accountId }, "Erro ao reconectar sessão."));
+            }, 5000);
+          }
+        })
+        .catch((err) => {
+          logger.warn({ err, accountId }, "Erro ao enviar status fechado para o dashboard.");
+          if (shouldReconnect) {
+            setTimeout(() => {
+              startSession(accountId).catch((reconnectErr) => logger.error({ err: reconnectErr, accountId }, "Erro ao reconectar sessão."));
+            }, 5000);
+          }
+        });
     }
   });
 
