@@ -68,7 +68,10 @@ export interface Lead {
   stage_id: string | null;
   assigned_to: string | null;     // user_profiles.id do responsável (SDR)
   tags: string[]; // array of tag ids
-  notes: string | null;
+  notes: string | null; // observações manuais — CRM e módulo Conversas
+  // Dados automáticos de integração (resposta de formulário, agendamento de
+  // calendário) — nunca escrito pelo CRM/Conversas, só por essas rotas.
+  integration_notes: string | null;
   deal_value: number;
   entered_at: string;
   created_at: string;
@@ -87,8 +90,9 @@ export type NewLead = Pick<Lead, "name" | "contact" | "kanban_column" | "tags" |
   pipeline_id?: string | null;
   assigned_to?: string | null;
   ie_score?: number | null;
+  integration_notes?: string | null;
 };
-export type UpdateLead = Partial<Pick<Lead, "name" | "contact" | "kanban_column" | "tags" | "notes" | "deal_value" | "entered_at" | "assigned_to" | "iq_score">>;
+export type UpdateLead = Partial<Pick<Lead, "name" | "contact" | "kanban_column" | "tags" | "notes" | "integration_notes" | "deal_value" | "entered_at" | "assigned_to" | "iq_score">>;
 
 export interface LeadMovement {
   id: string;

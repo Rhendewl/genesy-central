@@ -23,6 +23,7 @@ export interface CreateLeadParams {
   tags?:         string[];
   deal_value?:   number;
   notes?:        string | null;
+  integration_notes?: string | null;
   entered_at?:   string;
   is_duplicate?: boolean;
   iq_score?:     number | null;
@@ -67,6 +68,7 @@ export class LeadRepository {
         tags:          params.tags          ?? [],
         deal_value:    params.deal_value    ?? 0,
         notes:         params.notes         ?? null,
+        integration_notes: params.integration_notes ?? null,
         entered_at:    params.entered_at    ?? new Date().toISOString().split("T")[0],
         is_duplicate:  params.is_duplicate  ?? false,
         iq_score:      params.iq_score      ?? null,

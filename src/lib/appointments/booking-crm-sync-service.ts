@@ -7,11 +7,18 @@
 //   • Reuses LeadService directly — zero logic duplication.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { format }              from "date-fns";
 import { LeadService }         from "@/lib/crm/lead-service";
 import type { AppointmentCrmSettings } from "@/types/appointments";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Db = SupabaseClient<any, any, any>;
+
+// Linha de destaque em integration_notes — precisa ficar óbvia lendo por
+// cima, sem depender do resto do texto ("Calendário:", "Data/Hora:" etc).
+function meetingScheduledLine(startsAt: string): string {
+  return `Reunião agendada para ${format(new Date(startsAt), "dd/MM 'às' HH:mm'h'")}`;
+}
 
 export interface CrmSyncPayload {
   bookingId:    string;
@@ -91,16 +98,31 @@ export class BookingCrmSyncService {
 
       // Backfill de IQ: só se o lead existente ainda não tiver um (nunca
       // sobrescreve um IQ já calculado — "nunca muda depois de calculado").
-      if (payload.iqScore !== null) {
-        const { data: existingLead } = await this.db
-          .from("leads")
-          .select("iq_score")
-          .eq("id", existingLeadId)
-          .maybeSingle();
-        if (existingLead && existingLead.iq_score === null) {
-          await this.db.from("leads").update({ iq_score: payload.iqScore }).eq("id", existingLeadId);
-        }
-      }
+      // Também anexa os dados deste agendamento em integration_notes (nunca
+      // em "notes" — reservado para observações manuais do CRM/Conversas).
+      const { data: existingLead } = await this.db
+        .from("leads")
+        .select("iq_score, integration_notes")
+        .eq("id", existingLeadId)
+        .maybeSingle();
+
+      const bookingEntry = [
+        meetingScheduledLine(payload.startsAt),
+        `Calendário: ${payload.calendarName}`,
+        payload.visitorNotes ? `Observações: ${payload.visitorNotes}` : null,
+      ].filter(Boolean).join("\n");
+
+      const nextIntegrationNotes = existingLead?.integration_notes
+        ? `${existingLead.integration_notes}\n\n${bookingEntry}`
+        : bookingEntry;
+
+      await this.db
+        .from("leads")
+        .update({
+          integration_notes: nextIntegrationNotes,
+          ...(payload.iqScore !== null && existingLead?.iq_score === null ? { iq_score: payload.iqScore } : {}),
+        })
+        .eq("id", existingLeadId);
 
       // Link booking → lead
       await this.db
@@ -118,10 +140,12 @@ export class BookingCrmSyncService {
         payload:    { lead_id: existingLeadId, stage_id: cfg.stage_id },
       }).then();
     } else {
-      // 2b. New lead → create in configured pipeline/stage
-      const notes = [
+      // 2b. New lead → create in configured pipeline/stage.
+      // Dados do agendamento vão em integration_notes, nunca em "notes"
+      // (reservado para observações manuais do CRM/Conversas).
+      const integrationNotes = [
+        meetingScheduledLine(payload.startsAt),
         `Calendário: ${payload.calendarName}`,
-        `Data/Hora: ${new Date(payload.startsAt).toLocaleString("pt-BR")}`,
         payload.visitorNotes ? `Observações: ${payload.visitorNotes}` : null,
         payload.correlationId ? `Correlation ID: ${payload.correlationId}` : null,
       ].filter(Boolean).join("\n");
@@ -133,7 +157,7 @@ export class BookingCrmSyncService {
         contact:  payload.visitorPhone ?? payload.visitorEmail,
         email:    payload.visitorEmail,
         source:   "Agenda",
-        notes:    notes || null,
+        integration_notes: integrationNotes || null,
         entered_at: new Date(payload.startsAt).toISOString().split("T")[0],
         iq_score: payload.iqScore,
       });

@@ -443,16 +443,18 @@ async function createCrmLead(
     // um passo especial de "congelamento".
     const iqScore = LeadScoreEngine.calculateIQ(steps, answers);
 
-    // 4. Montar notes
+    // 4. Montar integration_notes — dado automático da resposta de formulário.
+    // Nunca escreve em "notes": esse campo é reservado para observações
+    // manuais (CRM e módulo Conversas).
     const metaLines: string[] = [`Formulário: ${formName}`];
     if (settings.owner_name) metaLines.push(`Responsável: ${settings.owner_name}`);
     const noteSections: string[] = [metaLines.join("\n")];
     if (noteLines.length) noteSections.push(noteLines.join("\n"));
-    const notes = noteSections.join("\n\n") || null;
+    const integrationNotes = noteSections.join("\n\n") || null;
 
     // 5. Essa submissão já gerou um lead antes (ex.: resposta parcial que já
     // tinha nome/telefone/e-mail)? Atualiza o mesmo lead em vez de duplicar —
-    // não move de etapa/pipeline, só atualiza os dados de contato/notas.
+    // não move de etapa/pipeline, só atualiza os dados de contato/integração.
     const { data: existingSubmission } = await supabase
       .from("form_submissions")
       .select("lead_id")
@@ -468,7 +470,7 @@ async function createCrmLead(
           email:      leadEmail ?? null,
           tags:       settings.tag_ids ?? [],
           deal_value: settings.value_mode === "fixed" ? (settings.fixed_value ?? 0) : dealValue,
-          notes,
+          integration_notes: integrationNotes,
           iq_score:   iqScore,
         })
         .eq("id", existingSubmission.lead_id);
@@ -499,12 +501,12 @@ async function createCrmLead(
       form_id:     formId,
       form_name:   formName,
       // Coluna estruturada, fonte de verdade a partir de agora — o texto em
-      // "notes" acima é só compatibilidade visual (mostra o nome mesmo se o
-      // responsável for removido da equipe depois).
+      // "integration_notes" acima é só compatibilidade visual (mostra o nome
+      // mesmo se o responsável for removido da equipe depois).
       assigned_to: settings.owner_id ?? null,
       tags:        settings.tag_ids ?? [],
       deal_value:  settings.value_mode === "fixed" ? (settings.fixed_value ?? 0) : dealValue,
-      notes,
+      integration_notes: integrationNotes,
       entered_at:  new Date().toISOString().split("T")[0],
       is_duplicate,
       iq_score:    iqScore,

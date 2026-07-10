@@ -405,6 +405,20 @@ export function LeadModal({
                     />
                   </div>
 
+                  {/* Dados de Formulário/Agendamento — preenchido automaticamente pelas
+                      integrações (resposta de formulário, agendamento de calendário).
+                      Somente leitura: quem escreve aqui são essas rotas, não o usuário. */}
+                  {lead?.integration_notes && (
+                    <div className="space-y-1.5">
+                      <Label className="text-[11px] font-medium text-[var(--muted-foreground)]">
+                        Dados de Formulário/Agendamento
+                      </Label>
+                      <div className="max-h-40 overflow-y-auto whitespace-pre-line rounded-xl border border-[var(--border)] bg-[var(--input)] px-3 py-2 text-xs text-[var(--muted-foreground)]">
+                        {lead.integration_notes}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Valor do Negócio */}
                   <div className="space-y-1.5">
                     <Label className="text-[11px] font-medium text-[var(--muted-foreground)]">
@@ -619,7 +633,7 @@ export function LeadModal({
                     </div>
                   )}
 
-                  {/* Notas */}
+                  {/* Notas — observações manuais (CRM e módulo Conversas) */}
                   <div className="space-y-1.5">
                     <Label htmlFor="lead-notes" className="text-[11px] font-medium text-[var(--muted-foreground)]">
                       Notas
