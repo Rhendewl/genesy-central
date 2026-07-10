@@ -1,5 +1,6 @@
 /* eslint-disable react-hooks/rules-of-hooks */
 import express from "express";
+import { access, readdir } from "node:fs/promises";
 import pino from "pino";
 import makeWASocket, {
   DisconnectReason,
@@ -15,6 +16,7 @@ const sessionsDir = process.env.WHATSAPP_SESSIONS_DIR || "sessions";
 const logger = pino({ level: process.env.LOG_LEVEL || "info" });
 const maxHistoryMessages = Number(process.env.WHATSAPP_HISTORY_SYNC_LIMIT || 50);
 const dashboardWebhookTimeoutMs = Number(process.env.DASHBOARD_WEBHOOK_TIMEOUT_MS || 15000);
+const autoRestoreSessions = process.env.WHATSAPP_AUTO_RESTORE_SESSIONS !== "false";
 
 const sessions = new Map();
 
@@ -65,6 +67,34 @@ function normalizeRecipientDigits(value) {
   if (digits.startsWith("55")) return digits;
   if (digits.length === 10 || digits.length === 11) return `55${digits}`;
   return digits;
+}
+
+async function hasPersistedSession(accountId) {
+  try {
+    await access(`${sessionsDir}/${accountId}/creds.json`);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function persistedSessionAccountIds() {
+  try {
+    const entries = await readdir(sessionsDir, { withFileTypes: true });
+    const accountIds = [];
+
+    for (const entry of entries) {
+      if (!entry.isDirectory()) continue;
+      if (await hasPersistedSession(entry.name)) accountIds.push(entry.name);
+    }
+
+    return accountIds;
+  } catch (err) {
+    if (err?.code !== "ENOENT") {
+      logger.warn({ err, sessionsDir }, "Erro ao listar sessões persistidas do WhatsApp.");
+    }
+    return [];
+  }
 }
 
 function messageTypeNames(message) {
@@ -375,6 +405,28 @@ async function disconnectSession(accountId) {
   return sessionSnapshot(accountId);
 }
 
+async function restorePersistedSessions() {
+  if (!autoRestoreSessions) {
+    logger.info("Restauração automática de sessões WhatsApp desativada.");
+    return;
+  }
+
+  const accountIds = await persistedSessionAccountIds();
+  if (accountIds.length === 0) {
+    logger.info({ sessionsDir }, "Nenhuma sessão WhatsApp persistida encontrada para restaurar.");
+    return;
+  }
+
+  logger.info({ count: accountIds.length, accountIds }, "Restaurando sessões WhatsApp persistidas.");
+  accountIds.forEach((accountId, index) => {
+    setTimeout(() => {
+      startSession(accountId).catch((err) => {
+        logger.warn({ err, accountId }, "Erro ao restaurar sessão WhatsApp persistida.");
+      });
+    }, index * 1000);
+  });
+}
+
 const app = express();
 app.use(express.json({ limit: "1mb" }));
 
@@ -393,8 +445,27 @@ app.post("/accounts/:accountId/connect", async (request, response) => {
   }
 });
 
-app.get("/accounts/:accountId/status", (request, response) => {
-  response.json(sessionSnapshot(request.params.accountId));
+app.get("/accounts/:accountId/status", async (request, response) => {
+  const { accountId } = request.params;
+  const current = sessions.get(accountId);
+
+  if (!current && await hasPersistedSession(accountId)) {
+    logger.info({ accountId }, "Sessão persistida encontrada durante consulta de status; iniciando restauração.");
+    startSession(accountId).catch((err) => {
+      logger.warn({ err, accountId }, "Erro ao restaurar sessão durante consulta de status.");
+    });
+    response.json({
+      accountId,
+      status: "connecting",
+      qrCodePayload: null,
+      phone: null,
+      displayName: null,
+      error: null,
+    });
+    return;
+  }
+
+  response.json(sessionSnapshot(accountId));
 });
 
 app.post("/accounts/:accountId/disconnect", async (request, response) => {
@@ -455,4 +526,7 @@ app.post("/messages", async (request, response) => {
 
 app.listen(port, () => {
   logger.info({ port }, "WhatsApp QR worker iniciado.");
+  restorePersistedSessions().catch((err) => {
+    logger.warn({ err }, "Erro ao restaurar sessões WhatsApp no boot.");
+  });
 });
