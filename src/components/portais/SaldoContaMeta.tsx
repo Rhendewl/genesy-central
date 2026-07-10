@@ -257,7 +257,7 @@ function AccountCard({ bal, index }: { bal: PortalAccountBalance; index: number 
                 style={{
                   background: "var(--shimmer-base)",
                   border: "1px solid var(--glass-border)",
-                  color: "rgba(255,255,255,0.55)",
+                  color: "var(--icon)",
                 }}
               >
                 <CreditCard size={10} strokeWidth={1.8} />

@@ -27,7 +27,7 @@ const RANK_STYLES: Record<number, { bg: string; color: string }> = {
 };
 
 function getRankStyle(rank: number) {
-  return RANK_STYLES[rank] ?? { bg: "rgba(255,255,255,0.10)", color: "rgba(255,255,255,0.75)" };
+  return RANK_STYLES[rank] ?? { bg: "var(--hover)", color: "var(--text-title)" };
 }
 
 // ── Mini metric card ──────────────────────────────────────────────────────────
@@ -44,7 +44,7 @@ function MetricCard({ icon: Icon, label, value, accent }: MetricCardProps) {
     <div
       className="flex flex-col gap-1 rounded-[14px] px-3 py-2.5"
       style={{
-        background: "rgba(0,0,0,0.45)",
+        background: "var(--shimmer-base)",
         border: "1px solid var(--border-color)",
         backdropFilter: "blur(8px)",
         WebkitBackdropFilter: "blur(8px)",
@@ -159,7 +159,7 @@ function CreativeCard({ creative, index }: { creative: PortalCreative; index: nu
           <div
             className="w-full h-full flex items-end px-3 pb-3"
             style={{
-              background: "linear-gradient(145deg,rgba(20,20,28,1) 0%,rgba(14,14,22,1) 100%)",
+              background: "linear-gradient(145deg, var(--shimmer-base) 0%, var(--shimmer-light) 100%)",
             }}
           >
             <span
@@ -245,7 +245,7 @@ function CreativeCard({ creative, index }: { creative: PortalCreative; index: nu
           {creative.campaign_name !== creative.creative_name && (
             <p
               className="text-[11px] truncate mt-0.5"
-              style={{ color: "rgba(255,255,255,0.32)" }}
+              style={{ color: "var(--text-muted)" }}
               title={creative.campaign_name}
             >
               {creative.campaign_name}
@@ -296,8 +296,8 @@ function EmptyCreatives() {
         border: "1px solid var(--border-color)",
       }}
     >
-      <ImageOff size={22} className="mx-auto mb-3" style={{ color: "rgba(255,255,255,0.12)" }} strokeWidth={1.3} />
-      <p className="text-sm" style={{ color: "rgba(255,255,255,0.28)" }}>
+      <ImageOff size={22} className="mx-auto mb-3" style={{ color: "var(--text-empty)" }} strokeWidth={1.3} />
+      <p className="text-sm" style={{ color: "var(--text-muted)" }}>
         Nenhum criativo com dados no período.
       </p>
     </div>

@@ -10,7 +10,7 @@ import {
 import {
   Download, ChevronDown, Filter, TrendingUp, Users,
   DollarSign, Eye, MousePointer, BarChart2, Loader2, AlertTriangle,
-  CalendarDays, Check,
+  CalendarDays, Check, Sun, Moon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format, startOfMonth, endOfMonth, subDays, subMonths } from "date-fns";
@@ -18,6 +18,7 @@ import { ptBR } from "date-fns/locale";
 import type { PortalPublicData, PortalCampaignSummary } from "@/types";
 import { MelhoresCreativos } from "@/components/portais/MelhoresCreativos";
 import { SaldoContaMeta } from "@/components/portais/SaldoContaMeta";
+import { useGlobalStore } from "@/store";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -181,11 +182,31 @@ function FilterSelect({
   );
 }
 
+// ── Theme toggle ──────────────────────────────────────────────────────────────
+
+function ThemeToggleButton() {
+  const theme = useGlobalStore(s => s.theme);
+  const toggleTheme = useGlobalStore(s => s.toggleTheme);
+  const isDark = theme === "dark";
+
+  return (
+    <button
+      onClick={toggleTheme}
+      aria-label={isDark ? "Mudar para tema claro" : "Mudar para tema escuro"}
+      title={isDark ? "Tema claro" : "Tema escuro"}
+      className="lc-filter-control flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-xl shrink-0 transition-colors"
+    >
+      {isDark ? <Sun size={15} /> : <Moon size={15} />}
+    </button>
+  );
+}
+
 // ── Main dashboard ────────────────────────────────────────────────────────────
 
 interface Props { slug: string }
 
 export function PortalPublicDashboard({ slug }: Props) {
+  const theme = useGlobalStore(s => s.theme);
   const [data, setData] = useState<PortalPublicData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -304,18 +325,20 @@ export function PortalPublicDashboard({ slug }: Props) {
       className="min-h-screen"
       style={{ backgroundColor: "var(--background)" }}
     >
-      {/* Background exato do portal */}
-      <div
-        className="fixed inset-0 pointer-events-none"
-        style={{
-          backgroundImage: "url('/bg-portal.webp')",
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-          backgroundRepeat: "no-repeat",
-          opacity: 0.5,
-          zIndex: 0,
-        }}
-      />
+      {/* Background exato do portal — textura escura, só faz sentido no tema dark */}
+      {theme === "dark" && (
+        <div
+          className="fixed inset-0 pointer-events-none"
+          style={{
+            backgroundImage: "url('/bg-portal.webp')",
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+            backgroundRepeat: "no-repeat",
+            opacity: 0.5,
+            zIndex: 0,
+          }}
+        />
+      )}
 
       {/* ── Header ────────────────────────────────────────────────────── */}
       <header
@@ -335,7 +358,7 @@ export function PortalPublicDashboard({ slug }: Props) {
               src="/genesy-logoname.svg"
               alt="Genesy"
               className="h-5 sm:h-6 w-auto shrink-0"
-              style={{ filter: "brightness(0) invert(1)" }}
+              style={{ filter: theme === "dark" ? "brightness(0) invert(1)" : "brightness(0)" }}
             />
             {!loading && (
               <>
@@ -347,6 +370,8 @@ export function PortalPublicDashboard({ slug }: Props) {
             )}
             {loading && <div className="h-4 w-28 rounded-lg bg-[var(--shimmer-base)] animate-pulse" />}
           </div>
+
+          <ThemeToggleButton />
 
           {/* PDF button hidden temporarily */}
         </div>
