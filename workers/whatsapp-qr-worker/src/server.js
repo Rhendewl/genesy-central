@@ -14,6 +14,7 @@ const dashboardSecret = process.env.CONVERSATIONS_WORKER_SECRET || process.env.C
 const sessionsDir = process.env.WHATSAPP_SESSIONS_DIR || "sessions";
 const logger = pino({ level: process.env.LOG_LEVEL || "info" });
 const maxHistoryMessages = Number(process.env.WHATSAPP_HISTORY_SYNC_LIMIT || 50);
+const dashboardWebhookTimeoutMs = Number(process.env.DASHBOARD_WEBHOOK_TIMEOUT_MS || 15000);
 
 const sessions = new Map();
 
@@ -66,13 +67,20 @@ function normalizeRecipientDigits(value) {
   return digits;
 }
 
+function messageTypeNames(message) {
+  if (!message) return [];
+  return Object.keys(message).filter((key) => key !== "messageContextInfo");
+}
+
 function extractMessageText(message) {
   if (!message) return "";
   const nestedMessage =
     message.ephemeralMessage?.message ||
     message.viewOnceMessage?.message ||
     message.viewOnceMessageV2?.message ||
-    message.documentWithCaptionMessage?.message;
+    message.documentWithCaptionMessage?.message ||
+    message.protocolMessage?.editedMessage ||
+    message.deviceSentMessage?.message;
 
   if (nestedMessage) return extractMessageText(nestedMessage);
 
@@ -88,6 +96,7 @@ function extractMessageText(message) {
     message.listResponseMessage?.singleSelectReply?.selectedRowId ||
     message.templateButtonReplyMessage?.selectedDisplayText ||
     message.templateButtonReplyMessage?.selectedId ||
+    message.interactiveResponseMessage?.body?.text ||
     ""
   ).trim();
 }
@@ -145,10 +154,34 @@ async function notifyInboundMessage(accountId, message) {
   }
 
   const remoteJid = message.key?.remoteJid;
-  if (!remoteJid || remoteJid.endsWith("@g.us") || message.key?.fromMe) return;
+  const messageMeta = {
+    accountId,
+    providerMessageId: message.key?.id || null,
+    remoteJid,
+    fromMe: Boolean(message.key?.fromMe),
+    messageTypes: messageTypeNames(message.message),
+  };
+
+  if (!remoteJid) {
+    logger.info(messageMeta, "Mensagem do WhatsApp ignorada: origem ausente.");
+    return;
+  }
+
+  if (remoteJid.endsWith("@g.us") || remoteJid.endsWith("@broadcast") || remoteJid === "status@broadcast") {
+    logger.info(messageMeta, "Mensagem do WhatsApp ignorada: conversa de grupo/status/broadcast.");
+    return;
+  }
+
+  if (message.key?.fromMe) {
+    logger.info(messageMeta, "Mensagem do WhatsApp ignorada: enviada pela própria conta.");
+    return;
+  }
 
   const body = extractMessageText(message.message);
-  if (!body) return;
+  if (!body) {
+    logger.info(messageMeta, "Mensagem do WhatsApp ignorada: nenhum texto extraível.");
+    return;
+  }
 
   const payload = {
     whatsapp_account_id: accountId,
@@ -163,15 +196,35 @@ async function notifyInboundMessage(accountId, message) {
     "/api/conversas/webhook/message",
   ];
 
+  logger.info(
+    { ...messageMeta, from: payload.from, bodyLength: body.length },
+    "Encaminhando mensagem recebida ao dashboard.",
+  );
+
   for (const endpoint of endpoints) {
-    const response = await fetch(`${dashboardUrl}${endpoint}`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Conversations-Secret": dashboardSecret,
-      },
-      body: JSON.stringify(payload),
-    });
+    let response;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), dashboardWebhookTimeoutMs);
+
+    try {
+      response = await fetch(`${dashboardUrl}${endpoint}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Conversations-Secret": dashboardSecret,
+        },
+        body: JSON.stringify(payload),
+        signal: controller.signal,
+      });
+    } catch (err) {
+      logger.warn(
+        { ...messageMeta, endpoint, err },
+        "Falha de transporte ao encaminhar mensagem recebida.",
+      );
+      continue;
+    } finally {
+      clearTimeout(timeout);
+    }
 
     if (response.ok) {
       logger.info(
