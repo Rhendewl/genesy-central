@@ -11,7 +11,7 @@ import {
   DollarSign, Users, TrendingDown, Target,
   Eye, MousePointer2, Megaphone, Radio,
   Activity, ChevronDown, TrendingUp, AlertTriangle,
-  Zap, ArrowRight,
+  Zap,
 } from "lucide-react";
 import { subDays, format } from "date-fns";
 import { useTrafegoMetrics } from "@/hooks/useTrafegoMetrics";
@@ -412,8 +412,8 @@ function FunnelStep({
             animate={{ width: `${step.fillPct}%` }}
             transition={{ duration: 0.75, delay: 0.45 + index * 0.09, ease: [0.22, 1, 0.36, 1] }}
             style={{
-              background: "linear-gradient(90deg, #26292e 0%, #b0b8c1 100%)",
-              borderRight: `1px solid ${step.color}35`,
+              background: "linear-gradient(90deg, #e6ebef 0%, #cfd5dc 100%)",
+              borderRight: "1px solid rgba(176,184,193,0.55)",
             }}
           />
           {/* Subtle glow on hover */}
@@ -650,10 +650,8 @@ const STATUS_META: Record<string, { label: string; color: string; bg: string }> 
 
 function TopCampanhas({
   campanhas,
-  onVerTodas,
 }: {
   campanhas: { id: string; nome: string; status: string; spend: number; leads: number; cpl: number; ctr: number }[];
-  onVerTodas?: () => void;
 }) {
   return (
     <motion.div
@@ -669,13 +667,6 @@ function TopCampanhas({
             Por leads gerados no período
           </p>
         </div>
-        {onVerTodas && (
-          <button onClick={onVerTodas}
-            className="flex items-center gap-1 text-[11px] font-medium transition-colors hover:text-[var(--text-title)]"
-            style={{ color: "#4a8fd4" }}>
-            Ver todas <ArrowRight size={10} />
-          </button>
-        )}
       </div>
 
       {campanhas.length === 0 ? (
@@ -1012,10 +1003,9 @@ interface Props {
   platformAccountId?: string | null;
   year: number;
   month: number;
-  onNavigateToCampanhas?: () => void;
 }
 
-export function DashboardTrafego({ year, month, platformAccountId, onNavigateToCampanhas }: Props) {
+export function DashboardTrafego({ year, month, platformAccountId }: Props) {
   const [period, setPeriod] = useState<PeriodKey>("30d");
   const [heroPeriod, setHeroPeriod] = useState<PeriodKey>("30d");
 
@@ -1125,10 +1115,7 @@ export function DashboardTrafego({ year, month, platformAccountId, onNavigateToC
       {/* ── Row 3: Funil + Top Campanhas ────────────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <FunnelBlock year={year} month={month} platformAccountId={platformAccountId} />
-        <TopCampanhas
-          campanhas={data.top_campanhas}
-          onVerTodas={onNavigateToCampanhas}
-        />
+        <TopCampanhas campanhas={data.top_campanhas} />
       </div>
 
       {/* ── Row 4: Insights ─────────────────────────────────────────────── */}

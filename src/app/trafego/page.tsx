@@ -4,24 +4,22 @@ import { useState, useMemo, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  LayoutDashboard, Megaphone,
+  LayoutDashboard,
   ChevronLeft, ChevronRight, Plug, Globe,
 } from "lucide-react";
 import { Header } from "@/components/layout/Header";
 import { ModuleAccessGate } from "@/components/layout/ModuleAccessGate";
 import { DashboardTrafego } from "@/components/trafego/DashboardTrafego";
-import { GestaoCampanhas } from "@/components/trafego/GestaoCampanhas";
 import { IntegracoesTab } from "@/components/trafego/IntegracoesTab";
 import { PortaisList } from "@/components/portais/PortaisList";
 import { AccountSelector } from "@/components/trafego/AccountSelector";
 import { useMetaIntegrations } from "@/hooks/useMetaIntegrations";
 import { cn } from "@/lib/utils";
 
-type TabId = "dashboard" | "campanhas" | "portais" | "integracoes";
+type TabId = "dashboard" | "portais" | "integracoes";
 
 const TABS: { id: TabId; label: string; icon: React.ReactNode; shortLabel?: string }[] = [
   { id: "dashboard",   label: "Dashboard",   icon: <LayoutDashboard size={15} /> },
-  { id: "campanhas",   label: "Campanhas",   icon: <Megaphone size={15} /> },
   { id: "portais",     label: "Portais",     icon: <Globe size={15} /> },
   { id: "integracoes", label: "Integrações", icon: <Plug size={15} />, shortLabel: "APIs" },
 ];
@@ -40,7 +38,6 @@ function TrafegoPageInner() {
     const tab = searchParams.get("tab");
     if (tab === "integracoes" || searchParams.get("meta_pending") || searchParams.get("meta_error")) return "integracoes";
     if (tab === "portais") return "portais";
-    if (tab === "campanhas") return "campanhas";
     return "dashboard";
   })();
 
@@ -201,8 +198,7 @@ function TrafegoPageInner() {
           transition={{ duration: 0.2 }}
           className="pb-8"
         >
-          {activeTab === "dashboard"   && <DashboardTrafego year={year} month={month} platformAccountId={selectedAccountId} onNavigateToCampanhas={() => setActiveTab("campanhas")} />}
-          {activeTab === "campanhas"   && <GestaoCampanhas  year={year} month={month} platformAccountId={selectedAccountId} />}
+          {activeTab === "dashboard"   && <DashboardTrafego year={year} month={month} platformAccountId={selectedAccountId} />}
           {activeTab === "portais"     && <PortaisList />}
           {activeTab === "integracoes" && <IntegracoesTab />}
         </motion.div>
