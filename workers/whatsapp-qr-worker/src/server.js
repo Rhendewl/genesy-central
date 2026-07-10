@@ -432,9 +432,15 @@ async function startSession(accountId) {
 
 async function disconnectSession(accountId) {
   const session = sessions.get(accountId);
-  if (session?.sock) {
-    await session.sock.logout().catch(() => undefined);
-    await session.sock.end(undefined).catch(() => undefined);
+  // Captura a referência uma única vez: sock.logout() dispara o evento
+  // "connection.update" (close) de forma assíncrona, que zera session.sock
+  // enquanto ainda estamos aqui dentro — reler session.sock na linha
+  // seguinte podia pegar null e quebrar com "Cannot read properties of
+  // null (reading 'end')".
+  const sock = session?.sock;
+  if (sock) {
+    await sock.logout().catch(() => undefined);
+    await sock.end(undefined).catch(() => undefined);
   }
 
   sessions.set(accountId, {
