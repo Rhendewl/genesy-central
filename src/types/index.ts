@@ -916,6 +916,7 @@ export type FormStepType =
   | "multiple_choice"
   | "single_choice"
   | "rating"
+  | "nps_scale"
   | "date"
   | "file_upload"
   | "statement"

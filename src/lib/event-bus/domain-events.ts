@@ -32,7 +32,9 @@ export type DomainEventType =
   // pela seção 12 do pedido original, ainda não implementadas)
   | "task.assigned"
   | "task.status_changed"
-  | "task.completed";
+  | "task.completed"
+  // Clientes module — NPS
+  | "nps.response_received";
 
 export interface LeadCreatedPayload {
   leadId:     string;
@@ -189,3 +191,14 @@ export interface TaskStatusChangedPayload {
 // mesmo formato de payload, tratado como evento próprio para que o consumer
 // escolha a preferência certa (notify_on_completion vs. notify_on_status_change).
 export type TaskCompletedPayload = TaskStatusChangedPayload;
+
+// ── Clientes module — NPS ──────────────────────────────────────────────────────
+
+export interface NpsResponseReceivedPayload {
+  userId:         string;
+  clientId:       string;
+  clientName:     string;
+  score:          number;
+  referenceMonth: string;
+  comment:        string | null;
+}

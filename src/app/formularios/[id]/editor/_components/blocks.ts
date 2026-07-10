@@ -3,6 +3,7 @@ import type { FormStep, FormStepType } from "@/types";
 import {
   Type, AlignLeft, Mail, Phone, Hash, Calendar, CalendarClock,
   CheckSquare, List, Star, FileText, ArrowRight, Upload, User,
+  Gauge,
   LucideProps,
 } from "lucide-react";
 
@@ -104,6 +105,14 @@ export const BLOCK_DEFINITIONS: BlockDefinition[] = [
     color: "#f59e0b",
   },
   {
+    type: "nps_scale",
+    label: "Escala NPS (0-10)",
+    description: "Pergunta de recomendação com pontuação de NPS",
+    icon: Gauge,
+    category: "special",
+    color: "#22c55e",
+  },
+  {
     type: "file_upload",
     label: "Upload de Arquivo",
     description: "Envio de documento ou imagem",
@@ -200,6 +209,7 @@ function getDefaultTitle(type: FormStepType): string {
     multiple_choice: "Selecione as opções",
     single_choice:   "Escolha uma opção",
     rating:          "Como você nos avalia?",
+    nps_scale:       "De 0 a 10, o quanto você recomendaria a gente para um amigo ou colega?",
     date:            "Qual é a data?",
     file_upload:     "Envie um arquivo",
     statement:       "Informação importante",

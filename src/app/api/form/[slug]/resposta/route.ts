@@ -3,6 +3,7 @@ import { createAdminSupabaseClient } from "@/lib/supabase-admin";
 import { LeadService } from "@/lib/crm/lead-service";
 import { LeadScoreEngine } from "@/lib/crm/lead-score-engine";
 import { extractContactFromAnswers } from "@/lib/forms/extract-contact";
+import { getPlatformEventBus } from "@/lib/event-bus/platform";
 import type { FormStep } from "@/types";
 
 type Params = { params: Promise<{ slug: string }> };
@@ -132,6 +133,10 @@ export async function POST(req: NextRequest, { params }: Params) {
   // sem esperar a conclusão. Se a pessoa completar depois, o mesmo lead é
   // atualizado em vez de duplicado — ver createCrmLead().
   void createCrmLead(supabase, session.form_id, session.user_id, body.answers, submissionId);
+
+  // ── Auto-lançar nota de NPS — só em respostas concluídas (nota parcial não
+  // existe) — quando houver uma integração "nps" ativa para este formulário.
+  void syncNpsResponse(supabase, session.form_id, session.user_id, body.answers, isCompleted);
 
   return NextResponse.json(
     { submission_id: submissionId },
@@ -330,5 +335,91 @@ async function createCrmLead(
     }
   } catch (err) {
     console.error("[resposta/crm] Falha ao criar lead:", err);
+  }
+}
+
+interface NpsIntegrationSettings {
+  client_id?:          string;
+  client_name?:        string;
+  nps_step_id?:        string;
+  notify_on_response?: boolean;
+}
+
+async function syncNpsResponse(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  formId:      string,
+  userId:      string,
+  answers:     Record<string, unknown>,
+  isCompleted: boolean,
+): Promise<void> {
+  // Nota de NPS só existe em resposta concluída — parcial não tem a
+  // pergunta de escala necessariamente respondida ainda.
+  if (!isCompleted) return;
+
+  try {
+    const { data: integration } = await supabase
+      .from("form_integrations")
+      .select("settings, enabled")
+      .eq("form_id", formId)
+      .eq("adapter", "nps")
+      .maybeSingle();
+
+    if (!integration?.enabled) return;
+
+    const settings = (integration.settings ?? {}) as NpsIntegrationSettings;
+    if (!settings.client_id || !settings.nps_step_id) return;
+
+    const rawScore = answers[settings.nps_step_id];
+    const score = typeof rawScore === "number" ? rawScore : Number(rawScore);
+    if (!Number.isFinite(score) || score < 0 || score > 10) return;
+
+    // Junta as demais respostas de texto do formulário como comentário —
+    // mesma ideia de "junta o resto das respostas" usada em createCrmLead.
+    const { data: formData } = await supabase
+      .from("forms")
+      .select("steps")
+      .eq("id", formId)
+      .single();
+
+    const steps = (formData?.steps ?? []) as FormStep[];
+    const commentLines: string[] = [];
+    for (const step of steps) {
+      if (step.id === settings.nps_step_id) continue;
+      const answer = answers[step.id];
+      if (answer === undefined || answer === null || answer === "") continue;
+      commentLines.push(Array.isArray(answer) ? answer.join(", ") : String(answer));
+    }
+    const comment = commentLines.length ? commentLines.join("\n") : null;
+    const referenceMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
+
+    const { error: upsertError } = await supabase
+      .from("nps_records")
+      .upsert({
+        user_id:         userId,
+        client_id:       settings.client_id,
+        reference_month: referenceMonth,
+        score:            Math.round(score),
+        comment,
+        channel:         "formulario",
+      }, { onConflict: "user_id,client_id,reference_month" });
+
+    if (upsertError) {
+      console.error("[resposta/nps] Falha ao salvar registro de NPS:", upsertError.message);
+      return;
+    }
+
+    if (settings.notify_on_response) {
+      await getPlatformEventBus().publish("nps.response_received", {
+        userId,
+        clientId:       settings.client_id,
+        clientName:     settings.client_name ?? "",
+        score:          Math.round(score),
+        referenceMonth,
+        comment,
+      });
+    }
+  } catch (err) {
+    console.error("[resposta/nps] Falha ao processar resposta de NPS:", err);
   }
 }

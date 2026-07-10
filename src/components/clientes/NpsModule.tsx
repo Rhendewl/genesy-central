@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   AreaChart, Area, BarChart, Bar,
@@ -10,7 +10,7 @@ import {
   Plus, X, Star, TrendingUp, TrendingDown, Users,
   MessageSquare, CheckCircle, AlertTriangle, Zap, Info,
   ChevronUp, ChevronDown, Minus, Search, Edit2, Trash2,
-  ThumbsUp, ThumbsDown,
+  ThumbsUp, ThumbsDown, Link2, Copy, Check, ExternalLink,
 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -37,7 +37,7 @@ const CHANNEL_LABELS: Record<NpsChannel, string> = {
 
 const INSIGHT_CFG: Record<NpsInsight["type"], { icon: React.ReactNode; border: string; bg: string; color: string }> = {
   positive: { icon: <CheckCircle size={14} />, border: "border-emerald-500/25", bg: "bg-emerald-500/8", color: "text-emerald-400" },
-  warning:  { icon: <AlertTriangle size={14} />, border: "border-amber-500/25", bg: "bg-amber-500/8", color: "text-amber-400" },
+  warning:  { icon: <AlertTriangle size={14} />, border: "border-[color-mix(in_srgb,var(--nps-warning)_25%,transparent)]", bg: "bg-[color-mix(in_srgb,var(--nps-warning)_8%,transparent)]", color: "text-[var(--nps-warning)]" },
   critical: { icon: <Zap size={14} />, border: "border-red-500/25", bg: "bg-red-500/8", color: "text-red-400" },
   neutral:  { icon: <Info size={14} />, border: "border-[color-mix(in_srgb,var(--text-title)_10%,transparent)]", bg: "bg-[color-mix(in_srgb,var(--text-title)_5%,transparent)]", color: "text-[var(--silver)]" },
 };
@@ -48,7 +48,7 @@ function ScoreBadge({ score }: { score: number }) {
   const cls = classifyNps(score);
   const config = {
     promotor:  { text: "text-emerald-400 bg-emerald-400/12 border-emerald-400/25" },
-    neutro:    { text: "text-amber-400 bg-amber-400/12 border-amber-400/25" },
+    neutro:    { text: "text-[var(--nps-warning)] bg-[color-mix(in_srgb,var(--nps-warning)_12%,transparent)] border-[color-mix(in_srgb,var(--nps-warning)_25%,transparent)]" },
     detrator:  { text: "text-red-400 bg-red-400/12 border-red-400/25" },
   };
   return (
@@ -65,7 +65,7 @@ function ClassificationBadge({ cls }: { cls: "promotor" | "neutro" | "detrator" 
   if (!cls) return <span className="text-[var(--text-muted)] text-xs">—</span>;
   const cfg = {
     promotor: "text-emerald-400 bg-emerald-400/10 border-emerald-400/20",
-    neutro:   "text-amber-400 bg-amber-400/10 border-amber-400/20",
+    neutro:   "text-[var(--nps-warning)] bg-[color-mix(in_srgb,var(--nps-warning)_10%,transparent)] border-[color-mix(in_srgb,var(--nps-warning)_20%,transparent)]",
     detrator: "text-red-400 bg-red-400/10 border-red-400/20",
   };
   const labels = { promotor: "Promotor", neutro: "Neutro", detrator: "Detrator" };
@@ -227,7 +227,7 @@ function NpsModal({ clients, record, defaultMonth, onClose, onSave, onDelete }: 
               <span className={cn(
                 "ml-2 text-sm font-bold",
                 cls === "promotor" ? "text-emerald-400" :
-                cls === "neutro"   ? "text-amber-400" : "text-red-400"
+                cls === "neutro"   ? "text-[var(--nps-warning)]" : "text-red-400"
               )}>
                 {scoreValue} — {cls === "promotor" ? "Promotor" : cls === "neutro" ? "Neutro" : "Detrator"}
               </span>
@@ -247,7 +247,7 @@ function NpsModal({ clients, record, defaultMonth, onClose, onSave, onDelete }: 
                         ? c === "promotor"
                           ? "bg-emerald-400/20 border-emerald-400/50 text-emerald-400"
                           : c === "neutro"
-                          ? "bg-amber-400/20 border-amber-400/50 text-amber-400"
+                          ? "bg-[color-mix(in_srgb,var(--nps-warning)_20%,transparent)] border-[color-mix(in_srgb,var(--nps-warning)_50%,transparent)] text-[var(--nps-warning)]"
                           : "bg-red-400/20 border-red-400/50 text-red-400"
                         : "bg-[color-mix(in_srgb,var(--text-title)_5%,transparent)] border-[color-mix(in_srgb,var(--text-title)_10%,transparent)] text-[var(--silver)] hover:bg-[var(--hover)] hover:text-[var(--text-title)]"
                     )}
@@ -260,7 +260,7 @@ function NpsModal({ clients, record, defaultMonth, onClose, onSave, onDelete }: 
             <div className="flex justify-between text-[10px] text-[var(--text-muted)] mt-1.5">
               <span>0 — Pior</span>
               <span className="text-red-400/70">Detratores</span>
-              <span className="text-amber-400/70">Neutros</span>
+              <span className="text-[color-mix(in_srgb,var(--nps-warning)_70%,transparent)]">Neutros</span>
               <span className="text-emerald-400/70">Promotores</span>
               <span>10 — Melhor</span>
             </div>
@@ -318,6 +318,175 @@ function NpsModal({ clients, record, defaultMonth, onClose, onSave, onDelete }: 
   );
 }
 
+// ── Formulário de NPS (link público) ──────────────────────────────────────────
+
+interface NpsFormState {
+  integrationId:    string;
+  formId:           string;
+  slug:             string;
+  name:             string;
+  status:           string;
+  notifyOnResponse: boolean;
+}
+
+function NpsFormModal({ client, onClose }: { client: AgencyClient; onClose: () => void }) {
+  useModalOpen(true);
+
+  const [npsForm, setNpsForm]   = useState<NpsFormState | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isCreating, setIsCreating] = useState(false);
+  const [isToggling, setIsToggling] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      setIsLoading(true);
+      try {
+        const res = await fetch(`/api/clientes/${client.id}/nps-form`);
+        const json = await res.json().catch(() => ({}));
+        if (active) setNpsForm(json.npsForm ?? null);
+      } finally {
+        if (active) setIsLoading(false);
+      }
+    })();
+    return () => { active = false; };
+  }, [client.id]);
+
+  async function handleCreate() {
+    setIsCreating(true);
+    try {
+      const res = await fetch(`/api/clientes/${client.id}/nps-form`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ notify_on_response: true }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(json.error ?? "Erro ao criar formulário de NPS");
+        return;
+      }
+      // POST não retorna o integrationId — refetch garante estado consistente.
+      const refetch = await fetch(`/api/clientes/${client.id}/nps-form`);
+      const refetchJson = await refetch.json().catch(() => ({}));
+      setNpsForm(refetchJson.npsForm ?? null);
+      toast.success("Formulário de NPS criado!");
+    } finally {
+      setIsCreating(false);
+    }
+  }
+
+  async function handleToggleNotify(next: boolean) {
+    if (!npsForm) return;
+    setIsToggling(true);
+    const previous = npsForm.notifyOnResponse;
+    setNpsForm({ ...npsForm, notifyOnResponse: next });
+    try {
+      const res = await fetch(`/api/clientes/${client.id}/nps-form`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ notify_on_response: next }),
+      });
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        toast.error(json.error ?? "Erro ao atualizar notificação");
+        setNpsForm((prev) => prev ? { ...prev, notifyOnResponse: previous } : prev);
+      }
+    } finally {
+      setIsToggling(false);
+    }
+  }
+
+  const publicUrl = npsForm && typeof window !== "undefined"
+    ? `${window.location.origin}/form/${npsForm.slug}`
+    : "";
+
+  function handleCopy() {
+    if (!publicUrl) return;
+    navigator.clipboard.writeText(publicUrl).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    });
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.95 }}
+        className="relative w-full max-w-md rounded-2xl shadow-2xl p-6"
+        style={{ background: "var(--bg-modal)", border: "1px solid var(--border-modal)", backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)" }}
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between mb-5">
+          <div>
+            <h2 className="text-lg font-bold text-[var(--text-title)]">Formulário de NPS</h2>
+            <p className="text-xs text-[var(--text-muted)] mt-0.5">{client.name}</p>
+          </div>
+          <button onClick={onClose} className="text-[var(--silver)] hover:text-[var(--text-title)] transition-colors p-1">
+            <X size={20} />
+          </button>
+        </div>
+
+        {isLoading ? (
+          <div className="py-8 text-center text-sm text-[var(--text-muted)]">Carregando...</div>
+        ) : npsForm ? (
+          <div className="space-y-4">
+            <div>
+              <label className="block text-xs text-[var(--silver)] mb-1.5 font-medium">Link público</label>
+              <div className="flex items-center gap-2 rounded-xl px-3 py-2.5" style={{ background: "color-mix(in srgb, var(--text-title) 8%, transparent)" }}>
+                <span className="flex-1 truncate text-xs font-mono text-[var(--text-title)]">{publicUrl}</span>
+                <button
+                  onClick={handleCopy}
+                  className="flex items-center gap-1 text-xs font-medium text-[#4a8fd4] hover:text-[#6ba7e0] transition-colors shrink-0"
+                >
+                  {copied ? <Check size={13} /> : <Copy size={13} />}
+                  {copied ? "Copiado" : "Copiar"}
+                </button>
+              </div>
+              <p className="mt-1.5 text-[11px] text-[var(--text-muted)]">
+                Envie este link para o cliente responder. As respostas entram automaticamente aqui na aba NPS.
+              </p>
+            </div>
+
+            <label className="flex items-center justify-between gap-3 rounded-xl px-3 py-2.5 cursor-pointer" style={{ background: "color-mix(in srgb, var(--text-title) 8%, transparent)" }}>
+              <span className="text-sm text-[var(--text-title)]">Notificar quando o cliente responder</span>
+              <input
+                type="checkbox"
+                checked={npsForm.notifyOnResponse}
+                disabled={isToggling}
+                onChange={e => void handleToggleNotify(e.target.checked)}
+                className="h-4 w-4 accent-[#4a8fd4]"
+              />
+            </label>
+
+            <a
+              href={`/formularios/${npsForm.formId}/editor`}
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-xs font-medium text-[var(--text-title)] hover:bg-[var(--hover)] transition-colors"
+              style={{ border: "1px solid var(--border)" }}
+            >
+              Editar perguntas <ExternalLink size={12} />
+            </a>
+          </div>
+        ) : (
+          <div className="py-2 text-center space-y-4">
+            <p className="text-sm text-[var(--text-muted)]">
+              Este cliente ainda não tem um formulário de NPS. Crie um para gerar o link público de resposta.
+            </p>
+            <PrimaryButton onClick={() => void handleCreate()} disabled={isCreating}>
+              {isCreating ? "Criando..." : "Criar formulário de NPS"}
+            </PrimaryButton>
+          </div>
+        )}
+      </motion.div>
+    </div>
+  );
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 
 interface Props { year: number; month: number }
@@ -325,6 +494,7 @@ interface Props { year: number; month: number }
 export function NpsModule({ year, month }: Props) {
   const { records, clients, isLoading, metrics, createRecord, updateRecord, deleteRecord } = useNps(year, month);
   const [modal, setModal] = useState<{ open: boolean; record?: NpsRecord }>({ open: false });
+  const [npsFormClient, setNpsFormClient] = useState<AgencyClient | null>(null);
   const [search, setSearch] = useState("");
 
   const defaultMonth = `${year}-${String(month).padStart(2, "0")}`;
@@ -365,7 +535,7 @@ export function NpsModule({ year, month }: Props) {
   }
 
   return (
-    <div className="space-y-5">
+    <div className="nps-module space-y-5">
 
       {/* ── 1. KPI Grid ─────────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -393,7 +563,7 @@ export function NpsModule({ year, month }: Props) {
             </p>
             <div className="flex gap-3 mt-2">
               <span className="text-xs text-emerald-400">{metrics.pctPromoters.toFixed(0)}% Promotores</span>
-              <span className="text-xs text-amber-400">{metrics.pctNeutrals.toFixed(0)}% Neutros</span>
+              <span className="text-xs text-[var(--nps-warning)]">{metrics.pctNeutrals.toFixed(0)}% Neutros</span>
               <span className="text-xs text-red-400">{metrics.pctDetractors.toFixed(0)}% Detratores</span>
             </div>
           </div>
@@ -401,7 +571,7 @@ export function NpsModule({ year, month }: Props) {
 
         {[
           { label: "Promotores", value: `${metrics.pctPromoters.toFixed(0)}%`, sub: `${metrics.periodRecords.filter(r => classifyNps(r.score) === "promotor").length} clientes`, color: "#10b981", icon: <ThumbsUp size={16} /> },
-          { label: "Neutros", value: `${metrics.pctNeutrals.toFixed(0)}%`, sub: `${metrics.periodRecords.filter(r => classifyNps(r.score) === "neutro").length} clientes`, color: "#f59e0b", icon: <Minus size={16} /> },
+          { label: "Neutros", value: `${metrics.pctNeutrals.toFixed(0)}%`, sub: `${metrics.periodRecords.filter(r => classifyNps(r.score) === "neutro").length} clientes`, color: "var(--nps-warning)", icon: <Minus size={16} /> },
           { label: "Detratores", value: `${metrics.pctDetractors.toFixed(0)}%`, sub: `${metrics.periodRecords.filter(r => classifyNps(r.score) === "detrator").length} clientes`, color: "#ef4444", icon: <ThumbsDown size={16} /> },
           { label: "Respondidos", value: String(metrics.respondedCount), sub: `${metrics.notRespondedCount} sem resposta`, color: "#4a8fd4", icon: <CheckCircle size={16} /> },
           {
@@ -427,7 +597,11 @@ export function NpsModule({ year, month }: Props) {
             className="lc-card p-4 flex items-center gap-3"
           >
             <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0"
-              style={{ background: `${card.color}22`, border: `1px solid ${card.color}44`, color: card.color }}>
+              style={{
+                background: `color-mix(in srgb, ${card.color} 13%, transparent)`,
+                border: `1px solid color-mix(in srgb, ${card.color} 27%, transparent)`,
+                color: card.color,
+              }}>
               {card.icon}
             </div>
             <div className="min-w-0">
@@ -546,7 +720,7 @@ export function NpsModule({ year, month }: Props) {
                 formatter={(v) => <span style={{ color: "var(--silver)" }}>{v}</span>}
               />
               <Bar dataKey="promotores" name="Promotores %" fill="#10b981" stackId="a" radius={[0, 0, 0, 0]} />
-              <Bar dataKey="neutros"    name="Neutros %"    fill="#f59e0b" stackId="a" />
+              <Bar dataKey="neutros"    name="Neutros %"    fill="var(--nps-warning)" stackId="a" />
               <Bar dataKey="detratores" name="Detratores %" fill="#ef4444" stackId="a" radius={[3, 3, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
@@ -651,8 +825,16 @@ export function NpsModule({ year, month }: Props) {
                           <button
                             onClick={() => setModal({ open: true, record: lastRecord })}
                             className="p-1.5 rounded-lg text-[var(--silver)] hover:text-[var(--text-title)] hover:bg-[var(--hover)] transition-colors"
+                            title={lastRecord ? "Editar NPS" : "Registrar NPS"}
                           >
                             {lastRecord ? <Edit2 size={13} /> : <Plus size={13} />}
+                          </button>
+                          <button
+                            onClick={() => setNpsFormClient(cs.client)}
+                            className="p-1.5 rounded-lg text-[var(--silver)] hover:text-[var(--text-title)] hover:bg-[var(--hover)] transition-colors"
+                            title="Formulário de NPS (link público)"
+                          >
+                            <Link2 size={13} />
                           </button>
                         </div>
                       </td>
@@ -683,7 +865,7 @@ export function NpsModule({ year, month }: Props) {
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {metrics.periodRecords.map((rec, i) => {
               const cls = classifyNps(rec.score);
-              const clsColor = cls === "promotor" ? "#10b981" : cls === "neutro" ? "#f59e0b" : "#ef4444";
+              const clsColor = cls === "promotor" ? "#10b981" : cls === "neutro" ? "var(--nps-warning)" : "#ef4444";
               return (
                 <motion.div
                   key={rec.id}
@@ -691,7 +873,10 @@ export function NpsModule({ year, month }: Props) {
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ delay: i * 0.04 }}
                   className="rounded-xl p-4"
-                  style={{ background: `${clsColor}0a`, border: `1px solid ${clsColor}25` }}
+                  style={{
+                    background: `color-mix(in srgb, ${clsColor} 4%, transparent)`,
+                    border: `1px solid color-mix(in srgb, ${clsColor} 15%, transparent)`,
+                  }}
                 >
                   <div className="flex items-start justify-between gap-2 mb-2">
                     <div>
@@ -731,6 +916,15 @@ export function NpsModule({ year, month }: Props) {
             onClose={() => setModal({ open: false })}
             onSave={handleSave}
             onDelete={modal.record ? handleDelete : undefined}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {npsFormClient && (
+          <NpsFormModal
+            client={npsFormClient}
+            onClose={() => setNpsFormClient(null)}
           />
         )}
       </AnimatePresence>

@@ -14,7 +14,7 @@ import type { SubmissionListItem } from "@/lib/respostas/types";
 
 const ANSWER_TYPES = new Set([
   "short_text", "long_text", "email", "phone", "number",
-  "multiple_choice", "single_choice", "rating", "date", "file_upload",
+  "multiple_choice", "single_choice", "rating", "nps_scale", "date", "file_upload",
 ]);
 
 export default function FormularioRespostasPage() {

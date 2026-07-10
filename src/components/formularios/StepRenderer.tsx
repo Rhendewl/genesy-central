@@ -85,6 +85,12 @@ export function validateStep(step: FormStep, value: unknown): string | null {
       if (!value || (value as number) === 0) return "Por favor, dê uma avaliação";
       return null;
 
+    // Diferente de "rating": 0 é uma nota válida em NPS (detrator), então não
+    // dá pra usar "!value" aqui — precisa checar undefined/null explicitamente.
+    case "nps_scale":
+      if (value === undefined || value === null || value === "") return "Selecione uma nota de 0 a 10";
+      return null;
+
     case "file_upload":
       return "Faça upload de um arquivo";
 
@@ -427,6 +433,57 @@ export function StepRenderer({
         );
       }
 
+      case "nps_scale": {
+        const cur = value as number | undefined;
+        const scoreColor = (n: number) => (n <= 6 ? "#ef4444" : n <= 8 ? "#f59e0b" : "#22c55e");
+        return (
+          <div>
+            <div
+              className="flex flex-wrap gap-2"
+              role="group"
+              aria-label="Nota de 0 a 10"
+              aria-required={step.required}
+            >
+              {Array.from({ length: 11 }, (_, n) => n).map((n) => {
+                const selected = cur === n;
+                return (
+                  <motion.button
+                    key={n}
+                    type="button"
+                    onClick={() => {
+                      handleChange(n);
+                      if (autoAdvanceTimer.current !== null) clearTimeout(autoAdvanceTimer.current);
+                      autoAdvanceTimer.current = setTimeout(() => {
+                        autoAdvanceTimer.current = null;
+                        setError(null);
+                        onNextRef.current?.();
+                      }, 400);
+                    }}
+                    whileHover={{ scale: 1.1 }}
+                    whileTap={{ scale: 0.92 }}
+                    aria-label={`Nota ${n}`}
+                    aria-pressed={selected}
+                    className="flex h-11 w-11 items-center justify-center rounded-xl text-sm font-bold transition-colors focus-visible:outline focus-visible:outline-2"
+                    style={{
+                      background: selected ? scoreColor(n) : cardBg,
+                      color: selected ? "#ffffff" : textColor,
+                      border: `1px solid ${selected ? scoreColor(n) : borderC}`,
+                      outlineColor: primary,
+                    }}
+                  >
+                    {n}
+                  </motion.button>
+                );
+              })}
+            </div>
+            <div className="mt-2 flex justify-between text-xs" style={{ color: muted }}>
+              <span>Pouco provável</span>
+              <span>Muito provável</span>
+            </div>
+          </div>
+        );
+      }
+
       case "statement":
         return step.content ? (
           <p className="text-base leading-relaxed" style={{ color: muted }}>
@@ -507,7 +564,7 @@ export function StepRenderer({
     }
   }
 
-  const showNextBtn = step.type !== "redirect" && step.type !== "single_choice" && step.type !== "rating" && step.type !== "calendar";
+  const showNextBtn = step.type !== "redirect" && step.type !== "single_choice" && step.type !== "rating" && step.type !== "nps_scale" && step.type !== "calendar";
   const showBackBtn = false;
   const btnLabel =
     step.type === "statement"   ? "Continuar" :

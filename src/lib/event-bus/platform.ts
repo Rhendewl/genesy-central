@@ -10,6 +10,7 @@ import { createCrmStageNotificationConsumer } from "@/lib/event-bus/crm/consumer
 import { createTaskNotificationConsumer }     from "@/lib/event-bus/workspace/consumers/task-notification";
 import { createWorkflowJobCanceller }         from "@/lib/event-bus/workflow/canceller";
 import { createWorkflowTriggerConsumer }      from "@/lib/event-bus/workflow/consumer";
+import { createNpsResponseNotificationConsumer } from "@/lib/event-bus/clientes/consumers/nps-notification";
 import { createAdminSupabaseClient }          from "@/lib/supabase-admin";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -55,6 +56,9 @@ export function getPlatformEventBus(): EventBus<DomainEventType> {
   // eventualmente agendar novos para o mesmo lead (ordem importa).
   _bus.subscribe(createWorkflowJobCanceller(db));
   _bus.subscribe(createWorkflowTriggerConsumer(db));
+
+  // Clientes: push notification on nps.response_received
+  _bus.subscribe(createNpsResponseNotificationConsumer(db));
 
   return _bus;
 }
