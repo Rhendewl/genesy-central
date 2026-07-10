@@ -41,6 +41,11 @@ export async function POST(request: NextRequest) {
   const name = typeof body?.name === "string" ? body.name.trim() : "";
   const providerMessageId = typeof body?.provider_message_id === "string" ? body.provider_message_id : null;
   const receivedAt = typeof body?.received_at === "string" ? body.received_at : new Date().toISOString();
+  // true quando a mensagem foi enviada pelo próprio WhatsApp do usuário
+  // (celular/app oficial), não pelo nosso chat — ainda registra a mensagem
+  // na conversa, mas como outbound/manual e sem disparar automação de fluxo
+  // (automação reage a mensagem do lead, não à resposta manual do agente).
+  const fromMe = body?.from_me === true;
 
   if (!whatsappAccountId || !from || !text) {
     return NextResponse.json({ error: "whatsapp_account_id, from e body são obrigatórios." }, { status: 400 });
@@ -125,9 +130,10 @@ export async function POST(request: NextRequest) {
         status: "open",
         last_message_preview: text,
         last_message_at: receivedAt,
-        last_inbound_at: receivedAt,
+        last_inbound_at: fromMe ? null : receivedAt,
+        last_outbound_at: fromMe ? receivedAt : null,
         unread_count: 0,
-        needs_response: true,
+        needs_response: !fromMe,
       })
       .select("*")
       .single<ThreadRow>();
@@ -148,12 +154,13 @@ export async function POST(request: NextRequest) {
       contact_id: contact.id,
       owner_profile_id: thread.owner_profile_id,
       lead_id: thread.lead_id,
-      direction: "inbound",
+      direction: fromMe ? "outbound" : "inbound",
       source: "manual",
       body: text,
-      status: "received",
+      status: fromMe ? "sent" : "received",
       provider_message_id: providerMessageId,
-      received_at: receivedAt,
+      received_at: fromMe ? null : receivedAt,
+      sent_at: fromMe ? receivedAt : null,
     })
     .select("*")
     .single<ConversationMessage>();
@@ -168,14 +175,27 @@ export async function POST(request: NextRequest) {
       whatsapp_account_id: account.id,
       last_message_preview: text,
       last_message_at: receivedAt,
-      last_inbound_at: receivedAt,
-      unread_count: (thread.unread_count ?? 0) + 1,
-      needs_response: true,
+      ...(fromMe
+        ? { last_outbound_at: receivedAt, needs_response: false }
+        : { last_inbound_at: receivedAt, unread_count: (thread.unread_count ?? 0) + 1, needs_response: true }),
     })
     .eq("id", thread.id);
 
   if (threadUpdateError) {
     return NextResponse.json({ error: threadUpdateError.message }, { status: 500 });
+  }
+
+  // Mensagem enviada manualmente pelo próprio WhatsApp do usuário — só
+  // registra na conversa, não dispara automação (fluxos reagem a mensagem
+  // do lead, não à resposta que o agente já deu por fora do sistema).
+  if (fromMe) {
+    return NextResponse.json({
+      received: true,
+      contact,
+      thread_id: thread.id,
+      message,
+      queued_jobs: 0,
+    });
   }
 
   const trigger = await enqueueConversationTrigger(db, {

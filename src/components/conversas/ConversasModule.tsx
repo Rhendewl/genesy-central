@@ -201,12 +201,30 @@ function MessageBubble({ message }: { message: ConversationMessage }) {
 }
 
 function ConversasInbox() {
-  const { accounts, inbox, messages, metrics, isLoading, isMutating, sendMessage, createConversation } = useDashboard();
+  const { accounts, inbox, messages, metrics, isLoading, isMutating, sendMessage, createConversation, deleteConversation } = useDashboard();
   const [selectedId, setSelectedId] = useState(inbox[0]?.thread.id ?? "");
   const [search, setSearch] = useState("");
   const [draft, setDraft] = useState("");
   const [showNewConversation, setShowNewConversation] = useState(false);
+  const [confirmDeleteContact, setConfirmDeleteContact] = useState(false);
   const selected = inbox.find((item) => item.thread.id === selectedId) ?? inbox[0];
+
+  useEffect(() => {
+    setConfirmDeleteContact(false);
+  }, [selectedId]);
+
+  async function handleDeleteConversation() {
+    if (!selected) return;
+    if (!confirmDeleteContact) {
+      setConfirmDeleteContact(true);
+      return;
+    }
+    const ok = await deleteConversation(selected.contact.id);
+    if (ok) {
+      setConfirmDeleteContact(false);
+      setSelectedId("");
+    }
+  }
   const visibleInbox = inbox.filter((item) => {
     const q = search.toLowerCase().trim();
     if (!q) return true;
@@ -362,6 +380,26 @@ function ConversasInbox() {
                 <InfoRow icon={UserRound} label="Responsável" value={selected.ownerName} />
               </div>
               <CrmContextPanel item={selected} />
+
+              <div className="space-y-2 rounded-2xl p-4" style={{ background: "rgba(239,68,68,0.06)", border: "1px solid rgba(239,68,68,0.18)" }}>
+                <p className="text-xs font-semibold" style={{ color: "#ef4444" }}>Zona de risco</p>
+                <p className="text-xs leading-relaxed" style={{ color: "var(--muted-foreground)" }}>
+                  Apaga o contato, a conversa e todo o histórico de mensagens. Não pode ser desfeito — a próxima mensagem desse número cria um contato novo do zero.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => void handleDeleteConversation()}
+                  disabled={isMutating}
+                  className="flex w-full items-center justify-center gap-1.5 rounded-full px-3 py-2 text-xs font-semibold transition-colors disabled:opacity-50"
+                  style={{
+                    background: confirmDeleteContact ? "#ef4444" : "rgba(239,68,68,0.12)",
+                    color: confirmDeleteContact ? "#ffffff" : "#ef4444",
+                  }}
+                >
+                  <Trash2 size={13} />
+                  {confirmDeleteContact ? "Confirmar exclusão" : "Excluir conversa"}
+                </button>
+              </div>
             </div>
           )}
         </div>
@@ -1695,7 +1733,13 @@ function FlowInspector({
     setConditionValue(typeof node.config?.value === "string" ? node.config.value : "");
     setPipelineId(typeof node.config?.pipeline_id === "string" ? node.config.pipeline_id : "");
     setStageId(typeof node.config?.stage_id === "string" ? node.config.stage_id : "");
-  }, [node]);
+    // Depende só do id, não do objeto node inteiro: o dashboard faz polling
+    // silencioso a cada poucos segundos e recria os objetos de node a cada
+    // fetch (mesmo sem mudança real) — se o efeito disparasse a cada
+    // referência nova, o formulário resetava o que o usuário estava digitando
+    // no meio da edição. Só deve resincronizar ao trocar de node selecionado.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [node?.id]);
 
   if (!flow) {
     return <EmptyState icon={GitBranch} title="Sem fluxo" description="Crie ou selecione um fluxo para editar." compact />;

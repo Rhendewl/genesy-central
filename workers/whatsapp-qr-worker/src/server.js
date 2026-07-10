@@ -236,11 +236,6 @@ async function notifyInboundMessage(accountId, message) {
     return;
   }
 
-  if (message.key?.fromMe) {
-    logger.info(messageMeta, "Mensagem do WhatsApp ignorada: enviada pela própria conta.");
-    return;
-  }
-
   const body = extractMessageText(message.message);
   if (!body) {
     logger.info(messageMeta, "Mensagem do WhatsApp ignorada: nenhum texto extraível.");
@@ -262,6 +257,11 @@ async function notifyInboundMessage(accountId, message) {
     name: message.pushName || "",
     provider_message_id: message.key?.id || null,
     received_at: messageTimestampToIso(message.messageTimestamp),
+    // true quando a mensagem foi enviada pelo próprio WhatsApp do usuário
+    // (celular/app oficial), não pelo dashboard — antes disso era descartada
+    // e a conversa só mostrava o que o lead enviava, nunca as respostas dadas
+    // fora do nosso sistema.
+    from_me: Boolean(message.key?.fromMe),
   };
   const endpoints = [
     "/api/conversas/webhook/whatsapp-message",
@@ -313,18 +313,22 @@ async function notifyInboundMessage(accountId, message) {
 }
 
 async function notifyHistoryMessages(accountId, messages) {
-  const inboundMessages = (messages || [])
+  // Não filtra mais fromMe — mensagens enviadas pelo próprio WhatsApp do
+  // usuário também entram na sincronização de histórico, junto com as
+  // recebidas (notifyInboundMessage agora trata os dois casos via
+  // payload.from_me).
+  const syncableMessages = (messages || [])
     .filter((message) => {
       const remoteJid = message.key?.remoteJid;
-      return remoteJid && !remoteJid.endsWith("@g.us") && !message.key?.fromMe && extractMessageText(message.message);
+      return remoteJid && !remoteJid.endsWith("@g.us") && extractMessageText(message.message);
     })
     .sort((a, b) => Number(a.messageTimestamp || 0) - Number(b.messageTimestamp || 0))
     .slice(-Math.max(0, maxHistoryMessages));
 
-  if (inboundMessages.length === 0) return;
+  if (syncableMessages.length === 0) return;
 
-  logger.info({ accountId, count: inboundMessages.length }, "Sincronizando mensagens recentes do histórico.");
-  for (const message of inboundMessages) {
+  logger.info({ accountId, count: syncableMessages.length }, "Sincronizando mensagens recentes do histórico.");
+  for (const message of syncableMessages) {
     await notifyInboundMessage(accountId, message).catch((err) => {
       logger.warn({ err, accountId }, "Erro ao sincronizar mensagem do histórico.");
     });

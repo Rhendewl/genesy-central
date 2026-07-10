@@ -61,6 +61,7 @@ export interface UseConversationsDashboardReturn {
   addContactToCrm: (input: { contactId: string; pipelineId: string }) => Promise<boolean>;
   moveContactLeadStage: (leadId: string, stageId: string) => Promise<boolean>;
   addLeadNote: (leadId: string, note: string) => Promise<boolean>;
+  deleteConversation: (contactId: string) => Promise<boolean>;
   createFlow: (input: {
     name: string;
     description?: string;
@@ -670,6 +671,30 @@ export function useConversationsDashboard(): UseConversationsDashboardReturn {
     }
   }, [inbox, fetchData]);
 
+  // Apaga o contato — conversation_threads e conversation_messages têm
+  // ON DELETE CASCADE em contact_id, então a conversa inteira e o histórico
+  // de mensagens somem junto. Útil quando o telefone gravado do contato está
+  // corrompido (ex.: WhatsApp usando @lid): a próxima mensagem desse número
+  // recria o contato do zero, já com os dados corretos.
+  const deleteConversation = useCallback(async (contactId: string) => {
+    if (!contactId) return false;
+
+    setIsMutating(true);
+    try {
+      const response = await fetch(`/api/conversas/contacts/${contactId}`, { method: "DELETE" });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload?.error ?? "Erro ao excluir conversa");
+
+      await fetchData({ silent: true });
+      return true;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro ao excluir conversa");
+      return false;
+    } finally {
+      setIsMutating(false);
+    }
+  }, [fetchData]);
+
   const createFlow = useCallback(async (input: {
     name: string;
     description?: string;
@@ -961,6 +986,7 @@ export function useConversationsDashboard(): UseConversationsDashboardReturn {
     addContactToCrm,
     moveContactLeadStage,
     addLeadNote,
+    deleteConversation,
     createFlow,
     updateFlowStatus,
     deleteFlow,
@@ -991,6 +1017,7 @@ export function useConversationsDashboard(): UseConversationsDashboardReturn {
     addContactToCrm,
     moveContactLeadStage,
     addLeadNote,
+    deleteConversation,
     createFlow,
     updateFlowStatus,
     deleteFlow,
