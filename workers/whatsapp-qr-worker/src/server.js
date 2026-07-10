@@ -15,6 +15,7 @@ const dashboardSecret = process.env.CONVERSATIONS_WORKER_SECRET || process.env.C
 const sessionsDir = process.env.WHATSAPP_SESSIONS_DIR || "sessions";
 const logger = pino({ level: process.env.LOG_LEVEL || "info" });
 const maxHistoryMessages = Number(process.env.WHATSAPP_HISTORY_SYNC_LIMIT || 50);
+const maxSentMessageCacheSize = Number(process.env.WHATSAPP_SENT_CACHE_LIMIT || 500);
 const dashboardWebhookTimeoutMs = Number(process.env.DASHBOARD_WEBHOOK_TIMEOUT_MS || 15000);
 const autoRestoreSessions = process.env.WHATSAPP_AUTO_RESTORE_SESSIONS !== "false";
 
@@ -147,6 +148,20 @@ function extractMessageText(message) {
     message.interactiveResponseMessage?.body?.text ||
     ""
   ).trim();
+}
+
+// WhatsApp pede reenvio de uma mensagem quando o destinatário não consegue
+// decriptá-la (aparece como "Aguardando mensagem" no celular de quem recebe).
+// Baileys só consegue atender esse pedido se `getMessage` puder devolver o
+// conteúdo original — por isso cada sessão guarda um cache das últimas
+// mensagens enviadas, indexado pelo id.
+function rememberSentMessage(session, id, content) {
+  if (!session?.sentMessages || !id) return;
+  session.sentMessages.set(id, content);
+  if (session.sentMessages.size > maxSentMessageCacheSize) {
+    const oldestKey = session.sentMessages.keys().next().value;
+    session.sentMessages.delete(oldestKey);
+  }
 }
 
 function messageTimestampToIso(timestamp) {
@@ -332,6 +347,7 @@ async function startSession(accountId) {
     phone: null,
     displayName: null,
     error: null,
+    sentMessages: new Map(),
   };
 
   sessions.set(accountId, session);
@@ -345,6 +361,7 @@ async function startSession(accountId) {
     logger: logger.child({ accountId }),
     printQRInTerminal: false,
     browser: ["Genesy", "Chrome", "1.0.0"],
+    getMessage: async (key) => session.sentMessages.get(key.id),
   });
 
   session.sock = sock;
@@ -540,6 +557,7 @@ app.post("/messages", async (request, response) => {
         : { text: caption };
     logger.info({ accountId, to: digits, jid }, "Enviando mensagem WhatsApp.");
     const result = await session.sock.sendMessage(jid, message);
+    rememberSentMessage(session, result?.key?.id, message);
     logger.info({ accountId, jid, providerMessageId: result?.key?.id || null }, "Mensagem enviada pelo WhatsApp.");
     response.json({
       ok: true,

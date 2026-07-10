@@ -153,11 +153,22 @@ export interface ConversationFlow {
   logs?: ConversationFlowLog[];
 }
 
+export interface ConversationLeadSummary {
+  id: string;
+  name: string;
+  notes: string | null;
+  pipeline_id: string | null;
+  stage_id: string | null;
+  iq_score: number | null;
+  ie_score: number | null;
+}
+
 export interface ConversationInboxItem {
   thread: ConversationThread;
   contact: ConversationContact;
   account: Pick<ConversationWhatsAppAccount, "id" | "session_name" | "status" | "phone"> | null;
   ownerName: string;
+  lead: ConversationLeadSummary | null;
 }
 
 export interface ConversationMetrics {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   AlertTriangle,
@@ -10,7 +10,6 @@ import {
   CalendarCheck,
   ChevronDown,
   CheckCircle2,
-  Clock3,
   Copy,
   Filter,
   FileText,
@@ -34,7 +33,7 @@ import {
   WifiOff,
   X,
 } from "lucide-react";
-import { useConversationsDashboard } from "@/hooks/useConversationsDashboard";
+import { useConversationsDashboard, type UseConversationsDashboardReturn } from "@/hooks/useConversationsDashboard";
 import type {
   ConversationFlow,
   ConversationFlowEdge,
@@ -44,6 +43,18 @@ import type {
   ConversationMessage,
   ConversationWhatsAppAccount,
 } from "@/types/conversations";
+
+// Único ponto que chama useConversationsDashboard(). As abas consomem essa
+// mesma instância via useDashboard() abaixo — evita refetch completo (contas,
+// mensagens, fluxos, forms/calendars/pipelines) toda vez que o usuário troca
+// de aba, já que cada aba é remontada (key={activeTab} no ConversasModule).
+const ConversationsDashboardContext = createContext<UseConversationsDashboardReturn | null>(null);
+
+function useDashboard(): UseConversationsDashboardReturn {
+  const ctx = useContext(ConversationsDashboardContext);
+  if (!ctx) throw new Error("useDashboard deve ser usado dentro de ConversasModule.");
+  return ctx;
+}
 
 type TabId = "conversas" | "contas" | "fluxos";
 
@@ -190,7 +201,7 @@ function MessageBubble({ message }: { message: ConversationMessage }) {
 }
 
 function ConversasInbox() {
-  const { accounts, inbox, messages, metrics, isLoading, isMutating, sendMessage, createConversation } = useConversationsDashboard();
+  const { accounts, inbox, messages, metrics, isLoading, isMutating, sendMessage, createConversation } = useDashboard();
   const [selectedId, setSelectedId] = useState(inbox[0]?.thread.id ?? "");
   const [search, setSearch] = useState("");
   const [draft, setDraft] = useState("");
@@ -228,7 +239,7 @@ function ConversasInbox() {
 
   return (
     <div className="space-y-4">
-      <div className="grid min-h-[680px] grid-cols-1 gap-4 xl:grid-cols-[360px_minmax(0,1fr)_320px]">
+      <div className="grid min-h-[680px] grid-cols-1 gap-4 xl:h-[680px] xl:grid-cols-[360px_minmax(0,1fr)_320px]">
         <div className="lc-card flex min-h-0 flex-col overflow-hidden" style={{ background: "var(--glass-bg-soft)" }}>
           <div className="border-b p-4" style={{ borderColor: "var(--glass-border)" }}>
             <div className="flex items-center justify-between">
@@ -333,10 +344,10 @@ function ConversasInbox() {
           )}
         </div>
 
-        <div className="lc-card p-5" style={{ background: "var(--glass-bg-soft)" }}>
+        <div className="lc-card flex min-h-0 flex-col overflow-hidden p-5" style={{ background: "var(--glass-bg-soft)" }}>
           <h2 className="text-sm font-semibold" style={{ color: "var(--text-title)" }}>Dados do contato</h2>
           {selected && (
-            <div className="mt-5 space-y-4">
+            <div className="mt-5 min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
               <div className="flex items-center gap-3">
                 <div className="flex h-14 w-14 items-center justify-center rounded-full text-sm font-bold" style={{ background: "var(--primary)", color: "#ffffff" }}>
                   {initials(selected.contact.name)}
@@ -349,15 +360,8 @@ function ConversasInbox() {
               <div className="space-y-2 text-sm">
                 <InfoRow icon={Phone} label="Telefone" value={selected.contact.phone} />
                 <InfoRow icon={UserRound} label="Responsável" value={selected.ownerName} />
-                <InfoRow icon={Smartphone} label="Conta" value={selected.account?.session_name ?? "Sem conta"} />
-                <InfoRow icon={Clock3} label="Última mensagem" value={formatTime(selected.thread.last_message_at)} />
               </div>
-              <div className="rounded-2xl p-4" style={{ background: "var(--hover)", border: "1px solid var(--glass-border)" }}>
-                <p className="text-xs font-semibold" style={{ color: "var(--text-title)" }}>Contexto CRM</p>
-                <p className="mt-1 text-xs leading-relaxed" style={{ color: "var(--muted-foreground)" }}>
-                  Vinculação preparada para lead, pipeline, etapa, IQ/IE e responsável.
-                </p>
-              </div>
+              <CrmContextPanel item={selected} />
             </div>
           )}
         </div>
@@ -494,8 +498,129 @@ function InfoRow({ icon: Icon, label, value }: { icon: React.ElementType; label:
   );
 }
 
+function CrmContextPanel({ item }: { item: ConversationInboxItem }) {
+  const { resources, isMutating, addContactToCrm, moveContactLeadStage, addLeadNote } = useDashboard();
+  const [pipelineId, setPipelineId] = useState("");
+  const [noteDraft, setNoteDraft] = useState("");
+
+  useEffect(() => {
+    setPipelineId("");
+    setNoteDraft("");
+  }, [item.contact.id, item.lead?.id]);
+
+  async function handleAddToCrm() {
+    if (!pipelineId) return;
+    const ok = await addContactToCrm({ contactId: item.contact.id, pipelineId });
+    if (ok) setPipelineId("");
+  }
+
+  async function handleMoveStage(nextStageId: string) {
+    if (!item.lead || !nextStageId || nextStageId === item.lead.stage_id) return;
+    await moveContactLeadStage(item.lead.id, nextStageId);
+  }
+
+  async function handleAddNote() {
+    if (!item.lead || !noteDraft.trim()) return;
+    const ok = await addLeadNote(item.lead.id, noteDraft);
+    if (ok) setNoteDraft("");
+  }
+
+  const selectStyle = {
+    background: "var(--card)",
+    border: "1px solid var(--glass-border)",
+    color: "var(--text-title)",
+  };
+
+  if (!item.lead) {
+    return (
+      <div className="space-y-3 rounded-2xl p-4" style={{ background: "var(--hover)", border: "1px solid var(--glass-border)" }}>
+        <p className="text-xs font-semibold" style={{ color: "var(--text-title)" }}>Contexto CRM</p>
+        <p className="text-xs leading-relaxed" style={{ color: "var(--muted-foreground)" }}>
+          Este contato ainda não está vinculado a um lead no CRM.
+        </p>
+        <select
+          value={pipelineId}
+          onChange={(event) => setPipelineId(event.target.value)}
+          className="w-full rounded-xl px-3 py-2 text-xs"
+          style={selectStyle}
+        >
+          <option value="">Selecione o pipeline</option>
+          {resources.pipelines.map((pipeline) => (
+            <option key={pipeline.id} value={pipeline.id}>{pipeline.name}</option>
+          ))}
+        </select>
+        <button
+          type="button"
+          onClick={() => void handleAddToCrm()}
+          disabled={!pipelineId || isMutating}
+          className="w-full rounded-full px-3 py-2 text-xs font-semibold disabled:opacity-50"
+          style={{ background: "var(--primary)", color: "#ffffff" }}
+        >
+          Adicionar ao CRM
+        </button>
+      </div>
+    );
+  }
+
+  const pipeline = resources.pipelines.find((candidate) => candidate.id === item.lead?.pipeline_id);
+  const stage = pipeline?.crm_stages?.find((candidate) => candidate.id === item.lead?.stage_id);
+
+  return (
+    <div className="space-y-3">
+      <div className="space-y-2 rounded-2xl p-4" style={{ background: "var(--hover)", border: "1px solid var(--glass-border)" }}>
+        <p className="text-xs font-semibold" style={{ color: "var(--text-title)" }}>Contexto CRM</p>
+        <InfoRow icon={GitBranch} label="Pipeline" value={pipeline?.name ?? "—"} />
+        <InfoRow icon={ArrowRight} label="Etapa" value={stage?.name ?? "—"} />
+        <div className="pt-1">
+          <label className="text-[11px] font-medium" style={{ color: "var(--muted-foreground)" }}>Mover de etapa</label>
+          <select
+            value={item.lead.stage_id ?? ""}
+            onChange={(event) => void handleMoveStage(event.target.value)}
+            disabled={isMutating || !pipeline}
+            className="mt-1 w-full rounded-xl px-3 py-2 text-xs disabled:opacity-50"
+            style={selectStyle}
+          >
+            {(pipeline?.crm_stages ?? []).map((candidate) => (
+              <option key={candidate.id} value={candidate.id}>{candidate.name}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      <div className="space-y-2 rounded-2xl p-4" style={{ background: "var(--hover)", border: "1px solid var(--glass-border)" }}>
+        <p className="text-xs font-semibold" style={{ color: "var(--text-title)" }}>Observações</p>
+        {item.lead.notes && (
+          <div
+            className="max-h-32 overflow-y-auto whitespace-pre-line rounded-xl p-2 text-[11px] leading-relaxed"
+            style={{ background: "var(--card)", color: "var(--muted-foreground)" }}
+          >
+            {item.lead.notes}
+          </div>
+        )}
+        <textarea
+          value={noteDraft}
+          onChange={(event) => setNoteDraft(event.target.value)}
+          placeholder="Adicionar observação (aparece também no card do lead no CRM)"
+          rows={2}
+          className="w-full resize-none rounded-xl px-3 py-2 text-xs outline-none"
+          style={selectStyle}
+        />
+        <button
+          type="button"
+          onClick={() => void handleAddNote()}
+          disabled={!noteDraft.trim() || isMutating}
+          className="w-full rounded-full px-3 py-2 text-xs font-semibold disabled:opacity-50"
+          style={{ background: "var(--primary)", color: "#ffffff" }}
+        >
+          Adicionar observação
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function AccountsTab() {
-  const { accounts, createAccount, startConnection, refreshConnectionStatus, disconnectAccount, deleteAccount, isMutating } = useConversationsDashboard();
+  const { accounts, createAccount, startConnection, refreshConnectionStatus, disconnectAccount, deleteAccount, isMutating } = useDashboard();
   const [qrAccount, setQrAccount] = useState<ConversationWhatsAppAccount | null>(null);
   const [showHistory, setShowHistory] = useState(false);
   const primaryAccount = accounts.find((account) => account.status === "connected")
@@ -916,7 +1041,7 @@ function formatDateTime(date: string | null) {
 }
 
 function FlowsTab() {
-  const { inbox, flows, metrics, resources, isLoading, isMutating, error, createFlow, updateFlowStatus, deleteFlow, testFlow, addFlowNode, updateFlowNode, deleteFlowNode, createFlowEdge, deleteFlowEdge } = useConversationsDashboard();
+  const { inbox, flows, metrics, resources, isLoading, isMutating, error, createFlow, updateFlowStatus, deleteFlow, testFlow, addFlowNode, updateFlowNode, deleteFlowNode, createFlowEdge, deleteFlowEdge } = useDashboard();
   const [selectedId, setSelectedId] = useState(flows[0]?.id ?? "");
   const [selectedNodeId, setSelectedNodeId] = useState("");
   const [showNewFlow, setShowNewFlow] = useState(false);
@@ -2299,42 +2424,45 @@ function EmptyState({ icon: Icon, title, description, compact = false }: {
 
 export function ConversasModule() {
   const [activeTab, setActiveTab] = useState<TabId>("conversas");
-  const { metrics } = useConversationsDashboard();
+  const dashboard = useConversationsDashboard();
+  const { metrics } = dashboard;
 
   return (
-    <div className="space-y-5">
-      <TabBar active={activeTab} onChange={setActiveTab} />
+    <ConversationsDashboardContext.Provider value={dashboard}>
+      <div className="space-y-5">
+        <TabBar active={activeTab} onChange={setActiveTab} />
 
-      <motion.div
-        key={activeTab}
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.24, ease: "easeOut" }}
-      >
-        {activeTab === "conversas" && <ConversasInbox />}
-        {activeTab === "contas" && <AccountsTab />}
-        {activeTab === "fluxos" && <FlowsTab />}
-      </motion.div>
+        <motion.div
+          key={activeTab}
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.24, ease: "easeOut" }}
+        >
+          {activeTab === "conversas" && <ConversasInbox />}
+          {activeTab === "contas" && <AccountsTab />}
+          {activeTab === "fluxos" && <FlowsTab />}
+        </motion.div>
 
-      {activeTab !== "fluxos" && (
-        <>
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-            <MetricCard label="Mensagens enviadas" value={String(metrics.sent)} hint="Manual + automações" accent="#38bdf8" />
-            <MetricCard label="Mensagens recebidas" value={String(metrics.received)} hint="Entradas no WhatsApp" accent="#34d399" />
-            <MetricCard label="Falhas" value={String(metrics.failures)} hint="Envios ou jobs com erro" accent="#ef4444" />
-          </div>
-
-          <div className="lc-card flex items-start gap-3 p-4" style={{ background: "var(--glass-bg-soft)" }}>
-            <AlertTriangle size={18} style={{ color: "#d97706" }} />
-            <div>
-              <p className="text-sm font-semibold" style={{ color: "var(--text-title)" }}>MVP interno via QR Code</p>
-              <p className="mt-1 text-xs leading-relaxed" style={{ color: "var(--muted-foreground)" }}>
-                A interface e o schema já estão preparados para WhatsApp Web via worker persistente. A Cloud API oficial fica isolada para um provider futuro.
-              </p>
+        {activeTab !== "fluxos" && (
+          <>
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+              <MetricCard label="Mensagens enviadas" value={String(metrics.sent)} hint="Manual + automações" accent="#38bdf8" />
+              <MetricCard label="Mensagens recebidas" value={String(metrics.received)} hint="Entradas no WhatsApp" accent="#34d399" />
+              <MetricCard label="Falhas" value={String(metrics.failures)} hint="Envios ou jobs com erro" accent="#ef4444" />
             </div>
-          </div>
-        </>
-      )}
-    </div>
+
+            <div className="lc-card flex items-start gap-3 p-4" style={{ background: "var(--glass-bg-soft)" }}>
+              <AlertTriangle size={18} style={{ color: "#d97706" }} />
+              <div>
+                <p className="text-sm font-semibold" style={{ color: "var(--text-title)" }}>MVP interno via QR Code</p>
+                <p className="mt-1 text-xs leading-relaxed" style={{ color: "var(--muted-foreground)" }}>
+                  A interface e o schema já estão preparados para WhatsApp Web via worker persistente. A Cloud API oficial fica isolada para um provider futuro.
+                </p>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+    </ConversationsDashboardContext.Provider>
   );
 }

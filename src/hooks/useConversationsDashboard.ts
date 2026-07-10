@@ -11,6 +11,7 @@ import type {
   ConversationFlowNode,
   ConversationFlowRun,
   ConversationInboxItem,
+  ConversationLeadSummary,
   ConversationMessage,
   ConversationMetrics,
   ConversationThread,
@@ -57,6 +58,9 @@ export interface UseConversationsDashboardReturn {
     phone: string;
     whatsappAccountId?: string | null;
   }) => Promise<ConversationThread | null>;
+  addContactToCrm: (input: { contactId: string; pipelineId: string }) => Promise<boolean>;
+  moveContactLeadStage: (leadId: string, stageId: string) => Promise<boolean>;
+  addLeadNote: (leadId: string, note: string) => Promise<boolean>;
   createFlow: (input: {
     name: string;
     description?: string;
@@ -226,8 +230,9 @@ export function useConversationsDashboard(): UseConversationsDashboardReturn {
       const flowRows = (flowsRes.data ?? []) as ConversationFlow[];
       const threadIds = threads.map((thread) => thread.id);
       const flowIds = flowRows.map((flow) => flow.id);
+      const leadIds = Array.from(new Set(threads.map((thread) => thread.lead_id).filter((id): id is string => Boolean(id))));
 
-      const [messagesRes, nodesRes, edgesRes, runsRes, logsRes, jobsCancelledRes] = await Promise.all([
+      const [messagesRes, nodesRes, edgesRes, runsRes, logsRes, jobsCancelledRes, leadsRes] = await Promise.all([
         threadIds.length > 0
           ? supabase
               .from("conversation_messages")
@@ -269,6 +274,12 @@ export function useConversationsDashboard(): UseConversationsDashboardReturn {
           .from("conversation_flow_jobs")
           .select("id", { count: "exact", head: true })
           .eq("status", "cancelled"),
+        leadIds.length > 0
+          ? supabase
+              .from("leads")
+              .select("id,name,notes,pipeline_id,stage_id,iq_score,ie_score")
+              .in("id", leadIds)
+          : Promise.resolve({ data: [], error: null }),
       ]);
 
       if (messagesRes.error) throw messagesRes.error;
@@ -276,15 +287,18 @@ export function useConversationsDashboard(): UseConversationsDashboardReturn {
       if (edgesRes.error) throw edgesRes.error;
       if (runsRes.error) throw runsRes.error;
       if (logsRes.error) throw logsRes.error;
+      if (leadsRes.error) throw leadsRes.error;
 
       const nextMessages = (messagesRes.data ?? []) as ConversationMessage[];
       const nodes = (nodesRes.data ?? []) as ConversationFlowNode[];
       const edges = (edgesRes.data ?? []) as ConversationFlowEdge[];
       const runs = (runsRes.data ?? []) as ConversationFlowRun[];
       const logs = (logsRes.data ?? []) as ConversationFlowLog[];
+      const leadRows = (leadsRes.data ?? []) as ConversationLeadSummary[];
       const contactsById = toMap(contacts);
       const accountsById = toMap(nextAccounts);
       const profilesById = toMap(profiles);
+      const leadsById = toMap(leadRows);
 
       const nextInbox = threads
         .map((thread): ConversationInboxItem | null => {
@@ -304,6 +318,7 @@ export function useConversationsDashboard(): UseConversationsDashboardReturn {
                 }
               : null,
             ownerName: profile?.full_name ?? "Sem responsável",
+            lead: thread.lead_id ? leadsById.get(thread.lead_id) ?? null : null,
           };
         })
         .filter((item): item is ConversationInboxItem => item != null);
@@ -502,7 +517,7 @@ export function useConversationsDashboard(): UseConversationsDashboardReturn {
       }
 
       const message = payload?.message as ConversationMessage;
-      await fetchData();
+      await fetchData({ silent: true });
       return message;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao enviar mensagem");
@@ -546,6 +561,114 @@ export function useConversationsDashboard(): UseConversationsDashboardReturn {
       setIsMutating(false);
     }
   }, [fetchData]);
+
+  // Cria um lead novo a partir do contato da conversa (etapa inicial = primeira
+  // etapa ativa do pipeline escolhido, já ordenada por order_index pela API de
+  // pipelines) e vincula contact_id + todas as threads desse contato ao lead.
+  const addContactToCrm = useCallback(async (input: { contactId: string; pipelineId: string }) => {
+    setIsMutating(true);
+    try {
+      const contactItem = inbox.find((item) => item.contact.id === input.contactId);
+      if (!contactItem) throw new Error("Contato não encontrado.");
+
+      const pipeline = resources.pipelines.find((item) => item.id === input.pipelineId);
+      const firstStageId = pipeline?.crm_stages?.[0]?.id;
+      if (!firstStageId) throw new Error("Pipeline sem etapas configuradas.");
+
+      const supabase = getSupabaseClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Usuário não autenticado.");
+
+      const { data: lead, error: leadError } = await supabase
+        .from("leads")
+        .insert({
+          user_id: user.id,
+          name: contactItem.contact.name?.trim() || contactItem.contact.phone,
+          contact: contactItem.contact.phone,
+          source: "conversas",
+          pipeline_id: input.pipelineId,
+          stage_id: firstStageId,
+        })
+        .select("id")
+        .single();
+
+      if (leadError || !lead) throw new Error(leadError?.message ?? "Erro ao criar lead.");
+
+      const { error: contactError } = await supabase
+        .from("conversation_contacts")
+        .update({ lead_id: lead.id })
+        .eq("id", input.contactId);
+      if (contactError) throw new Error(contactError.message);
+
+      const { error: threadError } = await supabase
+        .from("conversation_threads")
+        .update({ lead_id: lead.id })
+        .eq("contact_id", input.contactId);
+      if (threadError) throw new Error(threadError.message);
+
+      await fetchData({ silent: true });
+      return true;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro ao adicionar ao CRM");
+      return false;
+    } finally {
+      setIsMutating(false);
+    }
+  }, [inbox, resources, fetchData]);
+
+  // Move o lead de etapa reaproveitando a mesma rota/serviço do Kanban do CRM
+  // (LeadService.moveLead → RPC crm_move_lead), então histórico e Conversion
+  // Engine continuam funcionando normalmente.
+  const moveContactLeadStage = useCallback(async (leadId: string, stageId: string) => {
+    setIsMutating(true);
+    try {
+      const response = await fetch(`/api/crm/leads/${leadId}/move`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ stage_id: stageId }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload?.error ?? "Erro ao mover lead no CRM");
+
+      await fetchData({ silent: true });
+      return true;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro ao mover lead no CRM");
+      return false;
+    } finally {
+      setIsMutating(false);
+    }
+  }, [fetchData]);
+
+  // Observação vira uma linha com timestamp anexada em leads.notes — o mesmo
+  // campo exibido/editado no LeadModal do CRM, então aparece nos dois lugares.
+  const addLeadNote = useCallback(async (leadId: string, note: string) => {
+    const trimmed = note.trim();
+    if (!trimmed) return false;
+
+    setIsMutating(true);
+    try {
+      const currentLead = inbox.find((item) => item.lead?.id === leadId)?.lead ?? null;
+      const timestamp = new Date().toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
+      const entry = `[${timestamp}] ${trimmed}`;
+      const nextNotes = currentLead?.notes ? `${currentLead.notes}\n\n${entry}` : entry;
+
+      const supabase = getSupabaseClient();
+      const { error: updateError } = await supabase
+        .from("leads")
+        .update({ notes: nextNotes })
+        .eq("id", leadId);
+      if (updateError) throw new Error(updateError.message);
+
+      await fetchData({ silent: true });
+      return true;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro ao adicionar observação");
+      return false;
+    } finally {
+      setIsMutating(false);
+    }
+  }, [inbox, fetchData]);
 
   const createFlow = useCallback(async (input: {
     name: string;
@@ -835,6 +958,9 @@ export function useConversationsDashboard(): UseConversationsDashboardReturn {
     deleteAccount,
     sendMessage,
     createConversation,
+    addContactToCrm,
+    moveContactLeadStage,
+    addLeadNote,
     createFlow,
     updateFlowStatus,
     deleteFlow,
@@ -862,6 +988,9 @@ export function useConversationsDashboard(): UseConversationsDashboardReturn {
     deleteAccount,
     sendMessage,
     createConversation,
+    addContactToCrm,
+    moveContactLeadStage,
+    addLeadNote,
     createFlow,
     updateFlowStatus,
     deleteFlow,
