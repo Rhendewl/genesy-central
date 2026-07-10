@@ -6,6 +6,12 @@ import { Toggle, Field, StyledInput } from "./primitives";
 import { RichTextEditor } from "./RichTextEditor";
 import { WelcomeImageUpload } from "./WelcomeImageUpload";
 
+const IMAGE_SIZE_OPTIONS: Array<{ value: NonNullable<FormWelcomeScreen["imageSize"]>; label: string }> = [
+  { value: "small",  label: "Pequena" },
+  { value: "medium", label: "Média" },
+  { value: "large",  label: "Grande" },
+];
+
 interface WelcomeEditorProps {
   welcome: FormWelcomeScreen;
   onChange: (welcome: FormWelcomeScreen) => void;
@@ -34,6 +40,33 @@ export function WelcomeEditor({ welcome, onChange, formId }: WelcomeEditorProps)
             onRemove={() => up({ imageUrl: undefined })}
           />
         </Field>
+
+        {welcome.imageUrl && (
+          <Field label="Tamanho da imagem">
+            <div className="flex gap-1.5" role="group" aria-label="Selecionar tamanho da imagem">
+              {IMAGE_SIZE_OPTIONS.map(opt => {
+                const current = welcome.imageSize ?? "medium";
+                const active = current === opt.value;
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => up({ imageSize: opt.value })}
+                    aria-pressed={active}
+                    className="flex-1 py-1.5 rounded-lg text-xs font-medium transition-all"
+                    style={{
+                      background: active ? "color-mix(in srgb, var(--primary) 20%, transparent)" : "var(--hover)",
+                      color: active ? "var(--primary)" : "var(--muted-foreground)",
+                      border: `1px solid ${active ? "color-mix(in srgb, var(--primary) 35%, transparent)" : "var(--glass-border)"}`,
+                    }}
+                  >
+                    {opt.label}
+                  </button>
+                );
+              })}
+            </div>
+          </Field>
+        )}
 
         {/* Título — Rich Text (modo inline: apenas marcas inline) */}
         <Field label="Título">

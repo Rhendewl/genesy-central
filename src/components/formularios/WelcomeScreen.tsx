@@ -30,6 +30,12 @@ function stripOuterP(html: string): string {
   return html.replace(/^<p>([\s\S]*)<\/p>$/, "$1").trim();
 }
 
+const IMAGE_SIZE: Record<"small" | "medium" | "large", { maxHeight: number; maxWidth: number }> = {
+  small:  { maxHeight: 36,  maxWidth: 90 },
+  medium: { maxHeight: 56,  maxWidth: 140 },
+  large:  { maxHeight: 88,  maxWidth: 220 },
+};
+
 export const WelcomeScreen = React.memo(function WelcomeScreen({
   welcome,
   theme,
@@ -72,8 +78,7 @@ export const WelcomeScreen = React.memo(function WelcomeScreen({
           alt="Logo ou imagem do formulário"
           className="object-contain"
           style={{
-            maxHeight: 56,
-            maxWidth: 140,
+            ...IMAGE_SIZE[welcome.imageSize ?? "medium"],
             marginBottom: 28,
             alignSelf: alignItems,
           }}

@@ -1002,6 +1002,7 @@ export interface FormWelcomeScreen {
   description?: string;
   buttonText: string;
   imageUrl?: string;
+  imageSize?: "small" | "medium" | "large";
 }
 
 export interface FormEnding {

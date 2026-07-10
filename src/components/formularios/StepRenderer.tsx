@@ -465,7 +465,7 @@ export function StepRenderer({
                       whileTap={{ scale: 0.92 }}
                       aria-label={`Nota ${n}`}
                       aria-pressed={selected}
-                      className="relative flex h-9 w-full items-center justify-center rounded-xl text-xs font-bold transition-colors focus-visible:outline focus-visible:outline-2 sm:h-11 sm:text-sm"
+                      className="relative flex aspect-square w-full items-center justify-center rounded-xl text-[11px] font-bold transition-colors focus-visible:outline focus-visible:outline-2 sm:text-sm"
                       style={{
                         background: selected ? scoreColor(n) : cardBg,
                         color: selected ? "#ffffff" : textColor,

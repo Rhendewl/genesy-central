@@ -114,7 +114,7 @@ interface NpsFormState {
   notifyOnResponse: boolean;
 }
 
-function NpsFormModal({ client, onClose }: { client: AgencyClient; onClose: () => void }) {
+function NpsFormModal({ client, otherClients, onClose }: { client: AgencyClient; otherClients: AgencyClient[]; onClose: () => void }) {
   useModalOpen(true);
 
   const [npsForm, setNpsForm]   = useState<NpsFormState | null>(null);
@@ -122,6 +122,11 @@ function NpsFormModal({ client, onClose }: { client: AgencyClient; onClose: () =
   const [isCreating, setIsCreating] = useState(false);
   const [isToggling, setIsToggling] = useState(false);
   const [copied, setCopied] = useState(false);
+
+  const [showDuplicate, setShowDuplicate] = useState(false);
+  const [sourceClientId, setSourceClientId] = useState("");
+  const [dupSlug, setDupSlug] = useState("");
+  const [isDuplicating, setIsDuplicating] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -158,6 +163,30 @@ function NpsFormModal({ client, onClose }: { client: AgencyClient; onClose: () =
       toast.success("Formulário de NPS criado!");
     } finally {
       setIsCreating(false);
+    }
+  }
+
+  async function handleDuplicate() {
+    if (!sourceClientId) { toast.error("Selecione o cliente de origem"); return; }
+    setIsDuplicating(true);
+    try {
+      const res = await fetch(`/api/clientes/${client.id}/nps-form/duplicate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ source_client_id: sourceClientId, slug: dupSlug || undefined }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(json.error ?? "Erro ao duplicar formulário de NPS");
+        return;
+      }
+      const refetch = await fetch(`/api/clientes/${client.id}/nps-form`);
+      const refetchJson = await refetch.json().catch(() => ({}));
+      setNpsForm(refetchJson.npsForm ?? null);
+      setShowDuplicate(false);
+      toast.success("Formulário duplicado!");
+    } finally {
+      setIsDuplicating(false);
     }
   }
 
@@ -257,14 +286,62 @@ function NpsFormModal({ client, onClose }: { client: AgencyClient; onClose: () =
               Editar perguntas <ExternalLink size={12} />
             </a>
           </div>
+        ) : showDuplicate ? (
+          <div className="space-y-3">
+            <p className="text-sm text-[var(--text-muted)]">
+              Copia perguntas, tema e configurações de um formulário de NPS já existente para {client.name}.
+            </p>
+            <div>
+              <label className="block text-xs text-[var(--silver)] mb-1.5 font-medium">Duplicar formulário de</label>
+              <select
+                value={sourceClientId}
+                onChange={e => setSourceClientId(e.target.value)}
+                className="w-full rounded-xl bg-[color-mix(in_srgb,var(--text-title)_15%,transparent)] text-[var(--text-title)] text-sm px-3 py-2.5 outline-none border-none"
+              >
+                <option value="">Selecionar cliente...</option>
+                {otherClients.map(c => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs text-[var(--silver)] mb-1.5 font-medium">Slug do link (opcional)</label>
+              <input
+                value={dupSlug}
+                onChange={e => setDupSlug(e.target.value)}
+                placeholder={`nps-${client.name.toLowerCase()}`}
+                className="w-full rounded-xl bg-[color-mix(in_srgb,var(--text-title)_15%,transparent)] text-[var(--text-title)] text-sm px-3 py-2.5 outline-none placeholder:text-[var(--silver)]/50 border-none"
+              />
+            </div>
+            <div className="flex gap-3 pt-1">
+              <button
+                onClick={() => setShowDuplicate(false)}
+                className="flex-1 rounded-xl py-2.5 text-sm font-medium text-[var(--silver)] hover:text-[var(--text-title)] transition-colors"
+                style={{ background: "var(--border)", border: "1px solid var(--border)" }}
+              >
+                Cancelar
+              </button>
+              <PrimaryButton onClick={() => void handleDuplicate()} disabled={isDuplicating} className="flex-1 py-2.5 text-sm">
+                {isDuplicating ? "Duplicando..." : "Duplicar"}
+              </PrimaryButton>
+            </div>
+          </div>
         ) : (
-          <div className="py-2 text-center space-y-4">
+          <div className="py-2 text-center space-y-3">
             <p className="text-sm text-[var(--text-muted)]">
               Este cliente ainda não tem um formulário de NPS. Crie um para gerar o link público de resposta.
             </p>
-            <PrimaryButton onClick={() => void handleCreate()} disabled={isCreating}>
+            <PrimaryButton onClick={() => void handleCreate()} disabled={isCreating} className="w-full">
               {isCreating ? "Criando..." : "Criar formulário de NPS"}
             </PrimaryButton>
+            {otherClients.length > 0 && (
+              <button
+                onClick={() => setShowDuplicate(true)}
+                className="text-xs font-medium text-[#4a8fd4] hover:text-[#6ba7e0] transition-colors"
+              >
+                ou duplicar de outro cliente
+              </button>
+            )}
           </div>
         )}
       </motion.div>
@@ -693,6 +770,7 @@ export function NpsModule({ year, month }: Props) {
         {npsFormClient && (
           <NpsFormModal
             client={npsFormClient}
+            otherClients={clients.filter(c => c.status === "ativo" && c.id !== npsFormClient.id)}
             onClose={() => setNpsFormClient(null)}
           />
         )}
