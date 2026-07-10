@@ -93,6 +93,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     .from("forms")
     .select("theme,settings,steps,logic_rules,welcome_screen,endings,integrations")
     .eq("id", sourceIntegration.form_id)
+    .is("deleted_at", null)
     .maybeSingle<Pick<Form, "theme" | "settings" | "steps" | "logic_rules" | "welcome_screen" | "endings" | "integrations">>();
 
   if (sourceFormError) {

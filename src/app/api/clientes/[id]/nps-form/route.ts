@@ -31,7 +31,7 @@ type NpsIntegrationRow = {
   id: string;
   enabled: boolean;
   settings: { client_id: string; nps_step_id: string; notify_on_response: boolean };
-  forms: { id: string; slug: string; name: string; status: string } | null;
+  forms: { id: string; slug: string; name: string; status: string; deleted_at: string | null } | null;
 };
 
 // GET /api/clientes/[id]/nps-form — retorna o formulário de NPS mais recente
@@ -48,12 +48,18 @@ export async function GET(_request: NextRequest, context: RouteContext) {
     return NextResponse.json({ error: "Não autenticado." }, { status: 401 });
   }
 
+  // forms!inner + is("forms.deleted_at", null): se o form foi excluído (ex: pela
+  // aba normal de Formulários, sem perceber que estava vinculado ao NPS), a
+  // integração órfã não deve aparecer como "existente" — o link "Editar
+  // perguntas" apontaria pra um formulário que /api/formularios/:id já rejeita
+  // (404 "Formulário não encontrado"), então aqui a busca precisa concordar.
   const { data, error } = await supabase
     .from("form_integrations")
-    .select("id,enabled,settings,forms(id,slug,name,status)")
+    .select("id,enabled,settings,forms!inner(id,slug,name,status,deleted_at)")
     .eq("adapter", "nps")
     .eq("user_id", user.id)
     .contains("settings", { client_id: clientId })
+    .is("forms.deleted_at", null)
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle<NpsIntegrationRow>();
