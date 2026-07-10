@@ -71,5 +71,36 @@ export function useMyProfile() {
     [save]
   );
 
-  return { member, isLoading, isSaving, save, uploadAvatar };
+  // Apaga o(s) arquivo(s) do bucket (não só limpa o campo avatar_url) — evita
+  // deixar a foto órfã no Storage depois que o usuário remove.
+  const removeAvatar = useCallback(
+    async (): Promise<{ error: string | null }> => {
+      try {
+        const supabase = getSupabaseClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return { error: "Não autenticado" };
+
+        const { data: files, error: listErr } = await supabase.storage
+          .from("user-avatars")
+          .list(user.id);
+        if (listErr) return { error: listErr.message };
+
+        if (files && files.length > 0) {
+          const paths = files.map(f => `${user.id}/${f.name}`);
+          const { error: removeErr } = await supabase.storage.from("user-avatars").remove(paths);
+          if (removeErr) return { error: removeErr.message };
+        }
+
+        const { error: saveError } = await save({ avatar_url: null });
+        if (saveError) return { error: saveError };
+
+        return { error: null };
+      } catch (e: unknown) {
+        return { error: e instanceof Error ? e.message : "Erro ao remover foto" };
+      }
+    },
+    [save]
+  );
+
+  return { member, isLoading, isSaving, save, uploadAvatar, removeAvatar };
 }

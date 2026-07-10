@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, Upload, UserRound, Save, CheckCircle2, AlertCircle } from "lucide-react";
+import { ArrowLeft, Upload, UserRound, Save, CheckCircle2, AlertCircle, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { useMyProfile } from "@/hooks/useMyProfile";
@@ -52,10 +52,12 @@ function ProfileInput({
 interface AvatarUploaderProps {
   currentUrl: string | null;
   onUpload: (file: File) => Promise<void>;
+  onRemove: () => Promise<void>;
   isUploading: boolean;
+  isRemoving: boolean;
 }
 
-function AvatarUploader({ currentUrl, onUpload, isUploading }: AvatarUploaderProps) {
+function AvatarUploader({ currentUrl, onUpload, onRemove, isUploading, isRemoving }: AvatarUploaderProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [preview, setPreview] = useState<string | null>(currentUrl);
@@ -87,19 +89,33 @@ function AvatarUploader({ currentUrl, onUpload, isUploading }: AvatarUploaderPro
       </label>
 
       <div className="flex items-center gap-4">
-        <div
-          className="relative flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-full"
-          style={{ background: "var(--shimmer-base)", border: "1px solid var(--glass-border)" }}
-        >
-          {preview ? (
-            <img src={preview} alt="Foto de perfil" className="h-full w-full object-cover" />
-          ) : (
-            <UserRound size={28} style={{ color: "var(--text-empty)" }} />
-          )}
-          {isUploading && (
-            <div className="absolute inset-0 flex items-center justify-center rounded-full" style={{ background: "rgba(0,0,0,0.6)" }}>
-              <div className="h-5 w-5 animate-spin rounded-full border-2 border-[color-mix(in_srgb,var(--text-title)_20%,transparent)] border-t-white" />
-            </div>
+        <div className="flex shrink-0 flex-col items-center gap-1.5">
+          <div
+            className="relative flex h-20 w-20 items-center justify-center overflow-hidden rounded-full"
+            style={{ background: "var(--shimmer-base)", border: "1px solid var(--glass-border)" }}
+          >
+            {preview ? (
+              <img src={preview} alt="Foto de perfil" className="h-full w-full object-cover" />
+            ) : (
+              <UserRound size={28} style={{ color: "var(--text-empty)" }} />
+            )}
+            {(isUploading || isRemoving) && (
+              <div className="absolute inset-0 flex items-center justify-center rounded-full" style={{ background: "rgba(0,0,0,0.6)" }}>
+                <div className="h-5 w-5 animate-spin rounded-full border-2 border-[color-mix(in_srgb,var(--text-title)_20%,transparent)] border-t-white" />
+              </div>
+            )}
+          </div>
+          {preview && !isUploading && (
+            <button
+              type="button"
+              onClick={() => void onRemove()}
+              disabled={isRemoving}
+              className="flex items-center gap-1 text-[11px] font-medium transition-colors hover:text-red-400 disabled:opacity-50"
+              style={{ color: "var(--icon)" }}
+            >
+              <Trash2 size={11} />
+              {isRemoving ? "Removendo..." : "Remover foto"}
+            </button>
           )}
         </div>
 
@@ -177,11 +193,12 @@ function SaveBar({ isDirty, isSaving, onSave }: { isDirty: boolean; isSaving: bo
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function MeuPerfilPage() {
-  const { member, isLoading, isSaving, save, uploadAvatar } = useMyProfile();
+  const { member, isLoading, isSaving, save, uploadAvatar, removeAvatar } = useMyProfile();
   const [fullName, setFullName] = useState("");
   const [jobTitle, setJobTitle] = useState("");
   const [isDirty, setIsDirty] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [isRemovingAvatar, setIsRemovingAvatar] = useState(false);
 
   useEffect(() => {
     if (member) {
@@ -209,6 +226,17 @@ export default function MeuPerfilPage() {
       toast.error("Erro ao enviar foto", { description: error });
     } else {
       toast.success("Foto atualizada");
+    }
+  }
+
+  async function handleAvatarRemove() {
+    setIsRemovingAvatar(true);
+    const { error } = await removeAvatar();
+    setIsRemovingAvatar(false);
+    if (error) {
+      toast.error("Erro ao remover foto", { description: error });
+    } else {
+      toast.success("Foto removida");
     }
   }
 
@@ -258,7 +286,13 @@ export default function MeuPerfilPage() {
             WebkitBackdropFilter: "blur(20px) saturate(160%)",
           }}
         >
-          <AvatarUploader currentUrl={member?.avatar_url ?? null} onUpload={handleAvatarUpload} isUploading={isUploading} />
+          <AvatarUploader
+            currentUrl={member?.avatar_url ?? null}
+            onUpload={handleAvatarUpload}
+            onRemove={handleAvatarRemove}
+            isUploading={isUploading}
+            isRemoving={isRemovingAvatar}
+          />
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <ProfileInput
