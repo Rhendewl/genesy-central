@@ -19,7 +19,7 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "Genesy | Dashboard",
+  title: "Genesy",
   description: "Plataforma operacional integrada: CRM, Financeiro e Tráfego Pago",
   manifest: "/manifest.json",
   icons: {

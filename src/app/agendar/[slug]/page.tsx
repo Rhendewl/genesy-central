@@ -12,7 +12,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   try {
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://app.genesy.com.br";
     const res = await fetch(`${baseUrl}/api/agendar/${slug}`, { cache: "no-store" });
-    if (!res.ok) return { title: "Agendamento" };
+    if (!res.ok) return { title: "Genesy Agendamentos" };
 
     const { calendar } = await res.json() as {
       calendar?: {
@@ -21,13 +21,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
         settings?: { page?: { title?: string | null; subtitle?: string | null } };
       };
     };
-    if (!calendar) return { title: "Agendamento" };
+    if (!calendar) return { title: "Genesy Agendamentos" };
 
     const pageTitle = calendar.settings?.page?.title ?? calendar.name;
     const description = calendar.settings?.page?.subtitle ?? calendar.description ?? undefined;
+    const tabTitle = `Genesy Agendamentos | ${pageTitle}`;
 
     return {
-      title:       pageTitle,
+      title:       tabTitle,
       description,
       openGraph: {
         title:       pageTitle,
@@ -42,7 +43,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       },
     };
   } catch {
-    return { title: "Agendamento" };
+    return { title: "Genesy Agendamentos" };
   }
 }
 
