@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   AreaChart, Area, BarChart, Bar,
@@ -128,6 +129,13 @@ function NpsFormModal({ client, otherClients, onClose }: { client: AgencyClient;
   const [dupSlug, setDupSlug] = useState("");
   const [isDuplicating, setIsDuplicating] = useState(false);
 
+  // Portal pro <body>: sem isso, o "fixed inset-0" fica preso no containing
+  // block criado pelo transform inline que o motion.div da troca de aba deixa
+  // no DOM (mesmo em repouso, y:0 vira translateY(0px) — ainda cria um novo
+  // containing block), e o modal centraliza relativo à aba, não à tela toda.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
+
   useEffect(() => {
     let active = true;
     (async () => {
@@ -223,7 +231,9 @@ function NpsFormModal({ client, otherClients, onClose }: { client: AgencyClient;
     });
   }
 
-  return (
+  if (!mounted) return null;
+
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
       <motion.div
@@ -331,7 +341,7 @@ function NpsFormModal({ client, otherClients, onClose }: { client: AgencyClient;
             <p className="text-sm text-[var(--text-muted)]">
               Este cliente ainda não tem um formulário de NPS. Crie um para gerar o link público de resposta.
             </p>
-            <PrimaryButton onClick={() => void handleCreate()} disabled={isCreating} className="w-full">
+            <PrimaryButton onClick={() => void handleCreate()} disabled={isCreating} className="w-full py-2.5 text-sm">
               {isCreating ? "Criando..." : "Criar formulário de NPS"}
             </PrimaryButton>
             {otherClients.length > 0 && (
@@ -345,7 +355,8 @@ function NpsFormModal({ client, otherClients, onClose }: { client: AgencyClient;
           </div>
         )}
       </motion.div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
