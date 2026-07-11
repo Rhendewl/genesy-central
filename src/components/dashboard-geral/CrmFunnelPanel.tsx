@@ -20,7 +20,7 @@ interface CrmFunnelPanelProps {
   delay?:     number;
 }
 
-const BAR_GRADIENT = "linear-gradient(90deg, #26292e 0%, #b0b8c1 100%)";
+const BAR_GRADIENT = "linear-gradient(90deg, #0d2c4d 0%, #27a3ff 100%)";
 
 export function CrmFunnelPanel({ totalLeads, agendadas, realizadas, vendas, height, delay = 0 }: CrmFunnelPanelProps) {
   const rate = (num: number, den: number): number | null => (den > 0 ? (num / den) * 100 : null);
