@@ -1,0 +1,115 @@
+// GET    /api/workspace/onboarding/templates/[id] — template + etapas + tarefas + documentos
+// PATCH  /api/workspace/onboarding/templates/[id] — atualiza name/description/is_active
+// DELETE /api/workspace/onboarding/templates/[id] — remove template (cascade em etapas/tarefas/documentos)
+
+import { NextRequest, NextResponse } from "next/server";
+import { createServerSupabaseClient } from "@/lib/supabase-server";
+import type {
+  OnboardingTemplate, OnboardingTemplateStage, OnboardingTemplateTask,
+  OnboardingTemplateDocument, OnboardingTemplateDetail, UpdateOnboardingTemplate,
+} from "@/types/onboarding";
+
+type Params = { params: Promise<{ id: string }> };
+
+export async function GET(_req: NextRequest, { params }: Params) {
+  const { id } = await params;
+  const supabase = await createServerSupabaseClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
+
+  try {
+    const [templateRes, stagesRes, docsRes] = await Promise.all([
+      supabase.from("onboarding_templates").select("*").eq("id", id).maybeSingle(),
+      supabase.from("onboarding_template_stages").select("*").eq("template_id", id).order("order_index"),
+      supabase.from("onboarding_template_documents").select("*").eq("template_id", id).order("order_index"),
+    ]);
+
+    if (templateRes.error) throw new Error(templateRes.error.message);
+    if (!templateRes.data) return NextResponse.json({ error: "Template não encontrado" }, { status: 404 });
+
+    const stages = (stagesRes.data ?? []) as OnboardingTemplateStage[];
+    const stageIds = stages.map((s) => s.id);
+
+    const { data: tasksData } = stageIds.length > 0
+      ? await supabase.from("onboarding_template_tasks").select("*").in("stage_id", stageIds).order("order_index")
+      : { data: [] as OnboardingTemplateTask[] };
+
+    const tasks = (tasksData ?? []) as OnboardingTemplateTask[];
+    const taskIds = tasks.map((t) => t.id);
+
+    const { data: depsData } = taskIds.length > 0
+      ? await supabase.from("onboarding_template_task_dependencies").select("task_id, depends_on_task_id").in("task_id", taskIds)
+      : { data: [] as { task_id: string; depends_on_task_id: string }[] };
+
+    const depsByTask = new Map<string, string[]>();
+    for (const d of depsData ?? []) {
+      const cur = depsByTask.get(d.task_id) ?? [];
+      cur.push(d.depends_on_task_id);
+      depsByTask.set(d.task_id, cur);
+    }
+
+    const tasksByStage = new Map<string, OnboardingTemplateTask[]>();
+    for (const t of tasks) {
+      const cur = tasksByStage.get(t.stage_id) ?? [];
+      cur.push({ ...t, depends_on_task_ids: depsByTask.get(t.id) ?? [] });
+      tasksByStage.set(t.stage_id, cur);
+    }
+
+    const detail: OnboardingTemplateDetail = {
+      ...(templateRes.data as OnboardingTemplate),
+      stages:    stages.map((s) => ({ ...s, tasks: tasksByStage.get(s.id) ?? [] })),
+      documents: (docsRes.data ?? []) as OnboardingTemplateDocument[],
+    };
+
+    return NextResponse.json({ template: detail });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Erro interno";
+    return NextResponse.json({ error: msg }, { status: 500 });
+  }
+}
+
+export async function PATCH(req: NextRequest, { params }: Params) {
+  const { id } = await params;
+  const supabase = await createServerSupabaseClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
+
+  const body = await req.json().catch(() => null) as UpdateOnboardingTemplate | null;
+  if (!body) return NextResponse.json({ error: "Corpo inválido" }, { status: 400 });
+
+  const patch: Record<string, unknown> = {};
+  for (const key of ["name", "description", "is_active"] as const) {
+    if (key in body) patch[key] = body[key];
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from("onboarding_templates")
+      .update(patch)
+      .eq("id", id)
+      .select("*")
+      .single();
+
+    if (error) throw new Error(error.message);
+    return NextResponse.json({ template: data as OnboardingTemplate });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Erro interno";
+    return NextResponse.json({ error: msg }, { status: 500 });
+  }
+}
+
+export async function DELETE(_req: NextRequest, { params }: Params) {
+  const { id } = await params;
+  const supabase = await createServerSupabaseClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
+
+  try {
+    const { error } = await supabase.from("onboarding_templates").delete().eq("id", id);
+    if (error) throw new Error(error.message);
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Erro interno";
+    return NextResponse.json({ error: msg }, { status: 500 });
+  }
+}

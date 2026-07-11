@@ -4,6 +4,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
+import { recordHistory } from "@/lib/onboarding/sync";
 import type {
   UpdateWorkspaceTask, WorkspaceTask, WorkspaceTaskDetail,
   WorkspaceTaskChecklistItem, WorkspaceTaskComment, WorkspaceTaskAttachment,
@@ -101,13 +102,35 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
   if (!user) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
 
   try {
-    const { data: attachments } = await supabase
-      .from("workspace_task_attachments")
-      .select("storage_path")
-      .eq("task_id", id);
+    const [{ data: attachments }, { data: taskRow }] = await Promise.all([
+      supabase.from("workspace_task_attachments").select("storage_path").eq("task_id", id),
+      supabase.from("workspace_tasks").select("title, onboarding_task_id").eq("id", id).maybeSingle(),
+    ]);
 
     if (attachments && attachments.length > 0) {
       await supabase.storage.from("criativos").remove(attachments.map((a) => a.storage_path));
+    }
+
+    // Espelho de uma onboarding_task: apagar aqui remove só a visualização
+    // pessoal — o registro mestre e o histórico do projeto continuam intactos
+    // (workspace_tasks.onboarding_task_id -> onboarding_tasks é FK simples,
+    // sem cascade nessa direção). Registramos o evento pro histórico do projeto.
+    if (taskRow?.onboarding_task_id) {
+      const { data: onboardingTask } = await supabase
+        .from("onboarding_tasks")
+        .select("project_id")
+        .eq("id", taskRow.onboarding_task_id)
+        .maybeSingle();
+      if (onboardingTask) {
+        const { data: actorProfile } = await supabase
+          .from("user_profiles")
+          .select("id")
+          .eq("auth_user_id", user.id)
+          .maybeSingle();
+        await recordHistory(supabase, onboardingTask.project_id, actorProfile?.id ?? null, "task_removed_from_personal_list", {
+          task_title: taskRow.title,
+        });
+      }
     }
 
     const { error } = await supabase.from("workspace_tasks").delete().eq("id", id);

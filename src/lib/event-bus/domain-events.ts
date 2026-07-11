@@ -33,6 +33,16 @@ export type DomainEventType =
   | "task.assigned"
   | "task.status_changed"
   | "task.completed"
+  // Workspace module — Onboarding (submódulo compartilhado). Só
+  // onboarding.task_assigned e onboarding.comment_added são publicados hoje;
+  // stage_completed/project_completed/document_requested são declarados aqui
+  // como extensão futura prevista, mesmo padrão já usado acima para
+  // task.commented/mentioned/etc — nada consome esses 3 ainda.
+  | "onboarding.task_assigned"
+  | "onboarding.stage_completed"
+  | "onboarding.project_completed"
+  | "onboarding.comment_added"
+  | "onboarding.document_requested"
   // Clientes module — NPS
   | "nps.response_received";
 
@@ -191,6 +201,24 @@ export interface TaskStatusChangedPayload {
 // mesmo formato de payload, tratado como evento próprio para que o consumer
 // escolha a preferência certa (notify_on_completion vs. notify_on_status_change).
 export type TaskCompletedPayload = TaskStatusChangedPayload;
+
+// ── Workspace module — Onboarding payloads ────────────────────────────────────
+
+export interface OnboardingTaskAssignedPayload {
+  taskId:        string;
+  taskTitle:     string;
+  projectId:     string;
+  projectName:   string;
+  assigneeProfileId: string;
+  actorUserId:   string;
+}
+
+export interface OnboardingCommentAddedPayload {
+  taskId:      string;
+  taskTitle:   string;
+  projectId:   string;
+  actorUserId: string;
+}
 
 // ── Clientes module — NPS ──────────────────────────────────────────────────────
 

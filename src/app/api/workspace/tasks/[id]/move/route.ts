@@ -6,6 +6,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { getPlatformEventBus } from "@/lib/event-bus/platform";
+import { handleMirrorStatusChange } from "@/lib/onboarding/sync";
+import type { WorkspaceTaskStatus } from "@/types/workspace";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -55,7 +57,19 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       )
     );
 
-    // 3. Notifica os responsáveis (exceto quem moveu) — só quando o status
+    // 3. Se a tarefa é o espelho de uma onboarding_task, propaga o novo status
+    //    pro registro mestre (e reavalia dependentes bloqueadas) — só quando o
+    //    status de fato mudou, mesma guarda da notificação abaixo.
+    if (before && before.status !== body.status) {
+      const { data: actorProfile } = await supabase
+        .from("user_profiles")
+        .select("id")
+        .eq("auth_user_id", user.id)
+        .maybeSingle();
+      await handleMirrorStatusChange(supabase, id, body.status as WorkspaceTaskStatus, actorProfile?.id ?? null);
+    }
+
+    // 4. Notifica os responsáveis (exceto quem moveu) — só quando o status
     //    de fato mudou, nunca numa simples reordenação na mesma coluna.
     if (before && before.status !== body.status) {
       const { data: assigneeRows } = await supabase
