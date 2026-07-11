@@ -21,7 +21,7 @@ export default function WorkspaceCalendarioPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, ease: "easeOut" }}
         >
-          <AgendaSemanalPanel />
+          <AgendaSemanalPanel minRowHeight={120} />
         </motion.div>
       </div>
     </div>

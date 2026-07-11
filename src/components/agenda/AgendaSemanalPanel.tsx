@@ -28,7 +28,12 @@ const PANEL_VARIANTS_REDUCED = {
   exit:   { opacity: 0, transition: { duration: 0.15 } },
 };
 
-export function AgendaSemanalPanel() {
+interface AgendaSemanalPanelProps {
+  /** Repassado ao AgendaDesktopGrid — ver comentário lá. */
+  minRowHeight?: number;
+}
+
+export function AgendaSemanalPanel({ minRowHeight }: AgendaSemanalPanelProps = {}) {
   const shouldReduce = useReducedMotion();
   const [rangeStart, setRangeStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 0 }));
   const [direction,  setDirection]  = useState(1);
@@ -112,6 +117,7 @@ export function AgendaSemanalPanel() {
                   eventsByDay={eventsByDay}
                   onDayClick={handleDayClick}
                   onEventClick={handleEventClick}
+                  minRowHeight={minRowHeight}
                 />
                 <AgendaMobileCarousel
                   days={days}
