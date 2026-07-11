@@ -23,7 +23,7 @@ export async function generateMetadata({
       .eq("slug", slug)
       .maybeSingle();
 
-    if (!portal) return { title: "Genesy Portal" };
+    if (!portal) return { title: "Genesy Dashboard" };
 
     let clientName: string | null = null;
     if (portal.client_id) {
@@ -36,10 +36,10 @@ export async function generateMetadata({
     }
 
     return {
-      title: clientName ? `Genesy Portal | ${clientName}` : "Genesy Portal",
+      title: clientName ? `Genesy Dashboard | ${clientName}` : "Genesy Dashboard",
     };
   } catch {
-    return { title: "Genesy Portal" };
+    return { title: "Genesy Dashboard" };
   }
 }
 
