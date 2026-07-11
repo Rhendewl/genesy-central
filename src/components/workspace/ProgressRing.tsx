@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import { Check } from "lucide-react";
+import { progressColor, progressColorDark } from "@/lib/progress-color";
 
 // Anel de progresso circular ("activity ring") — versão mais gamificada do
 // ProgressBar, usada nos cards de Objetivos. Ao chegar em 100%, o anel muda
@@ -20,13 +21,15 @@ export function ProgressRing({ percent, size = 56, strokeWidth = 5 }: ProgressRi
   const circumference = 2 * Math.PI * radius;
   const offset    = circumference * (1 - clamped / 100);
   const gradientId = `progress-ring-grad-${size}-${strokeWidth}`;
+  const fromColor = progressColorDark(clamped);
+  const toColor   = progressColor(clamped);
 
   return (
     <div className="relative flex-shrink-0" style={{ width: size, height: size }}>
       {isComplete && (
         <motion.div
           className="absolute inset-0 rounded-full"
-          style={{ background: "var(--workspace-progress-to)" }}
+          style={{ background: toColor }}
           initial={{ opacity: 0.35, scale: 1 }}
           animate={{ opacity: 0, scale: 1.35 }}
           transition={{ duration: 1.4, repeat: Infinity, ease: "easeOut" }}
@@ -36,8 +39,8 @@ export function ProgressRing({ percent, size = 56, strokeWidth = 5 }: ProgressRi
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="-rotate-90">
         <defs>
           <linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%"   style={{ stopColor: "var(--workspace-progress-from)" }} />
-            <stop offset="100%" style={{ stopColor: "var(--workspace-progress-to)" }} />
+            <stop offset="0%"   style={{ stopColor: fromColor }} />
+            <stop offset="100%" style={{ stopColor: toColor }} />
           </linearGradient>
         </defs>
         <circle
@@ -66,7 +69,7 @@ export function ProgressRing({ percent, size = 56, strokeWidth = 5 }: ProgressRi
       <div className="absolute inset-0 flex items-center justify-center">
         {isComplete ? (
           <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: "spring", stiffness: 400, damping: 18 }}>
-            <Check size={size * 0.32} color="var(--workspace-progress-to)" strokeWidth={3} />
+            <Check size={size * 0.32} color={toColor} strokeWidth={3} />
           </motion.div>
         ) : (
           <span className="text-[11px] font-semibold tabular-nums" style={{ color: "var(--text-title)" }}>

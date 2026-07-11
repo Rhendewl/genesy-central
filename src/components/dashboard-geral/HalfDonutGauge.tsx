@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import { progressColor, progressColorDark } from "@/lib/progress-color";
 
 // Gauge em meio-círculo estilo "dial" — arco preenchido com gradiente (escuro
 // → cor final na ponta) + marcações (ticks) no restante não preenchido,
@@ -41,51 +42,62 @@ export function HalfDonutGauge({ percent, label, caption, size = 116 }: HalfDonu
   const fullArcPath = `M ${start.x} ${start.y} A ${r} ${r} 0 0 1 ${end.x} ${end.y}`;
 
   const gradientId = "gauge-grad-neutral";
+  const fromColor = progressColorDark(clamped);
+  const toColor   = progressColor(clamped);
 
   const ticks = Array.from({ length: TICK_COUNT + 1 }, (_, i) => 180 - i * (180 / TICK_COUNT))
     .filter((angle) => angle < progressAngle - 1); // só a parte ainda não preenchida
 
   return (
     <div className="flex flex-col items-center">
-      <svg width={size} height={size / 2 + arcWidth} viewBox={`0 0 ${size} ${size / 2 + arcWidth}`}>
-        <defs>
-          <linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%"   style={{ stopColor: "var(--gauge-grad-from)" }} />
-            <stop offset="100%" style={{ stopColor: "var(--gauge-grad-to)" }} />
-          </linearGradient>
-        </defs>
+      <div className="relative" style={{ width: size, height: size / 2 + arcWidth }}>
+        <svg width={size} height={size / 2 + arcWidth} viewBox={`0 0 ${size} ${size / 2 + arcWidth}`}>
+          <defs>
+            <linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%"   style={{ stopColor: fromColor }} />
+              <stop offset="100%" style={{ stopColor: toColor }} />
+            </linearGradient>
+          </defs>
 
-        {/* Marcações (ticks) — só no trecho ainda não preenchido */}
-        {ticks.map((angle) => {
-          const inner = polar(cx, cy, r - tickLength / 2, angle);
-          const outer = polar(cx, cy, r + tickLength / 2, angle);
-          return (
-            <line
-              key={angle}
-              x1={inner.x} y1={inner.y} x2={outer.x} y2={outer.y}
-              stroke="var(--border-card)"
-              strokeWidth={tickThickness}
-              strokeLinecap="butt"
-            />
-          );
-        })}
+          {/* Marcações (ticks) — só no trecho ainda não preenchido */}
+          {ticks.map((angle) => {
+            const inner = polar(cx, cy, r - tickLength / 2, angle);
+            const outer = polar(cx, cy, r + tickLength / 2, angle);
+            return (
+              <line
+                key={angle}
+                x1={inner.x} y1={inner.y} x2={outer.x} y2={outer.y}
+                stroke="var(--border-card)"
+                strokeWidth={tickThickness}
+                strokeLinecap="butt"
+              />
+            );
+          })}
 
-        {/* Arco preenchido — gradiente escuro → cor final na ponta, ponta reta */}
-        <motion.path
-          d={fullArcPath}
-          fill="none"
-          stroke={`url(#${gradientId})`}
-          strokeWidth={arcWidth}
-          strokeLinecap="butt"
-          initial={false}
-          animate={{ pathLength: clamped / 100 }}
-          transition={{ duration: 0.6, ease: "easeOut" }}
-        />
-      </svg>
-      <p className="-mt-1 text-lg font-bold tabular-nums" style={{ color: "var(--text-title)" }}>
-        {Math.round(clamped)}%
-      </p>
-      <p className="text-[10px] font-semibold uppercase tracking-[0.06em]" style={{ color: "var(--silver)" }}>
+          {/* Arco preenchido — gradiente escuro → cor final na ponta, ponta reta */}
+          <motion.path
+            d={fullArcPath}
+            fill="none"
+            stroke={`url(#${gradientId})`}
+            strokeWidth={arcWidth}
+            strokeLinecap="butt"
+            initial={false}
+            animate={{ pathLength: clamped / 100 }}
+            transition={{ duration: 0.6, ease: "easeOut" }}
+          />
+        </svg>
+
+        {/* % centralizada dentro do semicírculo, não abaixo dele */}
+        <div
+          className="absolute inset-x-0 flex justify-center"
+          style={{ top: "58%", transform: "translateY(-50%)" }}
+        >
+          <p className="text-lg font-bold tabular-nums" style={{ color: "var(--text-title)" }}>
+            {Math.round(clamped)}%
+          </p>
+        </div>
+      </div>
+      <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-[0.06em]" style={{ color: "var(--silver)" }}>
         {label}
       </p>
       <p className="text-[10px]" style={{ color: "var(--muted-foreground)" }}>
