@@ -331,6 +331,16 @@ export function SaudeOperacao({ year, month }: Props) {
         </div>
         <ResponsiveContainer width="100%" height={220}>
           <ComposedChart data={metrics.monthly_evolution} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+            <defs>
+              <linearGradient id="gAtivosArea" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%"   stopColor="#4a8fd4" stopOpacity={0.38} />
+                <stop offset="100%" stopColor="#4a8fd4" stopOpacity={0} />
+              </linearGradient>
+              <linearGradient id="gCancelBar" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%"   stopColor="#f87171" />
+                <stop offset="100%" stopColor="#ef4444" />
+              </linearGradient>
+            </defs>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
             <XAxis dataKey="mes" tick={{ fill: "var(--text-muted)", fontSize: 11 }} axisLine={false} tickLine={false} />
             <YAxis tick={{ fill: "var(--text-muted)", fontSize: 11 }} axisLine={false} tickLine={false} />
@@ -343,11 +353,11 @@ export function SaudeOperacao({ year, month }: Props) {
               type="monotone"
               dataKey="ativos"
               name="Clientes Ativos"
-              fill="rgba(74,143,212,0.12)"
+              fill="url(#gAtivosArea)"
               stroke="#4a8fd4"
               strokeWidth={2}
             />
-            <Bar dataKey="cancelamentos" name="Cancelamentos" fill="#ef444488" radius={[3, 3, 0, 0]} />
+            <Bar dataKey="cancelamentos" name="Cancelamentos" fill="url(#gCancelBar)" radius={[3, 3, 0, 0]} />
           </ComposedChart>
         </ResponsiveContainer>
       </motion.div>
@@ -371,6 +381,16 @@ export function SaudeOperacao({ year, month }: Props) {
         </div>
         <ResponsiveContainer width="100%" height={200}>
           <AreaChart data={metrics.monthly_evolution} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+            <defs>
+              <linearGradient id="gRetencaoArea" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%"   stopColor="#10b981" stopOpacity={0.4} />
+                <stop offset="100%" stopColor="#10b981" stopOpacity={0} />
+              </linearGradient>
+              <linearGradient id="gChurnArea" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%"   stopColor="#ef4444" stopOpacity={0.4} />
+                <stop offset="100%" stopColor="#ef4444" stopOpacity={0} />
+              </linearGradient>
+            </defs>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
             <XAxis dataKey="mes" tick={{ fill: "var(--text-muted)", fontSize: 11 }} axisLine={false} tickLine={false} />
             <YAxis tick={{ fill: "var(--text-muted)", fontSize: 11 }} axisLine={false} tickLine={false} domain={[0, 100]} />
@@ -383,7 +403,7 @@ export function SaudeOperacao({ year, month }: Props) {
               type="monotone"
               dataKey="retencao_pct"
               name="Retenção %"
-              fill="rgba(16,185,129,0.10)"
+              fill="url(#gRetencaoArea)"
               stroke="#10b981"
               strokeWidth={2}
             />
@@ -391,7 +411,7 @@ export function SaudeOperacao({ year, month }: Props) {
               type="monotone"
               dataKey="churn_pct"
               name="Churn %"
-              fill="rgba(239,68,68,0.10)"
+              fill="url(#gChurnArea)"
               stroke="#ef4444"
               strokeWidth={2}
             />
@@ -418,6 +438,12 @@ export function SaudeOperacao({ year, month }: Props) {
         </div>
         <ResponsiveContainer width="100%" height={180}>
           <AreaChart data={metrics.monthly_evolution} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+            <defs>
+              <linearGradient id="gMrrArea" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%"   stopColor="#4a8fd4" stopOpacity={0.45} />
+                <stop offset="100%" stopColor="#4a8fd4" stopOpacity={0} />
+              </linearGradient>
+            </defs>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
             <XAxis dataKey="mes" tick={{ fill: "var(--text-muted)", fontSize: 11 }} axisLine={false} tickLine={false} />
             <YAxis
@@ -430,7 +456,7 @@ export function SaudeOperacao({ year, month }: Props) {
               type="monotone"
               dataKey="mrr"
               name="MRR"
-              fill="rgba(74,143,212,0.15)"
+              fill="url(#gMrrArea)"
               stroke="#4a8fd4"
               strokeWidth={2.5}
             />

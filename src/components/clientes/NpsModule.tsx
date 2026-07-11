@@ -571,6 +571,12 @@ export function NpsModule({ year, month }: Props) {
           </div>
           <ResponsiveContainer width="100%" height={180}>
             <AreaChart data={metrics.monthlyEvolution} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+              <defs>
+                <linearGradient id="gNpsArea" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%"   stopColor="#4a8fd4" stopOpacity={0.4} />
+                  <stop offset="100%" stopColor="#4a8fd4" stopOpacity={0} />
+                </linearGradient>
+              </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
               <XAxis dataKey="mes" tick={{ fill: "var(--text-muted)", fontSize: 11 }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fill: "var(--text-muted)", fontSize: 11 }} axisLine={false} tickLine={false} domain={[-100, 100]} />
@@ -579,7 +585,7 @@ export function NpsModule({ year, month }: Props) {
                 type="monotone"
                 dataKey="nps"
                 name="NPS"
-                fill="rgba(74,143,212,0.12)"
+                fill="url(#gNpsArea)"
                 stroke="#4a8fd4"
                 strokeWidth={2.5}
               />
