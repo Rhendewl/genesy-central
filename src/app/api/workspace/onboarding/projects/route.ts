@@ -2,6 +2,7 @@
 // POST /api/workspace/onboarding/projects — cria projeto (a partir de um template, ou vazio)
 
 import { NextRequest, NextResponse } from "next/server";
+import { createAdminSupabaseClient } from "@/lib/supabase-admin";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { createMirrorIfNeeded, recordHistory } from "@/lib/onboarding/sync";
 import { computeProjectStatus } from "@/lib/onboarding/status";
@@ -112,35 +113,61 @@ export async function POST(req: NextRequest) {
   if (!body?.name) return NextResponse.json({ error: "name é obrigatório" }, { status: 400 });
 
   try {
-    const { data: ownerId, error: ownerError } = await supabase.rpc("effective_owner_id");
-    if (ownerError || typeof ownerId !== "string") {
-      throw new Error(ownerError?.message ?? "Não foi possível resolver o dono da conta.");
-    }
+    const admin = createAdminSupabaseClient();
+    const { data: requesterProfile, error: profileError } = await admin
+      .from("user_profiles")
+      .select("id, owner_id, role, is_active")
+      .eq("auth_user_id", user.id)
+      .maybeSingle();
+    if (profileError) throw new Error(profileError.message);
 
-    const { data: isAdminOfOwner, error: adminError } = await supabase.rpc("is_admin_of_owner", { target_owner_id: ownerId });
-    if (adminError) throw new Error(adminError.message);
+    const ownerId = requesterProfile?.owner_id ?? user.id;
+    const isOwner = ownerId === user.id;
+    const isAdminOfOwner = isOwner || (requesterProfile?.role === "admin" && requesterProfile.is_active);
     if (!isAdminOfOwner) {
       return NextResponse.json({ error: "Apenas administradores podem criar onboardings." }, { status: 403 });
     }
 
     const startDate = body.start_date ?? new Date().toISOString().slice(0, 10);
 
+    if (body.client_id) {
+      const { data: client, error: clientError } = await admin
+        .from("agency_clients")
+        .select("id")
+        .eq("id", body.client_id)
+        .eq("user_id", ownerId)
+        .maybeSingle();
+      if (clientError) throw new Error(clientError.message);
+      if (!client) return NextResponse.json({ error: "Cliente não encontrado para esta conta." }, { status: 400 });
+    }
+
+    if (body.template_id) {
+      const { data: template, error: templateError } = await admin
+        .from("onboarding_templates")
+        .select("id")
+        .eq("id", body.template_id)
+        .eq("user_id", ownerId)
+        .maybeSingle();
+      if (templateError) throw new Error(templateError.message);
+      if (!template) return NextResponse.json({ error: "Template de onboarding não encontrado para esta conta." }, { status: 400 });
+    }
+
     const { data: templateStages } = body.template_id
-      ? await supabase.from("onboarding_template_stages").select("*").eq("template_id", body.template_id).order("order_index")
+      ? await admin.from("onboarding_template_stages").select("*").eq("template_id", body.template_id).order("order_index")
       : { data: [] as { id: string; name: string; order_index: number; relative_due_days: number; color: string }[] };
 
     const stageIds = (templateStages ?? []).map((s) => s.id);
     const { data: templateTasks } = stageIds.length > 0
-      ? await supabase.from("onboarding_template_tasks").select("*").in("stage_id", stageIds).order("order_index")
+      ? await admin.from("onboarding_template_tasks").select("*").in("stage_id", stageIds).order("order_index")
       : { data: [] as { id: string; stage_id: string; title: string; description: string | null; role_key: string | null; weight: number; priority: string; relative_due_days: number | null; required_document_labels: string[] }[] };
 
     const taskIds = (templateTasks ?? []).map((t) => t.id);
     const { data: templateDeps } = taskIds.length > 0
-      ? await supabase.from("onboarding_template_task_dependencies").select("task_id, depends_on_task_id").in("task_id", taskIds)
+      ? await admin.from("onboarding_template_task_dependencies").select("task_id, depends_on_task_id").in("task_id", taskIds)
       : { data: [] as { task_id: string; depends_on_task_id: string }[] };
 
     const { data: templateDocs } = body.template_id
-      ? await supabase.from("onboarding_template_documents").select("label, order_index").eq("template_id", body.template_id).order("order_index")
+      ? await admin.from("onboarding_template_documents").select("label, order_index").eq("template_id", body.template_id).order("order_index")
       : { data: [] as { label: string; order_index: number }[] };
 
     const maxRelativeDays = (templateStages ?? []).reduce((max, s) => Math.max(max, s.relative_due_days), 0);
@@ -149,7 +176,7 @@ export async function POST(req: NextRequest) {
         ? addDays(startDate, maxRelativeDays)
         : null);
 
-    const { data: project, error: projectError } = await supabase
+    const { data: project, error: projectError } = await admin
       .from("onboarding_projects")
       .insert({
         user_id:     ownerId,
@@ -164,11 +191,11 @@ export async function POST(req: NextRequest) {
       .single();
     if (projectError) throw new Error(projectError.message);
 
-    const { data: actorProfile } = await supabase.from("user_profiles").select("id").eq("auth_user_id", user.id).maybeSingle();
+    const actorProfile = requesterProfile ? { id: requesterProfile.id as string } : null;
 
     const stageIdMap = new Map<string, string>();
     if (templateStages && templateStages.length > 0) {
-      const { data: newStages, error: stagesError } = await supabase
+      const { data: newStages, error: stagesError } = await admin
         .from("onboarding_project_stages")
         .insert(templateStages.map((s) => ({
           user_id:     ownerId,
@@ -225,7 +252,7 @@ export async function POST(req: NextRequest) {
         };
       });
 
-      const { data: newTasks, error: tasksError } = await supabase
+      const { data: newTasks, error: tasksError } = await admin
         .from("onboarding_tasks")
         .insert(rowsToInsert)
         .select("id, project_id, title, description, assignee_profile_id, priority, status, due_date");
@@ -240,22 +267,22 @@ export async function POST(req: NextRequest) {
         depends_on_task_id: taskIdMap.get(d.depends_on_task_id)!,
       }));
       if (depRows.length > 0) {
-        const { error: depsError } = await supabase.from("onboarding_task_dependencies").insert(depRows);
+        const { error: depsError } = await admin.from("onboarding_task_dependencies").insert(depRows);
         if (depsError) throw new Error(depsError.message);
       }
     }
 
     if (templateDocs && templateDocs.length > 0) {
-      const { error: docsError } = await supabase
+      const { error: docsError } = await admin
         .from("onboarding_project_documents")
         .insert(templateDocs.map((d) => ({ user_id: ownerId, project_id: project.id, label: d.label })));
       if (docsError) throw new Error(docsError.message);
     }
 
-    await recordHistory(supabase, project.id, actorProfile?.id ?? null, "project_created", { name: project.name });
+    await recordHistory(admin, project.id, actorProfile?.id ?? null, "project_created", { name: project.name });
 
     for (const task of createdTasks) {
-      if (task.status === "a_fazer") await createMirrorIfNeeded(supabase, task);
+      if (task.status === "a_fazer") await createMirrorIfNeeded(admin, task);
       if (task.status === "a_fazer" && task.assignee_profile_id) {
         getPlatformEventBus().publish("onboarding.task_assigned", {
           taskId:            task.id,
