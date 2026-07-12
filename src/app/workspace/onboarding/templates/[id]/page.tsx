@@ -19,11 +19,9 @@ export default function OnboardingTemplateBuilderPage() {
     updateTemplate,
     addStage, updateStage, deleteStage,
     addTask, updateTask, deleteTask,
-    addDocument, deleteDocument,
   } = useOnboardingTemplate(id);
 
   const [taskModal, setTaskModal] = useState<{ stageId: string; task: OnboardingTemplateTask | null } | null>(null);
-  const [newDocLabel, setNewDocLabel] = useState("");
 
   if (isLoading || !detail) {
     return (
@@ -40,14 +38,6 @@ export default function OnboardingTemplateBuilderPage() {
   async function handleAddStage() {
     const result = await addStage({ name: "Nova etapa" });
     if (result.error) toast.error(result.error);
-  }
-
-  async function handleAddDoc() {
-    const label = newDocLabel.trim();
-    if (!label) return;
-    const result = await addDocument({ label });
-    if (result.error) toast.error(result.error);
-    else setNewDocLabel("");
   }
 
   return (
@@ -168,40 +158,10 @@ export default function OnboardingTemplateBuilderPage() {
         </button>
       </div>
 
-      <div className="lc-card p-4">
-        <p className="mb-3 text-sm font-semibold" style={{ color: "var(--text-title)" }}>Documentos e acessos</p>
-        <div className="flex flex-col gap-1.5">
-          {detail.documents.map((doc) => (
-            <div key={doc.id} className="group flex items-center gap-2 rounded-lg px-1 py-1 hover:bg-[var(--hover)]">
-              <span className="flex-1 text-sm" style={{ color: "var(--text-title)" }}>{doc.label}</span>
-              <button
-                onClick={() => void deleteDocument(doc.id)}
-                className="opacity-0 transition-opacity group-hover:opacity-100"
-                style={{ color: "var(--muted-foreground)" }}
-              >
-                <X size={13} />
-              </button>
-            </div>
-          ))}
-          <div className="mt-1 flex items-center gap-2">
-            <Plus size={14} style={{ color: "var(--muted-foreground)" }} />
-            <input
-              value={newDocLabel}
-              onChange={(e) => setNewDocLabel(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") void handleAddDoc(); }}
-              placeholder="Ex: Meta Ads, Google Ads, CRM, Drive..."
-              className="flex-1 bg-transparent text-sm outline-none placeholder:text-[var(--muted-foreground)]"
-              style={{ color: "var(--text-title)" }}
-            />
-          </div>
-        </div>
-      </div>
-
       {taskModal && (
         <TemplateTaskModal
           task={taskModal.task}
           otherTasks={allTasks.filter((t) => t.id !== taskModal.task?.id)}
-          documents={detail.documents}
           roleSuggestions={roleSuggestions}
           onClose={() => setTaskModal(null)}
           onSave={async (data) => {

@@ -166,10 +166,6 @@ export async function POST(req: NextRequest) {
       ? await admin.from("onboarding_template_task_dependencies").select("task_id, depends_on_task_id").in("task_id", taskIds)
       : { data: [] as { task_id: string; depends_on_task_id: string }[] };
 
-    const { data: templateDocs } = body.template_id
-      ? await admin.from("onboarding_template_documents").select("label, order_index").eq("template_id", body.template_id).order("order_index")
-      : { data: [] as { label: string; order_index: number }[] };
-
     const maxRelativeDays = (templateStages ?? []).reduce((max, s) => Math.max(max, s.relative_due_days), 0);
     const computedTargetDate = body.target_date
       ?? (templateStages && templateStages.length > 0
@@ -248,7 +244,7 @@ export async function POST(req: NextRequest) {
           priority:                 t.priority,
           status,
           due_date:                 addDays(startDate, relativeDays),
-          required_document_labels: t.required_document_labels,
+          required_document_labels: [],
         };
       });
 
@@ -270,13 +266,6 @@ export async function POST(req: NextRequest) {
         const { error: depsError } = await admin.from("onboarding_task_dependencies").insert(depRows);
         if (depsError) throw new Error(depsError.message);
       }
-    }
-
-    if (templateDocs && templateDocs.length > 0) {
-      const { error: docsError } = await admin
-        .from("onboarding_project_documents")
-        .insert(templateDocs.map((d) => ({ user_id: ownerId, project_id: project.id, label: d.label })));
-      if (docsError) throw new Error(docsError.message);
     }
 
     await recordHistory(admin, project.id, actorProfile?.id ?? null, "project_created", { name: project.name });

@@ -5,12 +5,11 @@ import type {
   OnboardingTemplateDetail, UpdateOnboardingTemplate,
   NewOnboardingTemplateStage, UpdateOnboardingTemplateStage,
   NewOnboardingTemplateTask, UpdateOnboardingTemplateTask,
-  NewOnboardingTemplateDocument, UpdateOnboardingTemplateDocument,
 } from "@/types/onboarding";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // useOnboardingTemplate — construtor de um template (etapas → tarefas →
-// dependências, + checklist de documentos). É uma tela de configuração de baixa
+// dependências). É uma tela de configuração de baixa
 // frequência (admin montando o processo), não um board em tempo real — por
 // isso cada mutação simplesmente reconsulta o detalhe completo em vez de
 // cirurgia de estado otimista (mais simples e sempre correto após reordenação).
@@ -113,39 +112,10 @@ export function useOnboardingTemplate(templateId: string | null) {
     return json;
   }
 
-  async function addDocument(data: NewOnboardingTemplateDocument) {
-    if (!templateId) return { error: "Sem template" };
-    const res  = await fetch(`/api/workspace/onboarding/templates/${templateId}/documents`, {
-      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data),
-    });
-    const json = await res.json() as { error?: string };
-    if (res.ok) await fetchDetail();
-    return json;
-  }
-
-  async function updateDocument(docId: string, patch: UpdateOnboardingTemplateDocument) {
-    if (!templateId) return { error: "Sem template" };
-    const res  = await fetch(`/api/workspace/onboarding/templates/${templateId}/documents/${docId}`, {
-      method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(patch),
-    });
-    const json = await res.json() as { error?: string };
-    if (res.ok) await fetchDetail();
-    return json;
-  }
-
-  async function deleteDocument(docId: string) {
-    if (!templateId) return { error: "Sem template" };
-    const res  = await fetch(`/api/workspace/onboarding/templates/${templateId}/documents/${docId}`, { method: "DELETE" });
-    const json = await res.json() as { error?: string };
-    if (res.ok) await fetchDetail();
-    return json;
-  }
-
   return {
     detail, isLoading, error, refetch: fetchDetail,
     updateTemplate,
     addStage, updateStage, deleteStage,
     addTask, updateTask, deleteTask,
-    addDocument, updateDocument, deleteDocument,
   };
 }

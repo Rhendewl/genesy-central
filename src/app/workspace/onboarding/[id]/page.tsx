@@ -7,13 +7,12 @@ import { toast } from "sonner";
 import { useCurrentMember } from "@/context/CurrentMemberContext";
 import { useOnboardingProject } from "@/hooks/useOnboardingProject";
 import { OnboardingTaskPanel } from "@/components/workspace/onboarding/OnboardingTaskPanel";
-import { OnboardingDocumentsTab } from "@/components/workspace/onboarding/OnboardingDocumentsTab";
 import { OnboardingHistoryTab } from "@/components/workspace/onboarding/OnboardingHistoryTab";
 import { PriorityBadge } from "@/components/workspace/PriorityBadge";
 import { ProgressBar } from "@/components/workspace/ProgressBar";
 import { ONBOARDING_PROJECT_STATUSES, ONBOARDING_TASK_STATUSES } from "@/types/onboarding";
 
-type Tab = "projeto" | "documentos" | "historico";
+type Tab = "projeto" | "historico";
 
 export default function OnboardingProjectDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -81,7 +80,7 @@ export default function OnboardingProjectDetailPage() {
       </div>
 
       <div className="flex items-center gap-1">
-        {([["projeto", "Projeto"], ["documentos", "Documentos"], ["historico", "Histórico"]] as [Tab, string][]).map(([id2, label]) => (
+        {([["projeto", "Projeto"], ["historico", "Histórico"]] as [Tab, string][]).map(([id2, label]) => (
           <button
             key={id2}
             onClick={() => setTab(id2)}
@@ -165,7 +164,6 @@ export default function OnboardingProjectDetailPage() {
         </div>
       )}
 
-      {tab === "documentos" && <OnboardingDocumentsTab projectId={id} isAdmin={isAdmin} />}
       {tab === "historico" && <OnboardingHistoryTab projectId={id} />}
 
       {panel && (

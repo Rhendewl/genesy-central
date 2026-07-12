@@ -3,34 +3,29 @@
 import { useState } from "react";
 import { X, Loader2, Trash2 } from "lucide-react";
 import { WORKSPACE_TASK_PRIORITIES, type WorkspaceTaskPriority } from "@/types/workspace";
-import type { NewOnboardingTemplateTask, OnboardingTemplateTask, OnboardingTemplateDocument } from "@/types/onboarding";
+import type { NewOnboardingTemplateTask, OnboardingTemplateTask } from "@/types/onboarding";
 
 interface TemplateTaskModalProps {
   task?:          OnboardingTemplateTask | null;
   otherTasks:     OnboardingTemplateTask[]; // candidatas a dependência (mesmo template, exclui a própria)
-  documents:      OnboardingTemplateDocument[];
   roleSuggestions: string[];
   onClose:  () => void;
   onSave:   (data: NewOnboardingTemplateTask) => Promise<{ error?: string }>;
   onDelete?: () => Promise<void>;
 }
 
-export function TemplateTaskModal({ task, otherTasks, documents, roleSuggestions, onClose, onSave, onDelete }: TemplateTaskModalProps) {
+export function TemplateTaskModal({ task, otherTasks, roleSuggestions, onClose, onSave, onDelete }: TemplateTaskModalProps) {
   const [title,       setTitle]       = useState(task?.title ?? "");
   const [description, setDescription] = useState(task?.description ?? "");
   const [roleKey,     setRoleKey]     = useState(task?.role_key ?? "");
   const [priority,    setPriority]    = useState<WorkspaceTaskPriority>(task?.priority ?? "media");
   const [weight,       setWeight]       = useState(task?.weight ?? 1);
   const [relativeDays, setRelativeDays] = useState<string>(task?.relative_due_days != null ? String(task.relative_due_days) : "");
-  const [requiredDocs, setRequiredDocs] = useState<string[]>(task?.required_document_labels ?? []);
   const [dependsOn,    setDependsOn]    = useState<string[]>(task?.depends_on_task_ids ?? []);
   const [isSaving,   setIsSaving]   = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  function toggleDoc(label: string) {
-    setRequiredDocs((prev) => prev.includes(label) ? prev.filter((l) => l !== label) : [...prev, label]);
-  }
   function toggleDepends(id: string) {
     setDependsOn((prev) => prev.includes(id) ? prev.filter((t) => t !== id) : [...prev, id]);
   }
@@ -46,7 +41,7 @@ export function TemplateTaskModal({ task, otherTasks, documents, roleSuggestions
       priority,
       weight,
       relative_due_days:         relativeDays === "" ? undefined : Number(relativeDays),
-      required_document_labels: requiredDocs,
+      required_document_labels: [],
       depends_on_task_ids:      dependsOn,
     });
     setIsSaving(false);
@@ -163,31 +158,6 @@ export function TemplateTaskModal({ task, otherTasks, documents, roleSuggestions
               />
             </div>
           </div>
-
-          {documents.length > 0 && (
-            <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-medium" style={{ color: "var(--muted-foreground)" }}>Documentos necessários</label>
-              <div className="flex flex-wrap gap-1.5">
-                {documents.map((d) => {
-                  const active = requiredDocs.includes(d.label);
-                  return (
-                    <button
-                      key={d.id}
-                      onClick={() => toggleDoc(d.label)}
-                      className="rounded-full px-2.5 py-1 text-[11px] font-medium transition-all"
-                      style={{
-                        background: active ? "var(--accent-blue)30" : "var(--hover)",
-                        color:      active ? "var(--accent-blue)" : "var(--muted-foreground)",
-                        border:     `1px solid ${active ? "var(--accent-blue)50" : "var(--glass-border)"}`,
-                      }}
-                    >
-                      {d.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
 
           {otherTasks.length > 0 && (
             <div className="flex flex-col gap-1.5">

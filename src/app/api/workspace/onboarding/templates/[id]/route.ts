@@ -1,12 +1,12 @@
-// GET    /api/workspace/onboarding/templates/[id] — template + etapas + tarefas + documentos
+// GET    /api/workspace/onboarding/templates/[id] — template + etapas + tarefas
 // PATCH  /api/workspace/onboarding/templates/[id] — atualiza name/description/is_active
-// DELETE /api/workspace/onboarding/templates/[id] — remove template (cascade em etapas/tarefas/documentos)
+// DELETE /api/workspace/onboarding/templates/[id] — remove template (cascade em etapas/tarefas)
 
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import type {
   OnboardingTemplate, OnboardingTemplateStage, OnboardingTemplateTask,
-  OnboardingTemplateDocument, OnboardingTemplateDetail, UpdateOnboardingTemplate,
+  OnboardingTemplateDetail, UpdateOnboardingTemplate,
 } from "@/types/onboarding";
 
 type Params = { params: Promise<{ id: string }> };
@@ -18,10 +18,9 @@ export async function GET(_req: NextRequest, { params }: Params) {
   if (!user) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
 
   try {
-    const [templateRes, stagesRes, docsRes] = await Promise.all([
+    const [templateRes, stagesRes] = await Promise.all([
       supabase.from("onboarding_templates").select("*").eq("id", id).maybeSingle(),
       supabase.from("onboarding_template_stages").select("*").eq("template_id", id).order("order_index"),
-      supabase.from("onboarding_template_documents").select("*").eq("template_id", id).order("order_index"),
     ]);
 
     if (templateRes.error) throw new Error(templateRes.error.message);
@@ -58,7 +57,7 @@ export async function GET(_req: NextRequest, { params }: Params) {
     const detail: OnboardingTemplateDetail = {
       ...(templateRes.data as OnboardingTemplate),
       stages:    stages.map((s) => ({ ...s, tasks: tasksByStage.get(s.id) ?? [] })),
-      documents: (docsRes.data ?? []) as OnboardingTemplateDocument[],
+      documents: [],
     };
 
     return NextResponse.json({ template: detail });
