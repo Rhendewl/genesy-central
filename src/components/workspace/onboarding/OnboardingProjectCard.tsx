@@ -33,7 +33,7 @@ export function OnboardingProjectCard({ project }: { project: OnboardingProjectS
         )}
       </div>
 
-      <ProgressBar percent={project.progress_percent} />
+      <ProgressBar percent={project.progress_percent} colorMode="progress-band" />
 
       {project.current_stage_name && (
         <p className="text-xs" style={{ color: "var(--muted-foreground)" }}>Etapa atual: {project.current_stage_name}</p>

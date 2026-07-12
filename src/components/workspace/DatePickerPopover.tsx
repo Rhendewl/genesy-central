@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { createPortal } from "react-dom";
 import { Calendar, ChevronLeft, ChevronRight } from "lucide-react";
 
 const WEEKDAYS = ["D", "S", "T", "Q", "Q", "S", "S"];
@@ -41,14 +42,54 @@ export function DatePickerPopover({ value, onChange, placeholder = "Selecionar d
   const [viewYear, setViewYear] = useState((selected ?? today).getFullYear());
   const [viewMonth, setViewMonth] = useState((selected ?? today).getMonth());
   const ref = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
+  const [popoverStyle, setPopoverStyle] = useState<CSSProperties | null>(null);
 
   useEffect(() => {
     if (!open) return;
     const fn = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      const target = e.target as Node;
+      if (
+        ref.current
+        && !ref.current.contains(target)
+        && popoverRef.current
+        && !popoverRef.current.contains(target)
+      ) {
+        setOpen(false);
+      }
     };
     document.addEventListener("mousedown", fn);
     return () => document.removeEventListener("mousedown", fn);
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const updatePosition = () => {
+      const rect = buttonRef.current?.getBoundingClientRect();
+      if (!rect) return;
+
+      const width = 260;
+      const gap = 8;
+      const viewportPadding = 12;
+      const popoverHeight = 330;
+      const left = Math.min(Math.max(rect.left, viewportPadding), window.innerWidth - width - viewportPadding);
+      const hasRoomBelow = rect.bottom + gap + popoverHeight <= window.innerHeight - viewportPadding;
+      const top = hasRoomBelow
+        ? rect.bottom + gap
+        : Math.max(viewportPadding, rect.top - gap - popoverHeight);
+
+      setPopoverStyle({ position: "fixed", top, left, width, zIndex: 1000 });
+    };
+
+    updatePosition();
+    window.addEventListener("resize", updatePosition);
+    window.addEventListener("scroll", updatePosition, true);
+    return () => {
+      window.removeEventListener("resize", updatePosition);
+      window.removeEventListener("scroll", updatePosition, true);
+    };
   }, [open]);
 
   const prevMonth = () => (viewMonth === 0 ? (setViewYear((y) => y - 1), setViewMonth(11)) : setViewMonth((m) => m - 1));
@@ -81,6 +122,7 @@ export function DatePickerPopover({ value, onChange, placeholder = "Selecionar d
   return (
     <div ref={ref} className={`relative ${className ?? ""}`}>
       <button
+        ref={buttonRef}
         type="button"
         onClick={() => setOpen((o) => !o)}
         className="lc-filter-control flex h-8 w-full items-center gap-2 rounded-lg px-2.5 text-xs transition-all"
@@ -90,10 +132,11 @@ export function DatePickerPopover({ value, onChange, placeholder = "Selecionar d
         <span className="truncate">{label}</span>
       </button>
 
-      {open && (
+      {open && popoverStyle && createPortal(
         <div
-          className="lc-modal-panel absolute left-0 top-full z-50 mt-2 overflow-hidden rounded-2xl"
-          style={{ width: 260 }}
+          ref={popoverRef}
+          className="lc-modal-panel overflow-hidden rounded-2xl"
+          style={popoverStyle}
         >
           <div className="flex items-center justify-between px-3 py-2.5" style={{ borderBottom: "1px solid var(--glass-border)" }}>
             <button onClick={prevMonth} className="flex h-6 w-6 items-center justify-center rounded-lg transition-colors hover:bg-[var(--hover)]">
@@ -165,7 +208,8 @@ export function DatePickerPopover({ value, onChange, placeholder = "Selecionar d
               Hoje
             </button>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );

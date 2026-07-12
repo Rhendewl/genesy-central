@@ -2,7 +2,7 @@
 
 import { useId } from "react";
 import { motion } from "framer-motion";
-import { progressColor, progressGradientFrom } from "@/lib/progress-color";
+import { progressBandColor, progressBandGradientFrom } from "@/lib/progress-color";
 import { useGlobalStore } from "@/store";
 
 // Gauge em meio-círculo estilo "dial" — arco preenchido com gradiente (escuro
@@ -45,8 +45,8 @@ export function HalfDonutGauge({ percent, label, caption, size = 116 }: HalfDonu
   const end   = polar(cx, cy, r, 0);
   const fullArcPath = `M ${start.x} ${start.y} A ${r} ${r} 0 0 1 ${end.x} ${end.y}`;
 
-  const fromColor = progressGradientFrom(clamped, theme);
-  const toColor   = progressColor(clamped);
+  const fromColor = progressBandGradientFrom(clamped, theme);
+  const toColor   = progressBandColor(clamped);
 
   const ticks = Array.from({ length: TICK_COUNT + 1 }, (_, i) => 180 - i * (180 / TICK_COUNT))
     .filter((angle) => angle < progressAngle - 1); // só a parte ainda não preenchida

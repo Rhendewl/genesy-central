@@ -27,6 +27,7 @@ export default function OnboardingTemplateBuilderPage() {
   const [stageDelete, setStageDelete] = useState<{ id: string; name: string } | null>(null);
   const [isDeletingStage, setIsDeletingStage] = useState(false);
   const [dragStageId, setDragStageId] = useState<string | null>(null);
+  const [dragStartY, setDragStartY] = useState<number | null>(null);
 
   if (isMemberLoading) {
     return (
@@ -128,6 +129,16 @@ export default function OnboardingTemplateBuilderPage() {
     }
   }
 
+  function finishStageHandleDrag(stageIndex: number, clientY: number) {
+    if (dragStartY === null) return;
+    const deltaY = clientY - dragStartY;
+    setDragStartY(null);
+    setDragStageId(null);
+
+    if (deltaY < -18) void moveStage(stageIndex, -1);
+    if (deltaY > 18) void moveStage(stageIndex, 1);
+  }
+
   async function moveTask(stageId: string, taskIndex: number, direction: -1 | 1) {
     if (!detail) return;
     const stage = detail.stages.find((s) => s.id === stageId);
@@ -188,11 +199,25 @@ export default function OnboardingTemplateBuilderPage() {
             <div className="mb-3 flex flex-wrap items-center gap-2">
               <button
                 draggable
+                onPointerDown={(event) => {
+                  setDragStageId(stage.id);
+                  setDragStartY(event.clientY);
+                  event.currentTarget.setPointerCapture(event.pointerId);
+                }}
+                onPointerUp={(event) => finishStageHandleDrag(stageIdx, event.clientY)}
+                onPointerCancel={() => {
+                  setDragStartY(null);
+                  setDragStageId(null);
+                }}
                 onDragStart={(event) => {
                   setDragStageId(stage.id);
                   event.dataTransfer.effectAllowed = "move";
+                  event.dataTransfer.setData("text/plain", stage.id);
                 }}
-                onDragEnd={() => setDragStageId(null)}
+                onDragEnd={() => {
+                  setDragStageId(null);
+                  setDragStartY(null);
+                }}
                 className="cursor-grab rounded p-1 active:cursor-grabbing"
                 aria-label="Arrastar etapa para reordenar"
                 title="Arrastar etapa"

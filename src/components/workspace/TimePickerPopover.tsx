@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { createPortal } from "react-dom";
 import { Clock } from "lucide-react";
 
 const HOURS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, "0"));
@@ -18,16 +19,56 @@ export function TimePickerPopover({ value, onChange, disabled = false, className
 
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
   const hourColRef = useRef<HTMLDivElement>(null);
   const minuteColRef = useRef<HTMLDivElement>(null);
+  const [popoverStyle, setPopoverStyle] = useState<CSSProperties | null>(null);
 
   useEffect(() => {
     if (!open) return;
     const fn = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      const target = e.target as Node;
+      if (
+        ref.current
+        && !ref.current.contains(target)
+        && popoverRef.current
+        && !popoverRef.current.contains(target)
+      ) {
+        setOpen(false);
+      }
     };
     document.addEventListener("mousedown", fn);
     return () => document.removeEventListener("mousedown", fn);
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const updatePosition = () => {
+      const rect = buttonRef.current?.getBoundingClientRect();
+      if (!rect) return;
+
+      const width = 140;
+      const gap = 8;
+      const viewportPadding = 12;
+      const popoverHeight = 172;
+      const left = Math.min(Math.max(rect.left, viewportPadding), window.innerWidth - width - viewportPadding);
+      const hasRoomBelow = rect.bottom + gap + popoverHeight <= window.innerHeight - viewportPadding;
+      const top = hasRoomBelow
+        ? rect.bottom + gap
+        : Math.max(viewportPadding, rect.top - gap - popoverHeight);
+
+      setPopoverStyle({ position: "fixed", top, left, width, zIndex: 1000 });
+    };
+
+    updatePosition();
+    window.addEventListener("resize", updatePosition);
+    window.addEventListener("scroll", updatePosition, true);
+    return () => {
+      window.removeEventListener("resize", updatePosition);
+      window.removeEventListener("scroll", updatePosition, true);
+    };
   }, [open]);
 
   useEffect(() => {
@@ -52,6 +93,7 @@ export function TimePickerPopover({ value, onChange, disabled = false, className
   return (
     <div ref={ref} className={`relative ${className ?? ""}`}>
       <button
+        ref={buttonRef}
         type="button"
         disabled={disabled}
         onClick={() => setOpen((o) => !o)}
@@ -62,10 +104,11 @@ export function TimePickerPopover({ value, onChange, disabled = false, className
         <span className="tabular-nums">{label}</span>
       </button>
 
-      {open && !disabled && (
+      {open && !disabled && popoverStyle && createPortal(
         <div
-          className="lc-modal-panel absolute left-0 top-full z-50 mt-2 flex overflow-hidden rounded-2xl"
-          style={{ width: 140 }}
+          ref={popoverRef}
+          className="lc-modal-panel flex overflow-hidden rounded-2xl"
+          style={popoverStyle}
         >
           <div ref={hourColRef} className="h-40 flex-1 overflow-y-auto py-1 scrollbar-none" style={{ borderRight: "1px solid var(--glass-border)" }}>
             {HOURS.map((h) => {
@@ -109,7 +152,8 @@ export function TimePickerPopover({ value, onChange, disabled = false, className
               );
             })}
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );

@@ -41,3 +41,18 @@ export function progressGradientFrom(percent: number, theme: "dark" | "light" = 
     ? `color-mix(in srgb, ${color} 28%, white)`
     : `color-mix(in srgb, ${color} 55%, black)`;
 }
+
+export function progressBandColor(percent: number): string {
+  const p = Math.max(0, Math.min(100, percent));
+  if (p < 20) return "#ef4444";
+  if (p < 40) return "#f97316";
+  if (p < 80) return "#eab308";
+  return "#22c55e";
+}
+
+export function progressBandGradientFrom(percent: number, theme: "dark" | "light" = "dark"): string {
+  const color = progressBandColor(percent);
+  return theme === "light"
+    ? `color-mix(in srgb, ${color} 30%, white)`
+    : `color-mix(in srgb, ${color} 55%, black)`;
+}
