@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Plus, X, GripVertical, FolderInput } from "lucide-react";
+import { ArrowLeft, ChevronDown, ChevronUp, Plus, X, GripVertical, FolderInput } from "lucide-react";
 import { toast } from "sonner";
 import { useOnboardingTemplate } from "@/hooks/useOnboardingTemplate";
 import { TemplateTaskModal } from "@/components/workspace/onboarding/TemplateTaskModal";
@@ -22,6 +22,8 @@ export default function OnboardingTemplateBuilderPage() {
   } = useOnboardingTemplate(id);
 
   const [taskModal, setTaskModal] = useState<{ stageId: string; task: OnboardingTemplateTask | null } | null>(null);
+  const [stageDelete, setStageDelete] = useState<{ id: string; name: string } | null>(null);
+  const [isDeletingStage, setIsDeletingStage] = useState(false);
 
   if (isLoading || !detail) {
     return (
@@ -37,6 +39,49 @@ export default function OnboardingTemplateBuilderPage() {
   async function handleAddStage() {
     const result = await addStage({ name: "Nova etapa" });
     if (result.error) toast.error(result.error);
+  }
+
+  async function handleDeleteStage() {
+    if (!stageDelete) return;
+    setIsDeletingStage(true);
+    const result = await deleteStage(stageDelete.id);
+    setIsDeletingStage(false);
+    if (result.error) {
+      toast.error(result.error);
+      return;
+    }
+    setStageDelete(null);
+  }
+
+  async function moveStage(stageIndex: number, direction: -1 | 1) {
+    if (!detail) return;
+    const current = detail.stages[stageIndex];
+    const target = detail.stages[stageIndex + direction];
+    if (!current || !target) return;
+
+    const first = await updateStage(current.id, { order_index: target.order_index });
+    if (first.error) {
+      toast.error(first.error);
+      return;
+    }
+    const second = await updateStage(target.id, { order_index: current.order_index });
+    if (second.error) toast.error(second.error);
+  }
+
+  async function moveTask(stageId: string, taskIndex: number, direction: -1 | 1) {
+    if (!detail) return;
+    const stage = detail.stages.find((s) => s.id === stageId);
+    const current = stage?.tasks[taskIndex];
+    const target = stage?.tasks[taskIndex + direction];
+    if (!current || !target) return;
+
+    const first = await updateTask(current.id, { order_index: target.order_index });
+    if (first.error) {
+      toast.error(first.error);
+      return;
+    }
+    const second = await updateTask(target.id, { order_index: current.order_index });
+    if (second.error) toast.error(second.error);
   }
 
   return (
@@ -104,35 +149,75 @@ export default function OnboardingTemplateBuilderPage() {
                   style={{ background: "var(--hover)", border: "1px solid var(--glass-border)", color: "var(--text-title)" }}
                 />
               </div>
+              <div className="flex items-center gap-0.5">
+                <button
+                  onClick={() => void moveStage(stageIdx, -1)}
+                  disabled={stageIdx === 0}
+                  className="rounded p-1 disabled:opacity-30"
+                  aria-label="Mover etapa para cima"
+                >
+                  <ChevronUp size={14} style={{ color: "var(--muted-foreground)" }} />
+                </button>
+                <button
+                  onClick={() => void moveStage(stageIdx, 1)}
+                  disabled={stageIdx === detail.stages.length - 1}
+                  className="rounded p-1 disabled:opacity-30"
+                  aria-label="Mover etapa para baixo"
+                >
+                  <ChevronDown size={14} style={{ color: "var(--muted-foreground)" }} />
+                </button>
+              </div>
               <button
-                onClick={() => { if (window.confirm(`Excluir a etapa "${stage.name}" e suas tarefas?`)) void deleteStage(stage.id); }}
+                onClick={() => setStageDelete({ id: stage.id, name: stage.name })}
                 className="rounded p-1 hover:bg-red-500/10"
+                aria-label="Excluir etapa"
               >
                 <X size={14} style={{ color: "#e05c5c" }} />
               </button>
             </div>
 
             <div className="flex flex-col gap-1.5">
-              {stage.tasks.map((task) => (
-                <button
+              {stage.tasks.map((task, taskIdx) => (
+                <div
                   key={task.id}
-                  onClick={() => setTaskModal({ stageId: stage.id, task })}
                   className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left hover:bg-[var(--hover)]"
                 >
-                  <span className="flex-1 truncate text-sm" style={{ color: "var(--text-title)" }}>{task.title}</span>
-                  {task.assignee_name && (
-                    <span className="rounded-full px-2 py-0.5 text-[10px]" style={{ background: "var(--hover)", color: "var(--muted-foreground)" }}>
-                      {task.assignee_name}
-                    </span>
-                  )}
-                  <PriorityBadge priority={task.priority} />
-                  <span className="text-[10px]" style={{ color: "var(--muted-foreground)" }}>peso {task.weight}</span>
-                  {(task.depends_on_task_ids?.length ?? 0) > 0 && (
-                    <span className="flex items-center gap-0.5 text-[10px]" style={{ color: "var(--muted-foreground)" }}>
-                      <FolderInput size={11} />{task.depends_on_task_ids!.length}
-                    </span>
-                  )}
-                </button>
+                  <button
+                    onClick={() => setTaskModal({ stageId: stage.id, task })}
+                    className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                  >
+                    <span className="flex-1 truncate text-sm" style={{ color: "var(--text-title)" }}>{task.title}</span>
+                    {task.assignee_name && (
+                      <span className="rounded-full px-2 py-0.5 text-[10px]" style={{ background: "var(--hover)", color: "var(--muted-foreground)" }}>
+                        {task.assignee_name}
+                      </span>
+                    )}
+                    <PriorityBadge priority={task.priority} />
+                    {(task.depends_on_task_ids?.length ?? 0) > 0 && (
+                      <span className="flex items-center gap-0.5 text-[10px]" style={{ color: "var(--muted-foreground)" }}>
+                        <FolderInput size={11} />{task.depends_on_task_ids!.length}
+                      </span>
+                    )}
+                  </button>
+                  <div className="flex items-center gap-0.5">
+                    <button
+                      onClick={() => void moveTask(stage.id, taskIdx, -1)}
+                      disabled={taskIdx === 0}
+                      className="rounded p-1 disabled:opacity-30"
+                      aria-label="Mover tarefa para cima"
+                    >
+                      <ChevronUp size={13} style={{ color: "var(--muted-foreground)" }} />
+                    </button>
+                    <button
+                      onClick={() => void moveTask(stage.id, taskIdx, 1)}
+                      disabled={taskIdx === stage.tasks.length - 1}
+                      className="rounded p-1 disabled:opacity-30"
+                      aria-label="Mover tarefa para baixo"
+                    >
+                      <ChevronDown size={13} style={{ color: "var(--muted-foreground)" }} />
+                    </button>
+                  </div>
+                </div>
               ))}
             </div>
 
@@ -174,6 +259,44 @@ export default function OnboardingTemplateBuilderPage() {
             else setTaskModal(null);
           } : undefined}
         />
+      )}
+
+      {stageDelete && (
+        <div
+          className="fixed inset-0 z-[70] flex items-center justify-center p-4 lc-scrim"
+          style={{ background: "rgba(0,0,0,0.60)", backdropFilter: "blur(6px)" }}
+          onClick={() => setStageDelete(null)}
+        >
+          <div
+            className="w-full max-w-sm rounded-2xl"
+            style={{ background: "var(--bg-modal)", border: "1px solid var(--border-modal)", boxShadow: "0 24px 64px var(--shadow-modal)" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-5 pb-3 pt-5">
+              <p className="text-sm font-semibold" style={{ color: "var(--text-title)" }}>Excluir etapa?</p>
+              <p className="mt-1 text-xs leading-relaxed" style={{ color: "var(--muted-foreground)" }}>
+                A etapa <span className="font-medium">{stageDelete.name}</span> será removida junto com as tarefas dela.
+              </p>
+            </div>
+            <div className="flex items-center justify-end gap-2 px-5 py-4" style={{ borderTop: "1px solid var(--glass-border)" }}>
+              <button
+                onClick={() => setStageDelete(null)}
+                className="rounded-full px-4 py-1.5 text-xs"
+                style={{ background: "var(--hover)", color: "var(--muted-foreground)", border: "1px solid var(--glass-border)" }}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleDeleteStage}
+                disabled={isDeletingStage}
+                className="rounded-full px-4 py-1.5 text-xs font-medium disabled:opacity-40"
+                style={{ background: "#e05c5c18", color: "#ff6b6b", border: "1px solid #e05c5c35" }}
+              >
+                Excluir
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

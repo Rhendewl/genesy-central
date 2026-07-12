@@ -48,8 +48,8 @@ export async function GET(req: NextRequest) {
         ? supabase.from("agency_clients").select("id, name").in("id", clientIds)
         : Promise.resolve({ data: [] as { id: string; name: string }[] }),
       projectIds.length > 0
-        ? supabase.from("onboarding_tasks").select("project_id, stage_id, status, weight, due_date").in("project_id", projectIds)
-        : Promise.resolve({ data: [] as { project_id: string; stage_id: string; status: OnboardingTaskStatus; weight: number; due_date: string | null }[] }),
+        ? supabase.from("onboarding_tasks").select("project_id, stage_id, status, due_date").in("project_id", projectIds)
+        : Promise.resolve({ data: [] as { project_id: string; stage_id: string; status: OnboardingTaskStatus; due_date: string | null }[] }),
       projectIds.length > 0
         ? supabase.from("onboarding_project_stages").select("id, project_id, name, order_index").in("project_id", projectIds).order("order_index")
         : Promise.resolve({ data: [] as { id: string; project_id: string; name: string; order_index: number }[] }),
@@ -68,9 +68,8 @@ export async function GET(req: NextRequest) {
     const now = Date.now();
     const summaries: OnboardingProjectSummary[] = rows.map((p) => {
       const projectTasks = (tasksByProject.get(p.id) ?? []).filter((t) => t.status !== "cancelado");
-      const totalWeight = projectTasks.reduce((sum, t) => sum + t.weight, 0);
-      const doneWeight  = projectTasks.filter((t) => t.status === "concluido").reduce((sum, t) => sum + t.weight, 0);
-      const progress = totalWeight > 0 ? Math.round((doneWeight / totalWeight) * 100) : 0;
+      const doneTasks = projectTasks.filter((t) => t.status === "concluido").length;
+      const progress = projectTasks.length > 0 ? Math.round((doneTasks / projectTasks.length) * 100) : 0;
 
       const overdueTasks = projectTasks.filter((t) => t.status !== "concluido" && t.due_date && new Date(t.due_date).getTime() < now);
       const pendingTasks = projectTasks.filter((t) => t.status !== "concluido");
@@ -239,7 +238,7 @@ export async function POST(req: NextRequest) {
           description:              t.description,
           role_key:                 t.role_key,
           assignee_profile_id:      assigneeProfileId,
-          weight:                   t.weight,
+          weight:                   1,
           priority:                 t.priority,
           status,
           due_date:                 addDays(startDate, relativeDays),

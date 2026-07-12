@@ -55,27 +55,15 @@ export interface OnboardingTemplateTask {
 }
 
 export type NewOnboardingTemplateTask = Pick<OnboardingTemplateTask, "title"> & Partial<Pick<OnboardingTemplateTask,
-  "description" | "role_key" | "assignee_profile_id" | "weight" | "priority" | "relative_due_days" | "required_document_labels" | "order_index" | "depends_on_task_ids"
+  "description" | "role_key" | "assignee_profile_id" | "priority" | "relative_due_days" | "order_index" | "depends_on_task_ids"
 >>;
 export type UpdateOnboardingTemplateTask = Partial<Pick<OnboardingTemplateTask,
-  "title" | "description" | "role_key" | "assignee_profile_id" | "weight" | "priority" | "relative_due_days" | "required_document_labels" | "order_index" | "depends_on_task_ids"
+  "title" | "description" | "role_key" | "assignee_profile_id" | "priority" | "relative_due_days" | "order_index" | "depends_on_task_ids"
 >>;
-
-export interface OnboardingTemplateDocument {
-  id:          string;
-  template_id: string;
-  label:       string;
-  order_index: number;
-  created_at:  string;
-}
-
-export type NewOnboardingTemplateDocument = Pick<OnboardingTemplateDocument, "label"> & Partial<Pick<OnboardingTemplateDocument, "order_index">>;
-export type UpdateOnboardingTemplateDocument = Partial<Pick<OnboardingTemplateDocument, "label" | "order_index">>;
 
 // Detalhe completo do template (construtor): etapas com suas tarefas aninhadas.
 export interface OnboardingTemplateDetail extends OnboardingTemplate {
-  stages:    (OnboardingTemplateStage & { tasks: OnboardingTemplateTask[] })[];
-  documents: OnboardingTemplateDocument[];
+  stages: (OnboardingTemplateStage & { tasks: OnboardingTemplateTask[] })[];
 }
 
 // ── Projetos (instâncias) ─────────────────────────────────────────────────────
@@ -181,11 +169,11 @@ export interface OnboardingTask {
 }
 
 export type NewOnboardingTask = Pick<OnboardingTask, "title" | "stage_id"> & Partial<Pick<OnboardingTask,
-  "description" | "role_key" | "assignee_profile_id" | "weight" | "priority" | "due_date" | "required_document_labels" | "depends_on_task_ids"
+  "description" | "role_key" | "assignee_profile_id" | "priority" | "due_date" | "depends_on_task_ids"
 >>;
 
 export type UpdateOnboardingTask = Partial<Pick<OnboardingTask,
-  "title" | "description" | "role_key" | "assignee_profile_id" | "weight" | "priority" | "due_date" | "required_document_labels"
+  "title" | "description" | "role_key" | "assignee_profile_id" | "priority" | "due_date"
 >>;
 
 export interface OnboardingTaskDependency {
@@ -230,31 +218,6 @@ export interface OnboardingTaskDetail extends OnboardingTask {
   comments:        OnboardingTaskComment[];
   attachments:     OnboardingTaskAttachment[];
 }
-
-export type OnboardingDocumentStatus = "nao_solicitado" | "solicitado" | "recebido" | "validado";
-
-export const ONBOARDING_DOCUMENT_STATUSES: { id: OnboardingDocumentStatus; label: string }[] = [
-  { id: "nao_solicitado", label: "Não solicitado" },
-  { id: "solicitado",     label: "Solicitado" },
-  { id: "recebido",       label: "Recebido" },
-  { id: "validado",       label: "Validado" },
-];
-
-export interface OnboardingProjectDocument {
-  id:           string;
-  project_id:   string;
-  label:        string;
-  status:       OnboardingDocumentStatus;
-  notes:        string | null;
-  file_url:     string | null;
-  storage_path: string | null;
-  updated_by:   string | null;
-  created_at:   string;
-  updated_at:   string;
-}
-
-export type NewOnboardingProjectDocument = Pick<OnboardingProjectDocument, "label">;
-export type UpdateOnboardingProjectDocument = Partial<Pick<OnboardingProjectDocument, "label" | "status" | "notes" | "file_url" | "storage_path">>;
 
 export interface OnboardingHistoryEntry {
   id:               string;

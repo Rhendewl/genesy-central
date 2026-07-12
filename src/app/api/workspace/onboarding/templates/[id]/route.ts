@@ -68,8 +68,7 @@ export async function GET(_req: NextRequest, { params }: Params) {
 
     const detail: OnboardingTemplateDetail = {
       ...(templateRes.data as OnboardingTemplate),
-      stages:    stages.map((s) => ({ ...s, tasks: tasksByStage.get(s.id) ?? [] })),
-      documents: [],
+      stages: stages.map((s) => ({ ...s, tasks: tasksByStage.get(s.id) ?? [] })),
     };
 
     return NextResponse.json({ template: detail });

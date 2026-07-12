@@ -16,6 +16,7 @@ export default function OnboardingTemplatesPage() {
   const [description, setDescription] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
 
   async function handleCreate() {
     if (!name.trim()) return;
@@ -32,11 +33,11 @@ export default function OnboardingTemplatesPage() {
     router.push(`/workspace/onboarding/templates/${result.template.id}`);
   }
 
-  async function handleDelete(id: string, templateName: string) {
-    if (!window.confirm(`Excluir o template "${templateName}"? Onboardings já criados a partir dele não são afetados.`)) return;
+  async function handleDelete(id: string) {
     setDeletingId(id);
     const result = await deleteTemplate(id);
     setDeletingId(null);
+    if (!result.error) setDeleteTarget(null);
     if (result.error) toast.error(result.error);
   }
 
@@ -88,9 +89,10 @@ export default function OnboardingTemplatesPage() {
                 <div className="mb-1 flex items-start justify-between gap-2">
                   <h3 className="flex-1 truncate text-sm font-semibold" style={{ color: "var(--text-title)" }}>{t.name}</h3>
                   <button
-                    onClick={(e) => { e.stopPropagation(); void handleDelete(t.id, t.name); }}
+                    onClick={(e) => { e.stopPropagation(); setDeleteTarget({ id: t.id, name: t.name }); }}
                     disabled={deletingId === t.id}
                     className="rounded p-1 opacity-0 transition-opacity hover:bg-red-500/10 group-hover:opacity-100"
+                    aria-label="Excluir template"
                   >
                     {deletingId === t.id
                       ? <Loader2 size={14} className="animate-spin" style={{ color: "var(--muted-foreground)" }} />
@@ -168,6 +170,45 @@ export default function OnboardingTemplatesPage() {
               >
                 {isSaving && <Loader2 size={12} className="animate-spin" />}
                 Criar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {deleteTarget && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center p-4 lc-scrim"
+          style={{ background: "rgba(0,0,0,0.60)", backdropFilter: "blur(6px)" }}
+          onClick={() => setDeleteTarget(null)}
+        >
+          <div
+            className="w-full max-w-sm overflow-hidden rounded-2xl"
+            style={{ background: "var(--bg-modal)", border: "1px solid var(--border-modal)", boxShadow: "0 24px 64px var(--shadow-modal)" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-5 pb-3 pt-5">
+              <p className="text-sm font-semibold" style={{ color: "var(--text-title)" }}>Excluir template?</p>
+              <p className="mt-1 text-xs leading-relaxed" style={{ color: "var(--muted-foreground)" }}>
+                O template <span className="font-medium">{deleteTarget.name}</span> será removido. Onboardings já criados a partir dele não serão afetados.
+              </p>
+            </div>
+            <div className="flex items-center justify-end gap-2 px-5 py-4" style={{ borderTop: "1px solid var(--glass-border)" }}>
+              <button
+                onClick={() => setDeleteTarget(null)}
+                className="rounded-full px-4 py-1.5 text-xs"
+                style={{ background: "var(--hover)", color: "var(--muted-foreground)", border: "1px solid var(--glass-border)" }}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => void handleDelete(deleteTarget.id)}
+                disabled={deletingId === deleteTarget.id}
+                className="flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-medium disabled:opacity-40"
+                style={{ background: "#e05c5c18", color: "#ff6b6b", border: "1px solid #e05c5c35" }}
+              >
+                {deletingId === deleteTarget.id && <Loader2 size={12} className="animate-spin" />}
+                Excluir
               </button>
             </div>
           </div>

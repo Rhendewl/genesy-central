@@ -78,9 +78,8 @@ export async function GET(_req: NextRequest, { params }: Params) {
     }
 
     const nonCancelled = tasks.filter((t) => t.status !== "cancelado");
-    const totalWeight = nonCancelled.reduce((sum, t) => sum + t.weight, 0);
-    const doneWeight  = nonCancelled.filter((t) => t.status === "concluido").reduce((sum, t) => sum + t.weight, 0);
-    const progress = totalWeight > 0 ? Math.round((doneWeight / totalWeight) * 100) : 0;
+    const doneTasks = nonCancelled.filter((t) => t.status === "concluido").length;
+    const progress = nonCancelled.length > 0 ? Math.round((doneTasks / nonCancelled.length) * 100) : 0;
     const hasOverdue = nonCancelled.some((t) => t.status !== "concluido" && t.due_date && new Date(t.due_date).getTime() < Date.now());
 
     const status = computeProjectStatus({
@@ -96,11 +95,11 @@ export async function GET(_req: NextRequest, { params }: Params) {
       status,
       stages: (stages ?? []).map((s: OnboardingProjectStage) => {
         const stageTasks = tasksByStage.get(s.id) ?? [];
-        const stageTotal = stageTasks.filter((t) => t.status !== "cancelado").reduce((sum, t) => sum + t.weight, 0);
-        const stageDone  = stageTasks.filter((t) => t.status === "concluido").reduce((sum, t) => sum + t.weight, 0);
+        const activeStageTasks = stageTasks.filter((t) => t.status !== "cancelado");
+        const stageDone = activeStageTasks.filter((t) => t.status === "concluido").length;
         return {
           ...s,
-          progress_percent: stageTotal > 0 ? Math.round((stageDone / stageTotal) * 100) : 0,
+          progress_percent: activeStageTasks.length > 0 ? Math.round((stageDone / activeStageTasks.length) * 100) : 0,
           tasks: stageTasks,
         };
       }),

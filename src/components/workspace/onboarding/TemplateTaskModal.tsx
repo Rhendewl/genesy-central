@@ -40,9 +40,7 @@ export function TemplateTaskModal({ task, otherTasks, onClose, onSave, onDelete 
       role_key:                  null,
       assignee_profile_id:       assigneeProfileId || null,
       priority,
-      weight:                    1,
       relative_due_days:         relativeDays === "" ? undefined : Number(relativeDays),
-      required_document_labels: [],
       depends_on_task_ids:      dependsOn,
     });
     setIsSaving(false);

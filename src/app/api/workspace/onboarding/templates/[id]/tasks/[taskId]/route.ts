@@ -18,8 +18,8 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 
   const patch: Record<string, unknown> = {};
   for (const key of [
-    "title", "description", "role_key", "assignee_profile_id", "weight", "priority",
-    "relative_due_days", "required_document_labels", "order_index",
+    "title", "description", "role_key", "assignee_profile_id", "priority",
+    "relative_due_days", "order_index",
   ] as const) {
     if (key in body) patch[key] = body[key];
   }

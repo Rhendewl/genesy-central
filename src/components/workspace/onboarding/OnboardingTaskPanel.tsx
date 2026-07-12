@@ -23,7 +23,7 @@ interface OnboardingTaskPanelProps {
   onClose:         () => void;
   onCreate: (data: {
     title: string; stage_id: string; description?: string; assignee_profile_id?: string;
-    priority?: WorkspaceTaskPriority; weight?: number; due_date?: string; depends_on_task_ids?: string[];
+    priority?: WorkspaceTaskPriority; due_date?: string; depends_on_task_ids?: string[];
   }) => Promise<{ error?: string }>;
 }
 
@@ -44,7 +44,6 @@ export function OnboardingTaskPanel({ taskId, stageId, isAdmin, myProfileId, all
   const [description,  setDescription]  = useState("");
   const [assigneeId,   setAssigneeId]   = useState("");
   const [priority,     setPriority]     = useState<WorkspaceTaskPriority>("media");
-  const [weight,        setWeight]        = useState(1);
   const [dueDate,      setDueDate]      = useState("");
   const [dependsOn,    setDependsOn]    = useState<string[]>([]);
   const [isSaving,     setIsSaving]     = useState(false);
@@ -56,7 +55,6 @@ export function OnboardingTaskPanel({ taskId, stageId, isAdmin, myProfileId, all
       setDescription(task.description ?? "");
       setAssigneeId(task.assignee_profile_id ?? "");
       setPriority(task.priority);
-      setWeight(task.weight);
       setDueDate(task.due_date ?? "");
       setDependsOn(task.depends_on_task_ids ?? []);
     }
@@ -72,7 +70,7 @@ export function OnboardingTaskPanel({ taskId, stageId, isAdmin, myProfileId, all
     setIsSaving(true);
     const result = await onCreate({
       title: title.trim(), stage_id: stageId, description: description || undefined,
-      assignee_profile_id: assigneeId || undefined, priority, weight,
+      assignee_profile_id: assigneeId || undefined, priority,
       due_date: dueDate || undefined, depends_on_task_ids: dependsOn,
     });
     setIsSaving(false);
@@ -237,27 +235,15 @@ export function OnboardingTaskPanel({ taskId, stageId, isAdmin, myProfileId, all
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide" style={{ color: "var(--muted-foreground)" }}>Peso</p>
-                <input
-                  type="number" min={1} value={weight}
-                  disabled={!isCreating && !isAdmin}
-                  onChange={(e) => { const v = Math.max(1, Number(e.target.value) || 1); setWeight(v); if (!isCreating) saveField({ weight: v }); }}
-                  className="w-full rounded-lg px-3 py-2 text-sm outline-none disabled:opacity-60"
-                  style={{ background: "var(--hover)", border: "1px solid var(--glass-border)", color: "var(--text-title)" }}
-                />
-              </div>
-              <div>
-                <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide" style={{ color: "var(--muted-foreground)" }}>Prazo</p>
-                <input
-                  type="date" value={dueDate}
-                  disabled={!isCreating && !isAdmin}
-                  onChange={(e) => { setDueDate(e.target.value); if (!isCreating) saveField({ due_date: e.target.value || null }); }}
-                  className="w-full rounded-lg px-3 py-2 text-sm outline-none disabled:opacity-60"
-                  style={{ background: "var(--hover)", border: "1px solid var(--glass-border)", color: "var(--text-title)" }}
-                />
-              </div>
+            <div>
+              <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide" style={{ color: "var(--muted-foreground)" }}>Prazo</p>
+              <input
+                type="date" value={dueDate}
+                disabled={!isCreating && !isAdmin}
+                onChange={(e) => { setDueDate(e.target.value); if (!isCreating) saveField({ due_date: e.target.value || null }); }}
+                className="w-full rounded-lg px-3 py-2 text-sm outline-none disabled:opacity-60"
+                style={{ background: "var(--hover)", border: "1px solid var(--glass-border)", color: "var(--text-title)" }}
+              />
             </div>
 
             {otherTasks.length > 0 && (

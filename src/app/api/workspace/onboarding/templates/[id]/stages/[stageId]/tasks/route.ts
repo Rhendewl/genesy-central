@@ -34,10 +34,10 @@ export async function POST(req: NextRequest, { params }: Params) {
         description:               body.description ?? null,
         role_key:                  body.role_key ?? null,
         assignee_profile_id:       body.assignee_profile_id ?? null,
-        weight:                    body.weight ?? 1,
+        weight:                    1,
         priority:                  body.priority ?? "media",
         relative_due_days:         body.relative_due_days ?? null,
-        required_document_labels: body.required_document_labels ?? [],
+        required_document_labels: [],
         order_index,
       })
       .select("*")

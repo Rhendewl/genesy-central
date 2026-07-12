@@ -2,7 +2,9 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getSupabaseClient } from "@/lib/supabase";
-import type { NewOnboardingTask, OnboardingProjectDetail, UpdateOnboardingProject } from "@/types/onboarding";
+import type {
+  NewOnboardingTask, OnboardingProjectDetail, UpdateOnboardingProject, UpdateOnboardingProjectStage,
+} from "@/types/onboarding";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // useOnboardingProject — tela de detalhe de um onboarding (etapas → tarefas).
@@ -58,11 +60,36 @@ export function useOnboardingProject(projectId: string | null) {
     return json;
   }
 
+  async function deleteProject() {
+    if (!projectId) return { error: "Sem projeto" };
+    const res = await fetch(`/api/workspace/onboarding/projects/${projectId}`, { method: "DELETE" });
+    const json = await res.json() as { error?: string };
+    return res.ok ? { error: null } : { error: json.error ?? "Erro ao excluir onboarding" };
+  }
+
   async function addStage(data: { name: string; order_index?: number; due_date?: string | null; color?: string }) {
     if (!projectId) return { error: "Sem projeto" };
     const res  = await fetch(`/api/workspace/onboarding/projects/${projectId}/stages`, {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data),
     });
+    const json = await res.json() as { error?: string };
+    if (res.ok) await fetchDetail();
+    return json;
+  }
+
+  async function updateStage(stageId: string, patch: UpdateOnboardingProjectStage) {
+    if (!projectId) return { error: "Sem projeto" };
+    const res = await fetch(`/api/workspace/onboarding/projects/${projectId}/stages/${stageId}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(patch),
+    });
+    const json = await res.json() as { error?: string };
+    if (res.ok) await fetchDetail();
+    return json;
+  }
+
+  async function deleteStage(stageId: string) {
+    if (!projectId) return { error: "Sem projeto" };
+    const res = await fetch(`/api/workspace/onboarding/projects/${projectId}/stages/${stageId}`, { method: "DELETE" });
     const json = await res.json() as { error?: string };
     if (res.ok) await fetchDetail();
     return json;
@@ -78,5 +105,10 @@ export function useOnboardingProject(projectId: string | null) {
     return json;
   }
 
-  return { detail, isLoading, error, refetch: fetchDetail, updateProject, addStage, addTask };
+  return {
+    detail, isLoading, error, refetch: fetchDetail,
+    updateProject, deleteProject,
+    addStage, updateStage, deleteStage,
+    addTask,
+  };
 }
