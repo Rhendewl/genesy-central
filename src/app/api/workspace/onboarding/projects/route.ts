@@ -159,7 +159,7 @@ export async function POST(req: NextRequest) {
     const stageIds = (templateStages ?? []).map((s) => s.id);
     const { data: templateTasks } = stageIds.length > 0
       ? await admin.from("onboarding_template_tasks").select("*").in("stage_id", stageIds).order("order_index")
-      : { data: [] as { id: string; stage_id: string; title: string; description: string | null; role_key: string | null; weight: number; priority: string; relative_due_days: number | null; required_document_labels: string[] }[] };
+      : { data: [] as { id: string; stage_id: string; title: string; description: string | null; role_key: string | null; assignee_profile_id: string | null; weight: number; priority: string; relative_due_days: number | null; required_document_labels: string[] }[] };
 
     const taskIds = (templateTasks ?? []).map((t) => t.id);
     const { data: templateDeps } = taskIds.length > 0
@@ -211,7 +211,6 @@ export async function POST(req: NextRequest) {
       sortedTemplateStages.forEach((s, idx) => stageIdMap.set(s.id, sortedNewStages[idx].id));
     }
 
-    const roleAssignments = body.role_assignments ?? {};
     const taskIdMap = new Map<string, string>();
     const createdTasks: { id: string; project_id: string; title: string; description: string | null; assignee_profile_id: string | null; priority: string; status: OnboardingTaskStatus; due_date: string | null }[] = [];
 
@@ -227,7 +226,7 @@ export async function POST(req: NextRequest) {
 
       const rowsToInsert = templateTasks.map((t) => {
         const stage = stageById.get(t.stage_id)!;
-        const assigneeProfileId = t.role_key ? roleAssignments[t.role_key] ?? null : null;
+        const assigneeProfileId = t.assignee_profile_id ?? null;
         const hasDeps = (depsByTask.get(t.id) ?? []).length > 0;
         const status: OnboardingTaskStatus = hasDeps ? "bloqueado" : "a_fazer";
         const relativeDays = t.relative_due_days ?? stage.relative_due_days;

@@ -33,7 +33,6 @@ export default function OnboardingTemplateBuilderPage() {
   }
 
   const allTasks = detail.stages.flatMap((s) => s.tasks);
-  const roleSuggestions = Array.from(new Set(allTasks.map((t) => t.role_key).filter((r): r is string => !!r)));
 
   async function handleAddStage() {
     const result = await addStage({ name: "Nova etapa" });
@@ -121,9 +120,9 @@ export default function OnboardingTemplateBuilderPage() {
                   className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left hover:bg-[var(--hover)]"
                 >
                   <span className="flex-1 truncate text-sm" style={{ color: "var(--text-title)" }}>{task.title}</span>
-                  {task.role_key && (
+                  {task.assignee_name && (
                     <span className="rounded-full px-2 py-0.5 text-[10px]" style={{ background: "var(--hover)", color: "var(--muted-foreground)" }}>
-                      {task.role_key}
+                      {task.assignee_name}
                     </span>
                   )}
                   <PriorityBadge priority={task.priority} />
@@ -162,7 +161,6 @@ export default function OnboardingTemplateBuilderPage() {
         <TemplateTaskModal
           task={taskModal.task}
           otherTasks={allTasks.filter((t) => t.id !== taskModal.task?.id)}
-          roleSuggestions={roleSuggestions}
           onClose={() => setTaskModal(null)}
           onSave={async (data) => {
             const result = taskModal.task

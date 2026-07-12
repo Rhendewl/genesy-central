@@ -33,6 +33,7 @@ export async function POST(req: NextRequest, { params }: Params) {
         title:                     body.title,
         description:               body.description ?? null,
         role_key:                  body.role_key ?? null,
+        assignee_profile_id:       body.assignee_profile_id ?? null,
         weight:                    body.weight ?? 1,
         priority:                  body.priority ?? "media",
         relative_due_days:         body.relative_due_days ?? null,

@@ -42,6 +42,7 @@ export interface OnboardingTemplateTask {
   title:                    string;
   description:              string | null;
   role_key:                 string | null;
+  assignee_profile_id:      string | null;
   weight:                   number;
   priority:                 WorkspaceTaskPriority;
   relative_due_days:        number | null;
@@ -50,13 +51,14 @@ export interface OnboardingTemplateTask {
   created_at:               string;
   updated_at:               string;
   depends_on_task_ids?:     string[];
+  assignee_name?:           string | null;
 }
 
 export type NewOnboardingTemplateTask = Pick<OnboardingTemplateTask, "title"> & Partial<Pick<OnboardingTemplateTask,
-  "description" | "role_key" | "weight" | "priority" | "relative_due_days" | "required_document_labels" | "order_index" | "depends_on_task_ids"
+  "description" | "role_key" | "assignee_profile_id" | "weight" | "priority" | "relative_due_days" | "required_document_labels" | "order_index" | "depends_on_task_ids"
 >>;
 export type UpdateOnboardingTemplateTask = Partial<Pick<OnboardingTemplateTask,
-  "title" | "description" | "role_key" | "weight" | "priority" | "relative_due_days" | "required_document_labels" | "order_index" | "depends_on_task_ids"
+  "title" | "description" | "role_key" | "assignee_profile_id" | "weight" | "priority" | "relative_due_days" | "required_document_labels" | "order_index" | "depends_on_task_ids"
 >>;
 
 export interface OnboardingTemplateDocument {
@@ -107,10 +109,7 @@ export interface OnboardingProject {
 
 export type NewOnboardingProject = Pick<OnboardingProject, "name" | "client_id"> & Partial<Pick<OnboardingProject,
   "template_id" | "start_date" | "target_date"
->> & {
-  // Chave = role_key do template, valor = user_profiles.id escolhido para o cargo.
-  role_assignments?: Record<string, string>;
-};
+>>;
 
 export type UpdateOnboardingProject = Partial<Pick<OnboardingProject, "name" | "target_date" | "manual_status">>;
 

@@ -2,24 +2,24 @@
 
 import { useState } from "react";
 import { X, Loader2, Trash2 } from "lucide-react";
+import { useUsers } from "@/hooks/useUsers";
 import { WORKSPACE_TASK_PRIORITIES, type WorkspaceTaskPriority } from "@/types/workspace";
 import type { NewOnboardingTemplateTask, OnboardingTemplateTask } from "@/types/onboarding";
 
 interface TemplateTaskModalProps {
   task?:          OnboardingTemplateTask | null;
   otherTasks:     OnboardingTemplateTask[]; // candidatas a dependência (mesmo template, exclui a própria)
-  roleSuggestions: string[];
   onClose:  () => void;
   onSave:   (data: NewOnboardingTemplateTask) => Promise<{ error?: string }>;
   onDelete?: () => Promise<void>;
 }
 
-export function TemplateTaskModal({ task, otherTasks, roleSuggestions, onClose, onSave, onDelete }: TemplateTaskModalProps) {
+export function TemplateTaskModal({ task, otherTasks, onClose, onSave, onDelete }: TemplateTaskModalProps) {
+  const { profiles } = useUsers();
   const [title,       setTitle]       = useState(task?.title ?? "");
   const [description, setDescription] = useState(task?.description ?? "");
-  const [roleKey,     setRoleKey]     = useState(task?.role_key ?? "");
+  const [assigneeProfileId, setAssigneeProfileId] = useState(task?.assignee_profile_id ?? "");
   const [priority,    setPriority]    = useState<WorkspaceTaskPriority>(task?.priority ?? "media");
-  const [weight,       setWeight]       = useState(task?.weight ?? 1);
   const [relativeDays, setRelativeDays] = useState<string>(task?.relative_due_days != null ? String(task.relative_due_days) : "");
   const [dependsOn,    setDependsOn]    = useState<string[]>(task?.depends_on_task_ids ?? []);
   const [isSaving,   setIsSaving]   = useState(false);
@@ -37,9 +37,10 @@ export function TemplateTaskModal({ task, otherTasks, roleSuggestions, onClose, 
     const result = await onSave({
       title:                     title.trim(),
       description:               description.trim() || undefined,
-      role_key:                  roleKey.trim() || undefined,
+      role_key:                  null,
+      assignee_profile_id:       assigneeProfileId || null,
       priority,
-      weight,
+      weight:                    1,
       relative_due_days:         relativeDays === "" ? undefined : Number(relativeDays),
       required_document_labels: [],
       depends_on_task_ids:      dependsOn,
@@ -97,32 +98,21 @@ export function TemplateTaskModal({ task, otherTasks, roleSuggestions, onClose, 
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-medium" style={{ color: "var(--muted-foreground)" }}>Cargo responsável</label>
-              <input
-                value={roleKey}
-                onChange={(e) => setRoleKey(e.target.value)}
-                list="onboarding-role-suggestions"
-                placeholder="Ex: Gestor de Tráfego"
-                className="rounded-lg px-3 py-2 text-sm outline-none"
-                style={{ background: "var(--hover)", border: "1px solid var(--glass-border)", color: "var(--text-title)" }}
-              />
-              <datalist id="onboarding-role-suggestions">
-                {roleSuggestions.map((r) => <option key={r} value={r} />)}
-              </datalist>
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-medium" style={{ color: "var(--muted-foreground)" }}>Peso</label>
-              <input
-                type="number"
-                min={1}
-                value={weight}
-                onChange={(e) => setWeight(Math.max(1, Number(e.target.value) || 1))}
-                className="rounded-lg px-3 py-2 text-sm outline-none"
-                style={{ background: "var(--hover)", border: "1px solid var(--glass-border)", color: "var(--text-title)" }}
-              />
-            </div>
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-medium" style={{ color: "var(--muted-foreground)" }}>Responsável</label>
+            <select
+              value={assigneeProfileId}
+              onChange={(e) => setAssigneeProfileId(e.target.value)}
+              className="rounded-lg px-3 py-2 text-sm outline-none"
+              style={{ background: "var(--hover)", border: "1px solid var(--glass-border)", color: "var(--text-title)" }}
+            >
+              <option value="">Não atribuir agora</option>
+              {profiles.filter((p) => p.is_active).map((profile) => (
+                <option key={profile.id} value={profile.id}>
+                  {profile.full_name}{profile.job_title ? ` — ${profile.job_title}` : ""}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div className="grid grid-cols-2 gap-3">

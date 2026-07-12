@@ -1,11 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { X, Loader2 } from "lucide-react";
 import { useAgencyClients } from "@/hooks/useAgencyClients";
 import { useOnboardingTemplates } from "@/hooks/useOnboardingTemplates";
-import { useOnboardingTemplate } from "@/hooks/useOnboardingTemplate";
-import { useUsers } from "@/hooks/useUsers";
 import type { NewOnboardingProject, OnboardingProject } from "@/types/onboarding";
 
 interface NewOnboardingWizardProps {
@@ -16,30 +14,16 @@ interface NewOnboardingWizardProps {
 export function NewOnboardingWizard({ onClose, onCreate }: NewOnboardingWizardProps) {
   const { clients } = useAgencyClients();
   const { templates } = useOnboardingTemplates();
-  const { profiles } = useUsers();
 
   const [clientId,   setClientId]   = useState("");
   const [templateId, setTemplateId] = useState("");
   const [name,        setName]        = useState("");
   const [nameTouched, setNameTouched] = useState(false);
   const [startDate,  setStartDate]  = useState(new Date().toISOString().slice(0, 10));
-  const [roleAssignments, setRoleAssignments] = useState<Record<string, string>>({});
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const activeTemplates = templates.filter((t) => t.is_active);
-  const { detail: templateDetail } = useOnboardingTemplate(templateId || null);
-
-  const roleKeys = useMemo(() => {
-    if (!templateDetail) return [];
-    const keys = new Set<string>();
-    for (const stage of templateDetail.stages) {
-      for (const task of stage.tasks) {
-        if (task.role_key) keys.add(task.role_key);
-      }
-    }
-    return Array.from(keys);
-  }, [templateDetail]);
 
   useEffect(() => {
     if (nameTouched) return;
@@ -58,7 +42,6 @@ export function NewOnboardingWizard({ onClose, onCreate }: NewOnboardingWizardPr
       client_id:   clientId,
       template_id: templateId || undefined,
       start_date:  startDate,
-      role_assignments: roleAssignments,
     });
     setIsSaving(false);
     if (result.error) { setError(result.error); return; }
@@ -101,7 +84,7 @@ export function NewOnboardingWizard({ onClose, onCreate }: NewOnboardingWizardPr
             <label className="text-xs font-medium" style={{ color: "var(--muted-foreground)" }}>Template</label>
             <select
               value={templateId}
-              onChange={(e) => { setTemplateId(e.target.value); setRoleAssignments({}); }}
+              onChange={(e) => setTemplateId(e.target.value)}
               className="rounded-lg px-3 py-2 text-sm outline-none"
               style={{ background: "var(--hover)", border: "1px solid var(--glass-border)", color: "var(--text-title)" }}
             >
@@ -130,28 +113,6 @@ export function NewOnboardingWizard({ onClose, onCreate }: NewOnboardingWizardPr
               style={{ background: "var(--hover)", border: "1px solid var(--glass-border)", color: "var(--text-title)" }}
             />
           </div>
-
-          {roleKeys.length > 0 && (
-            <div className="flex flex-col gap-3 rounded-lg p-3" style={{ background: "var(--hover)" }}>
-              <p className="text-xs font-medium" style={{ color: "var(--muted-foreground)" }}>Quem vai atuar neste onboarding?</p>
-              {roleKeys.map((role) => (
-                <div key={role} className="flex flex-col gap-1">
-                  <label className="text-xs" style={{ color: "var(--muted-foreground)" }}>{role}</label>
-                  <select
-                    value={roleAssignments[role] ?? ""}
-                    onChange={(e) => setRoleAssignments((prev) => ({ ...prev, [role]: e.target.value }))}
-                    className="rounded-lg px-3 py-2 text-sm outline-none"
-                    style={{ background: "var(--card)", border: "1px solid var(--glass-border)", color: "var(--text-title)" }}
-                  >
-                    <option value="">Não atribuir agora</option>
-                    {profiles.filter((p) => p.is_active).map((p) => (
-                      <option key={p.id} value={p.id}>{p.full_name}</option>
-                    ))}
-                  </select>
-                </div>
-              ))}
-            </div>
-          )}
 
           {error && <p className="text-xs" style={{ color: "#e05c5c" }}>{error}</p>}
         </div>

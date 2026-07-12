@@ -20,10 +20,10 @@ export async function GET(_req: NextRequest) {
 
     const assigneeIds = Array.from(new Set((tasks ?? []).map((t) => t.assignee_profile_id).filter((id): id is string => !!id)));
     const { data: profiles } = assigneeIds.length > 0
-      ? await supabase.from("user_profiles").select("id, full_name, role").in("id", assigneeIds)
-      : { data: [] as { id: string; full_name: string; role: string }[] };
+      ? await supabase.from("user_profiles").select("id, full_name, job_title, role").in("id", assigneeIds)
+      : { data: [] as { id: string; full_name: string; job_title: string | null; role: string }[] };
     const nameById = new Map((profiles ?? []).map((p) => [p.id, p.full_name]));
-    const profileRoleById = new Map((profiles ?? []).map((p) => [p.id, formatProfileRole(p.role)]));
+    const profileFunctionById = new Map((profiles ?? []).map((p) => [p.id, p.job_title || formatProfileRole(p.role)]));
     const taskRolesByAssignee = new Map<string, Set<string>>();
     for (const t of tasks ?? []) {
       if (!t.assignee_profile_id || !t.role_key) continue;
@@ -39,7 +39,7 @@ export async function GET(_req: NextRequest) {
       const row = byAssignee.get(t.assignee_profile_id) ?? {
         profile_id:      t.assignee_profile_id,
         name:            nameById.get(t.assignee_profile_id) ?? "—",
-        function_label:  formatFunctionLabel(taskRolesByAssignee.get(t.assignee_profile_id), profileRoleById.get(t.assignee_profile_id)),
+        function_label:  formatFunctionLabel(taskRolesByAssignee.get(t.assignee_profile_id), profileFunctionById.get(t.assignee_profile_id)),
         tasks_total:     0,
         tasks_pending:   0,
         tasks_overdue:   0,

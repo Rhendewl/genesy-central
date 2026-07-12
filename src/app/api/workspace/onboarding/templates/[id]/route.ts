@@ -35,10 +35,18 @@ export async function GET(_req: NextRequest, { params }: Params) {
 
     const tasks = (tasksData ?? []) as OnboardingTemplateTask[];
     const taskIds = tasks.map((t) => t.id);
+    const assigneeIds = Array.from(new Set(tasks.map((t) => t.assignee_profile_id).filter((profileId): profileId is string => !!profileId)));
 
-    const { data: depsData } = taskIds.length > 0
-      ? await supabase.from("onboarding_template_task_dependencies").select("task_id, depends_on_task_id").in("task_id", taskIds)
-      : { data: [] as { task_id: string; depends_on_task_id: string }[] };
+    const [{ data: depsData }, { data: assigneesData }] = await Promise.all([
+      taskIds.length > 0
+        ? supabase.from("onboarding_template_task_dependencies").select("task_id, depends_on_task_id").in("task_id", taskIds)
+        : Promise.resolve({ data: [] as { task_id: string; depends_on_task_id: string }[] }),
+      assigneeIds.length > 0
+        ? supabase.from("user_profiles").select("id, full_name").in("id", assigneeIds)
+        : Promise.resolve({ data: [] as { id: string; full_name: string }[] }),
+    ]);
+
+    const assigneeNameById = new Map((assigneesData ?? []).map((profile) => [profile.id, profile.full_name]));
 
     const depsByTask = new Map<string, string[]>();
     for (const d of depsData ?? []) {
@@ -50,7 +58,11 @@ export async function GET(_req: NextRequest, { params }: Params) {
     const tasksByStage = new Map<string, OnboardingTemplateTask[]>();
     for (const t of tasks) {
       const cur = tasksByStage.get(t.stage_id) ?? [];
-      cur.push({ ...t, depends_on_task_ids: depsByTask.get(t.id) ?? [] });
+      cur.push({
+        ...t,
+        depends_on_task_ids: depsByTask.get(t.id) ?? [],
+        assignee_name:       t.assignee_profile_id ? assigneeNameById.get(t.assignee_profile_id) ?? null : null,
+      });
       tasksByStage.set(t.stage_id, cur);
     }
 
