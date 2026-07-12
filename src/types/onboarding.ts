@@ -289,6 +289,7 @@ export interface OnboardingProjectDetail extends OnboardingProject {
 export interface OnboardingTeamWorkloadRow {
   profile_id:      string;
   name:            string;
+  function_label:  string | null;
   tasks_total:     number;
   tasks_pending:   number;
   tasks_overdue:   number;

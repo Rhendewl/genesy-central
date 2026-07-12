@@ -14,15 +14,23 @@ export async function GET(_req: NextRequest) {
   try {
     const { data: tasks, error } = await supabase
       .from("onboarding_tasks")
-      .select("assignee_profile_id, status, due_date")
+      .select("assignee_profile_id, role_key, status, due_date")
       .not("assignee_profile_id", "is", null);
     if (error) throw new Error(error.message);
 
     const assigneeIds = Array.from(new Set((tasks ?? []).map((t) => t.assignee_profile_id).filter((id): id is string => !!id)));
     const { data: profiles } = assigneeIds.length > 0
-      ? await supabase.from("user_profiles").select("id, full_name").in("id", assigneeIds)
-      : { data: [] as { id: string; full_name: string }[] };
+      ? await supabase.from("user_profiles").select("id, full_name, role").in("id", assigneeIds)
+      : { data: [] as { id: string; full_name: string; role: string }[] };
     const nameById = new Map((profiles ?? []).map((p) => [p.id, p.full_name]));
+    const profileRoleById = new Map((profiles ?? []).map((p) => [p.id, formatProfileRole(p.role)]));
+    const taskRolesByAssignee = new Map<string, Set<string>>();
+    for (const t of tasks ?? []) {
+      if (!t.assignee_profile_id || !t.role_key) continue;
+      const current = taskRolesByAssignee.get(t.assignee_profile_id) ?? new Set<string>();
+      current.add(t.role_key);
+      taskRolesByAssignee.set(t.assignee_profile_id, current);
+    }
 
     const now = Date.now();
     const byAssignee = new Map<string, OnboardingTeamWorkloadRow>();
@@ -31,6 +39,7 @@ export async function GET(_req: NextRequest) {
       const row = byAssignee.get(t.assignee_profile_id) ?? {
         profile_id:      t.assignee_profile_id,
         name:            nameById.get(t.assignee_profile_id) ?? "—",
+        function_label:  formatFunctionLabel(taskRolesByAssignee.get(t.assignee_profile_id), profileRoleById.get(t.assignee_profile_id)),
         tasks_total:     0,
         tasks_pending:   0,
         tasks_overdue:   0,
@@ -51,4 +60,23 @@ export async function GET(_req: NextRequest) {
     const msg = err instanceof Error ? err.message : "Erro interno";
     return NextResponse.json({ error: msg }, { status: 500 });
   }
+}
+
+function formatFunctionLabel(taskRoles: Set<string> | undefined, fallbackRole: string | undefined): string | null {
+  const roles = Array.from(taskRoles ?? []);
+  if (roles.length === 1) return roles[0];
+  if (roles.length > 1) return roles.slice(0, 2).join(" / ") + (roles.length > 2 ? ` +${roles.length - 2}` : "");
+  return fallbackRole ?? null;
+}
+
+function formatProfileRole(role: string | null | undefined): string | undefined {
+  if (!role) return undefined;
+  const labels: Record<string, string> = {
+    admin:             "Administrador",
+    comercial:         "Comercial",
+    gestor_comercial:  "Gestor comercial",
+    operacional:       "Operacional",
+    cliente:           "Cliente",
+  };
+  return labels[role] ?? role.replace(/_/g, " ");
 }
