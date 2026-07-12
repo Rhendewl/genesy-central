@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LayoutDashboard, FileStack, Users } from "lucide-react";
+import { useCurrentMember } from "@/context/CurrentMemberContext";
 import { cn } from "@/lib/utils";
 
 const SECTIONS = [
@@ -13,10 +14,13 @@ const SECTIONS = [
 
 export function OnboardingSubNav() {
   const pathname = usePathname();
+  const { member } = useCurrentMember();
+  const isAdmin = member?.role === "admin";
+  const sections = isAdmin ? SECTIONS : SECTIONS.filter((section) => section.exact);
 
   return (
     <div className="flex items-center gap-1 px-4 pt-3 sm:px-6">
-      {SECTIONS.map((section) => {
+      {sections.map((section) => {
         const active = section.exact ? pathname === section.href : (pathname?.startsWith(section.href) ?? false);
         const Icon = section.icon;
         return (

@@ -1,9 +1,12 @@
 "use client";
 
 import { Loader2 } from "lucide-react";
+import { useState } from "react";
+import { toast } from "sonner";
 import { Header } from "@/components/layout/Header";
 import { Switch } from "@/components/ui/Switch";
 import { useTaskNotificationPreferences } from "@/hooks/useTaskNotificationPreferences";
+import { ensurePushSubscription } from "@/lib/notifications/push-client";
 import { REMINDER_ADVANCE_OPTIONS } from "@/types/workspace-notifications";
 
 interface PreferenceRowProps {
@@ -27,6 +30,7 @@ function PreferenceRow({ label, description, checked, onChange }: PreferenceRowP
 
 export default function WorkspaceNotificationSettingsPage() {
   const { preferences, isLoading, save } = useTaskNotificationPreferences();
+  const [isTestingPush, setIsTestingPush] = useState(false);
 
   function toggleAdvanceDay(day: number) {
     if (!preferences) return;
@@ -34,6 +38,26 @@ export default function WorkspaceNotificationSettingsPage() {
       ? preferences.reminder_advance_days.filter((d) => d !== day)
       : [...preferences.reminder_advance_days, day];
     void save({ reminder_advance_days: next });
+  }
+
+  async function handleTestNotification() {
+    setIsTestingPush(true);
+    try {
+      const subscription = await ensurePushSubscription({ requestPermission: true });
+      if (!subscription) {
+        toast.error("Permissão de notificação não concedida neste dispositivo.");
+        return;
+      }
+
+      const res = await fetch("/api/workspace/notifications/test", { method: "POST" });
+      const json = await res.json().catch(() => ({})) as { error?: string };
+      if (!res.ok) throw new Error(json.error ?? "Erro ao enviar teste");
+      toast.success("Notificação de teste enviada");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao testar notificação");
+    } finally {
+      setIsTestingPush(false);
+    }
   }
 
   return (
@@ -50,6 +74,22 @@ export default function WorkspaceNotificationSettingsPage() {
             <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide" style={{ color: "var(--muted-foreground)" }}>
               Atividade da tarefa
             </p>
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-xl p-3" style={{ background: "var(--hover)", border: "1px solid var(--glass-border)" }}>
+              <div>
+                <p className="text-sm font-medium" style={{ color: "var(--text-title)" }}>Teste de notificação PWA</p>
+                <p className="mt-0.5 text-xs" style={{ color: "var(--muted-foreground)" }}>
+                  Envie um push real para este dispositivo.
+                </p>
+              </div>
+              <button
+                onClick={handleTestNotification}
+                disabled={isTestingPush}
+                className="lc-btn flex items-center gap-1.5 px-3 py-1.5 text-xs disabled:opacity-50"
+              >
+                {isTestingPush && <Loader2 size={12} className="animate-spin" />}
+                Testar notificação
+              </button>
+            </div>
             <div className="flex flex-col divide-y" style={{ borderColor: "var(--border)" }}>
               <PreferenceRow
                 label="Atribuição"

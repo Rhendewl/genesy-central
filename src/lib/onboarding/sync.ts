@@ -44,6 +44,7 @@ interface OnboardingTaskForMirror {
   priority:            string;
   status:              OnboardingTaskStatus;
   due_date:            string | null;
+  due_time?:           string | null;
 }
 
 export async function recordHistory(
@@ -103,6 +104,7 @@ export async function createMirrorIfNeeded(supabase: Supabase, task: OnboardingT
       status:              mirrorStatus,
       priority:            task.priority,
       due_date:            task.due_date,
+      due_time:            task.due_time ?? null,
       position,
       onboarding_task_id:  task.id,
       tags:                [],
@@ -152,7 +154,7 @@ async function unblockDependents(supabase: Supabase, completedTaskId: string): P
 
   const { data: blockedTasks } = await supabase
     .from("onboarding_tasks")
-    .select("id, project_id, title, stage_id, description, assignee_profile_id, priority, status, due_date")
+    .select("id, project_id, title, stage_id, description, assignee_profile_id, priority, status, due_date, due_time")
     .in("id", dependentIds)
     .eq("status", "bloqueado");
 
@@ -304,6 +306,7 @@ export async function applyOnboardingTaskEditToMirror(supabase: Supabase, task: 
         description: task.description,
         priority:    task.priority,
         due_date:    task.due_date,
+        due_time:    task.due_time ?? null,
         status:      mirrorStatus,
       })
       .eq("id", existing.id);

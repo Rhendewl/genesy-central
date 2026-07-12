@@ -11,6 +11,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { applyOnboardingTaskEditToMirror, recordHistory, removeMirrorForOnboardingTask } from "@/lib/onboarding/sync";
+import { renderOnboardingTaskTitle } from "@/lib/onboarding/task-title-tokens";
 import { getPlatformEventBus } from "@/lib/event-bus/platform";
 import type {
   OnboardingTask, OnboardingTaskAttachment, OnboardingTaskChecklistItem,
@@ -67,7 +68,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   const patch: Record<string, unknown> = {};
   for (const key of [
     "title", "description", "role_key", "assignee_profile_id",
-    "priority", "due_date", "status",
+    "priority", "due_date", "due_time", "status",
   ] as const) {
     if (key in body) patch[key] = body[key];
   }
@@ -76,6 +77,9 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 
   try {
     const { data: before } = await supabase.from("onboarding_tasks").select("assignee_profile_id, project_id").eq("id", taskId).maybeSingle();
+    if ("title" in patch && typeof patch.title === "string") {
+      patch.title = renderOnboardingTaskTitle(patch.title, await getTaskProjectClientName(supabase, taskId));
+    }
 
     const { data, error } = await supabase.from("onboarding_tasks").update(patch).eq("id", taskId).select("*").single();
     if (error) throw new Error(error.message);
@@ -116,6 +120,30 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     const msg = err instanceof Error ? err.message : "Erro interno";
     return NextResponse.json({ error: msg }, { status: 500 });
   }
+}
+
+async function getTaskProjectClientName(supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>, taskId: string): Promise<string | null> {
+  const { data: task } = await supabase
+    .from("onboarding_tasks")
+    .select("project_id")
+    .eq("id", taskId)
+    .maybeSingle();
+  if (!task?.project_id) return null;
+
+  const { data: project } = await supabase
+    .from("onboarding_projects")
+    .select("client_id")
+    .eq("id", task.project_id)
+    .maybeSingle();
+  if (!project?.client_id) return null;
+
+  const { data: client } = await supabase
+    .from("agency_clients")
+    .select("name")
+    .eq("id", project.client_id)
+    .maybeSingle();
+
+  return client?.name ?? null;
 }
 
 export async function DELETE(_req: NextRequest, { params }: Params) {

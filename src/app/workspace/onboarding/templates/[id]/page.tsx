@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, ChevronDown, ChevronUp, Plus, X, GripVertical, FolderInput } from "lucide-react";
 import { toast } from "sonner";
+import { useCurrentMember } from "@/context/CurrentMemberContext";
 import { useOnboardingTemplate } from "@/hooks/useOnboardingTemplate";
 import { TemplateTaskModal } from "@/components/workspace/onboarding/TemplateTaskModal";
 import { PriorityBadge } from "@/components/workspace/PriorityBadge";
@@ -14,6 +15,7 @@ const COLOR_SWATCHES = ["#4a8fd4", "#6b9b6f", "#e0a344", "#e05c5c", "#9b7fe0", "
 export default function OnboardingTemplateBuilderPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const { member, isLoading: isMemberLoading } = useCurrentMember();
   const {
     detail, isLoading,
     updateTemplate,
@@ -24,6 +26,36 @@ export default function OnboardingTemplateBuilderPage() {
   const [taskModal, setTaskModal] = useState<{ stageId: string; task: OnboardingTemplateTask | null } | null>(null);
   const [stageDelete, setStageDelete] = useState<{ id: string; name: string } | null>(null);
   const [isDeletingStage, setIsDeletingStage] = useState(false);
+  const [dragStageId, setDragStageId] = useState<string | null>(null);
+
+  if (isMemberLoading) {
+    return (
+      <div className="flex justify-center px-4 py-24 sm:px-6">
+        <div className="h-8 w-8 animate-pulse rounded-full" style={{ background: "var(--card)" }} />
+      </div>
+    );
+  }
+
+  if (member?.role !== "admin") {
+    return (
+      <div className="flex flex-col gap-4 px-4 py-6 sm:px-6">
+        <button
+          onClick={() => router.push("/workspace/onboarding")}
+          className="flex w-fit items-center gap-1.5 text-sm"
+          style={{ color: "var(--muted-foreground)" }}
+        >
+          <ArrowLeft size={15} />
+          Onboarding
+        </button>
+        <div className="lc-card p-5">
+          <p className="text-sm font-semibold" style={{ color: "var(--text-title)" }}>Acesso restrito</p>
+          <p className="mt-1 text-xs" style={{ color: "var(--muted-foreground)" }}>
+            Apenas administradores podem editar templates de onboarding.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   if (isLoading || !detail) {
     return (
@@ -66,6 +98,34 @@ export default function OnboardingTemplateBuilderPage() {
     }
     const second = await updateStage(target.id, { order_index: current.order_index });
     if (second.error) toast.error(second.error);
+  }
+
+  async function reorderStageByDrop(targetStageId: string) {
+    if (!detail || !dragStageId || dragStageId === targetStageId) {
+      setDragStageId(null);
+      return;
+    }
+
+    const sourceIndex = detail.stages.findIndex((stage) => stage.id === dragStageId);
+    const targetIndex = detail.stages.findIndex((stage) => stage.id === targetStageId);
+    if (sourceIndex < 0 || targetIndex < 0) {
+      setDragStageId(null);
+      return;
+    }
+
+    const next = [...detail.stages];
+    const [source] = next.splice(sourceIndex, 1);
+    next.splice(targetIndex, 0, source);
+    setDragStageId(null);
+
+    for (let index = 0; index < next.length; index++) {
+      if (next[index].order_index === index) continue;
+      const result = await updateStage(next[index].id, { order_index: index });
+      if (result.error) {
+        toast.error(result.error);
+        return;
+      }
+    }
   }
 
   async function moveTask(stageId: string, taskIndex: number, direction: -1 | 1) {
@@ -118,9 +178,27 @@ export default function OnboardingTemplateBuilderPage() {
 
       <div className="flex flex-col gap-4">
         {detail.stages.map((stage, stageIdx) => (
-          <div key={stage.id} className="lc-card p-4">
+          <div
+            key={stage.id}
+            onDragOver={(event) => { if (dragStageId) event.preventDefault(); }}
+            onDrop={() => void reorderStageByDrop(stage.id)}
+            className="lc-card p-4 transition-opacity"
+            style={{ opacity: dragStageId === stage.id ? 0.55 : 1 }}
+          >
             <div className="mb-3 flex flex-wrap items-center gap-2">
-              <GripVertical size={14} style={{ color: "var(--muted-foreground)" }} />
+              <button
+                draggable
+                onDragStart={(event) => {
+                  setDragStageId(stage.id);
+                  event.dataTransfer.effectAllowed = "move";
+                }}
+                onDragEnd={() => setDragStageId(null)}
+                className="cursor-grab rounded p-1 active:cursor-grabbing"
+                aria-label="Arrastar etapa para reordenar"
+                title="Arrastar etapa"
+              >
+                <GripVertical size={14} style={{ color: "var(--muted-foreground)" }} />
+              </button>
               <span className="text-xs font-semibold" style={{ color: "var(--muted-foreground)" }}>{stageIdx + 1}.</span>
               <input
                 defaultValue={stage.name}

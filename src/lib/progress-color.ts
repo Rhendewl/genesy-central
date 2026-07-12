@@ -2,9 +2,8 @@
 // laranja → amarelo → verde (100%). Usada pelos gauges do Workspace
 // (HalfDonutGauge no Dashboard Geral, ProgressRing no Dashboard do Workspace
 // e nos cards de Objetivo) para que a cor comunique o quão perto da conclusão
-// o usuário está, não só o número. Mesmos tons em ambos os temas — são cores
-// de destaque sobre um arco fino, não texto, então não precisam variar por
-// tema pra manter contraste.
+// o usuário está, não só o número. A cor da ponta (progressColor) é a mesma
+// nos dois temas; só o início do gradiente muda — ver progressGradientFrom.
 const STOPS: Array<{ pct: number; rgb: [number, number, number] }> = [
   { pct: 0,   rgb: [239, 68, 68]  },  // red-500
   { pct: 33,  rgb: [249, 115, 22] },  // orange-500
@@ -32,9 +31,13 @@ export function progressColor(percent: number): string {
   return `rgb(${r}, ${g}, ${b})`;
 }
 
-// Ponta inicial do gradiente do arco — mesma cor, mas escurecida, pro efeito
-// "escuro → cor final" que os gauges já usavam antes (profundidade visual em
-// vez de uma cor sólida chapada).
-export function progressColorDark(percent: number): string {
-  return `color-mix(in srgb, ${progressColor(percent)} 55%, black)`;
+// Ponta inicial do gradiente — mesma cor da ponta, só que puxada pra uma base
+// neutra, pro efeito de profundidade em vez de uma cor sólida chapada.
+// Dark: escurecida (mistura com preto). Light: clareada (mistura com branco)
+// — escurecer no tema claro deixa a barra pesada/suja sobre o card branco.
+export function progressGradientFrom(percent: number, theme: "dark" | "light" = "dark"): string {
+  const color = progressColor(percent);
+  return theme === "light"
+    ? `color-mix(in srgb, ${color} 28%, white)`
+    : `color-mix(in srgb, ${color} 55%, black)`;
 }

@@ -1,7 +1,9 @@
 "use client";
 
+import { useId } from "react";
 import { motion } from "framer-motion";
-import { progressColor, progressColorDark } from "@/lib/progress-color";
+import { progressColor, progressGradientFrom } from "@/lib/progress-color";
+import { useGlobalStore } from "@/store";
 
 // Gauge em meio-círculo estilo "dial" — arco preenchido com gradiente (escuro
 // → cor final na ponta) + marcações (ticks) no restante não preenchido,
@@ -22,6 +24,8 @@ function polar(cx: number, cy: number, r: number, angleDeg: number) {
 }
 
 export function HalfDonutGauge({ percent, label, caption, size = 116 }: HalfDonutGaugeProps) {
+  const gradientId = useId().replace(/:/g, "");
+  const theme = useGlobalStore(s => s.theme);
   const clamped = Math.max(0, Math.min(100, percent));
   const arcWidth      = 10;             // espessura (radial) do arco de progresso
   const tickLength     = arcWidth;      // comprimento de cada marcação = espessura do arco
@@ -41,8 +45,7 @@ export function HalfDonutGauge({ percent, label, caption, size = 116 }: HalfDonu
   const end   = polar(cx, cy, r, 0);
   const fullArcPath = `M ${start.x} ${start.y} A ${r} ${r} 0 0 1 ${end.x} ${end.y}`;
 
-  const gradientId = "gauge-grad-neutral";
-  const fromColor = progressColorDark(clamped);
+  const fromColor = progressGradientFrom(clamped, theme);
   const toColor   = progressColor(clamped);
 
   const ticks = Array.from({ length: TICK_COUNT + 1 }, (_, i) => 180 - i * (180 / TICK_COUNT))

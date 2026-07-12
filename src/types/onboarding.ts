@@ -155,6 +155,7 @@ export interface OnboardingTask {
   priority:                 WorkspaceTaskPriority;
   status:                   OnboardingTaskStatus;
   due_date:                 string | null;
+  due_time:                 string | null;
   position:                 number;
   required_document_labels: string[];
   completed_at:             string | null;
@@ -169,11 +170,11 @@ export interface OnboardingTask {
 }
 
 export type NewOnboardingTask = Pick<OnboardingTask, "title" | "stage_id"> & Partial<Pick<OnboardingTask,
-  "description" | "role_key" | "assignee_profile_id" | "priority" | "due_date" | "depends_on_task_ids"
+  "description" | "role_key" | "assignee_profile_id" | "priority" | "due_date" | "due_time" | "depends_on_task_ids"
 >>;
 
 export type UpdateOnboardingTask = Partial<Pick<OnboardingTask,
-  "title" | "description" | "role_key" | "assignee_profile_id" | "priority" | "due_date"
+  "title" | "description" | "role_key" | "assignee_profile_id" | "priority" | "due_date" | "due_time"
 >>;
 
 export interface OnboardingTaskDependency {

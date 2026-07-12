@@ -11,6 +11,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { ChecklistField } from "@/components/workspace/ChecklistField";
 import { CommentsThread } from "@/components/workspace/CommentsThread";
 import { AttachmentsField } from "@/components/workspace/AttachmentsField";
+import { DueDatePicker } from "@/components/workspace/DueDatePicker";
+import { appendClientNameToken, CLIENT_NAME_TOKEN } from "@/lib/onboarding/task-title-tokens";
 import { WORKSPACE_TASK_PRIORITIES, type WorkspaceTaskPriority } from "@/types/workspace";
 import { ONBOARDING_TASK_STATUSES, type OnboardingTask, type OnboardingTaskStatus } from "@/types/onboarding";
 
@@ -23,7 +25,7 @@ interface OnboardingTaskPanelProps {
   onClose:         () => void;
   onCreate: (data: {
     title: string; stage_id: string; description?: string; assignee_profile_id?: string;
-    priority?: WorkspaceTaskPriority; due_date?: string; depends_on_task_ids?: string[];
+    priority?: WorkspaceTaskPriority; due_date?: string; due_time?: string; depends_on_task_ids?: string[];
   }) => Promise<{ error?: string }>;
 }
 
@@ -45,6 +47,7 @@ export function OnboardingTaskPanel({ taskId, stageId, isAdmin, myProfileId, all
   const [assigneeId,   setAssigneeId]   = useState("");
   const [priority,     setPriority]     = useState<WorkspaceTaskPriority>("media");
   const [dueDate,      setDueDate]      = useState("");
+  const [dueTime,      setDueTime]      = useState("");
   const [dependsOn,    setDependsOn]    = useState<string[]>([]);
   const [isSaving,     setIsSaving]     = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -56,6 +59,7 @@ export function OnboardingTaskPanel({ taskId, stageId, isAdmin, myProfileId, all
       setAssigneeId(task.assignee_profile_id ?? "");
       setPriority(task.priority);
       setDueDate(task.due_date ?? "");
+      setDueTime(task.due_time ?? "");
       setDependsOn(task.depends_on_task_ids ?? []);
     }
   }, [task]);
@@ -71,7 +75,7 @@ export function OnboardingTaskPanel({ taskId, stageId, isAdmin, myProfileId, all
     const result = await onCreate({
       title: title.trim(), stage_id: stageId, description: description || undefined,
       assignee_profile_id: assigneeId || undefined, priority,
-      due_date: dueDate || undefined, depends_on_task_ids: dependsOn,
+      due_date: dueDate || undefined, due_time: dueTime || undefined, depends_on_task_ids: dependsOn,
     });
     setIsSaving(false);
     if (result.error) { toast.error(result.error); return; }
@@ -134,16 +138,28 @@ export function OnboardingTaskPanel({ taskId, stageId, isAdmin, myProfileId, all
               </div>
             )}
 
-            <input
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              onBlur={() => !isCreating && isAdmin && title.trim() && title !== task?.title && saveField({ title: title.trim() })}
-              placeholder="Título da tarefa"
-              readOnly={!isCreating && !isAdmin}
-              className="bg-transparent text-lg font-semibold outline-none placeholder:text-[var(--muted-foreground)]"
-              style={{ color: "var(--text-title)" }}
-              autoFocus={isCreating}
-            />
+            <div className="flex flex-col gap-2">
+              <input
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                onBlur={() => !isCreating && isAdmin && title.trim() && title !== task?.title && saveField({ title: title.trim() })}
+                placeholder="Título da tarefa"
+                readOnly={!isCreating && !isAdmin}
+                className="bg-transparent text-lg font-semibold outline-none placeholder:text-[var(--muted-foreground)]"
+                style={{ color: "var(--text-title)" }}
+                autoFocus={isCreating}
+              />
+              {(isCreating || isAdmin) && (
+                <button
+                  type="button"
+                  onClick={() => setTitle((current) => appendClientNameToken(current))}
+                  className="w-fit rounded-full px-2.5 py-1 text-[11px] font-medium"
+                  style={{ background: "var(--hover)", color: "var(--muted-foreground)", border: "1px solid var(--glass-border)" }}
+                >
+                  Inserir {CLIENT_NAME_TOKEN}
+                </button>
+              )}
+            </div>
 
             {!isCreating && task && (
               <div>
@@ -237,13 +253,26 @@ export function OnboardingTaskPanel({ taskId, stageId, isAdmin, myProfileId, all
 
             <div>
               <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide" style={{ color: "var(--muted-foreground)" }}>Prazo</p>
-              <input
-                type="date" value={dueDate}
-                disabled={!isCreating && !isAdmin}
-                onChange={(e) => { setDueDate(e.target.value); if (!isCreating) saveField({ due_date: e.target.value || null }); }}
-                className="w-full rounded-lg px-3 py-2 text-sm outline-none disabled:opacity-60"
-                style={{ background: "var(--hover)", border: "1px solid var(--glass-border)", color: "var(--text-title)" }}
-              />
+              <div className={!isCreating && !isAdmin ? "pointer-events-none opacity-60" : undefined}>
+                <DueDatePicker
+                  date={dueDate || null}
+                  time={dueTime || null}
+                  onChangeDate={(d) => {
+                    setDueDate(d ?? "");
+                    if (!d) setDueTime("");
+                    if (!isCreating) saveField({ due_date: d, due_time: d ? dueTime || null : null });
+                  }}
+                  onChangeTime={(t) => {
+                    setDueTime(t ?? "");
+                    if (!isCreating) saveField({ due_time: t });
+                  }}
+                />
+              </div>
+              {!dueDate && dueTime && (
+                <span className="mt-1 block text-[10px]" style={{ color: "var(--muted-foreground)" }}>
+                  Defina uma data para ativar o horário.
+                </span>
+              )}
             </div>
 
             {otherTasks.length > 0 && (

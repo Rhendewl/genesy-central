@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { X, Loader2, Trash2 } from "lucide-react";
 import { useUsers } from "@/hooks/useUsers";
+import { appendClientNameToken, CLIENT_NAME_TOKEN } from "@/lib/onboarding/task-title-tokens";
 import { WORKSPACE_TASK_PRIORITIES, type WorkspaceTaskPriority } from "@/types/workspace";
 import type { NewOnboardingTemplateTask, OnboardingTemplateTask } from "@/types/onboarding";
 
@@ -83,6 +84,14 @@ export function TemplateTaskModal({ task, otherTasks, onClose, onSave, onDelete 
               className="rounded-lg px-3 py-2 text-sm outline-none"
               style={{ background: "var(--hover)", border: "1px solid var(--glass-border)", color: "var(--text-title)" }}
             />
+            <button
+              type="button"
+              onClick={() => setTitle((current) => appendClientNameToken(current))}
+              className="w-fit rounded-full px-2.5 py-1 text-[11px] font-medium"
+              style={{ background: "var(--hover)", color: "var(--muted-foreground)", border: "1px solid var(--glass-border)" }}
+            >
+              Inserir {CLIENT_NAME_TOKEN}
+            </button>
           </div>
 
           <div className="flex flex-col gap-1.5">

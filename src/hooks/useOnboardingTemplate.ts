@@ -20,27 +20,31 @@ export function useOnboardingTemplate(templateId: string | null) {
   const [isLoading, setIsLoading] = useState(false);
   const [error,     setError]     = useState<string | null>(null);
   const mountedRef = useRef(true);
+  const hasDetailRef = useRef(false);
 
   const fetchDetail = useCallback(async () => {
     if (!templateId) return;
-    setIsLoading(true);
+    const shouldShowLoading = !hasDetailRef.current;
+    if (shouldShowLoading) setIsLoading(true);
     setError(null);
     try {
       const res  = await fetch(`/api/workspace/onboarding/templates/${templateId}`);
       const json = await res.json() as { template?: OnboardingTemplateDetail; error?: string };
       if (!mountedRef.current) return;
       if (!res.ok || !json.template) throw new Error(json.error ?? "Erro ao carregar template");
+      hasDetailRef.current = true;
       setDetail(json.template);
     } catch (err) {
       if (!mountedRef.current) return;
       setError(err instanceof Error ? err.message : "Erro desconhecido");
     } finally {
-      if (mountedRef.current) setIsLoading(false);
+      if (mountedRef.current && shouldShowLoading) setIsLoading(false);
     }
   }, [templateId]);
 
   useEffect(() => {
     mountedRef.current = true;
+    hasDetailRef.current = false;
     setDetail(null);
     if (templateId) void fetchDetail();
     return () => { mountedRef.current = false; };

@@ -2,48 +2,73 @@
 
 import { useEffect, useState } from "react";
 import { AlertTriangle, Users } from "lucide-react";
+import { useCurrentMember } from "@/context/CurrentMemberContext";
 import { HalfDonutGauge } from "@/components/dashboard-geral/HalfDonutGauge";
 import { OnboardingSubNav } from "@/components/workspace/onboarding/OnboardingSubNav";
 import type { OnboardingTeamWorkloadRow } from "@/types/onboarding";
 
 export default function OnboardingEquipePage() {
+  const { member, isLoading: isMemberLoading } = useCurrentMember();
   const [rows, setRows] = useState<OnboardingTeamWorkloadRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    if (isMemberLoading) return;
+    if (member?.role !== "admin") {
+      setIsLoading(false);
+      return;
+    }
+
     (async () => {
       const res = await fetch("/api/workspace/onboarding/team");
       const json = await res.json() as { rows?: OnboardingTeamWorkloadRow[] };
       setRows(json.rows ?? []);
       setIsLoading(false);
     })();
-  }, []);
+  }, [isMemberLoading, member?.role]);
 
   return (
     <div className="flex flex-col pb-24">
       <OnboardingSubNav />
 
-      <div className="px-4 pb-4 pt-4 sm:px-6">
-        <h1 className="text-lg font-bold" style={{ color: "var(--text-title)" }}>Equipe</h1>
-        <p className="text-xs" style={{ color: "var(--muted-foreground)" }}>Carga de trabalho por pessoa nos onboardings em andamento.</p>
-      </div>
+      {isMemberLoading ? (
+        <div className="flex justify-center py-24">
+          <div className="h-8 w-8 animate-pulse rounded-full" style={{ background: "var(--card)" }} />
+        </div>
+      ) : member?.role !== "admin" ? (
+        <div className="px-4 py-10 sm:px-6">
+          <div className="lc-card p-5">
+            <p className="text-sm font-semibold" style={{ color: "var(--text-title)" }}>Acesso restrito</p>
+            <p className="mt-1 text-xs" style={{ color: "var(--muted-foreground)" }}>
+              Apenas administradores podem visualizar a carga da equipe no onboarding.
+            </p>
+          </div>
+        </div>
+      ) : (
+        <>
+          <div className="px-4 pb-4 pt-4 sm:px-6">
+            <h1 className="text-lg font-bold" style={{ color: "var(--text-title)" }}>Equipe</h1>
+            <p className="text-xs" style={{ color: "var(--muted-foreground)" }}>Carga de trabalho por pessoa nos onboardings em andamento.</p>
+          </div>
 
-      <div className="flex-1 px-4 sm:px-6">
-        {isLoading ? (
-          <div className="h-40 animate-pulse rounded-2xl" style={{ background: "var(--card)" }} />
-        ) : rows.length === 0 ? (
-          <div className="flex flex-col items-center justify-center gap-3 py-24">
-            <Users size={28} style={{ color: "var(--muted-foreground)" }} />
-            <p className="text-sm" style={{ color: "var(--muted-foreground)" }}>Nenhuma tarefa de onboarding atribuída ainda</p>
+          <div className="flex-1 px-4 sm:px-6">
+            {isLoading ? (
+              <div className="h-40 animate-pulse rounded-2xl" style={{ background: "var(--card)" }} />
+            ) : rows.length === 0 ? (
+              <div className="flex flex-col items-center justify-center gap-3 py-24">
+                <Users size={28} style={{ color: "var(--muted-foreground)" }} />
+                <p className="text-sm" style={{ color: "var(--muted-foreground)" }}>Nenhuma tarefa de onboarding atribuída ainda</p>
+              </div>
+            ) : (
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                {rows.map((row) => (
+                  <TeamProgressCard key={row.profile_id} row={row} />
+                ))}
+              </div>
+            )}
           </div>
-        ) : (
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            {rows.map((row) => (
-              <TeamProgressCard key={row.profile_id} row={row} />
-            ))}
-          </div>
-        )}
-      </div>
+        </>
+      )}
     </div>
   );
 }

@@ -3,6 +3,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { createMirrorIfNeeded, recordHistory } from "@/lib/onboarding/sync";
+import { renderOnboardingTaskTitle } from "@/lib/onboarding/task-title-tokens";
 import { getPlatformEventBus } from "@/lib/event-bus/platform";
 import type { NewOnboardingTask, OnboardingTask, OnboardingTaskStatus } from "@/types/onboarding";
 
@@ -31,6 +32,7 @@ export async function POST(req: NextRequest, { params }: Params) {
 
     const dependsOnTaskIds = body.depends_on_task_ids ?? [];
     const status: OnboardingTaskStatus = dependsOnTaskIds.length > 0 ? "bloqueado" : "a_fazer";
+    const title = renderOnboardingTaskTitle(body.title, await getProjectClientName(supabase, id));
 
     const { data, error } = await supabase
       .from("onboarding_tasks")
@@ -38,7 +40,7 @@ export async function POST(req: NextRequest, { params }: Params) {
         created_by:               user.id,
         project_id:               id,
         stage_id:                 body.stage_id,
-        title:                    body.title,
+        title,
         description:               body.description ?? null,
         role_key:                 body.role_key ?? null,
         assignee_profile_id:      body.assignee_profile_id ?? null,
@@ -46,6 +48,7 @@ export async function POST(req: NextRequest, { params }: Params) {
         priority:                 body.priority ?? "media",
         status,
         due_date:                 body.due_date ?? null,
+        due_time:                 body.due_time ?? null,
         position,
         required_document_labels: [],
       })
@@ -84,4 +87,21 @@ export async function POST(req: NextRequest, { params }: Params) {
     const msg = err instanceof Error ? err.message : "Erro interno";
     return NextResponse.json({ error: msg }, { status: 500 });
   }
+}
+
+async function getProjectClientName(supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>, projectId: string): Promise<string | null> {
+  const { data: project } = await supabase
+    .from("onboarding_projects")
+    .select("client_id")
+    .eq("id", projectId)
+    .maybeSingle();
+  if (!project?.client_id) return null;
+
+  const { data: client } = await supabase
+    .from("agency_clients")
+    .select("name")
+    .eq("id", project.client_id)
+    .maybeSingle();
+
+  return client?.name ?? null;
 }

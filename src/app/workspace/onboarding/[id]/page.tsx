@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { AlertTriangle, ArrowLeft, Building2, Calendar, ChevronDown, ChevronUp, Loader2, Pencil, Plus, Trash2, X } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Building2, Calendar, ChevronDown, ChevronUp, GripVertical, Loader2, Pencil, Plus, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { useCurrentMember } from "@/context/CurrentMemberContext";
 import { useOnboardingProject } from "@/hooks/useOnboardingProject";
@@ -35,6 +35,7 @@ export default function OnboardingProjectDetailPage() {
   const [stageDueDate, setStageDueDate] = useState("");
   const [stageColor, setStageColor] = useState("#4a8fd4");
   const [isStageSaving, setIsStageSaving] = useState(false);
+  const [dragStageId, setDragStageId] = useState<string | null>(null);
 
   function openEditModal() {
     if (!detail) return;
@@ -138,6 +139,34 @@ export default function OnboardingProjectDetailPage() {
     }
     const second = await updateStage(target.id, { order_index: current.order_index });
     if (second.error) toast.error(second.error);
+  }
+
+  async function reorderStageByDrop(targetStageId: string) {
+    if (!detail || !dragStageId || dragStageId === targetStageId) {
+      setDragStageId(null);
+      return;
+    }
+
+    const sourceIndex = detail.stages.findIndex((stage) => stage.id === dragStageId);
+    const targetIndex = detail.stages.findIndex((stage) => stage.id === targetStageId);
+    if (sourceIndex < 0 || targetIndex < 0) {
+      setDragStageId(null);
+      return;
+    }
+
+    const next = [...detail.stages];
+    const [source] = next.splice(sourceIndex, 1);
+    next.splice(targetIndex, 0, source);
+    setDragStageId(null);
+
+    for (let index = 0; index < next.length; index++) {
+      if (next[index].order_index === index) continue;
+      const result = await updateStage(next[index].id, { order_index: index });
+      if (result.error) {
+        toast.error(result.error);
+        return;
+      }
+    }
   }
 
   if (isLoading || !detail) {
@@ -246,15 +275,38 @@ export default function OnboardingProjectDetailPage() {
             <p className="py-8 text-center text-sm" style={{ color: "var(--muted-foreground)" }}>Nenhuma etapa ainda.</p>
           )}
           {detail.stages.map((stage, idx) => (
-            <div key={stage.id} className="lc-card p-4" style={{ borderLeft: `3px solid ${stage.color}` }}>
+            <div
+              key={stage.id}
+              onDragOver={(event) => { if (isAdmin && dragStageId) event.preventDefault(); }}
+              onDrop={() => { if (isAdmin) void reorderStageByDrop(stage.id); }}
+              className="lc-card p-4 transition-opacity"
+              style={{ borderLeft: `3px solid ${stage.color}`, opacity: dragStageId === stage.id ? 0.55 : 1 }}
+            >
               <div className="mb-2 flex items-center justify-between gap-2">
-                <div className="min-w-0">
+                <div className="flex min-w-0 items-start gap-2">
+                  {isAdmin && (
+                    <button
+                      draggable
+                      onDragStart={(event) => {
+                        setDragStageId(stage.id);
+                        event.dataTransfer.effectAllowed = "move";
+                      }}
+                      onDragEnd={() => setDragStageId(null)}
+                      className="mt-0.5 cursor-grab rounded p-1 active:cursor-grabbing"
+                      aria-label="Arrastar etapa para reordenar"
+                      title="Arrastar etapa"
+                    >
+                      <GripVertical size={14} style={{ color: "var(--muted-foreground)" }} />
+                    </button>
+                  )}
+                  <div className="min-w-0">
                   <p className="truncate text-sm font-semibold" style={{ color: "var(--text-title)" }}>{idx + 1}. {stage.name}</p>
                   {stage.due_date && (
                     <span className="text-[11px]" style={{ color: "var(--muted-foreground)" }}>
                       Prazo: {new Date(stage.due_date + "T00:00:00").toLocaleDateString("pt-BR")}
                     </span>
                   )}
+                  </div>
                 </div>
                 {isAdmin && (
                   <div className="flex items-center gap-1">

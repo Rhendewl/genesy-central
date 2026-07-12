@@ -5,11 +5,13 @@ import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Plus, FileStack, Layers, ListChecks, Loader2, X, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { useCurrentMember } from "@/context/CurrentMemberContext";
 import { OnboardingSubNav } from "@/components/workspace/onboarding/OnboardingSubNav";
 import { useOnboardingTemplates } from "@/hooks/useOnboardingTemplates";
 
 export default function OnboardingTemplatesPage() {
   const router = useRouter();
+  const { member, isLoading: isMemberLoading } = useCurrentMember();
   const { templates, isLoading, createTemplate, deleteTemplate } = useOnboardingTemplates();
   const [modalOpen, setModalOpen] = useState(false);
   const [name, setName] = useState("");
@@ -39,6 +41,33 @@ export default function OnboardingTemplatesPage() {
     setDeletingId(null);
     if (!result.error) setDeleteTarget(null);
     if (result.error) toast.error(result.error);
+  }
+
+  if (isMemberLoading) {
+    return (
+      <div className="flex flex-col pb-24">
+        <OnboardingSubNav />
+        <div className="flex justify-center py-24">
+          <Loader2 size={22} className="animate-spin" style={{ color: "var(--muted-foreground)" }} />
+        </div>
+      </div>
+    );
+  }
+
+  if (member?.role !== "admin") {
+    return (
+      <div className="flex flex-col pb-24">
+        <OnboardingSubNav />
+        <div className="px-4 py-10 sm:px-6">
+          <div className="lc-card p-5">
+            <p className="text-sm font-semibold" style={{ color: "var(--text-title)" }}>Acesso restrito</p>
+            <p className="mt-1 text-xs" style={{ color: "var(--muted-foreground)" }}>
+              Apenas administradores podem gerenciar templates de onboarding.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (

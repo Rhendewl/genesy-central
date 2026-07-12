@@ -6,6 +6,7 @@ import { createAdminSupabaseClient } from "@/lib/supabase-admin";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { createMirrorIfNeeded, recordHistory } from "@/lib/onboarding/sync";
 import { computeProjectStatus } from "@/lib/onboarding/status";
+import { renderOnboardingTaskTitle } from "@/lib/onboarding/task-title-tokens";
 import { getPlatformEventBus } from "@/lib/event-bus/platform";
 import type {
   NewOnboardingProject, OnboardingProject, OnboardingProjectSummary, OnboardingTaskStatus,
@@ -129,15 +130,18 @@ export async function POST(req: NextRequest) {
 
     const startDate = body.start_date ?? new Date().toISOString().slice(0, 10);
 
+    let clientName: string | null = null;
+
     if (body.client_id) {
       const { data: client, error: clientError } = await admin
         .from("agency_clients")
-        .select("id")
+        .select("id, name")
         .eq("id", body.client_id)
         .eq("user_id", ownerId)
         .maybeSingle();
       if (clientError) throw new Error(clientError.message);
       if (!client) return NextResponse.json({ error: "Cliente não encontrado para esta conta." }, { status: 400 });
+      clientName = client.name ?? null;
     }
 
     if (body.template_id) {
@@ -211,7 +215,11 @@ export async function POST(req: NextRequest) {
     }
 
     const taskIdMap = new Map<string, string>();
-    const createdTasks: { id: string; project_id: string; title: string; description: string | null; assignee_profile_id: string | null; priority: string; status: OnboardingTaskStatus; due_date: string | null }[] = [];
+    const createdTasks: {
+      id: string; project_id: string; title: string; description: string | null;
+      assignee_profile_id: string | null; priority: string; status: OnboardingTaskStatus;
+      due_date: string | null; due_time: string | null;
+    }[] = [];
 
     if (templateTasks && templateTasks.length > 0) {
       const depsByTask = new Map<string, string[]>();
@@ -234,7 +242,7 @@ export async function POST(req: NextRequest) {
           created_by:               user.id,
           project_id:               project.id,
           stage_id:                 stageIdMap.get(t.stage_id)!,
-          title:                    t.title,
+          title:                    renderOnboardingTaskTitle(t.title, clientName),
           description:              t.description,
           role_key:                 t.role_key,
           assignee_profile_id:      assigneeProfileId,
@@ -242,6 +250,7 @@ export async function POST(req: NextRequest) {
           priority:                 t.priority,
           status,
           due_date:                 addDays(startDate, relativeDays),
+          due_time:                 null,
           required_document_labels: [],
         };
       });
@@ -249,7 +258,7 @@ export async function POST(req: NextRequest) {
       const { data: newTasks, error: tasksError } = await admin
         .from("onboarding_tasks")
         .insert(rowsToInsert)
-        .select("id, project_id, title, description, assignee_profile_id, priority, status, due_date");
+        .select("id, project_id, title, description, assignee_profile_id, priority, status, due_date, due_time");
       if (tasksError) throw new Error(tasksError.message);
 
       templateTasks.forEach((t, idx) => taskIdMap.set(t.id, newTasks![idx].id));
