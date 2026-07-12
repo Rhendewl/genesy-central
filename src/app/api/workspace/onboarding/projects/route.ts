@@ -112,6 +112,17 @@ export async function POST(req: NextRequest) {
   if (!body?.name) return NextResponse.json({ error: "name é obrigatório" }, { status: 400 });
 
   try {
+    const { data: ownerId, error: ownerError } = await supabase.rpc("effective_owner_id");
+    if (ownerError || typeof ownerId !== "string") {
+      throw new Error(ownerError?.message ?? "Não foi possível resolver o dono da conta.");
+    }
+
+    const { data: isAdminOfOwner, error: adminError } = await supabase.rpc("is_admin_of_owner", { target_owner_id: ownerId });
+    if (adminError) throw new Error(adminError.message);
+    if (!isAdminOfOwner) {
+      return NextResponse.json({ error: "Apenas administradores podem criar onboardings." }, { status: 403 });
+    }
+
     const startDate = body.start_date ?? new Date().toISOString().slice(0, 10);
 
     const { data: templateStages } = body.template_id
@@ -141,6 +152,7 @@ export async function POST(req: NextRequest) {
     const { data: project, error: projectError } = await supabase
       .from("onboarding_projects")
       .insert({
+        user_id:     ownerId,
         created_by:  user.id,
         client_id:   body.client_id,
         template_id: body.template_id ?? null,
@@ -159,6 +171,7 @@ export async function POST(req: NextRequest) {
       const { data: newStages, error: stagesError } = await supabase
         .from("onboarding_project_stages")
         .insert(templateStages.map((s) => ({
+          user_id:     ownerId,
           project_id:  project.id,
           name:        s.name,
           order_index: s.order_index,
@@ -196,6 +209,8 @@ export async function POST(req: NextRequest) {
         const status: OnboardingTaskStatus = hasDeps ? "bloqueado" : "a_fazer";
         const relativeDays = t.relative_due_days ?? stage.relative_due_days;
         return {
+          user_id:                  ownerId,
+          created_by:               user.id,
           project_id:               project.id,
           stage_id:                 stageIdMap.get(t.stage_id)!,
           title:                    t.title,
@@ -220,6 +235,7 @@ export async function POST(req: NextRequest) {
       createdTasks.push(...(newTasks ?? []));
 
       const depRows = (templateDeps ?? []).map((d) => ({
+        user_id:            ownerId,
         task_id:            taskIdMap.get(d.task_id)!,
         depends_on_task_id: taskIdMap.get(d.depends_on_task_id)!,
       }));
@@ -232,7 +248,7 @@ export async function POST(req: NextRequest) {
     if (templateDocs && templateDocs.length > 0) {
       const { error: docsError } = await supabase
         .from("onboarding_project_documents")
-        .insert(templateDocs.map((d) => ({ project_id: project.id, label: d.label })));
+        .insert(templateDocs.map((d) => ({ user_id: ownerId, project_id: project.id, label: d.label })));
       if (docsError) throw new Error(docsError.message);
     }
 
