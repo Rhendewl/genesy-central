@@ -129,10 +129,25 @@ export default function OnboardingTemplateBuilderPage() {
     }
   }
 
-  function finishStageHandleDrag(stageIndex: number, clientY: number) {
+  function getStageDropTargetId(clientX: number, clientY: number) {
+    return document
+      .elementsFromPoint(clientX, clientY)
+      .map((element) => element instanceof HTMLElement ? element.closest<HTMLElement>("[data-onboarding-stage-id]") : null)
+      .find(Boolean)
+      ?.dataset.onboardingStageId ?? null;
+  }
+
+  function finishStageHandleDrag(stageIndex: number, stageId: string, clientX: number, clientY: number) {
     if (dragStartY === null) return;
     const deltaY = clientY - dragStartY;
     setDragStartY(null);
+
+    const targetStageId = getStageDropTargetId(clientX, clientY);
+    if (targetStageId && targetStageId !== stageId) {
+      void reorderStageByDrop(targetStageId);
+      return;
+    }
+
     setDragStageId(null);
 
     if (deltaY < -18) void moveStage(stageIndex, -1);
@@ -191,34 +206,29 @@ export default function OnboardingTemplateBuilderPage() {
         {detail.stages.map((stage, stageIdx) => (
           <div
             key={stage.id}
-            onDragOver={(event) => { if (dragStageId) event.preventDefault(); }}
-            onDrop={() => void reorderStageByDrop(stage.id)}
+            data-onboarding-stage-id={stage.id}
             className="lc-card p-4 transition-opacity"
             style={{ opacity: dragStageId === stage.id ? 0.55 : 1 }}
           >
             <div className="mb-3 flex flex-wrap items-center gap-2">
               <button
-                draggable
                 onPointerDown={(event) => {
+                  event.preventDefault();
                   setDragStageId(stage.id);
                   setDragStartY(event.clientY);
                   event.currentTarget.setPointerCapture(event.pointerId);
                 }}
-                onPointerUp={(event) => finishStageHandleDrag(stageIdx, event.clientY)}
+                onPointerUp={(event) => {
+                  if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+                    event.currentTarget.releasePointerCapture(event.pointerId);
+                  }
+                  finishStageHandleDrag(stageIdx, stage.id, event.clientX, event.clientY);
+                }}
                 onPointerCancel={() => {
                   setDragStartY(null);
                   setDragStageId(null);
                 }}
-                onDragStart={(event) => {
-                  setDragStageId(stage.id);
-                  event.dataTransfer.effectAllowed = "move";
-                  event.dataTransfer.setData("text/plain", stage.id);
-                }}
-                onDragEnd={() => {
-                  setDragStageId(null);
-                  setDragStartY(null);
-                }}
-                className="cursor-grab rounded p-1 active:cursor-grabbing"
+                className="cursor-grab touch-none select-none rounded p-1 active:cursor-grabbing"
                 aria-label="Arrastar etapa para reordenar"
                 title="Arrastar etapa"
               >
