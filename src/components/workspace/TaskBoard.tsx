@@ -96,28 +96,30 @@ export function TaskBoard({ tasksHook, onOpenTask }: TaskBoardProps) {
       onDragCancel={handleDragCancel}
     >
       <div
-        className="flex items-start gap-4 overflow-x-auto pb-4"
-        style={{ scrollSnapType: "x mandatory", WebkitOverflowScrolling: "touch" }}
+        className="-mx-4 overflow-x-auto overscroll-x-contain px-4 pb-4 [scrollbar-width:thin] sm:-mx-6 sm:px-6"
+        style={{ WebkitOverflowScrolling: "touch" }}
       >
-        {WORKSPACE_TASK_STATUSES.map((s, i) => (
-          <motion.div
-            key={s.id}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: i * 0.06, ease: "easeOut" }}
-            style={{ scrollSnapAlign: "start" }}
-            className="flex-shrink-0"
-          >
-            <TaskColumn
-              status={s.id}
-              label={s.label}
-              tasks={tasksByStatus[s.id]}
-              onOpenTask={onOpenTask}
-            />
-          </motion.div>
-        ))}
+        <div className="flex w-max items-start gap-4 pr-10" style={{ scrollSnapType: "x mandatory" }}>
+          {WORKSPACE_TASK_STATUSES.map((s, i) => (
+            <motion.div
+              key={s.id}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, delay: i * 0.06, ease: "easeOut" }}
+              style={{ scrollSnapAlign: "start" }}
+              className="flex-shrink-0"
+            >
+              <TaskColumn
+                status={s.id}
+                label={s.label}
+                tasks={tasksByStatus[s.id]}
+                onOpenTask={onOpenTask}
+              />
+            </motion.div>
+          ))}
 
-        <TaskTrashDropZone />
+          <TaskTrashDropZone />
+        </div>
       </div>
 
       <DragOverlay dropAnimation={{ duration: 200, easing: "ease" }}>

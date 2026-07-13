@@ -60,7 +60,7 @@ export default function WorkspaceKanbanPage() {
         </div>
       </div>
 
-      <div className="flex-1 px-4 sm:px-6">
+      <div className="min-w-0 flex-1 px-4 sm:px-6">
         {tasksHook.isLoading ? (
           <div className="flex items-center justify-center py-24">
             <Loader2 size={24} className="animate-spin" style={{ color: "var(--muted-foreground)" }} />
