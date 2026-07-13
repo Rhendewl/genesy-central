@@ -135,40 +135,44 @@ function PillarBars({ pillars, weights }: { pillars: PerformancePillars; weights
 
 function PerformanceLogicInfo() {
   const rows = [
-    { title: "Etapa do CRM alcançada", text: "Conta quantos leads atribuídos ao colaborador chegaram nas etapas selecionadas, como Reunião agendada ou Lead qualificado." },
-    { title: "Vendas no CRM", text: "Conta leads que chegaram nas etapas marcadas como venda, ou etapas ganhas quando a pipeline já usa esse controle." },
-    { title: "Tarefas concluídas", text: "Conta entregas finalizadas no Workspace durante o mês, útil para áreas de produção e operação." },
-    { title: "IQ médio dos leads", text: "Usa a média de qualificação dos leads gerados/atendidos no mês. Quanto mais perto da meta, maior o Resultado." },
-    { title: "Leads e conversões de tráfego", text: "Usa o volume vindo das métricas de campanha no período mensal." },
-    { title: "Peso da nota", text: "Cada pilar recebe uma nota de 0 a 100. Os pesos definem quanto cada pilar entra na nota final." },
+    { title: "Etapa do CRM alcançada", text: "Leads atribuídos que chegaram nas etapas selecionadas." },
+    { title: "Vendas no CRM", text: "Leads em etapas marcadas como venda ou ganho." },
+    { title: "Tarefas concluídas", text: "Entregas finalizadas no Workspace durante o mês." },
+    { title: "IQ médio dos leads", text: "Média de qualificação dos leads do período." },
+    { title: "Leads e conversões de tráfego", text: "Volume vindo das métricas de campanha mensal." },
+    { title: "Peso da nota", text: "Cada pilar vai de 0 a 100 e entra na nota pelo peso configurado." },
   ];
 
   return (
-    <div className="group relative">
+    <div className="group relative z-40">
       <button
         type="button"
-        className="flex h-8 w-8 items-center justify-center rounded-full transition-colors hover:bg-[var(--hover)] focus:bg-[var(--hover)]"
+        className="flex h-8 w-8 items-center justify-center rounded-full transition-colors hover:bg-[var(--hover)] focus:bg-[var(--hover)] focus:outline-none focus:ring-1 focus:ring-[var(--glass-border)]"
         aria-label="Como a nota de performance é calculada"
       >
         <Info size={16} style={{ color: "var(--muted-foreground)" }} />
       </button>
       <div
-        className="pointer-events-none absolute right-0 top-10 z-30 w-[min(360px,calc(100vw-48px))] -translate-y-1 rounded-2xl p-4 opacity-0 shadow-2xl transition-all duration-150 group-hover:pointer-events-auto group-hover:translate-y-0 group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:translate-y-0 group-focus-within:opacity-100"
+        className="pointer-events-none absolute right-0 top-9 z-50 max-h-[280px] w-[min(320px,calc(100vw-48px))] -translate-y-1 overflow-y-auto rounded-2xl p-3 opacity-0 shadow-2xl backdrop-blur-xl transition-all duration-150 group-hover:pointer-events-auto group-hover:translate-y-0 group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:translate-y-0 group-focus-within:opacity-100"
         style={{
-          background: "var(--popover)",
+          background: "var(--glass-bg)",
           border: "1px solid var(--glass-border)",
           color: "var(--text-title)",
+          boxShadow: "0 18px 48px var(--shadow-modal)",
         }}
       >
-        <p className="text-sm font-bold">Como ler esta composição</p>
-        <p className="mt-1 text-xs leading-relaxed" style={{ color: "var(--muted-foreground)" }}>
-          O pilar Resultado vem do objetivo principal configurado no grupo. Os outros pilares usam tarefas, prazos, organização e atrasos.
+        <p className="text-[13px] font-bold">Como ler esta composição</p>
+        <p className="mt-1 text-[11px] leading-relaxed" style={{ color: "var(--muted-foreground)" }}>
+          Resultado usa o objetivo principal do grupo. Os demais pilares usam tarefas, prazos, organização e atrasos.
         </p>
         <div className="mt-3 space-y-2">
           {rows.map((row) => (
-            <div key={row.title} className="rounded-xl p-2.5" style={{ background: "var(--hover)", border: "1px solid var(--glass-border)" }}>
-              <p className="text-[12px] font-semibold">{row.title}</p>
-              <p className="mt-0.5 text-[11px] leading-relaxed" style={{ color: "var(--muted-foreground)" }}>{row.text}</p>
+            <div key={row.title} className="grid grid-cols-[6px_1fr] gap-2 rounded-xl px-2.5 py-2" style={{ background: "var(--hover)" }}>
+              <span className="mt-1.5 h-1.5 w-1.5 rounded-full" style={{ background: "var(--primary)" }} />
+              <div>
+                <p className="text-[11px] font-semibold">{row.title}</p>
+                <p className="mt-0.5 text-[10px] leading-relaxed" style={{ color: "var(--muted-foreground)" }}>{row.text}</p>
+              </div>
             </div>
           ))}
         </div>
@@ -304,7 +308,7 @@ function IndividualDashboard({ person }: { person: PerformanceCollaborator }) {
           </div>
         </div>
 
-        <div className="lc-card p-5" style={{ background: "var(--glass-bg-soft)" }}>
+        <div className="lc-card relative z-20 overflow-visible p-5" style={{ background: "var(--glass-bg-soft)" }}>
           <div className="mb-4 flex items-start justify-between gap-3">
             <div>
               <h3 className="text-sm font-semibold" style={{ color: "var(--text-title)" }}>Composição da nota</h3>
