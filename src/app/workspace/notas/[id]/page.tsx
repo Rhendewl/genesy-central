@@ -5,6 +5,8 @@ import { useParams, useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { ArrowLeft, Trash2, Loader2 } from "lucide-react";
 import { useWorkspaceNote } from "@/hooks/useWorkspaceNote";
+import { useWorkspaceNoteFolders } from "@/hooks/useWorkspaceNoteFolders";
+import { useWorkspaceViewing } from "@/context/WorkspaceViewingContext";
 import { useTags } from "@/hooks/useTags";
 import { NoteEditor } from "@/components/workspace/notes/NoteEditor";
 import { NoteCoverUpload } from "@/components/workspace/notes/NoteCoverUpload";
@@ -15,6 +17,8 @@ export default function WorkspaceNoteEditorPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const { tags } = useTags();
+  const { viewingMember } = useWorkspaceViewing();
+  const { folders } = useWorkspaceNoteFolders(viewingMember?.auth_user_id ?? undefined);
   const {
     note, title, content, isLoading, isSaving, error,
     setTitle, setContent, saveImmediate, flush,
@@ -36,7 +40,7 @@ export default function WorkspaceNoteEditorPage() {
 
   async function handleBack() {
     await flush();
-    router.push("/workspace/notas");
+    router.push(note?.folder_id ? `/workspace/notas/pasta/${note.folder_id}` : "/workspace/notas");
   }
 
   async function handleDelete() {
@@ -48,7 +52,7 @@ export default function WorkspaceNoteEditorPage() {
         toast.error(json.error ?? "Erro ao excluir nota");
         return;
       }
-      router.push("/workspace/notas");
+      router.push(note?.folder_id ? `/workspace/notas/pasta/${note.folder_id}` : "/workspace/notas");
     } finally {
       setIsDeleting(false);
     }
@@ -124,6 +128,18 @@ export default function WorkspaceNoteEditorPage() {
               />
             ))}
           </div>
+
+          <select
+            value={note.folder_id ?? ""}
+            onChange={(e) => void saveImmediate({ folder_id: e.target.value || null })}
+            className="rounded-lg px-2.5 py-1 text-[11px] outline-none"
+            style={{ background: "var(--hover)", border: "1px solid var(--glass-border)", color: "var(--text-title)" }}
+          >
+            <option value="">Sem pasta</option>
+            {folders.map((f) => (
+              <option key={f.id} value={f.id}>{f.name}</option>
+            ))}
+          </select>
 
           {tags.length > 0 && (
             <div className="flex flex-wrap gap-1.5">

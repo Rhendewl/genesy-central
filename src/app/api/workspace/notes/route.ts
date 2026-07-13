@@ -5,7 +5,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import type { WorkspaceNote, WorkspaceNoteSummary } from "@/types/workspace-notes";
 
-const SUMMARY_COLUMNS = "id,title,cover_url,color,tags,created_at,updated_at";
+const SUMMARY_COLUMNS = "id,title,cover_url,color,tags,folder_id,created_at,updated_at";
 
 export async function GET(req: NextRequest) {
   const supabase = await createServerSupabaseClient();
@@ -14,6 +14,7 @@ export async function GET(req: NextRequest) {
 
   const url         = new URL(req.url);
   const search      = url.searchParams.get("search") ?? undefined;
+  const folderId    = url.searchParams.get("folder_id") ?? undefined;
   // De quem é este Workspace — o próprio por padrão, ou um colega sendo
   // visualizado via Painel Equipe (a RLS decide se isso é permitido).
   const targetUserId = url.searchParams.get("as_user_id") || user.id;
@@ -21,6 +22,8 @@ export async function GET(req: NextRequest) {
   try {
     let query = supabase.from("workspace_notes").select(SUMMARY_COLUMNS).eq("user_id", targetUserId).order("updated_at", { ascending: false });
     if (search) query = query.ilike("title", `%${search}%`);
+    if (folderId === "none") query = query.is("folder_id", null);
+    else if (folderId) query = query.eq("folder_id", folderId);
 
     const { data, error } = await query;
     if (error) throw new Error(error.message);
@@ -37,7 +40,7 @@ export async function POST(req: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
 
-  const body = await req.json().catch(() => ({})) as { title?: string; user_id?: string } | null;
+  const body = await req.json().catch(() => ({})) as { title?: string; user_id?: string; folder_id?: string } | null;
 
   try {
     const { data, error } = await supabase
@@ -48,6 +51,7 @@ export async function POST(req: NextRequest) {
         ...(body?.user_id ? { user_id: body.user_id } : {}),
         created_by: user.id,
         ...(body?.title ? { title: body.title } : {}),
+        ...(body?.folder_id ? { folder_id: body.folder_id } : {}),
       })
       .select("*")
       .single();

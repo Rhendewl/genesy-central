@@ -2,15 +2,18 @@
 
 import { StickyNote } from "lucide-react";
 import { NoteCard } from "./NoteCard";
-import type { WorkspaceNoteSummary } from "@/types/workspace-notes";
+import type { WorkspaceNoteFolder, WorkspaceNoteSummary } from "@/types/workspace-notes";
 
 interface NotesGridProps {
   notes:     WorkspaceNoteSummary[];
   isLoading: boolean;
   onDelete:  (id: string) => void;
+  /** Quando presente (não vazio), habilita "Mover para pasta" em cada nota. */
+  folders?: WorkspaceNoteFolder[];
+  onMove?:  (noteId: string, folderId: string) => void;
 }
 
-export function NotesGrid({ notes, isLoading, onDelete }: NotesGridProps) {
+export function NotesGrid({ notes, isLoading, onDelete, folders, onMove }: NotesGridProps) {
   if (isLoading) {
     return (
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -34,7 +37,7 @@ export function NotesGrid({ notes, isLoading, onDelete }: NotesGridProps) {
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {notes.map((note) => (
-        <NoteCard key={note.id} note={note} onDelete={onDelete} />
+        <NoteCard key={note.id} note={note} onDelete={onDelete} folders={folders} onMove={onMove} />
       ))}
     </div>
   );

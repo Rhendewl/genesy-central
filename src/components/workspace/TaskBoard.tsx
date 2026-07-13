@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import {
   DndContext, DragEndEvent, DragOverlay, DragStartEvent,
   KeyboardSensor, PointerSensor, closestCorners, useSensor, useSensors,
@@ -22,6 +22,7 @@ interface TaskBoardProps {
 export function TaskBoard({ tasksHook, onOpenTask }: TaskBoardProps) {
   const { tasksByStatus, getTaskById, moveTask, deleteTask } = tasksHook;
   const [activeId, setActiveId] = useState<string | null>(null);
+  const boardScrollRef = useRef<HTMLDivElement | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -85,6 +86,21 @@ export function TaskBoard({ tasksHook, onOpenTask }: TaskBoardProps) {
 
   const handleDragCancel = useCallback(() => setActiveId(null), []);
 
+  const handleBoardWheelCapture = useCallback((event: React.WheelEvent<HTMLDivElement>) => {
+    const scrollArea = boardScrollRef.current;
+    if (!scrollArea || scrollArea.scrollWidth <= scrollArea.clientWidth) return;
+
+    const absX = Math.abs(event.deltaX);
+    const absY = Math.abs(event.deltaY);
+    const isHorizontalGesture = absX > 0 && absX >= absY;
+    const isShiftWheel = event.shiftKey && absY > 0;
+    if (!isHorizontalGesture && !isShiftWheel) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    scrollArea.scrollLeft += isShiftWheel ? event.deltaY : event.deltaX;
+  }, []);
+
   const activeTask = activeId ? getTaskById(activeId) : null;
 
   return (
@@ -96,6 +112,8 @@ export function TaskBoard({ tasksHook, onOpenTask }: TaskBoardProps) {
       onDragCancel={handleDragCancel}
     >
       <div
+        ref={boardScrollRef}
+        onWheelCapture={handleBoardWheelCapture}
         className="-mx-4 overflow-x-auto overscroll-x-contain px-4 pb-4 [scrollbar-width:thin] sm:-mx-6 sm:px-6"
         style={{ WebkitOverflowScrolling: "touch" }}
       >
