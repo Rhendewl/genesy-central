@@ -36,7 +36,7 @@ export const ROLE_COLORS: Record<UserRole, string> = {
 };
 
 export const ROLE_DEFAULT_PERMISSIONS: Record<UserRole, string[]> = {
-  admin:            ["dashboard", "workspace", "crm", "clientes", "financeiro", "trafego", "portais", "formularios", "configuracoes"],
+  admin:            ["dashboard", "workspace", "crm", "clientes", "financeiro", "trafego", "performance", "portais", "formularios", "configuracoes"],
   comercial:        ["dashboard", "crm", "clientes", "formularios"],
   trafego:          ["dashboard", "trafego"],
   financeiro:       ["dashboard", "financeiro", "clientes"],
@@ -53,6 +53,7 @@ export const ALL_MODULES = [
   { key: "clientes",      label: "Clientes" },
   { key: "financeiro",    label: "Financeiro" },
   { key: "trafego",       label: "Tráfego" },
+  { key: "performance",   label: "Performance" },
   { key: "portais",       label: "Portais" },
   { key: "formularios",   label: "Formulários" },
   { key: "configuracoes", label: "Configurações" },
