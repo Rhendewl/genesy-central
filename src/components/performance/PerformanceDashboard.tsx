@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type CSSProperties, type ElementType, type ReactNode } from "react";
 import { motion } from "framer-motion";
 import {
   Activity,
@@ -11,6 +11,8 @@ import {
   BarChart3,
   CheckCircle2,
   RefreshCw,
+  Save,
+  Settings2,
   Target,
   Trophy,
   UserRound,
@@ -28,7 +30,19 @@ import {
   YAxis,
 } from "recharts";
 import { usePerformanceData } from "@/hooks/usePerformanceData";
-import type { PerformanceCollaborator, PerformanceIndicator, PerformancePillars } from "@/types/performance";
+import { useCurrentMember } from "@/context/CurrentMemberContext";
+import {
+  DEFAULT_PERFORMANCE_ROLE_CONFIGS,
+  PERFORMANCE_GOAL_OPTIONS,
+  PERFORMANCE_ROLES,
+} from "@/lib/performance-config";
+import type {
+  PerformanceCollaborator,
+  PerformanceIndicator,
+  PerformancePillars,
+  PerformanceRole,
+  PerformanceRoleConfig,
+} from "@/types/performance";
 
 const TONE_COLORS: Record<PerformanceIndicator["tone"], string> = {
   blue: "#38bdf8",
@@ -61,7 +75,7 @@ function scoreColor(score: number) {
 }
 
 function MetricCard({ icon: Icon, label, value, hint, accent, delay }: {
-  icon: React.ElementType;
+  icon: ElementType;
   label: string;
   value: string;
   hint: string;
@@ -90,12 +104,12 @@ function MetricCard({ icon: Icon, label, value, hint, accent, delay }: {
   );
 }
 
-function PillarBars({ pillars }: { pillars: PerformancePillars }) {
+function PillarBars({ pillars, weights }: { pillars: PerformancePillars; weights: PerformancePillars }) {
   const rows = [
-    { label: "Resultado", value: pillars.resultado, weight: "50%" },
-    { label: "Produtividade", value: pillars.produtividade, weight: "20%" },
-    { label: "Organização", value: pillars.organizacao, weight: "15%" },
-    { label: "Disciplina", value: pillars.disciplina, weight: "15%" },
+    { label: "Resultado", value: pillars.resultado, weight: weights.resultado },
+    { label: "Produtividade", value: pillars.produtividade, weight: weights.produtividade },
+    { label: "Organização", value: pillars.organizacao, weight: weights.organizacao },
+    { label: "Disciplina", value: pillars.disciplina, weight: weights.disciplina },
   ];
 
   return (
@@ -104,7 +118,7 @@ function PillarBars({ pillars }: { pillars: PerformancePillars }) {
         <div key={row.label}>
           <div className="mb-1 flex items-center justify-between text-xs">
             <span style={{ color: "var(--text-title)" }}>{row.label}</span>
-            <span style={{ color: "var(--muted-foreground)" }}>{row.value} · peso {row.weight}</span>
+            <span style={{ color: "var(--muted-foreground)" }}>{row.value} · peso {row.weight}%</span>
           </div>
           <div className="h-2 overflow-hidden rounded-full" style={{ background: "var(--hover)" }}>
             <div
@@ -250,7 +264,7 @@ function IndividualDashboard({ person }: { person: PerformanceCollaborator }) {
             <h3 className="text-sm font-semibold" style={{ color: "var(--text-title)" }}>Composição da nota</h3>
             <p className="text-xs" style={{ color: "var(--muted-foreground)" }}>Quatro pilares automáticos</p>
           </div>
-          <PillarBars pillars={person.pillars} />
+          <PillarBars pillars={person.pillars} weights={person.pillarWeights} />
         </div>
       </div>
 
@@ -272,13 +286,337 @@ function IndividualDashboard({ person }: { person: PerformanceCollaborator }) {
   );
 }
 
+type CrmStageOption = {
+  id: string;
+  name: string;
+  pipeline_id: string;
+  is_won?: boolean | null;
+  is_active?: boolean | null;
+};
+
+type CrmPipelineOption = {
+  id: string;
+  name: string;
+  is_active?: boolean | null;
+  crm_stages?: CrmStageOption[];
+};
+
+function FieldLabel({ children }: { children: ReactNode }) {
+  return (
+    <label className="text-[11px] font-semibold uppercase tracking-[0.14em]" style={{ color: "var(--muted-foreground)" }}>
+      {children}
+    </label>
+  );
+}
+
+function fieldStyle(): CSSProperties {
+  return {
+    background: "var(--input-bg)",
+    border: "1px solid var(--border)",
+    color: "var(--text-title)",
+  };
+}
+
+function PerformanceSettingsPanel({ onSaved }: { onSaved: () => void }) {
+  const [configs, setConfigs] = useState<PerformanceRoleConfig[]>([]);
+  const [pipelines, setPipelines] = useState<CrmPipelineOption[]>([]);
+  const [tableReady, setTableReady] = useState(true);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    async function loadConfig() {
+      try {
+        setLoading(true);
+        setError(null);
+        const res = await fetch("/api/performance/config");
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.error ?? "Erro ao carregar configurações");
+        if (!alive) return;
+        setConfigs(json.configs ?? Object.values(DEFAULT_PERFORMANCE_ROLE_CONFIGS));
+        setPipelines(json.pipelines ?? []);
+        setTableReady(json.tableReady !== false);
+      } catch (err) {
+        if (alive) setError(err instanceof Error ? err.message : "Erro ao carregar configurações");
+      } finally {
+        if (alive) setLoading(false);
+      }
+    }
+    void loadConfig();
+    return () => { alive = false; };
+  }, []);
+
+  const updateConfig = (roleKey: PerformanceRole, patch: Partial<PerformanceRoleConfig>) => {
+    setSaved(false);
+    setConfigs((current) => current.map((config) => (
+      config.roleKey === roleKey ? { ...config, ...patch } : config
+    )));
+  };
+
+  const updateWeight = (roleKey: PerformanceRole, key: keyof PerformancePillars, value: string) => {
+    const next = Math.max(0, Number(value) || 0);
+    setSaved(false);
+    setConfigs((current) => current.map((config) => (
+      config.roleKey === roleKey
+        ? { ...config, weights: { ...config.weights, [key]: next } }
+        : config
+    )));
+  };
+
+  const toggleStage = (roleKey: PerformanceRole, kind: "meeting" | "sales", stageId: string) => {
+    setSaved(false);
+    setConfigs((current) => current.map((config) => {
+      if (config.roleKey !== roleKey) return config;
+      const field = kind === "meeting" ? "meetingStageIds" : "salesStageIds";
+      const currentIds = config[field];
+      const nextIds = currentIds.includes(stageId)
+        ? currentIds.filter((id) => id !== stageId)
+        : [...currentIds, stageId];
+      return { ...config, [field]: nextIds };
+    }));
+  };
+
+  const saveConfigs = async () => {
+    try {
+      setSaving(true);
+      setError(null);
+      const res = await fetch("/api/performance/config", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ configs }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? "Erro ao salvar configurações");
+      setConfigs(json.configs ?? configs);
+      setTableReady(json.tableReady !== false);
+      setSaved(true);
+      onSaved();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro ao salvar configurações");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="space-y-3">
+        {[...Array(3)].map((_, index) => (
+          <div key={index} className="lc-card h-48 animate-pulse" style={{ background: "var(--glass-bg-soft)" }} />
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {!tableReady && (
+        <div className="rounded-2xl px-4 py-3 text-sm" style={{ background: "rgba(217,119,6,0.12)", border: "1px solid rgba(217,119,6,0.35)", color: "#d97706" }}>
+          A tabela de configuração ainda não existe no Supabase. Rode a migration 20260747 para salvar alterações; até lá, a régua padrão segue ativa.
+        </div>
+      )}
+
+      {error && (
+        <div className="rounded-2xl px-4 py-3 text-sm" style={{ background: "rgba(239,68,68,0.12)", border: "1px solid rgba(239,68,68,0.35)", color: "#ef4444" }}>
+          {error}
+        </div>
+      )}
+
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 className="text-lg font-bold" style={{ color: "var(--text-title)" }}>Motor de Performance</h2>
+          <p className="text-sm" style={{ color: "var(--muted-foreground)" }}>
+            Configure as metas, pesos e etapas do CRM que alimentam a nota de cada cargo.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => void saveConfigs()}
+          disabled={saving || !tableReady}
+          className="inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold transition-all disabled:cursor-not-allowed disabled:opacity-50"
+          style={{ background: "var(--primary)", color: "#ffffff" }}
+        >
+          <Save size={16} />
+          {saving ? "Salvando..." : saved ? "Salvo" : "Salvar configurações"}
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+        {PERFORMANCE_ROLES.map((roleKey) => {
+          const config = configs.find((item) => item.roleKey === roleKey) ?? DEFAULT_PERFORMANCE_ROLE_CONFIGS[roleKey];
+          const selectedPipeline = pipelines.find((pipeline) => pipeline.id === config.crmPipelineId) ?? null;
+          const stages = config.crmPipelineId
+            ? selectedPipeline?.crm_stages ?? []
+            : pipelines.flatMap((pipeline) => pipeline.crm_stages ?? []);
+
+          return (
+            <div key={roleKey} className="lc-card p-5" style={{ background: "var(--glass-bg-soft)" }}>
+              <div className="mb-5 flex items-start justify-between gap-3">
+                <div>
+                  <h3 className="text-base font-bold" style={{ color: "var(--text-title)" }}>{config.roleLabel}</h3>
+                  <p className="text-xs" style={{ color: "var(--muted-foreground)" }}>
+                    Régua mensal usada para colaboradores identificados como este cargo.
+                  </p>
+                </div>
+                <label className="flex items-center gap-2 text-xs" style={{ color: "var(--muted-foreground)" }}>
+                  <input
+                    type="checkbox"
+                    checked={config.isActive}
+                    onChange={(event) => updateConfig(roleKey, { isActive: event.target.checked })}
+                  />
+                  Ativo
+                </label>
+              </div>
+
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                <div className="space-y-1.5">
+                  <FieldLabel>Nome do cargo</FieldLabel>
+                  <input
+                    value={config.roleLabel}
+                    onChange={(event) => updateConfig(roleKey, { roleLabel: event.target.value })}
+                    className="w-full rounded-2xl px-3 py-2 text-sm outline-none"
+                    style={fieldStyle()}
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <FieldLabel>Objetivo principal</FieldLabel>
+                  <select
+                    value={config.mainGoalType}
+                    onChange={(event) => updateConfig(roleKey, { mainGoalType: event.target.value as PerformanceRoleConfig["mainGoalType"] })}
+                    className="w-full rounded-2xl px-3 py-2 text-sm outline-none"
+                    style={fieldStyle()}
+                  >
+                    {PERFORMANCE_GOAL_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>{option.label}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <FieldLabel>Nome exibido da meta</FieldLabel>
+                  <input
+                    value={config.mainGoalLabel}
+                    onChange={(event) => updateConfig(roleKey, { mainGoalLabel: event.target.value })}
+                    className="w-full rounded-2xl px-3 py-2 text-sm outline-none"
+                    style={fieldStyle()}
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <FieldLabel>Meta mensal</FieldLabel>
+                  <input
+                    type="number"
+                    min={0}
+                    value={config.mainGoalTarget}
+                    onChange={(event) => updateConfig(roleKey, { mainGoalTarget: Number(event.target.value) || 0 })}
+                    className="w-full rounded-2xl px-3 py-2 text-sm outline-none"
+                    style={fieldStyle()}
+                  />
+                </div>
+              </div>
+
+              <div className="mt-4">
+                <FieldLabel>Pesos da nota</FieldLabel>
+                <div className="mt-2 grid grid-cols-2 gap-2 md:grid-cols-4">
+                  {([
+                    ["resultado", "Resultado"],
+                    ["produtividade", "Produtividade"],
+                    ["organizacao", "Organização"],
+                    ["disciplina", "Disciplina"],
+                  ] as Array<[keyof PerformancePillars, string]>).map(([key, label]) => (
+                    <label key={key} className="space-y-1">
+                      <span className="text-[11px]" style={{ color: "var(--muted-foreground)" }}>{label}</span>
+                      <input
+                        type="number"
+                        min={0}
+                        value={config.weights[key]}
+                        onChange={(event) => updateWeight(roleKey, key, event.target.value)}
+                        className="w-full rounded-xl px-3 py-2 text-sm outline-none"
+                        style={fieldStyle()}
+                      />
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div className="mt-4 space-y-3">
+                <div className="space-y-1.5">
+                  <FieldLabel>Pipeline de referência</FieldLabel>
+                  <select
+                    value={config.crmPipelineId ?? ""}
+                    onChange={(event) => updateConfig(roleKey, {
+                      crmPipelineId: event.target.value || null,
+                      meetingStageIds: [],
+                      salesStageIds: [],
+                    })}
+                    className="w-full rounded-2xl px-3 py-2 text-sm outline-none"
+                    style={fieldStyle()}
+                  >
+                    <option value="">Todas as pipelines</option>
+                    {pipelines.map((pipeline) => (
+                      <option key={pipeline.id} value={pipeline.id}>{pipeline.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {stages.length > 0 && (
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                    <div className="rounded-2xl p-3" style={{ background: "var(--hover)", border: "1px solid var(--glass-border)" }}>
+                      <p className="mb-2 text-xs font-semibold" style={{ color: "var(--text-title)" }}>Etapas que contam como reunião</p>
+                      <div className="space-y-2">
+                        {stages.map((stage) => (
+                          <label key={stage.id} className="flex items-center gap-2 text-xs" style={{ color: "var(--muted-foreground)" }}>
+                            <input
+                              type="checkbox"
+                              checked={config.meetingStageIds.includes(stage.id)}
+                              onChange={() => toggleStage(roleKey, "meeting", stage.id)}
+                            />
+                            {stage.name}
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="rounded-2xl p-3" style={{ background: "var(--hover)", border: "1px solid var(--glass-border)" }}>
+                      <p className="mb-2 text-xs font-semibold" style={{ color: "var(--text-title)" }}>Etapas que contam como venda</p>
+                      <div className="space-y-2">
+                        {stages.map((stage) => (
+                          <label key={stage.id} className="flex items-center gap-2 text-xs" style={{ color: "var(--muted-foreground)" }}>
+                            <input
+                              type="checkbox"
+                              checked={config.salesStageIds.includes(stage.id)}
+                              onChange={() => toggleStage(roleKey, "sales", stage.id)}
+                            />
+                            {stage.name}
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export function PerformanceDashboard() {
   const { team, collaborators, isLoading, error, refetch } = usePerformanceData();
+  const { member, isOwner } = useCurrentMember();
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [view, setView] = useState<"dashboard" | "settings">("dashboard");
   const selected = useMemo(
     () => collaborators.find((item) => item.id === selectedId) ?? collaborators[0] ?? null,
     [collaborators, selectedId]
   );
+  const canManagePerformance = isOwner === true || member?.role === "admin";
 
   if (isLoading) {
     return (
@@ -320,6 +658,34 @@ export function PerformanceDashboard() {
 
   return (
     <div className="space-y-5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="inline-flex w-fit rounded-full p-1" style={{ background: "var(--glass-bg-soft)", border: "1px solid var(--glass-border)" }}>
+          <button
+            type="button"
+            onClick={() => setView("dashboard")}
+            className="rounded-full px-4 py-2 text-sm font-semibold transition-all"
+            style={{ background: view === "dashboard" ? "var(--hover)" : "transparent", color: view === "dashboard" ? "var(--text-title)" : "var(--muted-foreground)" }}
+          >
+            Dashboard
+          </button>
+          {canManagePerformance && (
+            <button
+              type="button"
+              onClick={() => setView("settings")}
+              className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition-all"
+              style={{ background: view === "settings" ? "var(--hover)" : "transparent", color: view === "settings" ? "var(--text-title)" : "var(--muted-foreground)" }}
+            >
+              <Settings2 size={15} />
+              Configurações
+            </button>
+          )}
+        </div>
+      </div>
+
+      {view === "settings" && canManagePerformance ? (
+        <PerformanceSettingsPanel onSaved={() => void refetch()} />
+      ) : (
+        <>
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
         <MetricCard icon={Activity} label="Nota média da equipe" value={String(team.averageScore)} hint={`${delta >= 0 ? "+" : ""}${delta} vs. mês anterior`} accent={scoreColor(team.averageScore)} delay={0} />
         <MetricCard icon={Trophy} label="Ranking geral" value={`${team.ranking[0]?.name.split(" ")[0] ?? "N/D"}`} hint="Melhor nota no mês" accent="#d97706" delay={0.05} />
@@ -411,6 +777,8 @@ export function PerformanceDashboard() {
           )}
         </div>
       </div>
+      </>
+      )}
     </div>
   );
 }

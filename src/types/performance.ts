@@ -1,10 +1,32 @@
 export type PerformanceRole = "gestor_trafego" | "sdr" | "closer" | "bdr" | "designer";
 
+export type PerformanceMainGoalType =
+  | "crm_stage_count"
+  | "crm_won_count"
+  | "workspace_completed_tasks"
+  | "traffic_iq_average"
+  | "traffic_leads"
+  | "traffic_conversions";
+
 export interface PerformancePillars {
   resultado: number;
   produtividade: number;
   organizacao: number;
   disciplina: number;
+}
+
+export interface PerformanceRoleConfig {
+  id?: string | null;
+  roleKey: PerformanceRole;
+  roleLabel: string;
+  mainGoalType: PerformanceMainGoalType;
+  mainGoalLabel: string;
+  mainGoalTarget: number;
+  weights: PerformancePillars;
+  crmPipelineId: string | null;
+  meetingStageIds: string[];
+  salesStageIds: string[];
+  isActive: boolean;
 }
 
 export interface PerformanceIndicator {
@@ -25,6 +47,7 @@ export interface PerformanceCollaborator {
   score: number;
   previousScore: number;
   pillars: PerformancePillars;
+  pillarWeights: PerformancePillars;
   mainGoalLabel: string;
   mainGoalValue: number;
   mainGoalTarget: number;

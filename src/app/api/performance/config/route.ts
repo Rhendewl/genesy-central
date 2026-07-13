@@ -1,0 +1,179 @@
+import { NextRequest, NextResponse } from "next/server";
+import { createServerSupabaseClient } from "@/lib/supabase-server";
+import {
+  DEFAULT_PERFORMANCE_ROLE_CONFIGS,
+  PERFORMANCE_GOAL_OPTIONS,
+  PERFORMANCE_ROLES,
+  mapPerformanceRoleConfigRow,
+  mergePerformanceRoleConfigs,
+  normalizePerformanceWeights,
+  type PerformanceRoleConfigRow,
+} from "@/lib/performance-config";
+import type { PerformanceMainGoalType, PerformanceRoleConfig } from "@/types/performance";
+
+type CurrentProfile = {
+  id: string;
+  owner_id: string;
+  auth_user_id: string | null;
+  role: string;
+};
+
+type SavePayload = {
+  configs?: Array<Partial<PerformanceRoleConfig>>;
+};
+
+const CONFIG_SELECT = [
+  "id",
+  "role_key",
+  "role_label",
+  "main_goal_type",
+  "main_goal_label",
+  "main_goal_target",
+  "weight_resultado",
+  "weight_produtividade",
+  "weight_organizacao",
+  "weight_disciplina",
+  "crm_pipeline_id",
+  "meeting_stage_ids",
+  "sales_stage_ids",
+  "is_active",
+].join(", ");
+
+async function getSessionContext() {
+  const supabase = await createServerSupabaseClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { supabase, user: null, profile: null, ownerId: null, canManage: false };
+
+  const { data: profile } = await supabase
+    .from("user_profiles")
+    .select("id, owner_id, auth_user_id, role")
+    .eq("auth_user_id", user.id)
+    .maybeSingle();
+
+  const currentProfile = profile as CurrentProfile | null;
+  const ownerId = currentProfile?.owner_id ?? user.id;
+  const canManage = ownerId === user.id || currentProfile?.role === "admin";
+  return { supabase, user, profile: currentProfile, ownerId, canManage };
+}
+
+function isMissingConfigTable(error: { code?: string; message?: string } | null) {
+  return error?.code === "42P01" || Boolean(error?.message?.includes("performance_role_configs"));
+}
+
+async function loadConfigs(supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>, ownerId: string) {
+  const { data, error } = await supabase
+    .from("performance_role_configs")
+    .select(CONFIG_SELECT)
+    .eq("user_id", ownerId)
+    .order("role_key", { ascending: true });
+
+  if (error) {
+    if (isMissingConfigTable(error)) {
+      return {
+        configs: Object.values(DEFAULT_PERFORMANCE_ROLE_CONFIGS),
+        tableReady: false,
+      };
+    }
+    throw error;
+  }
+
+  const mapped = ((data ?? []) as unknown as PerformanceRoleConfigRow[]).map(mapPerformanceRoleConfigRow);
+  return {
+    configs: Object.values(mergePerformanceRoleConfigs(mapped)),
+    tableReady: true,
+  };
+}
+
+function sanitizeConfig(input: Partial<PerformanceRoleConfig>) {
+  const roleKey = input.roleKey;
+  if (!roleKey || !PERFORMANCE_ROLES.includes(roleKey)) return null;
+
+  const fallback = DEFAULT_PERFORMANCE_ROLE_CONFIGS[roleKey];
+  const goalType = PERFORMANCE_GOAL_OPTIONS.some((option) => option.value === input.mainGoalType)
+    ? input.mainGoalType as PerformanceMainGoalType
+    : fallback.mainGoalType;
+  const weights = normalizePerformanceWeights(input.weights ?? fallback.weights);
+
+  return {
+    roleKey,
+    roleLabel: typeof input.roleLabel === "string" && input.roleLabel.trim() ? input.roleLabel.trim() : fallback.roleLabel,
+    mainGoalType: goalType,
+    mainGoalLabel: typeof input.mainGoalLabel === "string" && input.mainGoalLabel.trim() ? input.mainGoalLabel.trim() : fallback.mainGoalLabel,
+    mainGoalTarget: Math.max(0, Number(input.mainGoalTarget ?? fallback.mainGoalTarget) || fallback.mainGoalTarget),
+    weights,
+    crmPipelineId: input.crmPipelineId || null,
+    meetingStageIds: Array.isArray(input.meetingStageIds) ? input.meetingStageIds.filter(Boolean) : [],
+    salesStageIds: Array.isArray(input.salesStageIds) ? input.salesStageIds.filter(Boolean) : [],
+    isActive: input.isActive !== false,
+  };
+}
+
+export async function GET() {
+  try {
+    const { supabase, user, ownerId } = await getSessionContext();
+    if (!user || !ownerId) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
+
+    const [{ configs, tableReady }, pipelinesRes] = await Promise.all([
+      loadConfigs(supabase, ownerId),
+      supabase
+        .from("crm_pipelines")
+        .select("id, name, is_active, crm_stages(id, name, pipeline_id, is_won, is_active, order_index)")
+        .order("order_index", { ascending: true })
+        .order("order_index", { foreignTable: "crm_stages", ascending: true }),
+    ]);
+
+    if (pipelinesRes.error) throw pipelinesRes.error;
+
+    return NextResponse.json({
+      configs,
+      pipelines: pipelinesRes.data ?? [],
+      tableReady,
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Erro ao carregar configurações de performance";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}
+
+export async function PATCH(req: NextRequest) {
+  try {
+    const { supabase, user, ownerId, canManage } = await getSessionContext();
+    if (!user || !ownerId) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
+    if (!canManage) return NextResponse.json({ error: "Apenas administradores podem alterar Performance" }, { status: 403 });
+
+    const body = await req.json().catch(() => null) as SavePayload | null;
+    const nextConfigs = (body?.configs ?? []).map(sanitizeConfig).filter(Boolean);
+    if (nextConfigs.length === 0) {
+      return NextResponse.json({ error: "Nenhuma configuração válida enviada" }, { status: 400 });
+    }
+
+    const rows = nextConfigs.map((config) => ({
+      user_id: ownerId,
+      role_key: config!.roleKey,
+      role_label: config!.roleLabel,
+      main_goal_type: config!.mainGoalType,
+      main_goal_label: config!.mainGoalLabel,
+      main_goal_target: config!.mainGoalTarget,
+      weight_resultado: config!.weights.resultado,
+      weight_produtividade: config!.weights.produtividade,
+      weight_organizacao: config!.weights.organizacao,
+      weight_disciplina: config!.weights.disciplina,
+      crm_pipeline_id: config!.crmPipelineId,
+      meeting_stage_ids: config!.meetingStageIds,
+      sales_stage_ids: config!.salesStageIds,
+      is_active: config!.isActive,
+    }));
+
+    const { error } = await supabase
+      .from("performance_role_configs")
+      .upsert(rows, { onConflict: "user_id,role_key" });
+
+    if (error) throw error;
+
+    const { configs, tableReady } = await loadConfigs(supabase, ownerId);
+    return NextResponse.json({ configs, tableReady });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Erro ao salvar configurações de performance";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}

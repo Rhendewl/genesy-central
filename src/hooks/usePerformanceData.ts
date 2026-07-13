@@ -3,11 +3,20 @@
 import { useCallback, useEffect, useState } from "react";
 import { getSupabaseClient } from "@/lib/supabase";
 import { useCurrentMember } from "@/context/CurrentMemberContext";
+import {
+  DEFAULT_PERFORMANCE_ROLE_CONFIGS,
+  PERFORMANCE_ROLES,
+  mapPerformanceRoleConfigRow,
+  mergePerformanceRoleConfigs,
+  normalizePerformanceWeights,
+  type PerformanceRoleConfigRow,
+} from "@/lib/performance-config";
 import type {
   PerformanceCollaborator,
   PerformanceIndicator,
   PerformancePillars,
   PerformanceRole,
+  PerformanceRoleConfig,
   PerformanceTeamData,
   UsePerformanceDataReturn,
 } from "@/types/performance";
@@ -52,6 +61,7 @@ type StageRow = {
   id: string;
   name: string;
   is_won?: boolean | null;
+  pipeline_id?: string | null;
 };
 
 type StageHistoryRow = {
@@ -65,22 +75,6 @@ type CampaignMetricRow = {
   spend: number | string;
   leads: number;
   conversions: number;
-};
-
-const ROLE_LABELS: Record<PerformanceRole, string> = {
-  gestor_trafego: "Gestor de Tráfego",
-  sdr: "SDR",
-  closer: "Closer",
-  bdr: "BDR",
-  designer: "Designer",
-};
-
-const MAIN_GOALS: Record<PerformanceRole, { label: string; target: number }> = {
-  gestor_trafego: { label: "IQ médio dos leads", target: 80 },
-  sdr:            { label: "Reuniões agendadas", target: 25 },
-  closer:         { label: "Vendas", target: 8 },
-  bdr:            { label: "Reuniões agendadas", target: 20 },
-  designer:       { label: "Demandas concluídas", target: 30 },
 };
 
 function clampScore(value: number) {
@@ -119,12 +113,15 @@ function average(values: number[]) {
   return Math.round(values.reduce((sum, value) => sum + value, 0) / values.length);
 }
 
-function scoreFromPillars(pillars: PerformancePillars) {
+function scoreFromPillars(pillars: PerformancePillars, weights: PerformancePillars) {
+  const normalized = normalizePerformanceWeights(weights);
+  const total = normalized.resultado + normalized.produtividade + normalized.organizacao + normalized.disciplina;
+  if (total <= 0) return average(Object.values(pillars));
   return clampScore(
-    pillars.resultado * 0.5 +
-    pillars.produtividade * 0.2 +
-    pillars.organizacao * 0.15 +
-    pillars.disciplina * 0.15
+    (pillars.resultado * normalized.resultado +
+      pillars.produtividade * normalized.produtividade +
+      pillars.organizacao * normalized.organizacao +
+      pillars.disciplina * normalized.disciplina) / total
   );
 }
 
@@ -167,6 +164,7 @@ export function usePerformanceData(): UsePerformanceDataReturn {
         stagesRes,
         historyRes,
         metricsRes,
+        configsRes,
       ] = await Promise.all([
         supabase
           .from("user_profiles")
@@ -187,7 +185,7 @@ export function usePerformanceData(): UsePerformanceDataReturn {
           .lt("created_at", nextKey),
         supabase
           .from("crm_stages")
-          .select("id, name, is_won"),
+          .select("id, name, is_won, pipeline_id"),
         supabase
           .from("crm_lead_stage_history")
           .select("lead_id, stage_id, moved_at")
@@ -198,9 +196,14 @@ export function usePerformanceData(): UsePerformanceDataReturn {
           .select("date, spend, leads, conversions")
           .gte("date", prevStartKey)
           .lt("date", nextKey),
+        supabase
+          .from("performance_role_configs")
+          .select("id, role_key, role_label, main_goal_type, main_goal_label, main_goal_target, weight_resultado, weight_produtividade, weight_organizacao, weight_disciplina, crm_pipeline_id, meeting_stage_ids, sales_stage_ids, is_active")
+          .eq("user_id", ownerId),
       ]);
 
       if (profilesRes.error) throw profilesRes.error;
+      if (configsRes.error && configsRes.error.code !== "42P01") throw configsRes.error;
 
       const profiles = ((profilesRes.data ?? []) as UserProfileRow[])
         .filter((profile) => canViewTeam || profile.id === member?.id);
@@ -210,6 +213,9 @@ export function usePerformanceData(): UsePerformanceDataReturn {
       const stages = (stagesRes.data ?? []) as StageRow[];
       const history = (historyRes.data ?? []) as StageHistoryRow[];
       const metrics = (metricsRes.data ?? []) as CampaignMetricRow[];
+      const roleConfigs = mergePerformanceRoleConfigs(
+        (((configsRes.error ? [] : configsRes.data) ?? []) as unknown as PerformanceRoleConfigRow[]).map(mapPerformanceRoleConfigRow)
+      );
 
       const taskById = new Map(tasks.map((task) => [task.id, task]));
       const stagesById = new Map(stages.map((stage) => [stage.id, stage]));
@@ -249,6 +255,23 @@ export function usePerformanceData(): UsePerformanceDataReturn {
         });
       };
 
+      const stageBelongsToConfigPipeline = (stage: StageRow | undefined, config: PerformanceRoleConfig) => {
+        return !config.crmPipelineId || stage?.pipeline_id === config.crmPipelineId;
+      };
+
+      const matchesMeetingStage = (stage: StageRow | undefined, config: PerformanceRoleConfig) => {
+        if (!stage || !stageBelongsToConfigPipeline(stage, config)) return false;
+        if (config.meetingStageIds.length > 0) return config.meetingStageIds.includes(stage.id);
+        const name = stage.name.toLowerCase();
+        return name.includes("reunião agendada") || name.includes("reuniao agendada");
+      };
+
+      const matchesSaleStage = (stage: StageRow | undefined, config: PerformanceRoleConfig) => {
+        if (!stage || !stageBelongsToConfigPipeline(stage, config)) return false;
+        if (config.salesStageIds.length > 0) return config.salesStageIds.includes(stage.id);
+        return Boolean(stage.is_won || stage.name.toLowerCase().includes("venda"));
+      };
+
       const profileStageEntries = (profileId: string, matcher: (stage: StageRow | undefined) => boolean, currentMonth: boolean) => {
         return history.filter((entry) => {
           const key = safeDateKey(entry.moved_at);
@@ -257,9 +280,10 @@ export function usePerformanceData(): UsePerformanceDataReturn {
         });
       };
 
-      const buildCollaborator = (profile: UserProfileRow): PerformanceCollaborator => {
+      const buildCollaborator = (profile: UserProfileRow): PerformanceCollaborator | null => {
         const role = normalizeRole(profile);
-        const mainGoal = MAIN_GOALS[role];
+        const config = roleConfigs[role] ?? DEFAULT_PERFORMANCE_ROLE_CONFIGS[role];
+        if (!config.isActive) return null;
         const currentTasks = profileTasks(profile.id, true);
         const previousTasks = profileTasks(profile.id, false);
         const assignedTasks = profileAssignedTasks(profile.id);
@@ -271,22 +295,22 @@ export function usePerformanceData(): UsePerformanceDataReturn {
         const onTimeTasks = completedTasks.filter((task) => !task.due_date || safeDateKey(task.completed_at) <= task.due_date);
         const meetings = profileStageEntries(
           profile.id,
-          (stage) => Boolean(stage?.name.toLowerCase().includes("reunião agendada") || stage?.name.toLowerCase().includes("reuniao agendada")),
+          (stage) => matchesMeetingStage(stage, config),
           true
         );
         const previousMeetings = profileStageEntries(
           profile.id,
-          (stage) => Boolean(stage?.name.toLowerCase().includes("reunião agendada") || stage?.name.toLowerCase().includes("reuniao agendada")),
+          (stage) => matchesMeetingStage(stage, config),
           false
         );
         const sales = profileStageEntries(
           profile.id,
-          (stage) => Boolean(stage?.is_won || stage?.name.toLowerCase().includes("venda")),
+          (stage) => matchesSaleStage(stage, config),
           true
         );
         const previousSales = profileStageEntries(
           profile.id,
-          (stage) => Boolean(stage?.is_won || stage?.name.toLowerCase().includes("venda")),
+          (stage) => matchesSaleStage(stage, config),
           false
         );
         const salesLeadIds = new Set(sales.map((entry) => entry.lead_id));
@@ -296,23 +320,29 @@ export function usePerformanceData(): UsePerformanceDataReturn {
         const iqValues = currentLeads.map((lead) => lead.iq_score).filter((value): value is number => value != null);
         const averageIq = iqValues.length ? average(iqValues.map(Number)) : 0;
 
-        const mainGoalValue = role === "closer"
-          ? sales.length
-          : role === "designer"
-            ? completedTasks.length
-            : role === "gestor_trafego"
-              ? trafficIqAverage
-              : meetings.length;
-        const previousMainGoalValue = role === "closer"
-          ? previousSales.length
-          : role === "designer"
-            ? previousCompletedTasks.length
-            : role === "gestor_trafego"
-              ? trafficIqAverage
-              : previousMeetings.length;
+        const resolveGoalValue = (currentMonth: boolean) => {
+          switch (config.mainGoalType) {
+            case "crm_won_count":
+              return currentMonth ? sales.length : previousSales.length;
+            case "workspace_completed_tasks":
+              return currentMonth ? completedTasks.length : previousCompletedTasks.length;
+            case "traffic_iq_average":
+              return trafficIqAverage;
+            case "traffic_leads":
+              return trafficLeads;
+            case "traffic_conversions":
+              return trafficConversions;
+            case "crm_stage_count":
+            default:
+              return currentMonth ? meetings.length : previousMeetings.length;
+          }
+        };
 
-        const resultScore = pct(mainGoalValue, mainGoal.target);
-        const previousResultScore = pct(previousMainGoalValue, mainGoal.target);
+        const mainGoalValue = resolveGoalValue(true);
+        const previousMainGoalValue = resolveGoalValue(false);
+
+        const resultScore = pct(mainGoalValue, config.mainGoalTarget);
+        const previousResultScore = pct(previousMainGoalValue, config.mainGoalTarget);
         const productivityScore = currentTasks.length
           ? clampScore((completedTasks.length / currentTasks.length) * 70 + (onTimeTasks.length / Math.max(completedTasks.length, 1)) * 30)
           : 55;
@@ -337,7 +367,7 @@ export function usePerformanceData(): UsePerformanceDataReturn {
           produtividade: previousProductivityScore,
           organizacao: organizationScore,
           disciplina: disciplineScore,
-        });
+        }, config.weights);
 
         const indicators: PerformanceIndicator[] = [
           { label: "Tarefas concluídas", value: String(completedTasks.length), hint: "Workspace no mês", tone: "green" },
@@ -361,22 +391,23 @@ export function usePerformanceData(): UsePerformanceDataReturn {
           );
         }
 
-        const score = scoreFromPillars(pillars);
+        const score = scoreFromPillars(pillars, config.weights);
         return {
           id: profile.id,
           name: profile.full_name,
           email: profile.email,
           avatarUrl: profile.avatar_url,
           role,
-          roleLabel: ROLE_LABELS[role],
-          jobTitle: profile.job_title || ROLE_LABELS[role],
+          roleLabel: config.roleLabel,
+          jobTitle: profile.job_title || config.roleLabel,
           score,
           previousScore,
           pillars,
-          mainGoalLabel: mainGoal.label,
+          pillarWeights: config.weights,
+          mainGoalLabel: config.mainGoalLabel,
           mainGoalValue,
-          mainGoalTarget: mainGoal.target,
-          goalsHit: mainGoalValue >= mainGoal.target ? 1 : 0,
+          mainGoalTarget: config.mainGoalTarget,
+          goalsHit: mainGoalValue >= config.mainGoalTarget ? 1 : 0,
           indicators,
           history: [
             { month: "Mês anterior", score: previousScore },
@@ -391,10 +422,13 @@ export function usePerformanceData(): UsePerformanceDataReturn {
         };
       };
 
-      const nextCollaborators = profiles.map(buildCollaborator).sort((a, b) => b.score - a.score);
+      const nextCollaborators = profiles
+        .map(buildCollaborator)
+        .filter((item): item is PerformanceCollaborator => Boolean(item))
+        .sort((a, b) => b.score - a.score);
       const averageScore = average(nextCollaborators.map((item) => item.score));
       const previousAverageScore = average(nextCollaborators.map((item) => item.previousScore));
-      const byRole = Object.values(ROLE_LABELS)
+      const byRole = PERFORMANCE_ROLES.map((role) => roleConfigs[role]?.roleLabel ?? DEFAULT_PERFORMANCE_ROLE_CONFIGS[role].roleLabel)
         .map((roleLabel) => {
           const members = nextCollaborators.filter((item) => item.roleLabel === roleLabel);
           return { role: roleLabel, average: average(members.map((item) => item.score)), count: members.length };
