@@ -26,6 +26,8 @@ export interface PerformanceRoleConfig {
   crmPipelineId: string | null;
   meetingStageIds: string[];
   salesStageIds: string[];
+  jobTitleAliases: string[];
+  memberProfileIds: string[];
   isActive: boolean;
 }
 

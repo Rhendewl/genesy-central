@@ -301,6 +301,15 @@ type CrmPipelineOption = {
   crm_stages?: CrmStageOption[];
 };
 
+type PerformanceProfileOption = {
+  id: string;
+  full_name: string;
+  email: string;
+  role: string;
+  job_title: string | null;
+  avatar_url: string | null;
+};
+
 function FieldLabel({ children }: { children: ReactNode }) {
   return (
     <label className="text-[11px] font-semibold uppercase tracking-[0.14em]" style={{ color: "var(--muted-foreground)" }}>
@@ -320,6 +329,7 @@ function fieldStyle(): CSSProperties {
 function PerformanceSettingsPanel({ onSaved }: { onSaved: () => void }) {
   const [configs, setConfigs] = useState<PerformanceRoleConfig[]>([]);
   const [pipelines, setPipelines] = useState<CrmPipelineOption[]>([]);
+  const [profiles, setProfiles] = useState<PerformanceProfileOption[]>([]);
   const [tableReady, setTableReady] = useState(true);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -338,6 +348,7 @@ function PerformanceSettingsPanel({ onSaved }: { onSaved: () => void }) {
         if (!alive) return;
         setConfigs(json.configs ?? Object.values(DEFAULT_PERFORMANCE_ROLE_CONFIGS));
         setPipelines(json.pipelines ?? []);
+        setProfiles(json.profiles ?? []);
         setTableReady(json.tableReady !== false);
       } catch (err) {
         if (alive) setError(err instanceof Error ? err.message : "Erro ao carregar configurações");
@@ -378,6 +389,35 @@ function PerformanceSettingsPanel({ onSaved }: { onSaved: () => void }) {
       return { ...config, [field]: nextIds };
     }));
   };
+
+  const toggleMember = (roleKey: PerformanceRole, profileId: string) => {
+    setSaved(false);
+    setConfigs((current) => current.map((config) => {
+      const withoutProfile = config.memberProfileIds.filter((id) => id !== profileId);
+      if (config.roleKey !== roleKey) return { ...config, memberProfileIds: withoutProfile };
+      const alreadyLinked = config.memberProfileIds.includes(profileId);
+      return {
+        ...config,
+        memberProfileIds: alreadyLinked ? withoutProfile : [...withoutProfile, profileId],
+      };
+    }));
+  };
+
+  const updateAliases = (roleKey: PerformanceRole, value: string) => {
+    updateConfig(roleKey, {
+      jobTitleAliases: value
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean),
+    });
+  };
+
+  const profileLabel = (profile: PerformanceProfileOption) => {
+    return profile.job_title ? `${profile.full_name} · ${profile.job_title}` : profile.full_name;
+  };
+
+  const linkedProfileIds = new Set(configs.flatMap((config) => config.memberProfileIds));
+  const unlinkedProfiles = profiles.filter((profile) => !linkedProfileIds.has(profile.id));
 
   const saveConfigs = async () => {
     try {
@@ -427,9 +467,9 @@ function PerformanceSettingsPanel({ onSaved }: { onSaved: () => void }) {
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-lg font-bold" style={{ color: "var(--text-title)" }}>Motor de Performance</h2>
+          <h2 className="text-lg font-bold" style={{ color: "var(--text-title)" }}>Grupos de Performance</h2>
           <p className="text-sm" style={{ color: "var(--muted-foreground)" }}>
-            Configure as metas, pesos e etapas do CRM que alimentam a nota de cada cargo.
+            Vincule colaboradores e funções reais às réguas que alimentam a nota de cada cargo.
           </p>
         </div>
         <button
@@ -443,6 +483,22 @@ function PerformanceSettingsPanel({ onSaved }: { onSaved: () => void }) {
           {saving ? "Salvando..." : saved ? "Salvo" : "Salvar configurações"}
         </button>
       </div>
+
+      {unlinkedProfiles.length > 0 && (
+        <div className="rounded-2xl p-4" style={{ background: "rgba(217,119,6,0.10)", border: "1px solid rgba(217,119,6,0.28)" }}>
+          <p className="text-sm font-semibold" style={{ color: "#d97706" }}>Colaboradores sem grupo manual</p>
+          <p className="mt-1 text-xs" style={{ color: "var(--muted-foreground)" }}>
+            Eles ainda podem entrar por função/cargo automático, mas o vínculo manual deixa a leitura mais confiável.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {unlinkedProfiles.map((profile) => (
+              <span key={profile.id} className="rounded-full px-3 py-1 text-xs" style={{ background: "var(--hover)", color: "var(--text-title)", border: "1px solid var(--glass-border)" }}>
+                {profileLabel(profile)}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         {PERFORMANCE_ROLES.map((roleKey) => {
@@ -469,6 +525,58 @@ function PerformanceSettingsPanel({ onSaved }: { onSaved: () => void }) {
                   />
                   Ativo
                 </label>
+              </div>
+
+              <div className="mb-4 rounded-2xl p-3" style={{ background: "var(--hover)", border: "1px solid var(--glass-border)" }}>
+                <FieldLabel>Funções/cargos que entram automaticamente</FieldLabel>
+                <input
+                  value={config.jobTitleAliases.join(", ")}
+                  onChange={(event) => updateAliases(roleKey, event.target.value)}
+                  placeholder="Ex.: SDR, Pré-vendas, Comercial"
+                  className="mt-2 w-full rounded-2xl px-3 py-2 text-sm outline-none"
+                  style={fieldStyle()}
+                />
+                <p className="mt-1 text-[11px]" style={{ color: "var(--muted-foreground)" }}>
+                  Separe por vírgula. Se o cargo/função do colaborador tiver esse texto, ele usa este grupo automaticamente.
+                </p>
+              </div>
+
+              <div className="mb-4 rounded-2xl p-3" style={{ background: "var(--hover)", border: "1px solid var(--glass-border)" }}>
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <FieldLabel>Colaboradores vinculados</FieldLabel>
+                  <span className="text-[11px]" style={{ color: "var(--muted-foreground)" }}>
+                    {config.memberProfileIds.length} selecionado(s)
+                  </span>
+                </div>
+                <div className="grid max-h-44 grid-cols-1 gap-2 overflow-y-auto pr-1 md:grid-cols-2">
+                  {profiles.map((profile) => {
+                    const checked = config.memberProfileIds.includes(profile.id);
+                    const linkedElsewhere = !checked && configs.some((item) => item.roleKey !== roleKey && item.memberProfileIds.includes(profile.id));
+                    return (
+                      <label
+                        key={profile.id}
+                        className="flex items-center gap-2 rounded-xl px-3 py-2 text-xs"
+                        style={{
+                          background: checked ? "rgba(56,189,248,0.12)" : "rgba(255,255,255,0.03)",
+                          border: checked ? "1px solid rgba(56,189,248,0.35)" : "1px solid var(--glass-border)",
+                          color: checked ? "var(--text-title)" : "var(--muted-foreground)",
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggleMember(roleKey, profile.id)}
+                        />
+                        <span className="min-w-0">
+                          <span className="block truncate">{profile.full_name}</span>
+                          <span className="block truncate text-[10px]" style={{ color: "var(--muted-foreground)" }}>
+                            {profile.job_title || profile.role}{linkedElsewhere ? " · em outro grupo" : ""}
+                          </span>
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
               </div>
 
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2">

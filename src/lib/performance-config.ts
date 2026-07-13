@@ -27,6 +27,8 @@ export const DEFAULT_PERFORMANCE_ROLE_CONFIGS: Record<PerformanceRole, Performan
     crmPipelineId: null,
     meetingStageIds: [],
     salesStageIds: [],
+    jobTitleAliases: ["Gestor de Tráfego", "Gestor de Trafego", "Tráfego", "Trafego"],
+    memberProfileIds: [],
     isActive: true,
   },
   sdr: {
@@ -39,6 +41,8 @@ export const DEFAULT_PERFORMANCE_ROLE_CONFIGS: Record<PerformanceRole, Performan
     crmPipelineId: null,
     meetingStageIds: [],
     salesStageIds: [],
+    jobTitleAliases: ["SDR", "Pré-vendas", "Pre-vendas"],
+    memberProfileIds: [],
     isActive: true,
   },
   closer: {
@@ -51,6 +55,8 @@ export const DEFAULT_PERFORMANCE_ROLE_CONFIGS: Record<PerformanceRole, Performan
     crmPipelineId: null,
     meetingStageIds: [],
     salesStageIds: [],
+    jobTitleAliases: ["Closer", "Vendedor"],
+    memberProfileIds: [],
     isActive: true,
   },
   bdr: {
@@ -63,6 +69,8 @@ export const DEFAULT_PERFORMANCE_ROLE_CONFIGS: Record<PerformanceRole, Performan
     crmPipelineId: null,
     meetingStageIds: [],
     salesStageIds: [],
+    jobTitleAliases: ["BDR"],
+    memberProfileIds: [],
     isActive: true,
   },
   designer: {
@@ -75,6 +83,8 @@ export const DEFAULT_PERFORMANCE_ROLE_CONFIGS: Record<PerformanceRole, Performan
     crmPipelineId: null,
     meetingStageIds: [],
     salesStageIds: [],
+    jobTitleAliases: ["Designer", "Design"],
+    memberProfileIds: [],
     isActive: true,
   },
 };
@@ -93,6 +103,8 @@ export type PerformanceRoleConfigRow = {
   crm_pipeline_id: string | null;
   meeting_stage_ids: string[] | null;
   sales_stage_ids: string[] | null;
+  job_title_aliases?: string[] | null;
+  member_profile_ids?: string[] | null;
   is_active: boolean;
 };
 
@@ -108,6 +120,14 @@ export function normalizePerformanceWeights(weights: PerformancePillars): Perfor
     organizacao: Math.max(0, numberOrFallback(weights.organizacao, 0)),
     disciplina: Math.max(0, numberOrFallback(weights.disciplina, 0)),
   };
+}
+
+export function normalizePerformanceText(value: string | null | undefined) {
+  return (value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
 }
 
 export function mapPerformanceRoleConfigRow(row: PerformanceRoleConfigRow): PerformanceRoleConfig {
@@ -128,6 +148,8 @@ export function mapPerformanceRoleConfigRow(row: PerformanceRoleConfigRow): Perf
     crmPipelineId: row.crm_pipeline_id,
     meetingStageIds: row.meeting_stage_ids ?? [],
     salesStageIds: row.sales_stage_ids ?? [],
+    jobTitleAliases: row.job_title_aliases ?? fallback.jobTitleAliases,
+    memberProfileIds: row.member_profile_ids ?? [],
     isActive: row.is_active,
   };
 }
@@ -141,8 +163,33 @@ export function mergePerformanceRoleConfigs(rows: PerformanceRoleConfig[] = []) 
       weights: normalizePerformanceWeights(row.weights),
       meetingStageIds: row.meetingStageIds ?? [],
       salesStageIds: row.salesStageIds ?? [],
+      jobTitleAliases: row.jobTitleAliases ?? [],
+      memberProfileIds: row.memberProfileIds ?? [],
     };
   }
   return merged;
 }
 
+export function resolvePerformanceRoleForProfile(
+  profile: { id: string; role?: string | null; job_title?: string | null },
+  configs: Record<PerformanceRole, PerformanceRoleConfig>
+): PerformanceRole {
+  const explicit = PERFORMANCE_ROLES.find((role) => configs[role]?.memberProfileIds.includes(profile.id));
+  if (explicit) return explicit;
+
+  const profileText = normalizePerformanceText(`${profile.job_title ?? ""} ${profile.role ?? ""}`);
+  const aliasMatch = PERFORMANCE_ROLES.find((role) => {
+    const config = configs[role];
+    return config?.jobTitleAliases.some((alias) => {
+      const normalizedAlias = normalizePerformanceText(alias);
+      return normalizedAlias && profileText.includes(normalizedAlias);
+    });
+  });
+  if (aliasMatch) return aliasMatch;
+
+  if (profileText.includes("closer") || profileText.includes("vendedor")) return "closer";
+  if (profileText.includes("bdr")) return "bdr";
+  if (profileText.includes("designer") || profileText.includes("design")) return "designer";
+  if (profileText.includes("trafego") || profileText.includes("traffic")) return "gestor_trafego";
+  return "sdr";
+}

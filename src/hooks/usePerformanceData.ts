@@ -9,6 +9,7 @@ import {
   mapPerformanceRoleConfigRow,
   mergePerformanceRoleConfigs,
   normalizePerformanceWeights,
+  resolvePerformanceRoleForProfile,
   type PerformanceRoleConfigRow,
 } from "@/lib/performance-config";
 import type {
@@ -97,15 +98,6 @@ function monthBounds(base = new Date()) {
     prevStartKey: prevStart.toISOString().slice(0, 10),
     label: start.toLocaleDateString("pt-BR", { month: "short" }).replace(".", ""),
   };
-}
-
-function normalizeRole(profile: UserProfileRow): PerformanceRole {
-  const raw = `${profile.job_title ?? ""} ${profile.role ?? ""}`.toLowerCase();
-  if (raw.includes("closer") || raw.includes("vendedor")) return "closer";
-  if (raw.includes("bdr")) return "bdr";
-  if (raw.includes("designer") || raw.includes("design")) return "designer";
-  if (raw.includes("tráfego") || raw.includes("trafego") || raw.includes("traffic")) return "gestor_trafego";
-  return "sdr";
 }
 
 function average(values: number[]) {
@@ -198,12 +190,13 @@ export function usePerformanceData(): UsePerformanceDataReturn {
           .lt("date", nextKey),
         supabase
           .from("performance_role_configs")
-          .select("id, role_key, role_label, main_goal_type, main_goal_label, main_goal_target, weight_resultado, weight_produtividade, weight_organizacao, weight_disciplina, crm_pipeline_id, meeting_stage_ids, sales_stage_ids, is_active")
+          .select("id, role_key, role_label, main_goal_type, main_goal_label, main_goal_target, weight_resultado, weight_produtividade, weight_organizacao, weight_disciplina, crm_pipeline_id, meeting_stage_ids, sales_stage_ids, job_title_aliases, member_profile_ids, is_active")
           .eq("user_id", ownerId),
       ]);
 
       if (profilesRes.error) throw profilesRes.error;
-      if (configsRes.error && configsRes.error.code !== "42P01") throw configsRes.error;
+      const configColumnsMissing = Boolean(configsRes.error?.message?.includes("job_title_aliases") || configsRes.error?.message?.includes("member_profile_ids"));
+      if (configsRes.error && configsRes.error.code !== "42P01" && !configColumnsMissing) throw configsRes.error;
 
       const profiles = ((profilesRes.data ?? []) as UserProfileRow[])
         .filter((profile) => canViewTeam || profile.id === member?.id);
@@ -281,7 +274,7 @@ export function usePerformanceData(): UsePerformanceDataReturn {
       };
 
       const buildCollaborator = (profile: UserProfileRow): PerformanceCollaborator | null => {
-        const role = normalizeRole(profile);
+        const role = resolvePerformanceRoleForProfile(profile, roleConfigs);
         const config = roleConfigs[role] ?? DEFAULT_PERFORMANCE_ROLE_CONFIGS[role];
         if (!config.isActive) return null;
         const currentTasks = profileTasks(profile.id, true);

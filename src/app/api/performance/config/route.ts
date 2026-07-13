@@ -36,6 +36,25 @@ const CONFIG_SELECT = [
   "crm_pipeline_id",
   "meeting_stage_ids",
   "sales_stage_ids",
+  "job_title_aliases",
+  "member_profile_ids",
+  "is_active",
+].join(", ");
+
+const LEGACY_CONFIG_SELECT = [
+  "id",
+  "role_key",
+  "role_label",
+  "main_goal_type",
+  "main_goal_label",
+  "main_goal_target",
+  "weight_resultado",
+  "weight_produtividade",
+  "weight_organizacao",
+  "weight_disciplina",
+  "crm_pipeline_id",
+  "meeting_stage_ids",
+  "sales_stage_ids",
   "is_active",
 ].join(", ");
 
@@ -60,8 +79,12 @@ function isMissingConfigTable(error: { code?: string; message?: string } | null)
   return error?.code === "42P01" || Boolean(error?.message?.includes("performance_role_configs"));
 }
 
+function isMissingGroupColumns(error: { message?: string } | null) {
+  return Boolean(error?.message?.includes("job_title_aliases") || error?.message?.includes("member_profile_ids"));
+}
+
 async function loadConfigs(supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>, ownerId: string) {
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from("performance_role_configs")
     .select(CONFIG_SELECT)
     .eq("user_id", ownerId)
@@ -74,7 +97,18 @@ async function loadConfigs(supabase: Awaited<ReturnType<typeof createServerSupab
         tableReady: false,
       };
     }
-    throw error;
+    if (isMissingGroupColumns(error)) {
+      const legacy = await supabase
+        .from("performance_role_configs")
+        .select(LEGACY_CONFIG_SELECT)
+        .eq("user_id", ownerId)
+        .order("role_key", { ascending: true });
+      data = legacy.data;
+      error = legacy.error;
+      if (error) throw error;
+    } else {
+      throw error;
+    }
   }
 
   const mapped = ((data ?? []) as unknown as PerformanceRoleConfigRow[]).map(mapPerformanceRoleConfigRow);
@@ -104,6 +138,12 @@ function sanitizeConfig(input: Partial<PerformanceRoleConfig>) {
     crmPipelineId: input.crmPipelineId || null,
     meetingStageIds: Array.isArray(input.meetingStageIds) ? input.meetingStageIds.filter(Boolean) : [],
     salesStageIds: Array.isArray(input.salesStageIds) ? input.salesStageIds.filter(Boolean) : [],
+    jobTitleAliases: Array.isArray(input.jobTitleAliases)
+      ? input.jobTitleAliases.map((item) => String(item).trim()).filter(Boolean)
+      : fallback.jobTitleAliases,
+    memberProfileIds: Array.isArray(input.memberProfileIds)
+      ? input.memberProfileIds.filter(Boolean)
+      : [],
     isActive: input.isActive !== false,
   };
 }
@@ -113,20 +153,28 @@ export async function GET() {
     const { supabase, user, ownerId } = await getSessionContext();
     if (!user || !ownerId) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
 
-    const [{ configs, tableReady }, pipelinesRes] = await Promise.all([
+    const [{ configs, tableReady }, pipelinesRes, profilesRes] = await Promise.all([
       loadConfigs(supabase, ownerId),
       supabase
         .from("crm_pipelines")
         .select("id, name, is_active, crm_stages(id, name, pipeline_id, is_won, is_active, order_index)")
         .order("order_index", { ascending: true })
         .order("order_index", { foreignTable: "crm_stages", ascending: true }),
+      supabase
+        .from("user_profiles")
+        .select("id, full_name, email, role, job_title, avatar_url, is_active")
+        .eq("owner_id", ownerId)
+        .eq("is_active", true)
+        .order("full_name", { ascending: true }),
     ]);
 
     if (pipelinesRes.error) throw pipelinesRes.error;
+    if (profilesRes.error) throw profilesRes.error;
 
     return NextResponse.json({
       configs,
       pipelines: pipelinesRes.data ?? [],
+      profiles: profilesRes.data ?? [],
       tableReady,
     });
   } catch (err) {
@@ -161,6 +209,8 @@ export async function PATCH(req: NextRequest) {
       crm_pipeline_id: config!.crmPipelineId,
       meeting_stage_ids: config!.meetingStageIds,
       sales_stage_ids: config!.salesStageIds,
+      job_title_aliases: config!.jobTitleAliases,
+      member_profile_ids: config!.memberProfileIds,
       is_active: config!.isActive,
     }));
 
