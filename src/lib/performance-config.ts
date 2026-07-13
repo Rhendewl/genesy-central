@@ -8,7 +8,7 @@ import type {
 export const PERFORMANCE_ROLES: PerformanceRole[] = ["gestor_trafego", "sdr", "closer", "bdr", "designer"];
 
 export const PERFORMANCE_GOAL_OPTIONS: Array<{ value: PerformanceMainGoalType; label: string }> = [
-  { value: "crm_stage_count", label: "Contagem de etapas do CRM" },
+  { value: "crm_stage_count", label: "Etapa do CRM alcançada" },
   { value: "crm_won_count", label: "Vendas no CRM" },
   { value: "workspace_completed_tasks", label: "Tarefas concluídas" },
   { value: "traffic_iq_average", label: "IQ médio dos leads" },

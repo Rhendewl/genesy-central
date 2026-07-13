@@ -10,6 +10,7 @@ import {
   Award,
   BarChart3,
   CheckCircle2,
+  Info,
   RefreshCw,
   Save,
   Settings2,
@@ -128,6 +129,50 @@ function PillarBars({ pillars, weights }: { pillars: PerformancePillars; weights
           </div>
         </div>
       ))}
+    </div>
+  );
+}
+
+function PerformanceLogicInfo() {
+  const rows = [
+    { title: "Etapa do CRM alcançada", text: "Conta quantos leads atribuídos ao colaborador chegaram nas etapas selecionadas, como Reunião agendada ou Lead qualificado." },
+    { title: "Vendas no CRM", text: "Conta leads que chegaram nas etapas marcadas como venda, ou etapas ganhas quando a pipeline já usa esse controle." },
+    { title: "Tarefas concluídas", text: "Conta entregas finalizadas no Workspace durante o mês, útil para áreas de produção e operação." },
+    { title: "IQ médio dos leads", text: "Usa a média de qualificação dos leads gerados/atendidos no mês. Quanto mais perto da meta, maior o Resultado." },
+    { title: "Leads e conversões de tráfego", text: "Usa o volume vindo das métricas de campanha no período mensal." },
+    { title: "Peso da nota", text: "Cada pilar recebe uma nota de 0 a 100. Os pesos definem quanto cada pilar entra na nota final." },
+  ];
+
+  return (
+    <div className="group relative">
+      <button
+        type="button"
+        className="flex h-8 w-8 items-center justify-center rounded-full transition-colors hover:bg-[var(--hover)] focus:bg-[var(--hover)]"
+        aria-label="Como a nota de performance é calculada"
+      >
+        <Info size={16} style={{ color: "var(--muted-foreground)" }} />
+      </button>
+      <div
+        className="pointer-events-none absolute right-0 top-10 z-30 w-[min(360px,calc(100vw-48px))] -translate-y-1 rounded-2xl p-4 opacity-0 shadow-2xl transition-all duration-150 group-hover:pointer-events-auto group-hover:translate-y-0 group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:translate-y-0 group-focus-within:opacity-100"
+        style={{
+          background: "var(--popover)",
+          border: "1px solid var(--glass-border)",
+          color: "var(--text-title)",
+        }}
+      >
+        <p className="text-sm font-bold">Como ler esta composição</p>
+        <p className="mt-1 text-xs leading-relaxed" style={{ color: "var(--muted-foreground)" }}>
+          O pilar Resultado vem do objetivo principal configurado no grupo. Os outros pilares usam tarefas, prazos, organização e atrasos.
+        </p>
+        <div className="mt-3 space-y-2">
+          {rows.map((row) => (
+            <div key={row.title} className="rounded-xl p-2.5" style={{ background: "var(--hover)", border: "1px solid var(--glass-border)" }}>
+              <p className="text-[12px] font-semibold">{row.title}</p>
+              <p className="mt-0.5 text-[11px] leading-relaxed" style={{ color: "var(--muted-foreground)" }}>{row.text}</p>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
@@ -260,9 +305,12 @@ function IndividualDashboard({ person }: { person: PerformanceCollaborator }) {
         </div>
 
         <div className="lc-card p-5" style={{ background: "var(--glass-bg-soft)" }}>
-          <div className="mb-4">
-            <h3 className="text-sm font-semibold" style={{ color: "var(--text-title)" }}>Composição da nota</h3>
-            <p className="text-xs" style={{ color: "var(--muted-foreground)" }}>Quatro pilares automáticos</p>
+          <div className="mb-4 flex items-start justify-between gap-3">
+            <div>
+              <h3 className="text-sm font-semibold" style={{ color: "var(--text-title)" }}>Composição da nota</h3>
+              <p className="text-xs" style={{ color: "var(--muted-foreground)" }}>Quatro pilares automáticos</p>
+            </div>
+            <PerformanceLogicInfo />
           </div>
           <PillarBars pillars={person.pillars} weights={person.pillarWeights} />
         </div>
