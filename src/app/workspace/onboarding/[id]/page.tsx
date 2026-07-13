@@ -1,13 +1,31 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import {
+  DndContext,
+  DragEndEvent,
+  DragOverlay,
+  DragStartEvent,
+  KeyboardSensor,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  arrayMove,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
 import { AlertTriangle, ArrowLeft, Building2, Calendar, ChevronDown, ChevronUp, GripVertical, Loader2, Pencil, Plus, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { useCurrentMember } from "@/context/CurrentMemberContext";
 import { useOnboardingProject } from "@/hooks/useOnboardingProject";
 import { OnboardingTaskPanel } from "@/components/workspace/onboarding/OnboardingTaskPanel";
 import { OnboardingHistoryTab } from "@/components/workspace/onboarding/OnboardingHistoryTab";
+import { SortableStageCard, StageDragOverlayPreview } from "@/components/workspace/onboarding/SortableStageCard";
 import { PriorityBadge } from "@/components/workspace/PriorityBadge";
 import { ProgressBar } from "@/components/workspace/ProgressBar";
 import { ONBOARDING_PROJECT_STATUSES, ONBOARDING_TASK_STATUSES } from "@/types/onboarding";
@@ -20,7 +38,7 @@ export default function OnboardingProjectDetailPage() {
   const { member } = useCurrentMember();
   const isAdmin = member?.role === "admin";
 
-  const { detail, isLoading, updateProject, deleteProject, addStage, updateStage, deleteStage, addTask } = useOnboardingProject(id);
+  const { detail, isLoading, refetch, updateProject, deleteProject, addStage, updateStage, deleteStage, addTask } = useOnboardingProject(id);
   const [tab, setTab] = useState<Tab>("projeto");
   const [panel, setPanel] = useState<{ taskId: string | null; stageId: string | null } | null>(null);
   const [editOpen, setEditOpen] = useState(false);
@@ -35,8 +53,19 @@ export default function OnboardingProjectDetailPage() {
   const [stageDueDate, setStageDueDate] = useState("");
   const [stageColor, setStageColor] = useState("#4a8fd4");
   const [isStageSaving, setIsStageSaving] = useState(false);
-  const [dragStageId, setDragStageId] = useState<string | null>(null);
-  const [dragStartY, setDragStartY] = useState<number | null>(null);
+  const [activeStageId, setActiveStageId] = useState<string | null>(null);
+  const [stageOrder, setStageOrder] = useState<string[]>([]);
+
+  const fetchedStageIdsKey = detail?.stages.map((stage) => stage.id).join("|") ?? "";
+
+  useEffect(() => {
+    if (!activeStageId) setStageOrder(fetchedStageIdsKey ? fetchedStageIdsKey.split("|") : []);
+  }, [activeStageId, fetchedStageIdsKey]);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
 
   function openEditModal() {
     if (!detail) return;
@@ -127,72 +156,70 @@ export default function OnboardingProjectDetailPage() {
     setStageDelete(null);
   }
 
-  async function moveStage(stageIndex: number, direction: -1 | 1) {
+  function getCurrentStageIds() {
     if (!detail) return;
-    const current = detail.stages[stageIndex];
-    const target = detail.stages[stageIndex + direction];
-    if (!current || !target) return;
-
-    const first = await updateStage(current.id, { order_index: target.order_index });
-    if (first.error) {
-      toast.error(first.error);
-      return;
-    }
-    const second = await updateStage(target.id, { order_index: current.order_index });
-    if (second.error) toast.error(second.error);
+    const fetchedIds = detail.stages.map((stage) => stage.id);
+    const preferredIds = stageOrder.length > 0 ? stageOrder : fetchedIds;
+    return [
+      ...preferredIds.filter((stageId) => fetchedIds.includes(stageId)),
+      ...fetchedIds.filter((stageId) => !preferredIds.includes(stageId)),
+    ];
   }
 
-  async function reorderStageByDrop(targetStageId: string) {
-    if (!detail || !dragStageId || dragStageId === targetStageId) {
-      setDragStageId(null);
+  async function persistStageOrder(orderedIds: string[]) {
+    if (!detail) return;
+    setStageOrder(orderedIds);
+
+    const currentById = new Map(detail.stages.map((stage) => [stage.id, stage]));
+    const results = await Promise.all(orderedIds.map(async (stageId, index) => {
+      const stage = currentById.get(stageId);
+      if (!stage || stage.order_index === index) return { ok: true, error: null as string | null };
+
+      const res = await fetch(`/api/workspace/onboarding/projects/${id}/stages/${stageId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ order_index: index }),
+      });
+      const json = await res.json().catch(() => ({})) as { error?: string };
+      return { ok: res.ok, error: json.error ?? "Erro ao reordenar etapa" };
+    }));
+
+    const failed = results.find((result) => !result.ok);
+    if (failed) {
+      toast.error(failed.error ?? "Erro ao reordenar etapa");
+      setStageOrder(detail.stages.map((stage) => stage.id));
       return;
     }
 
-    const sourceIndex = detail.stages.findIndex((stage) => stage.id === dragStageId);
-    const targetIndex = detail.stages.findIndex((stage) => stage.id === targetStageId);
-    if (sourceIndex < 0 || targetIndex < 0) {
-      setDragStageId(null);
-      return;
-    }
-
-    const next = [...detail.stages];
-    const [source] = next.splice(sourceIndex, 1);
-    next.splice(targetIndex, 0, source);
-    setDragStageId(null);
-
-    for (let index = 0; index < next.length; index++) {
-      if (next[index].order_index === index) continue;
-      const result = await updateStage(next[index].id, { order_index: index });
-      if (result.error) {
-        toast.error(result.error);
-        return;
-      }
-    }
+    await refetch();
   }
 
-  function getStageDropTargetId(clientX: number, clientY: number) {
-    return document
-      .elementsFromPoint(clientX, clientY)
-      .map((element) => element instanceof HTMLElement ? element.closest<HTMLElement>("[data-onboarding-stage-id]") : null)
-      .find(Boolean)
-      ?.dataset.onboardingStageId ?? null;
+  async function moveStage(stageIndex: number, direction: -1 | 1) {
+    const ids = getCurrentStageIds();
+    if (!ids) return;
+    const targetIndex = stageIndex + direction;
+    if (targetIndex < 0 || targetIndex >= ids.length) return;
+    await persistStageOrder(arrayMove(ids, stageIndex, targetIndex));
   }
 
-  function finishStageHandleDrag(stageIndex: number, stageId: string, clientX: number, clientY: number) {
-    if (dragStartY === null) return;
-    const deltaY = clientY - dragStartY;
-    setDragStartY(null);
+  function handleStageDragStart(event: DragStartEvent) {
+    setActiveStageId(String(event.active.id));
+  }
 
-    const targetStageId = getStageDropTargetId(clientX, clientY);
-    if (targetStageId && targetStageId !== stageId) {
-      void reorderStageByDrop(targetStageId);
-      return;
-    }
+  function handleStageDragEnd(event: DragEndEvent) {
+    const ids = getCurrentStageIds();
+    setActiveStageId(null);
+    if (!ids || !event.over || event.active.id === event.over.id) return;
 
-    setDragStageId(null);
+    const oldIndex = ids.indexOf(String(event.active.id));
+    const newIndex = ids.indexOf(String(event.over.id));
+    if (oldIndex < 0 || newIndex < 0) return;
 
-    if (deltaY < -18) void moveStage(stageIndex, -1);
-    if (deltaY > 18) void moveStage(stageIndex, 1);
+    void persistStageOrder(arrayMove(ids, oldIndex, newIndex));
+  }
+
+  function handleStageDragCancel() {
+    setActiveStageId(null);
   }
 
   if (isLoading || !detail) {
@@ -209,6 +236,12 @@ export default function OnboardingProjectDetailPage() {
   const nonCancelled = allTasks.filter((t) => t.status !== "cancelado");
   const doneTasks = nonCancelled.filter((t) => t.status === "concluido").length;
   const progress = nonCancelled.length > 0 ? Math.round((doneTasks / nonCancelled.length) * 100) : 0;
+  const orderedStageIds = getCurrentStageIds() ?? [];
+  const stageById = new Map(detail.stages.map((stage) => [stage.id, stage]));
+  const orderedStages = orderedStageIds
+    .map((stageId) => stageById.get(stageId))
+    .filter((stage): stage is NonNullable<typeof stage> => Boolean(stage));
+  const activeStage = activeStageId ? stageById.get(activeStageId) : null;
 
   return (
     <div className="flex flex-col gap-5 px-4 pb-24 pt-4 sm:px-6">
@@ -300,138 +333,152 @@ export default function OnboardingProjectDetailPage() {
           {detail.stages.length === 0 && (
             <p className="py-8 text-center text-sm" style={{ color: "var(--muted-foreground)" }}>Nenhuma etapa ainda.</p>
           )}
-          {detail.stages.map((stage, idx) => (
-            <div
-              key={stage.id}
-              data-onboarding-stage-id={stage.id}
-              className="lc-card p-4 transition-opacity"
-              style={{ borderLeft: `3px solid ${stage.color}`, opacity: dragStageId === stage.id ? 0.55 : 1 }}
-            >
-              <div className="mb-2 flex items-center justify-between gap-2">
-                <div className="flex min-w-0 items-start gap-2">
-                  {isAdmin && (
-                    <button
-                      onPointerDown={(event) => {
-                        event.preventDefault();
-                        setDragStageId(stage.id);
-                        setDragStartY(event.clientY);
-                        event.currentTarget.setPointerCapture(event.pointerId);
-                      }}
-                      onPointerUp={(event) => {
-                        if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-                          event.currentTarget.releasePointerCapture(event.pointerId);
-                        }
-                        finishStageHandleDrag(idx, stage.id, event.clientX, event.clientY);
-                      }}
-                      onPointerCancel={() => {
-                        setDragStartY(null);
-                        setDragStageId(null);
-                      }}
-                      className="mt-0.5 cursor-grab touch-none select-none rounded p-1 active:cursor-grabbing"
-                      aria-label="Arrastar etapa para reordenar"
-                      title="Arrastar etapa"
-                    >
-                      <GripVertical size={14} style={{ color: "var(--muted-foreground)" }} />
-                    </button>
-                  )}
-                  <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold" style={{ color: "var(--text-title)" }}>{idx + 1}. {stage.name}</p>
-                  {stage.due_date && (
-                    <span className="text-[11px]" style={{ color: "var(--muted-foreground)" }}>
-                      Prazo: {new Date(stage.due_date + "T00:00:00").toLocaleDateString("pt-BR")}
-                    </span>
-                  )}
-                  </div>
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragStart={handleStageDragStart}
+            onDragEnd={handleStageDragEnd}
+            onDragCancel={handleStageDragCancel}
+          >
+            <SortableContext items={orderedStageIds} strategy={verticalListSortingStrategy}>
+              <div className="flex flex-col gap-4">
+                {orderedStages.map((stage, idx) => (
+                  <SortableStageCard
+                    key={stage.id}
+                    id={stage.id}
+                    cardStyle={{ borderLeft: `3px solid ${stage.color}` }}
+                  >
+                    {({ attributes, listeners, setActivatorNodeRef }) => (
+                      <>
+                        <div className="mb-2 flex items-center justify-between gap-2">
+                          <div className="flex min-w-0 items-start gap-2">
+                            {isAdmin && (
+                              <button
+                                ref={setActivatorNodeRef}
+                                className="mt-0.5 cursor-grab touch-none select-none rounded p-1 active:cursor-grabbing"
+                                aria-label="Arrastar etapa para reordenar"
+                                title="Arrastar etapa"
+                                {...attributes}
+                                {...listeners}
+                              >
+                                <GripVertical size={14} style={{ color: "var(--muted-foreground)" }} />
+                              </button>
+                            )}
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-semibold" style={{ color: "var(--text-title)" }}>{idx + 1}. {stage.name}</p>
+                              {stage.due_date && (
+                                <span className="text-[11px]" style={{ color: "var(--muted-foreground)" }}>
+                                  Prazo: {new Date(stage.due_date + "T00:00:00").toLocaleDateString("pt-BR")}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          {isAdmin && (
+                            <div className="flex items-center gap-1">
+                              <button
+                                onClick={() => void moveStage(idx, -1)}
+                                disabled={idx === 0}
+                                className="rounded-full p-1.5 disabled:opacity-30"
+                                aria-label="Mover etapa para cima"
+                              >
+                                <ChevronUp size={13} style={{ color: "var(--muted-foreground)" }} />
+                              </button>
+                              <button
+                                onClick={() => void moveStage(idx, 1)}
+                                disabled={idx === orderedStages.length - 1}
+                                className="rounded-full p-1.5 disabled:opacity-30"
+                                aria-label="Mover etapa para baixo"
+                              >
+                                <ChevronDown size={13} style={{ color: "var(--muted-foreground)" }} />
+                              </button>
+                              <button
+                                onClick={() => openEditStageModal(stage)}
+                                className="rounded-full p-1.5 hover:bg-[var(--hover)]"
+                                aria-label="Editar etapa"
+                              >
+                                <Pencil size={13} style={{ color: "var(--muted-foreground)" }} />
+                              </button>
+                              <button
+                                onClick={() => setStageDelete({ id: stage.id, name: stage.name })}
+                                className="rounded-full p-1.5 hover:bg-red-500/10"
+                                aria-label="Excluir etapa"
+                              >
+                                <Trash2 size={13} style={{ color: "#e05c5c" }} />
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                        <ProgressBar percent={stage.progress_percent ?? 0} showLabel={false} />
+
+                        <div className="mt-3 flex flex-col gap-1">
+                          {stage.tasks.map((task) => {
+                            const statusMetaTask = ONBOARDING_TASK_STATUSES.find((s) => s.id === task.status);
+                            const blockedDeps = (task.depends_on_task_ids ?? [])
+                              .map((depId) => allTasks.find((t) => t.id === depId))
+                              .filter((t) => t && t.status !== "concluido");
+                            return (
+                              <button
+                                key={task.id}
+                                onClick={() => setPanel({ taskId: task.id, stageId: task.stage_id })}
+                                className="flex w-full flex-wrap items-center gap-2 rounded-lg px-2 py-2 text-left hover:bg-[var(--hover)]"
+                              >
+                                <span
+                                  className="flex-1 truncate text-sm"
+                                  style={{ color: task.status === "concluido" ? "var(--muted-foreground)" : "var(--text-title)", textDecoration: task.status === "concluido" ? "line-through" : "none" }}
+                                >
+                                  {task.title}
+                                </span>
+                                {task.assignee_name && (
+                                  <span className="rounded-full px-2 py-0.5 text-[10px]" style={{ background: "var(--hover)", color: "var(--muted-foreground)" }}>
+                                    {task.assignee_name}
+                                  </span>
+                                )}
+                                <PriorityBadge priority={task.priority} />
+                                {statusMetaTask && task.status !== "a_fazer" && (
+                                  <span className="text-[10px]" style={{ color: "var(--muted-foreground)" }}>{statusMetaTask.label}</span>
+                                )}
+                                {blockedDeps.length > 0 && (
+                                  <span className="flex items-center gap-1 text-[10px]" style={{ color: "#e0a344" }}>
+                                    <AlertTriangle size={11} />Aguardando {blockedDeps.length === 1 ? blockedDeps[0]!.title : `${blockedDeps.length} tarefas`}
+                                  </span>
+                                )}
+                                {(task.checklist_total ?? 0) > 0 && (
+                                  <span className="text-[10px]" style={{ color: "var(--muted-foreground)" }}>{task.checklist_done}/{task.checklist_total}</span>
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+
+                        {isAdmin && (
+                          <button
+                            onClick={() => setPanel({ taskId: null, stageId: stage.id })}
+                            className="mt-2 flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs"
+                            style={{ color: "var(--muted-foreground)" }}
+                          >
+                            <Plus size={13} />
+                            Nova tarefa
+                          </button>
+                        )}
+                      </>
+                    )}
+                  </SortableStageCard>
+                ))}
+              </div>
+            </SortableContext>
+
+            <DragOverlay dropAnimation={{ duration: 180, easing: "ease" }}>
+              {activeStage ? (
+                <div style={{ transform: "rotate(1deg)" }}>
+                  <StageDragOverlayPreview
+                    title={activeStage.name}
+                    meta={`${activeStage.tasks.length} tarefa${activeStage.tasks.length === 1 ? "" : "s"} • ${activeStage.progress_percent ?? 0}%`}
+                    color={activeStage.color}
+                  />
                 </div>
-                {isAdmin && (
-                  <div className="flex items-center gap-1">
-                    <button
-                      onClick={() => void moveStage(idx, -1)}
-                      disabled={idx === 0}
-                      className="rounded-full p-1.5 disabled:opacity-30"
-                      aria-label="Mover etapa para cima"
-                    >
-                      <ChevronUp size={13} style={{ color: "var(--muted-foreground)" }} />
-                    </button>
-                    <button
-                      onClick={() => void moveStage(idx, 1)}
-                      disabled={idx === detail.stages.length - 1}
-                      className="rounded-full p-1.5 disabled:opacity-30"
-                      aria-label="Mover etapa para baixo"
-                    >
-                      <ChevronDown size={13} style={{ color: "var(--muted-foreground)" }} />
-                    </button>
-                    <button
-                      onClick={() => openEditStageModal(stage)}
-                      className="rounded-full p-1.5 hover:bg-[var(--hover)]"
-                      aria-label="Editar etapa"
-                    >
-                      <Pencil size={13} style={{ color: "var(--muted-foreground)" }} />
-                    </button>
-                    <button
-                      onClick={() => setStageDelete({ id: stage.id, name: stage.name })}
-                      className="rounded-full p-1.5 hover:bg-red-500/10"
-                      aria-label="Excluir etapa"
-                    >
-                      <Trash2 size={13} style={{ color: "#e05c5c" }} />
-                    </button>
-                  </div>
-                )}
-              </div>
-              <ProgressBar percent={stage.progress_percent ?? 0} showLabel={false} />
-
-              <div className="mt-3 flex flex-col gap-1">
-                {stage.tasks.map((task) => {
-                  const statusMetaTask = ONBOARDING_TASK_STATUSES.find((s) => s.id === task.status);
-                  const blockedDeps = (task.depends_on_task_ids ?? [])
-                    .map((depId) => allTasks.find((t) => t.id === depId))
-                    .filter((t) => t && t.status !== "concluido");
-                  return (
-                    <button
-                      key={task.id}
-                      onClick={() => setPanel({ taskId: task.id, stageId: task.stage_id })}
-                      className="flex w-full flex-wrap items-center gap-2 rounded-lg px-2 py-2 text-left hover:bg-[var(--hover)]"
-                    >
-                      <span
-                        className="flex-1 truncate text-sm"
-                        style={{ color: task.status === "concluido" ? "var(--muted-foreground)" : "var(--text-title)", textDecoration: task.status === "concluido" ? "line-through" : "none" }}
-                      >
-                        {task.title}
-                      </span>
-                      {task.assignee_name && (
-                        <span className="rounded-full px-2 py-0.5 text-[10px]" style={{ background: "var(--hover)", color: "var(--muted-foreground)" }}>
-                          {task.assignee_name}
-                        </span>
-                      )}
-                      <PriorityBadge priority={task.priority} />
-                      {statusMetaTask && task.status !== "a_fazer" && (
-                        <span className="text-[10px]" style={{ color: "var(--muted-foreground)" }}>{statusMetaTask.label}</span>
-                      )}
-                      {blockedDeps.length > 0 && (
-                        <span className="flex items-center gap-1 text-[10px]" style={{ color: "#e0a344" }}>
-                          <AlertTriangle size={11} />Aguardando {blockedDeps.length === 1 ? blockedDeps[0]!.title : `${blockedDeps.length} tarefas`}
-                        </span>
-                      )}
-                      {(task.checklist_total ?? 0) > 0 && (
-                        <span className="text-[10px]" style={{ color: "var(--muted-foreground)" }}>{task.checklist_done}/{task.checklist_total}</span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-
-              {isAdmin && (
-                <button
-                  onClick={() => setPanel({ taskId: null, stageId: stage.id })}
-                  className="mt-2 flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs"
-                  style={{ color: "var(--muted-foreground)" }}
-                >
-                  <Plus size={13} />
-                  Nova tarefa
-                </button>
-              )}
-            </div>
-          ))}
+              ) : null}
+            </DragOverlay>
+          </DndContext>
         </div>
       )}
 

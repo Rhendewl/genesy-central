@@ -1,12 +1,30 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import {
+  DndContext,
+  DragEndEvent,
+  DragOverlay,
+  DragStartEvent,
+  KeyboardSensor,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  arrayMove,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
 import { ArrowLeft, ChevronDown, ChevronUp, Plus, X, GripVertical, FolderInput } from "lucide-react";
 import { toast } from "sonner";
 import { useCurrentMember } from "@/context/CurrentMemberContext";
 import { useOnboardingTemplate } from "@/hooks/useOnboardingTemplate";
 import { TemplateTaskModal } from "@/components/workspace/onboarding/TemplateTaskModal";
+import { SortableStageCard, StageDragOverlayPreview } from "@/components/workspace/onboarding/SortableStageCard";
 import { PriorityBadge } from "@/components/workspace/PriorityBadge";
 import type { OnboardingTemplateTask } from "@/types/onboarding";
 
@@ -19,6 +37,7 @@ export default function OnboardingTemplateBuilderPage() {
   const {
     detail, isLoading,
     updateTemplate,
+    refetch,
     addStage, updateStage, deleteStage,
     addTask, updateTask, deleteTask,
   } = useOnboardingTemplate(id);
@@ -26,8 +45,19 @@ export default function OnboardingTemplateBuilderPage() {
   const [taskModal, setTaskModal] = useState<{ stageId: string; task: OnboardingTemplateTask | null } | null>(null);
   const [stageDelete, setStageDelete] = useState<{ id: string; name: string } | null>(null);
   const [isDeletingStage, setIsDeletingStage] = useState(false);
-  const [dragStageId, setDragStageId] = useState<string | null>(null);
-  const [dragStartY, setDragStartY] = useState<number | null>(null);
+  const [activeStageId, setActiveStageId] = useState<string | null>(null);
+  const [stageOrder, setStageOrder] = useState<string[]>([]);
+
+  const fetchedStageIdsKey = detail?.stages.map((stage) => stage.id).join("|") ?? "";
+
+  useEffect(() => {
+    if (!activeStageId) setStageOrder(fetchedStageIdsKey ? fetchedStageIdsKey.split("|") : []);
+  }, [activeStageId, fetchedStageIdsKey]);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
 
   if (isMemberLoading) {
     return (
@@ -86,72 +116,70 @@ export default function OnboardingTemplateBuilderPage() {
     setStageDelete(null);
   }
 
-  async function moveStage(stageIndex: number, direction: -1 | 1) {
+  function getCurrentStageIds() {
     if (!detail) return;
-    const current = detail.stages[stageIndex];
-    const target = detail.stages[stageIndex + direction];
-    if (!current || !target) return;
-
-    const first = await updateStage(current.id, { order_index: target.order_index });
-    if (first.error) {
-      toast.error(first.error);
-      return;
-    }
-    const second = await updateStage(target.id, { order_index: current.order_index });
-    if (second.error) toast.error(second.error);
+    const fetchedIds = detail.stages.map((stage) => stage.id);
+    const preferredIds = stageOrder.length > 0 ? stageOrder : fetchedIds;
+    return [
+      ...preferredIds.filter((stageId) => fetchedIds.includes(stageId)),
+      ...fetchedIds.filter((stageId) => !preferredIds.includes(stageId)),
+    ];
   }
 
-  async function reorderStageByDrop(targetStageId: string) {
-    if (!detail || !dragStageId || dragStageId === targetStageId) {
-      setDragStageId(null);
+  async function persistStageOrder(orderedIds: string[]) {
+    if (!detail) return;
+    setStageOrder(orderedIds);
+
+    const currentById = new Map(detail.stages.map((stage) => [stage.id, stage]));
+    const results = await Promise.all(orderedIds.map(async (stageId, index) => {
+      const stage = currentById.get(stageId);
+      if (!stage || stage.order_index === index) return { ok: true, error: null as string | null };
+
+      const res = await fetch(`/api/workspace/onboarding/templates/${id}/stages/${stageId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ order_index: index }),
+      });
+      const json = await res.json().catch(() => ({})) as { error?: string };
+      return { ok: res.ok, error: json.error ?? "Erro ao reordenar etapa" };
+    }));
+
+    const failed = results.find((result) => !result.ok);
+    if (failed) {
+      toast.error(failed.error ?? "Erro ao reordenar etapa");
+      setStageOrder(detail.stages.map((stage) => stage.id));
       return;
     }
 
-    const sourceIndex = detail.stages.findIndex((stage) => stage.id === dragStageId);
-    const targetIndex = detail.stages.findIndex((stage) => stage.id === targetStageId);
-    if (sourceIndex < 0 || targetIndex < 0) {
-      setDragStageId(null);
-      return;
-    }
-
-    const next = [...detail.stages];
-    const [source] = next.splice(sourceIndex, 1);
-    next.splice(targetIndex, 0, source);
-    setDragStageId(null);
-
-    for (let index = 0; index < next.length; index++) {
-      if (next[index].order_index === index) continue;
-      const result = await updateStage(next[index].id, { order_index: index });
-      if (result.error) {
-        toast.error(result.error);
-        return;
-      }
-    }
+    await refetch();
   }
 
-  function getStageDropTargetId(clientX: number, clientY: number) {
-    return document
-      .elementsFromPoint(clientX, clientY)
-      .map((element) => element instanceof HTMLElement ? element.closest<HTMLElement>("[data-onboarding-stage-id]") : null)
-      .find(Boolean)
-      ?.dataset.onboardingStageId ?? null;
+  async function moveStage(stageIndex: number, direction: -1 | 1) {
+    const ids = getCurrentStageIds();
+    if (!ids) return;
+    const targetIndex = stageIndex + direction;
+    if (targetIndex < 0 || targetIndex >= ids.length) return;
+    await persistStageOrder(arrayMove(ids, stageIndex, targetIndex));
   }
 
-  function finishStageHandleDrag(stageIndex: number, stageId: string, clientX: number, clientY: number) {
-    if (dragStartY === null) return;
-    const deltaY = clientY - dragStartY;
-    setDragStartY(null);
+  function handleStageDragStart(event: DragStartEvent) {
+    setActiveStageId(String(event.active.id));
+  }
 
-    const targetStageId = getStageDropTargetId(clientX, clientY);
-    if (targetStageId && targetStageId !== stageId) {
-      void reorderStageByDrop(targetStageId);
-      return;
-    }
+  function handleStageDragEnd(event: DragEndEvent) {
+    const ids = getCurrentStageIds();
+    setActiveStageId(null);
+    if (!ids || !event.over || event.active.id === event.over.id) return;
 
-    setDragStageId(null);
+    const oldIndex = ids.indexOf(String(event.active.id));
+    const newIndex = ids.indexOf(String(event.over.id));
+    if (oldIndex < 0 || newIndex < 0) return;
 
-    if (deltaY < -18) void moveStage(stageIndex, -1);
-    if (deltaY > 18) void moveStage(stageIndex, 1);
+    void persistStageOrder(arrayMove(ids, oldIndex, newIndex));
+  }
+
+  function handleStageDragCancel() {
+    setActiveStageId(null);
   }
 
   async function moveTask(stageId: string, taskIndex: number, direction: -1 | 1) {
@@ -169,6 +197,13 @@ export default function OnboardingTemplateBuilderPage() {
     const second = await updateTask(target.id, { order_index: current.order_index });
     if (second.error) toast.error(second.error);
   }
+
+  const orderedStageIds = getCurrentStageIds() ?? [];
+  const stageById = new Map(detail.stages.map((stage) => [stage.id, stage]));
+  const orderedStages = orderedStageIds
+    .map((stageId) => stageById.get(stageId))
+    .filter((stage): stage is NonNullable<typeof stage> => Boolean(stage));
+  const activeStage = activeStageId ? stageById.get(activeStageId) : null;
 
   return (
     <div className="flex flex-col gap-6 px-4 pb-24 pt-4 sm:px-6">
@@ -202,158 +237,166 @@ export default function OnboardingTemplateBuilderPage() {
         </label>
       </div>
 
-      <div className="flex flex-col gap-4">
-        {detail.stages.map((stage, stageIdx) => (
-          <div
-            key={stage.id}
-            data-onboarding-stage-id={stage.id}
-            className="lc-card p-4 transition-opacity"
-            style={{ opacity: dragStageId === stage.id ? 0.55 : 1 }}
-          >
-            <div className="mb-3 flex flex-wrap items-center gap-2">
-              <button
-                onPointerDown={(event) => {
-                  event.preventDefault();
-                  setDragStageId(stage.id);
-                  setDragStartY(event.clientY);
-                  event.currentTarget.setPointerCapture(event.pointerId);
-                }}
-                onPointerUp={(event) => {
-                  if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-                    event.currentTarget.releasePointerCapture(event.pointerId);
-                  }
-                  finishStageHandleDrag(stageIdx, stage.id, event.clientX, event.clientY);
-                }}
-                onPointerCancel={() => {
-                  setDragStartY(null);
-                  setDragStageId(null);
-                }}
-                className="cursor-grab touch-none select-none rounded p-1 active:cursor-grabbing"
-                aria-label="Arrastar etapa para reordenar"
-                title="Arrastar etapa"
-              >
-                <GripVertical size={14} style={{ color: "var(--muted-foreground)" }} />
-              </button>
-              <span className="text-xs font-semibold" style={{ color: "var(--muted-foreground)" }}>{stageIdx + 1}.</span>
-              <input
-                defaultValue={stage.name}
-                onBlur={(e) => { if (e.target.value.trim() && e.target.value !== stage.name) void updateStage(stage.id, { name: e.target.value.trim() }); }}
-                className="flex-1 min-w-[140px] bg-transparent text-sm font-semibold outline-none"
-                style={{ color: "var(--text-title)" }}
-              />
-              <div className="flex items-center gap-1">
-                {COLOR_SWATCHES.map((c) => (
-                  <button
-                    key={c}
-                    onClick={() => void updateStage(stage.id, { color: c })}
-                    className="h-4 w-4 rounded-full transition-transform"
-                    style={{ background: c, transform: stage.color === c ? "scale(1.25)" : "scale(1)" }}
-                  />
-                ))}
-              </div>
-              <div className="flex items-center gap-1 text-xs" style={{ color: "var(--muted-foreground)" }}>
-                <span>Prazo: dia</span>
-                <input
-                  type="number"
-                  min={0}
-                  defaultValue={stage.relative_due_days}
-                  onBlur={(e) => { const v = Number(e.target.value); if (!Number.isNaN(v) && v !== stage.relative_due_days) void updateStage(stage.id, { relative_due_days: v }); }}
-                  className="w-14 rounded px-1.5 py-0.5 text-xs outline-none"
-                  style={{ background: "var(--hover)", border: "1px solid var(--glass-border)", color: "var(--text-title)" }}
-                />
-              </div>
-              <div className="flex items-center gap-0.5">
-                <button
-                  onClick={() => void moveStage(stageIdx, -1)}
-                  disabled={stageIdx === 0}
-                  className="rounded p-1 disabled:opacity-30"
-                  aria-label="Mover etapa para cima"
-                >
-                  <ChevronUp size={14} style={{ color: "var(--muted-foreground)" }} />
-                </button>
-                <button
-                  onClick={() => void moveStage(stageIdx, 1)}
-                  disabled={stageIdx === detail.stages.length - 1}
-                  className="rounded p-1 disabled:opacity-30"
-                  aria-label="Mover etapa para baixo"
-                >
-                  <ChevronDown size={14} style={{ color: "var(--muted-foreground)" }} />
-                </button>
-              </div>
-              <button
-                onClick={() => setStageDelete({ id: stage.id, name: stage.name })}
-                className="rounded p-1 hover:bg-red-500/10"
-                aria-label="Excluir etapa"
-              >
-                <X size={14} style={{ color: "#e05c5c" }} />
-              </button>
-            </div>
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragStart={handleStageDragStart}
+        onDragEnd={handleStageDragEnd}
+        onDragCancel={handleStageDragCancel}
+      >
+        <SortableContext items={orderedStageIds} strategy={verticalListSortingStrategy}>
+          <div className="flex flex-col gap-4">
+            {orderedStages.map((stage, stageIdx) => (
+              <SortableStageCard key={stage.id} id={stage.id}>
+                {({ attributes, listeners, setActivatorNodeRef }) => (
+                  <>
+                    <div className="mb-3 flex flex-wrap items-center gap-2">
+                      <button
+                        ref={setActivatorNodeRef}
+                        className="cursor-grab touch-none select-none rounded p-1 active:cursor-grabbing"
+                        aria-label="Arrastar etapa para reordenar"
+                        title="Arrastar etapa"
+                        {...attributes}
+                        {...listeners}
+                      >
+                        <GripVertical size={14} style={{ color: "var(--muted-foreground)" }} />
+                      </button>
+                      <span className="text-xs font-semibold" style={{ color: "var(--muted-foreground)" }}>{stageIdx + 1}.</span>
+                      <input
+                        defaultValue={stage.name}
+                        onBlur={(e) => { if (e.target.value.trim() && e.target.value !== stage.name) void updateStage(stage.id, { name: e.target.value.trim() }); }}
+                        className="flex-1 min-w-[140px] bg-transparent text-sm font-semibold outline-none"
+                        style={{ color: "var(--text-title)" }}
+                      />
+                      <div className="flex items-center gap-1">
+                        {COLOR_SWATCHES.map((c) => (
+                          <button
+                            key={c}
+                            onClick={() => void updateStage(stage.id, { color: c })}
+                            className="h-4 w-4 rounded-full transition-transform"
+                            style={{ background: c, transform: stage.color === c ? "scale(1.25)" : "scale(1)" }}
+                          />
+                        ))}
+                      </div>
+                      <div className="flex items-center gap-1 text-xs" style={{ color: "var(--muted-foreground)" }}>
+                        <span>Prazo: dia</span>
+                        <input
+                          type="number"
+                          min={0}
+                          defaultValue={stage.relative_due_days}
+                          onBlur={(e) => { const v = Number(e.target.value); if (!Number.isNaN(v) && v !== stage.relative_due_days) void updateStage(stage.id, { relative_due_days: v }); }}
+                          className="w-14 rounded px-1.5 py-0.5 text-xs outline-none"
+                          style={{ background: "var(--hover)", border: "1px solid var(--glass-border)", color: "var(--text-title)" }}
+                        />
+                      </div>
+                      <div className="flex items-center gap-0.5">
+                        <button
+                          onClick={() => void moveStage(stageIdx, -1)}
+                          disabled={stageIdx === 0}
+                          className="rounded p-1 disabled:opacity-30"
+                          aria-label="Mover etapa para cima"
+                        >
+                          <ChevronUp size={14} style={{ color: "var(--muted-foreground)" }} />
+                        </button>
+                        <button
+                          onClick={() => void moveStage(stageIdx, 1)}
+                          disabled={stageIdx === orderedStages.length - 1}
+                          className="rounded p-1 disabled:opacity-30"
+                          aria-label="Mover etapa para baixo"
+                        >
+                          <ChevronDown size={14} style={{ color: "var(--muted-foreground)" }} />
+                        </button>
+                      </div>
+                      <button
+                        onClick={() => setStageDelete({ id: stage.id, name: stage.name })}
+                        className="rounded p-1 hover:bg-red-500/10"
+                        aria-label="Excluir etapa"
+                      >
+                        <X size={14} style={{ color: "#e05c5c" }} />
+                      </button>
+                    </div>
 
-            <div className="flex flex-col gap-1.5">
-              {stage.tasks.map((task, taskIdx) => (
-                <div
-                  key={task.id}
-                  className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left hover:bg-[var(--hover)]"
-                >
-                  <button
-                    onClick={() => setTaskModal({ stageId: stage.id, task })}
-                    className="flex min-w-0 flex-1 items-center gap-2 text-left"
-                  >
-                    <span className="flex-1 truncate text-sm" style={{ color: "var(--text-title)" }}>{task.title}</span>
-                    {task.assignee_name && (
-                      <span className="rounded-full px-2 py-0.5 text-[10px]" style={{ background: "var(--hover)", color: "var(--muted-foreground)" }}>
-                        {task.assignee_name}
-                      </span>
-                    )}
-                    <PriorityBadge priority={task.priority} />
-                    {(task.depends_on_task_ids?.length ?? 0) > 0 && (
-                      <span className="flex items-center gap-0.5 text-[10px]" style={{ color: "var(--muted-foreground)" }}>
-                        <FolderInput size={11} />{task.depends_on_task_ids!.length}
-                      </span>
-                    )}
-                  </button>
-                  <div className="flex items-center gap-0.5">
+                    <div className="flex flex-col gap-1.5">
+                      {stage.tasks.map((task, taskIdx) => (
+                        <div
+                          key={task.id}
+                          className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left hover:bg-[var(--hover)]"
+                        >
+                          <button
+                            onClick={() => setTaskModal({ stageId: stage.id, task })}
+                            className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                          >
+                            <span className="flex-1 truncate text-sm" style={{ color: "var(--text-title)" }}>{task.title}</span>
+                            {task.assignee_name && (
+                              <span className="rounded-full px-2 py-0.5 text-[10px]" style={{ background: "var(--hover)", color: "var(--muted-foreground)" }}>
+                                {task.assignee_name}
+                              </span>
+                            )}
+                            <PriorityBadge priority={task.priority} />
+                            {(task.depends_on_task_ids?.length ?? 0) > 0 && (
+                              <span className="flex items-center gap-0.5 text-[10px]" style={{ color: "var(--muted-foreground)" }}>
+                                <FolderInput size={11} />{task.depends_on_task_ids!.length}
+                              </span>
+                            )}
+                          </button>
+                          <div className="flex items-center gap-0.5">
+                            <button
+                              onClick={() => void moveTask(stage.id, taskIdx, -1)}
+                              disabled={taskIdx === 0}
+                              className="rounded p-1 disabled:opacity-30"
+                              aria-label="Mover tarefa para cima"
+                            >
+                              <ChevronUp size={13} style={{ color: "var(--muted-foreground)" }} />
+                            </button>
+                            <button
+                              onClick={() => void moveTask(stage.id, taskIdx, 1)}
+                              disabled={taskIdx === stage.tasks.length - 1}
+                              className="rounded p-1 disabled:opacity-30"
+                              aria-label="Mover tarefa para baixo"
+                            >
+                              <ChevronDown size={13} style={{ color: "var(--muted-foreground)" }} />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
                     <button
-                      onClick={() => void moveTask(stage.id, taskIdx, -1)}
-                      disabled={taskIdx === 0}
-                      className="rounded p-1 disabled:opacity-30"
-                      aria-label="Mover tarefa para cima"
+                      onClick={() => setTaskModal({ stageId: stage.id, task: null })}
+                      className="mt-2 flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs"
+                      style={{ color: "var(--muted-foreground)" }}
                     >
-                      <ChevronUp size={13} style={{ color: "var(--muted-foreground)" }} />
+                      <Plus size={13} />
+                      Nova tarefa
                     </button>
-                    <button
-                      onClick={() => void moveTask(stage.id, taskIdx, 1)}
-                      disabled={taskIdx === stage.tasks.length - 1}
-                      className="rounded p-1 disabled:opacity-30"
-                      aria-label="Mover tarefa para baixo"
-                    >
-                      <ChevronDown size={13} style={{ color: "var(--muted-foreground)" }} />
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
+                  </>
+                )}
+              </SortableStageCard>
+            ))}
 
             <button
-              onClick={() => setTaskModal({ stageId: stage.id, task: null })}
-              className="mt-2 flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs"
-              style={{ color: "var(--muted-foreground)" }}
+              onClick={handleAddStage}
+              className="flex items-center justify-center gap-2 rounded-2xl py-3 text-sm"
+              style={{ border: "1px dashed var(--glass-border)", color: "var(--muted-foreground)" }}
             >
-              <Plus size={13} />
-              Nova tarefa
+              <Plus size={15} />
+              Nova etapa
             </button>
           </div>
-        ))}
+        </SortableContext>
 
-        <button
-          onClick={handleAddStage}
-          className="flex items-center justify-center gap-2 rounded-2xl py-3 text-sm"
-          style={{ border: "1px dashed var(--glass-border)", color: "var(--muted-foreground)" }}
-        >
-          <Plus size={15} />
-          Nova etapa
-        </button>
-      </div>
+        <DragOverlay dropAnimation={{ duration: 180, easing: "ease" }}>
+          {activeStage ? (
+            <div style={{ transform: "rotate(1deg)" }}>
+              <StageDragOverlayPreview
+                title={activeStage.name}
+                meta={`${activeStage.tasks.length} tarefa${activeStage.tasks.length === 1 ? "" : "s"}`}
+                color={activeStage.color}
+              />
+            </div>
+          ) : null}
+        </DragOverlay>
+      </DndContext>
 
       {taskModal && (
         <TemplateTaskModal
