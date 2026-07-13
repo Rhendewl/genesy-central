@@ -2,7 +2,8 @@
 
 import { motion } from "framer-motion";
 import { Check } from "lucide-react";
-import { progressColor, progressColorDark } from "@/lib/progress-color";
+import { progressColor, progressGradientFrom } from "@/lib/progress-color";
+import { useGlobalStore } from "@/store";
 
 // Anel de progresso circular ("activity ring") — versão mais gamificada do
 // ProgressBar, usada nos cards de Objetivos. Ao chegar em 100%, o anel muda
@@ -15,13 +16,14 @@ interface ProgressRingProps {
 }
 
 export function ProgressRing({ percent, size = 56, strokeWidth = 5 }: ProgressRingProps) {
+  const theme = useGlobalStore(s => s.theme);
   const clamped   = Math.max(0, Math.min(100, Math.round(percent)));
   const isComplete = clamped >= 100;
   const radius    = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   const offset    = circumference * (1 - clamped / 100);
   const gradientId = `progress-ring-grad-${size}-${strokeWidth}`;
-  const fromColor = progressColorDark(clamped);
+  const fromColor = progressGradientFrom(clamped, theme);
   const toColor   = progressColor(clamped);
 
   return (
