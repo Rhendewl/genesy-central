@@ -7,7 +7,7 @@ import { Header } from "@/components/layout/Header";
 import { Switch } from "@/components/ui/Switch";
 import { useTaskNotificationPreferences } from "@/hooks/useTaskNotificationPreferences";
 import { ensurePushSubscription } from "@/lib/notifications/push-client";
-import { REMINDER_ADVANCE_OPTIONS } from "@/types/workspace-notifications";
+import { REMINDER_ADVANCE_OPTIONS, type UpdateTaskNotificationPreferences } from "@/types/workspace-notifications";
 
 interface PreferenceRowProps {
   label:       string;
@@ -31,23 +31,49 @@ function PreferenceRow({ label, description, checked, onChange }: PreferenceRowP
 export default function WorkspaceNotificationSettingsPage() {
   const { preferences, isLoading, save } = useTaskNotificationPreferences();
   const [isTestingPush, setIsTestingPush] = useState(false);
+  const [isEnablingPush, setIsEnablingPush] = useState(false);
+
+  async function ensureDeviceCanReceivePush(): Promise<boolean> {
+    const subscription = await ensurePushSubscription({ requestPermission: true });
+    if (!subscription) {
+      toast.error("Permissão de notificação não concedida neste dispositivo.");
+      return false;
+    }
+    return true;
+  }
+
+  async function savePreference(patch: UpdateTaskNotificationPreferences) {
+    const enablingPush = Object.values(patch).some((value) => value === true);
+    if (enablingPush) {
+      setIsEnablingPush(true);
+      try {
+        const ok = await ensureDeviceCanReceivePush();
+        if (!ok) return;
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Erro ao ativar notificações neste dispositivo");
+        return;
+      } finally {
+        setIsEnablingPush(false);
+      }
+    }
+
+    const result = await save(patch);
+    if (result.error) toast.error(result.error);
+  }
 
   function toggleAdvanceDay(day: number) {
     if (!preferences) return;
     const next = preferences.reminder_advance_days.includes(day)
       ? preferences.reminder_advance_days.filter((d) => d !== day)
       : [...preferences.reminder_advance_days, day];
-    void save({ reminder_advance_days: next });
+    void savePreference({ reminder_advance_days: next });
   }
 
   async function handleTestNotification() {
     setIsTestingPush(true);
     try {
-      const subscription = await ensurePushSubscription({ requestPermission: true });
-      if (!subscription) {
-        toast.error("Permissão de notificação não concedida neste dispositivo.");
-        return;
-      }
+      const ok = await ensureDeviceCanReceivePush();
+      if (!ok) return;
 
       const res = await fetch("/api/workspace/notifications/test", { method: "POST" });
       const json = await res.json().catch(() => ({})) as { error?: string };
@@ -95,19 +121,19 @@ export default function WorkspaceNotificationSettingsPage() {
                 label="Atribuição"
                 description="Quando uma tarefa for atribuída para mim"
                 checked={preferences.notify_on_assignment}
-                onChange={(v) => save({ notify_on_assignment: v })}
+                onChange={(v) => void savePreference({ notify_on_assignment: v })}
               />
               <PreferenceRow
                 label="Mudança de etapa"
                 description="Quando uma tarefa minha mudar de coluna no Kanban"
                 checked={preferences.notify_on_status_change}
-                onChange={(v) => save({ notify_on_status_change: v })}
+                onChange={(v) => void savePreference({ notify_on_status_change: v })}
               />
               <PreferenceRow
                 label="Conclusão"
                 description="Quando uma tarefa minha for concluída"
                 checked={preferences.notify_on_completion}
-                onChange={(v) => save({ notify_on_completion: v })}
+                onChange={(v) => void savePreference({ notify_on_completion: v })}
               />
             </div>
           </div>
@@ -120,7 +146,7 @@ export default function WorkspaceNotificationSettingsPage() {
               label="Ativar lembretes de prazo"
               description="Receber avisos sobre tarefas próximas do vencimento"
               checked={preferences.notify_deadline_reminder}
-              onChange={(v) => save({ notify_deadline_reminder: v })}
+              onChange={(v) => void savePreference({ notify_deadline_reminder: v })}
             />
 
             {preferences.notify_deadline_reminder && (
@@ -132,8 +158,9 @@ export default function WorkspaceNotificationSettingsPage() {
                   <input
                     type="time"
                     value={preferences.reminder_time.slice(0, 5)}
-                    onChange={(e) => save({ reminder_time: e.target.value })}
+                    onChange={(e) => void savePreference({ reminder_time: e.target.value })}
                     className="h-9 rounded-lg border border-[var(--border)] bg-transparent px-2.5 text-sm outline-none"
+                    disabled={isEnablingPush}
                     style={{ color: "var(--text-title)" }}
                   />
                 </div>

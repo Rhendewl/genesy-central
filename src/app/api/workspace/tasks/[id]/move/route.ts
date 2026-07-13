@@ -79,7 +79,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 
       const assigneeIds = (assigneeRows ?? []).map((r) => r.assignee_id);
       if (assigneeIds.length > 0) {
-        getPlatformEventBus().publish(body.status === "concluido" ? "task.completed" : "task.status_changed", {
+        await getPlatformEventBus().publish(body.status === "concluido" ? "task.completed" : "task.status_changed", {
           taskId:      id,
           taskTitle:   before.title,
           assigneeIds,

@@ -4,6 +4,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
+import { getPlatformEventBus } from "@/lib/event-bus/platform";
 import { recordHistory } from "@/lib/onboarding/sync";
 import type {
   UpdateWorkspaceTask, WorkspaceTask, WorkspaceTaskDetail,
@@ -60,17 +61,30 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   }
 
   try {
-    const { data, error } = await supabase
-      .from("workspace_tasks")
-      .update(patch)
-      .eq("id", id)
-      .select("*")
-      .single();
+    const [{ data: beforeTask, error: beforeTaskError }, { data: beforeAssigneesData, error: beforeAssigneesError }] = await Promise.all([
+      supabase.from("workspace_tasks").select("*").eq("id", id).maybeSingle(),
+      supabase.from("workspace_task_assignees").select("assignee_id").eq("task_id", id),
+    ]);
+    if (beforeTaskError) throw new Error(beforeTaskError.message);
+    if (beforeAssigneesError) throw new Error(beforeAssigneesError.message);
+    if (!beforeTask) return NextResponse.json({ error: "Tarefa não encontrada" }, { status: 404 });
 
-    if (error) throw new Error(error.message);
+    let data = beforeTask;
+    if (Object.keys(patch).length > 0) {
+      const { data: updated, error } = await supabase
+        .from("workspace_tasks")
+        .update(patch)
+        .eq("id", id)
+        .select("*")
+        .single();
+
+      if (error) throw new Error(error.message);
+      data = updated;
+    }
 
     let assigneeIds: string[];
     if (body.assignee_ids) {
+      const previousAssigneeIds = (beforeAssigneesData ?? []).map((a) => a.assignee_id);
       assigneeIds = body.assignee_ids;
       const { error: deleteError } = await supabase.from("workspace_task_assignees").delete().eq("task_id", id);
       if (deleteError) throw new Error(deleteError.message);
@@ -80,12 +94,20 @@ export async function PATCH(req: NextRequest, { params }: Params) {
           .insert(assigneeIds.map((assignee_id) => ({ task_id: id, assignee_id })));
         if (insertError) throw new Error(insertError.message);
       }
+
+      const newAssigneeIds = assigneeIds.filter((assigneeId) => !previousAssigneeIds.includes(assigneeId));
+      if (newAssigneeIds.length > 0) {
+        await getPlatformEventBus().publish("task.assigned", {
+          taskId:      data.id,
+          taskTitle:   data.title,
+          assigneeIds: newAssigneeIds,
+          actorUserId: user.id,
+          priority:    data.priority,
+          dueDate:     data.due_date,
+        });
+      }
     } else {
-      const { data: assigneesData } = await supabase
-        .from("workspace_task_assignees")
-        .select("assignee_id")
-        .eq("task_id", id);
-      assigneeIds = (assigneesData ?? []).map((a) => a.assignee_id);
+      assigneeIds = (beforeAssigneesData ?? []).map((a) => a.assignee_id);
     }
 
     return NextResponse.json({ task: { ...data, assignee_ids: assigneeIds } as WorkspaceTask });

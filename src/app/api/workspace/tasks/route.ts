@@ -146,7 +146,7 @@ export async function POST(req: NextRequest) {
         .insert(assigneeIds.map((assignee_id) => ({ task_id: data.id, assignee_id })));
       if (assigneesError) throw new Error(assigneesError.message);
 
-      getPlatformEventBus().publish("task.assigned", {
+      await getPlatformEventBus().publish("task.assigned", {
         taskId:      data.id,
         taskTitle:   data.title,
         assigneeIds,
