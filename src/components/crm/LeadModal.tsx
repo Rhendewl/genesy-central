@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useModalOpen } from "@/hooks/useModalOpen";
 import { AnimatePresence, motion } from "framer-motion";
 import { X, Loader2, Trash2, Tag as TagIcon, RefreshCw } from "lucide-react";
@@ -101,9 +102,14 @@ export function LeadModal({
   const [transferNote,       setTransferNote]       = useState("");
   const [transferNeedsNote,  setTransferNeedsNote]  = useState(false);
   const [isTransferring,     setIsTransferring]     = useState(false);
+  const [mounted, setMounted] = useState(false);
 
   useModalOpen(isOpen);
   const isEditing = lead !== null;
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // ── Preenche formulário ao abrir ───────────────────────────────────────────
 
@@ -310,7 +316,7 @@ export function LeadModal({
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
-  return (
+  const modal = (
     <AnimatePresence>
       {isOpen && (
         <>
@@ -699,4 +705,8 @@ export function LeadModal({
       )}
     </AnimatePresence>
   );
+
+  if (!mounted) return null;
+
+  return createPortal(modal, document.body);
 }

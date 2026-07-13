@@ -32,14 +32,10 @@ export function progressColor(percent: number): string {
 }
 
 // Ponta inicial do gradiente — mesma cor da ponta, só que puxada pra uma base
-// neutra, pro efeito de profundidade em vez de uma cor sólida chapada.
-// Dark: escurecida (mistura com preto). Light: clareada (mistura com branco)
-// — escurecer no tema claro deixa a barra pesada/suja sobre o card branco.
-export function progressGradientFrom(percent: number, theme: "dark" | "light" = "dark"): string {
+// escura, mantendo o verde premium consistente no modo claro e escuro.
+export function progressGradientFrom(percent: number, _theme: "dark" | "light" = "dark"): string {
   const color = progressColor(percent);
-  return theme === "light"
-    ? `color-mix(in srgb, ${color} 28%, white)`
-    : `color-mix(in srgb, ${color} 55%, black)`;
+  return `color-mix(in srgb, ${color} 55%, black)`;
 }
 
 export function progressBandColor(percent: number): string {

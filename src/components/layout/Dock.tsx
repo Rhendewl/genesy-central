@@ -295,12 +295,18 @@ export function Dock() {
         }}
       >
         <div className="flex items-center justify-center pt-5 pb-4 shrink-0">
-          <img
-            src="/g-cinza.svg"
-            alt="Lancaster"
-            style={{ width: 26, height: "auto", opacity: 0.75 }}
-            draggable={false}
-          />
+          <Link
+            href="/"
+            aria-label="Ir para o dashboard geral"
+            className="flex h-9 w-9 items-center justify-center rounded-full transition-colors hover:bg-[var(--hover)] focus:bg-[var(--hover)] focus:outline-none focus:ring-1 focus:ring-[var(--glass-border)]"
+          >
+            <img
+              src="/g-cinza.svg"
+              alt="Genesy"
+              style={{ width: 26, height: "auto", opacity: 0.75 }}
+              draggable={false}
+            />
+          </Link>
         </div>
 
         <div style={{ width: 28, height: 1, background: "var(--glass-border)", flexShrink: 0 }} />
