@@ -10,6 +10,7 @@ import { motion } from "framer-motion";
 import { toast } from "sonner";
 import { TaskColumn } from "./TaskColumn";
 import { TaskCard } from "./TaskCard";
+import { TaskTrashDropZone, WORKSPACE_TASK_TRASH_ID } from "./TaskTrashDropZone";
 import { WORKSPACE_TASK_STATUSES, type WorkspaceTaskStatus } from "@/types/workspace";
 import type { useWorkspaceTasks } from "@/hooks/useWorkspaceTasks";
 
@@ -19,7 +20,7 @@ interface TaskBoardProps {
 }
 
 export function TaskBoard({ tasksHook, onOpenTask }: TaskBoardProps) {
-  const { tasksByStatus, getTaskById, moveTask } = tasksHook;
+  const { tasksByStatus, getTaskById, moveTask, deleteTask } = tasksHook;
   const [activeId, setActiveId] = useState<string | null>(null);
 
   const sensors = useSensors(
@@ -42,6 +43,13 @@ export function TaskBoard({ tasksHook, onOpenTask }: TaskBoardProps) {
       if (!draggedTask) return;
 
       const overId = over.id as string;
+      if (overId === WORKSPACE_TASK_TRASH_ID) {
+        const result = await deleteTask(taskId);
+        if (result.error) toast.error(result.error);
+        else toast.success("Tarefa descartada");
+        return;
+      }
+
       const isStatusId = WORKSPACE_TASK_STATUSES.some((s) => s.id === overId);
 
       let targetStatus: WorkspaceTaskStatus;
@@ -72,7 +80,7 @@ export function TaskBoard({ tasksHook, onOpenTask }: TaskBoardProps) {
       const result = await moveTask(taskId, targetStatus, orderedIds);
       if (result.error) toast.error(result.error);
     },
-    [getTaskById, tasksByStatus, moveTask]
+    [deleteTask, getTaskById, tasksByStatus, moveTask]
   );
 
   const handleDragCancel = useCallback(() => setActiveId(null), []);
@@ -88,7 +96,7 @@ export function TaskBoard({ tasksHook, onOpenTask }: TaskBoardProps) {
       onDragCancel={handleDragCancel}
     >
       <div
-        className="flex gap-4 overflow-x-auto pb-4"
+        className="flex items-start gap-4 overflow-x-auto pb-4"
         style={{ scrollSnapType: "x mandatory", WebkitOverflowScrolling: "touch" }}
       >
         {WORKSPACE_TASK_STATUSES.map((s, i) => (
@@ -108,6 +116,8 @@ export function TaskBoard({ tasksHook, onOpenTask }: TaskBoardProps) {
             />
           </motion.div>
         ))}
+
+        <TaskTrashDropZone />
       </div>
 
       <DragOverlay dropAnimation={{ duration: 200, easing: "ease" }}>
