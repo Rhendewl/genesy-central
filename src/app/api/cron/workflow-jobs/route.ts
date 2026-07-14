@@ -18,8 +18,11 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
-  const secret = req.headers.get("x-cron-secret");
-  if (!secret || secret !== process.env.CRON_SECRET) {
+  const headerSecret = req.headers.get("x-cron-secret");
+  const bearerSecret = req.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ?? null;
+  const expectedSecret = process.env.CRON_SECRET;
+
+  if (!expectedSecret || (headerSecret !== expectedSecret && bearerSecret !== expectedSecret)) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
