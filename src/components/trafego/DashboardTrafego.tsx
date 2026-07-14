@@ -97,15 +97,16 @@ function TrendBadge({
   const tooltip = metricType === "cost"
     ? `Comparado ao período anterior — ${isImprovement ? "redução no custo = melhora de performance" : "aumento no custo = perda de eficiência"}`
     : `Comparado ao período anterior`;
+  const sign = change > 0 ? "+" : "-";
 
   return (
     <span
-      className="flex items-center gap-0.5 text-[10px] font-semibold px-2 py-0.5 rounded-full cursor-default"
+      className="flex w-fit items-center gap-0.5 rounded-full px-2 py-0.5 text-[10px] font-semibold cursor-default"
       style={{ color, background: bgColor }}
       title={tooltip}
     >
       {change < 0 ? <TrendingDown size={9} /> : <TrendingUp size={9} />}
-      {Math.abs(change).toFixed(1)}%
+      {sign}{Math.abs(change).toFixed(1)}%
       <span className="opacity-70 ml-0.5 hidden sm:inline">· {label}</span>
     </span>
   );
@@ -199,16 +200,23 @@ function KpiCardPremium({
       <div className="absolute -top-6 -left-6 w-20 h-20 rounded-full blur-2xl pointer-events-none"
         style={{ background: `${accent}18` }} />
 
-      <div className="flex items-start justify-between mb-2 relative">
-        <div className="flex items-center gap-2.5">
+      <div className="mb-2 flex items-start gap-2.5 relative">
           <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
             style={{ background: `${accent}18`, border: `1px solid ${accent}25` }}>
             <div style={{ color: accent }}>{icon}</div>
           </div>
-          <p className="text-[10px] font-semibold uppercase tracking-widest"
-            style={{ color: "var(--muted-foreground)" }}>{title}</p>
+        <div className="min-w-0 flex-1">
+          <TrendBadge change={change ?? null} metricType={metricType} />
+          <p
+            className={cn(
+              "font-semibold uppercase tracking-widest",
+              change !== undefined && change !== null ? "mt-1 text-[10px]" : "text-[10px]",
+            )}
+            style={{ color: "var(--muted-foreground)" }}
+          >
+            {title}
+          </p>
         </div>
-        <TrendBadge change={change ?? null} metricType={metricType} />
       </div>
 
       <p className="text-[28px] font-bold text-[var(--text-title)] leading-none tracking-tight">{value}</p>
@@ -412,8 +420,8 @@ function FunnelStep({
             animate={{ width: `${step.fillPct}%` }}
             transition={{ duration: 0.75, delay: 0.45 + index * 0.09, ease: [0.22, 1, 0.36, 1] }}
             style={{
-              background: "linear-gradient(90deg, #e6ebef 0%, #cfd5dc 100%)",
-              borderRight: "1px solid rgba(176,184,193,0.55)",
+              background: `var(--trafego-funnel-fill-${Math.min(index, 3)})`,
+              borderRight: "1px solid var(--trafego-funnel-fill-border)",
             }}
           />
           {/* Subtle glow on hover */}

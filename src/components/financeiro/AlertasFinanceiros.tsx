@@ -16,6 +16,7 @@ const fmt = (v: number) =>
 
 const SEVERITY_CONFIG: Record<AlertSeverity, {
   label: string;
+  color: string;
   containerClass: string;
   iconBg: string;
   iconColor: string;
@@ -23,6 +24,7 @@ const SEVERITY_CONFIG: Record<AlertSeverity, {
 }> = {
   critical: {
     label: "Crítico",
+    color: "#ef4444",
     containerClass: "border-red-400/30 bg-red-400/[0.04]",
     iconBg: "bg-red-400/15",
     iconColor: "text-red-400",
@@ -30,6 +32,7 @@ const SEVERITY_CONFIG: Record<AlertSeverity, {
   },
   warning: {
     label: "Atenção",
+    color: "#f59e0b",
     containerClass: "border-amber-400/25 bg-amber-400/[0.03]",
     iconBg: "bg-amber-400/15",
     iconColor: "text-amber-400",
@@ -37,6 +40,7 @@ const SEVERITY_CONFIG: Record<AlertSeverity, {
   },
   info: {
     label: "Informação",
+    color: "#4a8fd4",
     containerClass: "border-[color-mix(in_srgb,var(--text-title)_10%,transparent)] bg-[color-mix(in_srgb,var(--text-title)_2%,transparent)]",
     iconBg: "bg-[#4a8fd4]/15",
     iconColor: "text-[#4a8fd4]",
@@ -67,7 +71,11 @@ function AlertCard({ alert, delay = 0 }: AlertCardProps) {
       initial={{ opacity: 0, x: -12 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ delay }}
-      className={cn("rounded-2xl border p-5 flex items-start gap-4", sc.containerClass)}
+      className={cn("financial-alert-card rounded-2xl border p-5 flex items-start gap-4", sc.containerClass)}
+      style={{
+        background:  `color-mix(in srgb, var(--glass-bg) 84%, ${sc.color} 16%)`,
+        borderColor: `color-mix(in srgb, ${sc.color} 35%, var(--glass-border))`,
+      }}
     >
       <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center shrink-0", sc.iconBg)}>
         <span className={sc.iconColor}>{ALERT_ICONS[alert.type] ?? <Bell size={18} />}</span>

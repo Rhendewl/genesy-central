@@ -10,12 +10,7 @@ import { AutomationList } from "./AutomationList";
 import { AutomationFormModal } from "./AutomationFormModal";
 import { WorkflowDashboardCards } from "./WorkflowDashboardCards";
 import { ExecutionHistoryTable } from "./ExecutionHistoryTable";
-
-const SELECT_STYLE: React.CSSProperties = {
-  background: "var(--hover)",
-  border:     "1px solid var(--border)",
-  color:      "var(--text-title)",
-};
+import { AutomationSelect } from "./AutomationSelect";
 
 export function AutomationsAdmin() {
   const { pipelines, isLoading: pipelinesLoading } = usePipelines();
@@ -36,7 +31,7 @@ export function AutomationsAdmin() {
   } = useCrmAutomations(selectedPipelineId);
 
   const {
-    stats, history, historyTotal, statusFilter, setStatusFilter, page, setPage, refetch: refetchDashboard,
+    stats, history, historyTotal, statusFilter, setStatusFilter, page, setPage, refetch: refetchDashboard, clearHistory,
   } = useWorkflowDashboard(selectedPipelineId);
 
   const [isModalOpen,      setIsModalOpen]      = useState(false);
@@ -104,14 +99,12 @@ export function AutomationsAdmin() {
     <div className="px-4 sm:px-6 pt-5 pb-10 flex flex-col gap-4 max-w-2xl">
       {/* Toolbar */}
       <div className="flex items-center justify-between gap-3">
-        <select
+        <AutomationSelect
           value={selectedPipelineId ?? ""}
-          onChange={e => setSelectedPipelineId(e.target.value)}
-          className="rounded-lg px-3 py-1.5 text-sm outline-none"
-          style={SELECT_STYLE}
-        >
-          {activePipelines.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-        </select>
+          onChange={setSelectedPipelineId}
+          className="min-w-[180px]"
+          options={activePipelines.map(p => ({ value: p.id, label: p.name }))}
+        />
         <button
           type="button" onClick={openCreate}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all hover:opacity-90 flex-shrink-0"
@@ -151,6 +144,7 @@ export function AutomationsAdmin() {
         onPageChange={setPage}
         statusFilter={statusFilter}
         onStatusFilterChange={setStatusFilter}
+        onClearHistory={clearHistory}
       />
 
       <AutomationFormModal

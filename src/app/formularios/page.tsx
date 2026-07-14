@@ -59,7 +59,7 @@ function FormCard({
     >
       {/* Topo */}
       <div className="flex items-start justify-between gap-2 mb-3">
-        <NotepadText size={14} style={{ color: "#ffffff" }} />
+        <NotepadText size={14} style={{ color: "var(--text-title)" }} />
         <div className="flex items-center gap-2">
           <span
             className="text-xs font-medium px-2 py-0.5 rounded-full"

@@ -170,4 +170,8 @@ export class WorkflowService {
   async getHistory(params: { automationId?: string; status?: "executada" | "cancelada" | "falhou"; pipelineId?: string; page?: number; pageSize?: number }) {
     return this.repo.listExecutionHistory(params);
   }
+
+  async clearHistory(params: { automationId?: string; pipelineId?: string }) {
+    return this.repo.clearExecutionHistory(params);
+  }
 }

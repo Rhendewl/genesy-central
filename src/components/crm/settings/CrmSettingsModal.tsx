@@ -27,9 +27,8 @@ export function CrmSettingsModal({ pipelineId, pipelineName, stages, onClose }: 
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div
-        className="flex flex-col w-full max-w-2xl rounded-2xl overflow-hidden"
+        className="lc-modal-panel flex flex-col w-full max-w-2xl rounded-2xl overflow-hidden"
         style={{
-          background: "var(--card)",
           border:     "1px solid var(--border)",
           maxHeight:  "90vh",
         }}

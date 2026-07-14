@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useParams } from "next/navigation";
 import {
   Loader2, CheckCircle2, AlertCircle, Tag, X, ChevronDown, Users, Info,
@@ -21,6 +21,7 @@ interface CrmConfig {
   source:         string;
   pipeline_id:    string | null;
   stage_id:       string | null;
+  capture_step_id: string | null;
   owner_id:       string | null;
   owner_name:     string | null;
   tag_ids:        string[];
@@ -34,6 +35,7 @@ const DEFAULT_CONFIG: CrmConfig = {
   source:         "formulario_genesy",
   pipeline_id:    null,
   stage_id:       null,
+  capture_step_id: null,
   owner_id:       null,
   owner_name:     null,
   tag_ids:        [],
@@ -65,7 +67,7 @@ function SectionCard({
   title: string; description?: string; icon?: React.ElementType; children: React.ReactNode;
 }) {
   return (
-    <div className="rounded-xl overflow-hidden" style={{ border: "1px solid var(--border)", background: "var(--card)" }}>
+    <div className="rounded-xl overflow-visible" style={{ border: "1px solid var(--border)", background: "var(--card)" }}>
       <div className="flex items-start gap-3 px-5 py-4" style={{ borderBottom: "1px solid var(--border)" }}>
         {Icon && (
           <div className="mt-0.5 p-1.5 rounded-lg flex-shrink-0" style={{ background: "var(--glass-bg-soft)" }}>
@@ -97,18 +99,81 @@ function SelectField<T extends string>({
 }: {
   value: T; onChange: (v: T) => void; disabled?: boolean; children: React.ReactNode;
 }) {
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const optionLabel = (node: React.ReactNode): string => {
+    if (typeof node === "string" || typeof node === "number") return String(node);
+    if (Array.isArray(node)) return node.map(optionLabel).join("");
+    if (React.isValidElement<{ children?: React.ReactNode }>(node)) return optionLabel(node.props.children);
+    return "";
+  };
+
+  const options = React.Children.toArray(children)
+    .filter((child): child is React.ReactElement<{ value?: string; children?: React.ReactNode; disabled?: boolean }> =>
+      React.isValidElement(child)
+    )
+    .map(child => ({
+      value: String(child.props.value ?? ""),
+      label: optionLabel(child.props.children),
+      disabled: child.props.disabled,
+    }));
+
+  const selected = options.find(opt => opt.value === value);
+
+  useEffect(() => {
+    if (!open) return;
+    function onMouseDown(e: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", onMouseDown);
+    return () => document.removeEventListener("mousedown", onMouseDown);
+  }, [open]);
+
   return (
-    <div className="relative">
-      <select
-        value={value}
-        onChange={e => onChange(e.target.value as T)}
+    <div ref={containerRef} className="relative">
+      <button
+        type="button"
+        onClick={() => !disabled && setOpen(o => !o)}
         disabled={disabled}
-        className="w-full appearance-none rounded-lg px-3 py-2 text-sm outline-none pr-8 disabled:opacity-40"
+        className="w-full rounded-lg px-3 py-2 text-sm outline-none pr-8 disabled:opacity-40 text-left transition-colors"
         style={{ background: "var(--hover)", border: "1px solid var(--border)", color: "var(--text-title)" }}
       >
-        {children}
-      </select>
-      <ChevronDown size={12} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: "var(--muted-foreground)" }} />
+        <span className="block truncate">{selected?.label || "Selecionar..."}</span>
+      </button>
+      <ChevronDown
+        size={12}
+        className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none transition-transform"
+        style={{ color: "var(--muted-foreground)", transform: open ? "translateY(-50%) rotate(180deg)" : "translateY(-50%)" }}
+      />
+
+      {open && (
+        <div className="lc-modal-panel absolute left-0 right-0 top-full z-[200] mt-1.5 max-h-60 overflow-y-auto rounded-xl p-1.5">
+          {options.map(opt => {
+            const isSelected = opt.value === value;
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                disabled={opt.disabled}
+                onClick={() => {
+                  onChange(opt.value as T);
+                  setOpen(false);
+                }}
+                className="w-full rounded-lg px-3 py-2 text-left text-sm transition-colors disabled:opacity-40"
+                style={{
+                  background: isSelected ? "var(--hover)" : "transparent",
+                  color: isSelected ? "var(--text-title)" : "var(--muted-foreground)",
+                }}
+              >
+                {opt.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
@@ -262,6 +327,7 @@ export default function FormularioCrmPage() {
         source:         s.source            ?? DEFAULT_CONFIG.source,
         pipeline_id:    s.pipeline_id       ?? null,
         stage_id:       s.stage_id          ?? null,
+        capture_step_id: s.capture_step_id   ?? null,
         owner_id:       s.owner_id          ?? null,
         owner_name:     s.owner_name        ?? null,
         tag_ids:        s.tag_ids           ?? [],
@@ -278,6 +344,7 @@ export default function FormularioCrmPage() {
   // ── Compatible value steps ─────────────────────────────────────────────────
 
   const valueSteps = (form?.steps ?? []).filter((s: FormStep) => VALUE_STEP_TYPES.has(s.type));
+  const captureSteps = form?.steps ?? [];
 
   // ── Active users ───────────────────────────────────────────────────────────
 
@@ -298,6 +365,7 @@ export default function FormularioCrmPage() {
         source:         config.source,
         pipeline_id:    config.pipeline_id,
         stage_id:       config.stage_id,
+        capture_step_id: config.capture_step_id,
         owner_id:       config.owner_id,
         owner_name:     config.owner_name,
         tag_ids:        config.tag_ids,
@@ -438,7 +506,32 @@ export default function FormularioCrmPage() {
               </FieldRow>
             </SectionCard>
 
-            {/* ── 4. Responsável ───────────────────────────────────────────── */}
+            {/* ── 4. Captura antecipada ────────────────────────────────────── */}
+            <SectionCard
+              title="Captura Antecipada"
+              description="Cria ou atualiza o lead assim que uma pergunta estratégica for respondida, mesmo se o visitante abandonar antes do final."
+              icon={Info}
+            >
+              <FieldRow
+                label="Criar lead ao responder"
+                description="Escolha a pergunta em que os dados de contato já estarão preenchidos. Ao avançar depois dela, o formulário salva uma resposta parcial e direciona o lead para o CRM configurado acima."
+              >
+                <SelectField<string>
+                  value={config.capture_step_id ?? ""}
+                  onChange={v => patch("capture_step_id", v || null)}
+                  disabled={captureSteps.length === 0}
+                >
+                  <option value="" style={{ background: "var(--popover)" }}>Somente no abandono ou envio final</option>
+                  {captureSteps.map((step: FormStep, index: number) => (
+                    <option key={step.id} value={step.id} style={{ background: "var(--popover)" }}>
+                      {index + 1}. {step.title}
+                    </option>
+                  ))}
+                </SelectField>
+              </FieldRow>
+            </SectionCard>
+
+            {/* ── 5. Responsável ───────────────────────────────────────────── */}
             <SectionCard title="Responsável Padrão" description="Usuário responsável pelos leads criados por este formulário." icon={Users}>
               <FieldRow label="Responsável" description="O nome do responsável ficará registrado nas observações do lead.">
                 <SelectField<string>
@@ -461,7 +554,7 @@ export default function FormularioCrmPage() {
               </FieldRow>
             </SectionCard>
 
-            {/* ── 5. Tags ──────────────────────────────────────────────────── */}
+            {/* ── 6. Tags ──────────────────────────────────────────────────── */}
             <SectionCard title="Tags Automáticas" description="Tags aplicadas automaticamente em todos os leads criados por este formulário.">
               <FieldRow label="Tags">
                 <TagMultiSelect
@@ -472,7 +565,7 @@ export default function FormularioCrmPage() {
               </FieldRow>
             </SectionCard>
 
-            {/* ── 6. Valor do negócio ──────────────────────────────────────── */}
+            {/* ── 7. Valor do negócio ──────────────────────────────────────── */}
             <SectionCard title="Valor do Negócio" description="Valor (R$) registrado no campo de negócio do lead no CRM.">
               {/* Mode toggle */}
               <div className="flex rounded-lg overflow-hidden" style={{ border: "1px solid var(--border)" }}>
@@ -544,7 +637,7 @@ export default function FormularioCrmPage() {
               )}
             </SectionCard>
 
-            {/* ── 7. Resumo ────────────────────────────────────────────────── */}
+            {/* ── 8. Resumo ────────────────────────────────────────────────── */}
             <div
               className="rounded-xl p-4"
               style={{ background: "rgba(34,197,94,0.05)", border: "1px solid rgba(34,197,94,0.15)" }}
@@ -554,6 +647,11 @@ export default function FormularioCrmPage() {
                 <li>• Origem no CRM: <strong style={{ color: "var(--text-title)" }}>{sourceName}</strong></li>
                 <li>• Pipeline: <strong style={{ color: "var(--text-title)" }}>{pipelineName}</strong></li>
                 <li>• Etapa inicial: <strong style={{ color: "var(--text-title)" }}>{stageName}</strong></li>
+                <li>• Captura antecipada: <strong style={{ color: "var(--text-title)" }}>
+                  {config.capture_step_id
+                    ? captureSteps.find((s: FormStep) => s.id === config.capture_step_id)?.title ?? "Pergunta selecionada"
+                    : "Somente no abandono ou envio final"}
+                </strong></li>
                 <li>• Responsável: <strong style={{ color: "var(--text-title)" }}>{config.owner_name ?? "Sem responsável"}</strong></li>
                 <li>• Tags: <strong style={{ color: "var(--text-title)" }}>
                   {tagCount === 0 ? "Nenhuma" : `${tagCount} tag${tagCount > 1 ? "s" : ""}`}

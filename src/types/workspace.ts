@@ -6,7 +6,7 @@ export type WorkspaceTaskPriority = "baixa" | "media" | "alta" | "urgente";
 export const WORKSPACE_TASK_STATUSES: { id: WorkspaceTaskStatus; label: string }[] = [
   { id: "a_fazer",      label: "A Fazer" },
   { id: "em_andamento", label: "Em andamento" },
-  { id: "aguardando",   label: "Aguardando" },
+  { id: "aguardando",   label: "Para aprovação" },
   { id: "concluido",    label: "Concluído" },
 ];
 

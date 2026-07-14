@@ -48,6 +48,7 @@ interface PendingMove {
 
 export function KanbanBoard() {
   const [dateFilter, setDateFilter] = useState<DateFilter | null>(null);
+  const [isTouchDevice, setIsTouchDevice] = useState(false);
 
   const {
     leads,
@@ -101,12 +102,24 @@ export function KanbanBoard() {
   const [isMoveSubmitting, setIsMoveSubmitting] = useState(false);
   const noteInputRef = useRef<HTMLTextAreaElement>(null);
 
+  useEffect(() => {
+    const media = window.matchMedia("(pointer: coarse)");
+    const syncPointerMode = () => setIsTouchDevice(media.matches);
+
+    syncPointerMode();
+    media.addEventListener("change", syncPointerMode);
+    return () => media.removeEventListener("change", syncPointerMode);
+  }, []);
+
   // ── dnd-kit sensors ────────────────────────────────────────────────────────
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
-      // 8px threshold: distingue click (abre modal) de drag (move card)
-      activationConstraint: { distance: 8 },
+      // Desktop: drag rápido por distância.
+      // Touch: exige pressionar antes de arrastar, preservando swipe lateral do Kanban.
+      activationConstraint: isTouchDevice
+        ? { delay: 220, tolerance: 8 }
+        : { distance: 8 },
     }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,

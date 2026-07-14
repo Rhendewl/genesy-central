@@ -62,7 +62,7 @@ export function LeadCard({ lead, isDragOverlay = false, onEdit }: LeadCardProps)
         boxShadow: isDragOverlay
           ? "0 28px 64px var(--shadow-lg), 0 0 0 1px var(--glass-border)"
           : undefined,
-        touchAction: "none",
+        touchAction: isDragOverlay ? "none" : "pan-x pan-y",
       }}
     >
       {/* Header: nome + badge Meta */}

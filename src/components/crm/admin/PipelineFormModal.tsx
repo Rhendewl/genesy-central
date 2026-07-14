@@ -55,8 +55,7 @@ export function PipelineFormModal({ open, pipeline, onClose, onSave }: Props) {
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div
-        className="w-full max-w-md rounded-2xl flex flex-col gap-0 overflow-hidden"
-        style={{ background: "var(--card)", border: "1px solid var(--border)" }}
+        className="lc-modal-panel w-full max-w-md rounded-2xl flex flex-col gap-0 overflow-hidden"
       >
         {/* Header */}
         <div

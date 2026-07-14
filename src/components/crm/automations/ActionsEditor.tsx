@@ -6,6 +6,7 @@ import { useUsers } from "@/hooks/useUsers";
 import { ensurePushSubscription } from "@/lib/notifications/push-client";
 import { ACTION_DEFINITIONS, RECIPIENT_TYPE_LABELS, WORKFLOW_VARIABLES } from "./catalog";
 import type { NotificationActionConfig } from "@/lib/workflow-engine/actions/notification-action";
+import { AutomationSelect } from "./AutomationSelect";
 
 export interface ActionRowValue { type: string; config: Record<string, unknown>; }
 
@@ -138,27 +139,21 @@ export function ActionsEditor({ actions, onChange }: ActionsEditorProps) {
               style={INPUT_STYLE}
             />
 
-            <select
+            <AutomationSelect
               value={config.recipientType ?? "lead_owner"}
-              onChange={e => updateConfig(index, { recipientType: e.target.value as NotificationActionConfig["recipientType"] })}
-              className="w-full rounded-lg px-3 py-2 text-sm outline-none"
-              style={INPUT_STYLE}
-            >
-              {Object.entries(RECIPIENT_TYPE_LABELS).map(([value, label]) => (
-                <option key={value} value={value}>{label}</option>
-              ))}
-            </select>
+              onChange={value => updateConfig(index, { recipientType: value as NotificationActionConfig["recipientType"] })}
+              options={Object.entries(RECIPIENT_TYPE_LABELS).map(([value, label]) => ({ value, label }))}
+            />
 
             {config.recipientType === "specific_user" && (
-              <select
+              <AutomationSelect
                 value={config.recipientUserId ?? ""}
-                onChange={e => updateConfig(index, { recipientUserId: e.target.value || undefined })}
-                className="w-full rounded-lg px-3 py-2 text-sm outline-none"
-                style={INPUT_STYLE}
-              >
-                <option value="">Selecione o usuário</option>
-                {profiles.map(u => <option key={u.id} value={u.id}>{u.full_name}</option>)}
-              </select>
+                onChange={value => updateConfig(index, { recipientUserId: value || undefined })}
+                options={[
+                  { value: "", label: "Selecione o usuário" },
+                  ...profiles.map(u => ({ value: u.id, label: u.full_name })),
+                ]}
+              />
             )}
 
             <div className="flex items-center justify-between gap-2 pt-1">

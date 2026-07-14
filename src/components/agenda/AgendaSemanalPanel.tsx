@@ -7,6 +7,7 @@ import { ptBR } from "date-fns/locale";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useGoogleCalendarEvents } from "@/hooks/useGoogleCalendarEvents";
 import { AgendaDesktopGrid } from "./AgendaDesktopGrid";
+import { AgendaMobileCompactGrid } from "./AgendaMobileCompactGrid";
 import { AgendaMobileCarousel } from "./AgendaMobileCarousel";
 import { AgendaSkeleton } from "./AgendaSkeleton";
 import { AgendaDisconnectedState } from "./AgendaDisconnectedState";
@@ -31,9 +32,10 @@ const PANEL_VARIANTS_REDUCED = {
 interface AgendaSemanalPanelProps {
   /** Repassado ao AgendaDesktopGrid — ver comentário lá. */
   minRowHeight?: number;
+  mobileLayout?: "carousel" | "compact-grid";
 }
 
-export function AgendaSemanalPanel({ minRowHeight }: AgendaSemanalPanelProps = {}) {
+export function AgendaSemanalPanel({ minRowHeight, mobileLayout = "carousel" }: AgendaSemanalPanelProps = {}) {
   const shouldReduce = useReducedMotion();
   const [rangeStart, setRangeStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 0 }));
   const [direction,  setDirection]  = useState(1);
@@ -119,12 +121,21 @@ export function AgendaSemanalPanel({ minRowHeight }: AgendaSemanalPanelProps = {
                   onEventClick={handleEventClick}
                   minRowHeight={minRowHeight}
                 />
-                <AgendaMobileCarousel
-                  days={days}
-                  eventsByDay={eventsByDay}
-                  onDayClick={handleDayClick}
-                  onEventClick={handleEventClick}
-                />
+                {mobileLayout === "compact-grid" ? (
+                  <AgendaMobileCompactGrid
+                    days={days}
+                    eventsByDay={eventsByDay}
+                    onDayClick={handleDayClick}
+                    onEventClick={handleEventClick}
+                  />
+                ) : (
+                  <AgendaMobileCarousel
+                    days={days}
+                    eventsByDay={eventsByDay}
+                    onDayClick={handleDayClick}
+                    onEventClick={handleEventClick}
+                  />
+                )}
               </motion.div>
             </AnimatePresence>
           </div>

@@ -36,6 +36,14 @@ const STATUS_OPTIONS = [
   { value: "pending", label: "Aguardando convite" },
 ];
 
+const JOB_PROFILE_OPTIONS = [
+  { value: "Gestor de Tráfego", role: "trafego" as UserRole },
+  { value: "SDR",               role: "comercial" as UserRole },
+  { value: "Closer",            role: "gestor_comercial" as UserRole },
+  { value: "BDR",               role: "comercial" as UserRole },
+  { value: "Designer",          role: "designer" as UserRole },
+];
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Avatar
 // ─────────────────────────────────────────────────────────────────────────────
@@ -349,6 +357,18 @@ function UserModal({
     }));
   }
 
+  function handleJobProfileChange(jobTitle: string) {
+    const preset = JOB_PROFILE_OPTIONS.find((option) => option.value === jobTitle);
+    setForm(prev => ({
+      ...prev,
+      job_title: jobTitle,
+      ...(preset ? {
+        role: preset.role,
+        permissions: ROLE_DEFAULT_PERMISSIONS[preset.role],
+      } : undefined),
+    }));
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     await onSubmit(form as unknown as CreateUserPayload);
@@ -446,15 +466,24 @@ function UserModal({
                 <label className="text-[11px] font-medium uppercase tracking-widest" style={{ color: "color-mix(in srgb, var(--text-title) 40%, transparent)" }}>
                   Cargo
                 </label>
-                <input
-                  value={form.job_title}
-                  onChange={e => setField("job_title", e.target.value)}
-                  placeholder="Ex.: Analista"
-                  className="h-10 w-full rounded-xl px-3.5 text-[14px] outline-none transition-all"
-                  style={inputStyle}
-                  onFocus={e => (e.currentTarget.style.borderColor = "var(--accent-blue)")}
-                  onBlur={e => (e.currentTarget.style.borderColor = "var(--glass-border)")}
-                />
+                <div className="relative">
+                  <select
+                    value={form.job_title}
+                    onChange={e => handleJobProfileChange(e.target.value)}
+                    className="h-10 w-full appearance-none rounded-xl pl-3.5 pr-8 text-[14px] outline-none transition-all cursor-pointer"
+                    style={inputStyle}
+                    onFocus={e => (e.currentTarget.style.borderColor = "var(--accent-blue)")}
+                    onBlur={e => (e.currentTarget.style.borderColor = "var(--glass-border)")}
+                  >
+                    <option value="" style={{ background: "#111" }}>Selecionar cargo...</option>
+                    {JOB_PROFILE_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value} style={{ background: "#111" }}>
+                        {option.value}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown size={12} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2" style={{ color: "color-mix(in srgb, var(--text-title) 35%, transparent)" }} />
+                </div>
               </div>
               <div className="space-y-1.5">
                 <label className="text-[11px] font-medium uppercase tracking-widest" style={{ color: "color-mix(in srgb, var(--text-title) 40%, transparent)" }}>

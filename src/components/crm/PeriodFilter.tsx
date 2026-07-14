@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Calendar, ChevronDown, X } from "lucide-react";
 import {
@@ -156,9 +157,33 @@ export function PeriodFilter({ onChange }: PeriodFilterProps) {
   const [customFrom,   setCustomFrom]   = useState(saved.customFrom  ?? "");
   const [customTo,     setCustomTo]     = useState(saved.customTo    ?? "");
   const [open, setOpen]                 = useState(false);
+  const [panelStyle, setPanelStyle] = useState<CSSProperties>({});
+  const [mounted, setMounted] = useState(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
   const today = format(new Date(), "yyyy-MM-dd");
+
+  const updatePanelPosition = useCallback(() => {
+    if (!buttonRef.current || typeof window === "undefined") return;
+
+    const isMobile = window.matchMedia("(max-width: 639px)").matches;
+    const rect = buttonRef.current.getBoundingClientRect();
+    const margin = 16;
+    const width = isMobile ? Math.min(280, window.innerWidth - margin * 2) : 240;
+    const left = Math.min(
+      Math.max(isMobile ? rect.left : rect.right - width, margin),
+      Math.max(margin, window.innerWidth - width - margin),
+    );
+
+    setPanelStyle({
+      position: "fixed",
+      left,
+      top: rect.bottom + 8,
+      width,
+    });
+  }, []);
 
   // ── Notify parent whenever the effective filter changes ──────────────────────
   useEffect(() => {
@@ -168,17 +193,35 @@ export function PeriodFilter({ onChange }: PeriodFilterProps) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [preset, specificDate, customFrom, customTo]);
 
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   // ── Close on outside click ───────────────────────────────────────────────────
   useEffect(() => {
     if (!open) return;
     function onMouseDown(e: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      const clickedTrigger = containerRef.current?.contains(target);
+      const clickedPanel = panelRef.current?.contains(target);
+      if (!clickedTrigger && !clickedPanel) {
         setOpen(false);
       }
     }
     document.addEventListener("mousedown", onMouseDown);
     return () => document.removeEventListener("mousedown", onMouseDown);
   }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    updatePanelPosition();
+    window.addEventListener("resize", updatePanelPosition);
+    window.addEventListener("scroll", updatePanelPosition, true);
+    return () => {
+      window.removeEventListener("resize", updatePanelPosition);
+      window.removeEventListener("scroll", updatePanelPosition, true);
+    };
+  }, [open, updatePanelPosition]);
 
   const selectPreset = useCallback((p: PeriodPreset) => {
     setPreset(p);
@@ -187,6 +230,11 @@ export function PeriodFilter({ onChange }: PeriodFilterProps) {
       setOpen(false);
     }
   }, []);
+
+  const toggleOpen = useCallback(() => {
+    if (!open) updatePanelPosition();
+    setOpen(o => !o);
+  }, [open, updatePanelPosition]);
 
   const isActive = preset !== "todos";
   const label    = presetLabel(preset, specificDate || undefined, customFrom || undefined, customTo || undefined);
@@ -199,7 +247,8 @@ export function PeriodFilter({ onChange }: PeriodFilterProps) {
     <div ref={containerRef} className="relative">
       {/* ── Trigger button ────────────────────────────────────────────────── */}
       <button
-        onClick={() => setOpen(o => !o)}
+        ref={buttonRef}
+        onClick={toggleOpen}
         className={cn(
           "flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-all hover:scale-[1.02] active:scale-95 select-none",
           isActive
@@ -208,11 +257,12 @@ export function PeriodFilter({ onChange }: PeriodFilterProps) {
         )}
         style={{
           background: "var(--glass-bg-soft)",
-          backdropFilter: "blur(24px)",
-          WebkitBackdropFilter: "blur(24px)",
+          backdropFilter: "blur(28px) saturate(160%)",
+          WebkitBackdropFilter: "blur(28px) saturate(160%)",
           border: isActive
             ? "1px solid var(--border-card-hover)"
             : "1px solid var(--border-card)",
+          transform: "translateZ(0)",
         }}
       >
         <Calendar size={13} />
@@ -239,20 +289,19 @@ export function PeriodFilter({ onChange }: PeriodFilterProps) {
       </button>
 
       {/* ── Dropdown panel ────────────────────────────────────────────────── */}
-      <AnimatePresence>
-        {open && (
+      {mounted && createPortal(
+        <AnimatePresence>
+          {open && (
           <motion.div
+            ref={panelRef}
             initial={{ opacity: 0, y: -6, scale: 0.97 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -4, scale: 0.97 }}
             transition={{ duration: 0.15, ease: "easeOut" }}
-            className="absolute right-0 top-full mt-2 z-40 min-w-[220px] rounded-2xl overflow-hidden"
+            className="lc-modal-panel z-[80] max-h-[min(72vh,520px)] overflow-y-auto rounded-2xl"
             style={{
-              background: "var(--bg-tooltip)",
-              backdropFilter: "blur(24px) saturate(160%)",
-              WebkitBackdropFilter: "blur(24px) saturate(160%)",
-              border: "1px solid var(--border-tooltip)",
-              boxShadow: "0 16px 48px var(--shadow-lg), inset 0 1px 0 var(--hover)",
+              transformOrigin: "top right",
+              ...panelStyle,
             }}
           >
             {/* Options */}
@@ -362,8 +411,10 @@ export function PeriodFilter({ onChange }: PeriodFilterProps) {
               </motion.div>
             )}
           </motion.div>
-        )}
-      </AnimatePresence>
+          )}
+        </AnimatePresence>,
+        document.body,
+      )}
     </div>
   );
 }

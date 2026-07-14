@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import { ArrowUpRight, Users } from "lucide-react";
+import { useGlobalStore } from "@/store";
 
 interface FunnelStageData {
   label:     string;
@@ -20,9 +21,14 @@ interface CrmFunnelPanelProps {
   delay?:     number;
 }
 
-const BAR_GRADIENT = "linear-gradient(90deg, #0d2c4d 0%, #27a3ff 100%)";
+// Light: início clareado (puxado pro branco) em vez de escurecido — escurecer
+// no tema claro deixa a barra pesada/suja sobre o card branco.
+const BAR_GRADIENT_DARK  = "linear-gradient(90deg, #0d2c4d 0%, #27a3ff 100%)";
+const BAR_GRADIENT_LIGHT = "linear-gradient(90deg, color-mix(in srgb, #27a3ff 22%, white) 0%, #27a3ff 100%)";
 
 export function CrmFunnelPanel({ totalLeads, agendadas, realizadas, vendas, height, delay = 0 }: CrmFunnelPanelProps) {
+  const theme = useGlobalStore(s => s.theme);
+  const barGradient = theme === "light" ? BAR_GRADIENT_LIGHT : BAR_GRADIENT_DARK;
   const rate = (num: number, den: number): number | null => (den > 0 ? (num / den) * 100 : null);
 
   const stages: FunnelStageData[] = [
@@ -79,7 +85,7 @@ export function CrmFunnelPanel({ totalLeads, agendadas, realizadas, vendas, heig
                 <div className="h-2 w-full overflow-hidden rounded-full" style={{ background: "var(--border)" }}>
                   <motion.div
                     className="h-full rounded-full"
-                    style={{ background: BAR_GRADIENT }}
+                    style={{ background: barGradient }}
                     initial={{ width: 0 }}
                     animate={{ width: `${pct}%` }}
                     transition={{ duration: 0.65, delay: delay + 0.18 + i * 0.08, ease: "easeOut" }}

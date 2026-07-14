@@ -22,7 +22,6 @@ import { DashboardHeaderActions } from "@/components/dashboard-geral/DashboardHe
 const CARD_H_ATTENTION      = 228;
 const CARD_H_TRAFEGO_FIN    = 220;
 const CARD_H_WORKSPACE      = 216;
-const CARD_H_AGENDA         = 360;
 const CARD_H_FUNNEL         = 350;
 const CARD_H_NOTES          = 214;
 
@@ -98,13 +97,13 @@ export default function DashboardPage() {
           <div className="flex flex-col gap-4">
             {/* Linha 1: Calendário */}
             <motion.div
-              className="lc-card flex flex-col overflow-hidden p-5"
-              style={{ background: "var(--glass-bg-soft)", height: CARD_H_AGENDA }}
+              className="lc-card flex h-auto flex-col overflow-hidden p-5 xl:h-[360px]"
+              style={{ background: "var(--glass-bg-soft)" }}
               initial={{ opacity: 0, y: 18 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.4, delay: 0.08, ease: "easeOut" }}
             >
-              <AgendaSemanalPanel />
+              <AgendaSemanalPanel mobileLayout="compact-grid" />
             </motion.div>
 
             {/* Linha 2: Tráfego | Financeiro — colapsa conforme a permissão do usuário */}

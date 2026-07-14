@@ -2,6 +2,7 @@
 
 import { Plus, Trash2 } from "lucide-react";
 import { CONDITION_DEFINITIONS } from "./catalog";
+import { AutomationSelect } from "./AutomationSelect";
 
 export interface ConditionRowValue { type: string; config: Record<string, unknown>; }
 
@@ -30,17 +31,15 @@ export function ConditionsEditor({ conditions, onChange }: ConditionsEditorProps
     <div className="flex flex-col gap-2">
       {conditions.map((condition, index) => (
         <div key={index} className="flex items-center gap-2">
-          <select
+          <AutomationSelect
             value={condition.type}
-            onChange={e => updateType(index, e.target.value)}
-            className="flex-1 rounded-lg px-3 py-2 text-sm outline-none"
-            style={{ background: "var(--hover)", border: "1px solid var(--border)", color: "var(--text-title)" }}
-          >
-            <option value={condition.type}>
-              {CONDITION_DEFINITIONS.find(c => c.type === condition.type)?.label ?? condition.type}
-            </option>
-            {availableTypes.map(c => <option key={c.type} value={c.type}>{c.label}</option>)}
-          </select>
+            onChange={value => updateType(index, value)}
+            className="flex-1"
+            options={[
+              { value: condition.type, label: CONDITION_DEFINITIONS.find(c => c.type === condition.type)?.label ?? condition.type },
+              ...availableTypes.map(c => ({ value: c.type, label: c.label })),
+            ]}
+          />
           <button
             type="button"
             onClick={() => removeCondition(index)}

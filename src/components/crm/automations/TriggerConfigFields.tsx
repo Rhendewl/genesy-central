@@ -3,12 +3,7 @@
 import { useTags } from "@/hooks/useTags";
 import type { CrmStage } from "@/types/crm";
 import { getTriggerDef } from "./catalog";
-
-const SELECT_STYLE: React.CSSProperties = {
-  background: "var(--hover)",
-  border:     "1px solid var(--border)",
-  color:      "var(--text-title)",
-};
+import { AutomationSelect } from "./AutomationSelect";
 
 interface TriggerConfigFieldsProps {
   triggerType:   string;
@@ -26,27 +21,25 @@ export function TriggerConfigFields({ triggerType, triggerConfig, stages, onChan
   return (
     <div className="flex flex-col gap-2">
       {def.configFields.includes("stage") && (
-        <select
+        <AutomationSelect
           value={(triggerConfig.stageId as string) ?? ""}
-          onChange={e => onChange({ ...triggerConfig, stageId: e.target.value || undefined })}
-          className="w-full rounded-lg px-3 py-2 text-sm outline-none"
-          style={SELECT_STYLE}
-        >
-          <option value="">Selecione a etapa</option>
-          {stages.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-        </select>
+          onChange={value => onChange({ ...triggerConfig, stageId: value || undefined })}
+          options={[
+            { value: "", label: "Selecione a etapa" },
+            ...stages.map(s => ({ value: s.id, label: s.name })),
+          ]}
+        />
       )}
 
       {def.configFields.includes("tag") && (
-        <select
+        <AutomationSelect
           value={(triggerConfig.tagId as string) ?? ""}
-          onChange={e => onChange({ ...triggerConfig, tagId: e.target.value || undefined })}
-          className="w-full rounded-lg px-3 py-2 text-sm outline-none"
-          style={SELECT_STYLE}
-        >
-          <option value="">Qualquer tag</option>
-          {tags.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-        </select>
+          onChange={value => onChange({ ...triggerConfig, tagId: value || undefined })}
+          options={[
+            { value: "", label: "Qualquer tag" },
+            ...tags.map(t => ({ value: t.id, label: t.name })),
+          ]}
+        />
       )}
     </div>
   );

@@ -22,10 +22,12 @@ import {
   Plus, Play, Square, GripVertical, Trash2, Copy, GitBranch,
 } from "lucide-react";
 import type { FormStep, FormStepType, FormWelcomeScreen, FormEnding } from "@/types";
+import { cn } from "@/lib/utils";
 import { getBlockDef } from "./blocks";
 import { AddContentModal } from "./AddContentModal";
 
 interface ContentSidebarProps {
+  className?: string;
   steps: FormStep[];
   welcome: FormWelcomeScreen;
   endings: FormEnding[];
@@ -218,6 +220,7 @@ function SortableStepItem({
 // ── ContentSidebar ─────────────────────────────────────────────────────────────
 
 export function ContentSidebar({
+  className,
   steps,
   welcome,
   endings,
@@ -256,7 +259,7 @@ export function ContentSidebar({
   return (
     <>
       <div
-        className="w-60 flex-shrink-0 flex flex-col border-r overflow-hidden"
+        className={cn("w-60 flex-shrink-0 flex flex-col border-r overflow-hidden", className)}
         style={{
           borderColor: "var(--glass-border)",
           background: "var(--hover)",

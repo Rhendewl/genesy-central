@@ -63,6 +63,7 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
     <>
       {isAuthenticated && !isAgendarPage && (
         <div
+          className="app-background-layer"
           aria-hidden="true"
           style={{
             position:           "fixed",

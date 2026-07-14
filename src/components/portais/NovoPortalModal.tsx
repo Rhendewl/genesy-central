@@ -215,8 +215,7 @@ export function NovoPortalModal({ open, onClose, onSave, editingPortal, onUpdate
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0, y: -4 }}
                             transition={{ duration: 0.12 }}
-                            className="absolute left-0 right-0 top-full mt-1.5 z-20 rounded-xl overflow-hidden shadow-2xl"
-                            style={{ background: "var(--bg-tooltip)", border: "1px solid var(--border-tooltip)" }}
+                            className="lc-modal-panel absolute left-0 right-0 top-full mt-1.5 z-20 rounded-xl overflow-hidden"
                           >
                             <div className="p-2 border-b border-[color-mix(in_srgb,var(--text-title)_6%,transparent)]">
                               <div className="flex items-center gap-2 px-2">

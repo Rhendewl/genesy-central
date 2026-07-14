@@ -2,6 +2,7 @@
 
 import { useDroppable } from "@dnd-kit/core";
 import { AnimatePresence, motion } from "framer-motion";
+import { CheckCircle2, CircleDotDashed, ClipboardCheck, PlayCircle } from "lucide-react";
 import { TaskCard } from "./TaskCard";
 import type { WorkspaceTask, WorkspaceTaskStatus } from "@/types/workspace";
 
@@ -12,8 +13,37 @@ interface TaskColumnProps {
   onOpenTask: (taskId: string) => void;
 }
 
+const STATUS_VISUALS: Record<WorkspaceTaskStatus, {
+  icon: typeof CircleDotDashed;
+  color: string;
+  glow: string;
+}> = {
+  a_fazer: {
+    icon: CircleDotDashed,
+    color: "#9ca3af",
+    glow: "rgba(156, 163, 175, 0.16)",
+  },
+  em_andamento: {
+    icon: PlayCircle,
+    color: "#27a3ff",
+    glow: "rgba(39, 163, 255, 0.16)",
+  },
+  aguardando: {
+    icon: ClipboardCheck,
+    color: "#e0a344",
+    glow: "rgba(224, 163, 68, 0.18)",
+  },
+  concluido: {
+    icon: CheckCircle2,
+    color: "#22c55e",
+    glow: "rgba(34, 197, 94, 0.16)",
+  },
+};
+
 export function TaskColumn({ status, label, tasks, onOpenTask }: TaskColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id: status });
+  const visual = STATUS_VISUALS[status];
+  const Icon = visual.icon;
 
   return (
     <div
@@ -31,6 +61,18 @@ export function TaskColumn({ status, label, tasks, onOpenTask }: TaskColumnProps
       <div className="px-4 pt-4 pb-3">
         <div className="flex items-center gap-2.5">
           <span
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl"
+            style={{
+              background: visual.glow,
+              border: `1px solid ${visual.color}38`,
+              boxShadow: `0 8px 22px ${visual.glow}`,
+              color: visual.color,
+            }}
+            aria-hidden="true"
+          >
+            <Icon size={16} strokeWidth={2.1} />
+          </span>
+          <span
             className="flex-1 truncate text-[11px] font-semibold uppercase tracking-widest"
             style={{ color: "var(--text-card-secondary)" }}
           >
@@ -42,7 +84,7 @@ export function TaskColumn({ status, label, tasks, onOpenTask }: TaskColumnProps
             animate={{ scale: 1, opacity: 1 }}
             transition={{ type: "spring", stiffness: 500, damping: 25 }}
             className="min-w-[22px] rounded-full px-2 py-0.5 text-center text-xs font-semibold tabular-nums"
-            style={{ background: "var(--hover)", color: "var(--text-card-subtle)" }}
+            style={{ background: visual.glow, color: visual.color }}
           >
             {tasks.length}
           </motion.span>

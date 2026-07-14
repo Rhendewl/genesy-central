@@ -10,6 +10,7 @@ import { TriggerConfigFields } from "./TriggerConfigFields";
 import { DelayConfigFields } from "./DelayConfigFields";
 import { ConditionsEditor, type ConditionRowValue } from "./ConditionsEditor";
 import { ActionsEditor, type ActionRowValue } from "./ActionsEditor";
+import { AutomationSelect } from "./AutomationSelect";
 
 const SELECT_STYLE: React.CSSProperties = {
   background: "var(--hover)",
@@ -107,14 +108,12 @@ export function AutomationFormModal({ open, pipeline, automation, onClose, onSav
             {/* Gatilho */}
             <div>
               <p className="text-xs font-semibold mb-1.5" style={{ color: "var(--muted-foreground)" }}>GATILHO</p>
-              <select
+              <AutomationSelect
                 value={triggerType}
-                onChange={e => { setTriggerType(e.target.value); setTriggerConfig({}); }}
-                className="w-full rounded-lg px-3 py-2 text-sm outline-none mb-2"
-                style={SELECT_STYLE}
-              >
-                {TRIGGER_DEFINITIONS.map(t => <option key={t.type} value={t.type}>{t.label}</option>)}
-              </select>
+                onChange={value => { setTriggerType(value); setTriggerConfig({}); }}
+                className="mb-2"
+                options={TRIGGER_DEFINITIONS.map(t => ({ value: t.type, label: t.label }))}
+              />
               <TriggerConfigFields
                 triggerType={triggerType}
                 triggerConfig={triggerConfig}
@@ -126,14 +125,12 @@ export function AutomationFormModal({ open, pipeline, automation, onClose, onSav
             {/* Espera */}
             <div>
               <p className="text-xs font-semibold mb-1.5" style={{ color: "var(--muted-foreground)" }}>ESPERA</p>
-              <select
+              <AutomationSelect
                 value={delayType}
-                onChange={e => { setDelayType(e.target.value as DelayType); setDelayConfig({}); }}
-                className="w-full rounded-lg px-3 py-2 text-sm outline-none mb-2"
-                style={SELECT_STYLE}
-              >
-                {DELAY_DEFINITIONS.map(d => <option key={d.type} value={d.type}>{d.label}</option>)}
-              </select>
+                onChange={value => { setDelayType(value as DelayType); setDelayConfig({}); }}
+                className="mb-2"
+                options={DELAY_DEFINITIONS.map(d => ({ value: d.type, label: d.label }))}
+              />
               <DelayConfigFields delayType={delayType} delayConfig={delayConfig} onChange={setDelayConfig} />
             </div>
 

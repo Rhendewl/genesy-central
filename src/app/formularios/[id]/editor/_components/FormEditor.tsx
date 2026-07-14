@@ -48,6 +48,7 @@ const HISTORY_MAX = 50;
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 
 type SelectedElement = null | "welcome" | "ending" | "theme" | string;
+type MobileEditorPanel = "content" | "properties";
 
 interface FormEditorProps {
   id: string;
@@ -62,8 +63,19 @@ export function FormEditor({ id }: FormEditorProps) {
   const { form, isLoading, isSaving, isDirty, save, updateSteps } = editor;
 
   const [selected, setSelected] = useState<SelectedElement>(null);
+  const [mobilePanel, setMobilePanel] = useState<MobileEditorPanel>("content");
+  const [isMobileLayout, setIsMobileLayout] = useState(false);
 
   const historyStack = useRef<FormStep[][]>([]);
+
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 767px)");
+    const syncLayout = () => setIsMobileLayout(media.matches);
+
+    syncLayout();
+    media.addEventListener("change", syncLayout);
+    return () => media.removeEventListener("change", syncLayout);
+  }, []);
 
   // ── Atalhos de teclado ─────────────────────────────────────────────────────
   useEffect(() => {
@@ -120,13 +132,17 @@ export function FormEditor({ id }: FormEditorProps) {
     const step = createDefaultStep(type);
     editor.updateSteps([...(form.steps ?? []), step]);
     setSelected(step.id);
+    setMobilePanel("properties");
   }, [form, editor]);
 
   const removeStep = useCallback((stepId: string) => {
     if (!form) return;
     pushHistory(form.steps ?? []);
     editor.updateSteps((form.steps ?? []).filter(s => s.id !== stepId));
-    if (selected === stepId) setSelected(null);
+    if (selected === stepId) {
+      setSelected(null);
+      setMobilePanel("content");
+    }
 
     // Limpa regras de lógica órfãs: a pergunta removida deixa de disparar
     // regras (elas somem) e deixa de ser um alvo válido (volta pro padrão
@@ -159,11 +175,20 @@ export function FormEditor({ id }: FormEditorProps) {
     next.splice(idx + 1, 0, copy);
     editor.updateSteps(next);
     setSelected(copy.id);
+    setMobilePanel("properties");
   }, [form, editor]);
 
   const reorderSteps = useCallback((steps: FormStep[]) => {
     editor.updateSteps(steps);
   }, [editor]);
+
+  const selectElement = useCallback((target: Exclude<SelectedElement, null>) => {
+    setSelected((current) => {
+      const next = current === target ? null : target;
+      setMobilePanel(next ? "properties" : "content");
+      return next;
+    });
+  }, []);
 
   // ── Publicar ───────────────────────────────────────────────────────────────
 
@@ -286,6 +311,121 @@ export function FormEditor({ id }: FormEditorProps) {
     selected === "theme"   ? "Tema" :
     selectedStep           ? "Propriedades" : "";
 
+  const propertiesPanel = (
+    <div
+      className="flex h-full min-h-0 flex-col overflow-hidden border-l"
+      style={{
+        borderColor: "var(--glass-border)",
+        background: "var(--hover)",
+        backdropFilter: "blur(24px)",
+        WebkitBackdropFilter: "blur(24px)",
+      }}
+    >
+      {selected && (
+        <div
+          className="flex flex-shrink-0 items-center justify-between border-b px-4 py-2.5"
+          style={{ borderColor: "var(--glass-border)" }}
+        >
+          <span
+            className="text-[10px] font-semibold uppercase tracking-wider"
+            style={{ color: "var(--muted-foreground)" }}
+          >
+            {propertyPanelLabel}
+          </span>
+          <button
+            onClick={() => {
+              setSelected(null);
+              setMobilePanel("content");
+            }}
+            className="text-xs transition-opacity hover:opacity-60"
+            style={{ color: "var(--muted-foreground)" }}
+            aria-label="Fechar painel de propriedades"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      <div className="flex-1 overflow-y-auto">
+        {renderProperties()}
+      </div>
+    </div>
+  );
+
+  const renderContentSidebar = (className = "") => (
+    <ContentSidebar
+      className={className}
+      steps={steps}
+      welcome={welcome}
+      endings={endings}
+      logicCountByStep={logicCountByStep}
+      selectedId={selected}
+      onSelectWelcome={() => selectElement("welcome")}
+      onSelectStep={id => selectElement(id)}
+      onSelectEnding={() => selectElement("ending")}
+      onAddStep={addStep}
+      onDeleteStep={removeStep}
+      onDuplicateStep={duplicateStep}
+      onReorderSteps={reorderSteps}
+    />
+  );
+
+  const desktopLayout = (
+    <div className="flex flex-1 overflow-hidden">
+      {/* ── Sidebar esquerda — Conteúdo ── */}
+      {renderContentSidebar("h-full w-60 border-r")}
+
+      {/* ── Centro — Preview em tempo real ── */}
+      <LivePreview
+        form={{ ...form, theme, welcome_screen: welcome }}
+        selectedId={selected}
+        onSelectTheme={() => selectElement("theme")}
+      />
+
+      {/* ── Painel direito — Propriedades ── */}
+      <div className="w-80 flex-shrink-0">
+        {propertiesPanel}
+      </div>
+    </div>
+  );
+
+  const mobileLayout = (
+    <>
+      <div
+        className="flex items-center gap-1 border-b px-3 py-2"
+        style={{
+          borderColor: "var(--glass-border)",
+          background: "var(--hover)",
+        }}
+      >
+        {([
+          ["content", "Conteúdo"],
+          ["properties", selected ? "Editar" : "Propriedades"],
+        ] as const).map(([panelId, label]) => (
+          <button
+            key={panelId}
+            type="button"
+            onClick={() => setMobilePanel(panelId)}
+            className="flex-1 rounded-xl px-3 py-2 text-xs font-semibold transition-all"
+            style={{
+              background: mobilePanel === panelId ? "var(--glass-bg-soft)" : "transparent",
+              color: mobilePanel === panelId ? "var(--text-title)" : "var(--muted-foreground)",
+              border: `1px solid ${mobilePanel === panelId ? "var(--glass-border)" : "transparent"}`,
+            }}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      <div className="flex min-h-0 flex-1 overflow-hidden">
+        {mobilePanel === "content"
+          ? renderContentSidebar("h-full w-full border-r-0")
+          : propertiesPanel}
+      </div>
+    </>
+  );
+
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
@@ -307,69 +447,7 @@ export function FormEditor({ id }: FormEditorProps) {
         onPublish={handlePublish}
       />
 
-      <div className="flex flex-1 overflow-hidden">
-
-        {/* ── Sidebar esquerda — Conteúdo ── */}
-        <ContentSidebar
-          steps={steps}
-          welcome={welcome}
-          endings={endings}
-          logicCountByStep={logicCountByStep}
-          selectedId={selected}
-          onSelectWelcome={() => setSelected(s => s === "welcome" ? null : "welcome")}
-          onSelectStep={id => setSelected(s => s === id ? null : id)}
-          onSelectEnding={() => setSelected(s => s === "ending" ? null : "ending")}
-          onAddStep={addStep}
-          onDeleteStep={removeStep}
-          onDuplicateStep={duplicateStep}
-          onReorderSteps={reorderSteps}
-        />
-
-        {/* ── Centro — Preview em tempo real ── */}
-        <LivePreview
-          form={{ ...form, theme, welcome_screen: welcome }}
-          selectedId={selected}
-          onSelectTheme={() => setSelected(s => s === "theme" ? null : "theme")}
-        />
-
-        {/* ── Painel direito — Propriedades ── */}
-        <div
-          className="w-80 flex-shrink-0 border-l flex flex-col overflow-hidden"
-          style={{
-            borderColor: "var(--glass-border)",
-            background: "var(--hover)",
-            backdropFilter: "blur(24px)",
-            WebkitBackdropFilter: "blur(24px)",
-          }}
-        >
-          {selected && (
-            <div
-              className="px-4 py-2.5 border-b flex items-center justify-between flex-shrink-0"
-              style={{ borderColor: "var(--glass-border)" }}
-            >
-              <span
-                className="text-[10px] font-semibold uppercase tracking-wider"
-                style={{ color: "var(--muted-foreground)" }}
-              >
-                {propertyPanelLabel}
-              </span>
-              <button
-                onClick={() => setSelected(null)}
-                className="text-xs hover:opacity-60 transition-opacity"
-                style={{ color: "var(--muted-foreground)" }}
-                aria-label="Fechar painel de propriedades"
-              >
-                ✕
-              </button>
-            </div>
-          )}
-
-          <div className="flex-1 overflow-y-auto">
-            {renderProperties()}
-          </div>
-        </div>
-
-      </div>
+      {isMobileLayout ? mobileLayout : desktopLayout}
     </div>
   );
 }

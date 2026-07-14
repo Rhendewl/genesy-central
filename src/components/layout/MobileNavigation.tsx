@@ -229,8 +229,8 @@ function NavigationOverlay({ isOpen, onClose }: { isOpen: boolean; onClose: () =
           initial="hidden"
           animate="visible"
           exit="exit"
-          className="md:hidden fixed inset-0 z-[90] backdrop-blur-[3px]"
-          style={{ background: "rgba(0,0,0,0.52)" }}
+          className="mobile-nav-overlay md:hidden fixed inset-0 z-[90] backdrop-blur-[3px]"
+          style={{ background: "var(--mobile-overlay-bg)" }}
           onClick={onClose}
           aria-hidden="true"
         />
@@ -284,6 +284,7 @@ function MobileHeader({ isOpen, onOpen, onClose }: MobileHeaderProps) {
 
         {/* Logomarca */}
         <img
+          className="mobile-brand-logo"
           src="/genesy-logoname.svg"
           alt="Genesy"
           draggable={false}
@@ -401,6 +402,7 @@ function MobileSidebar({
               }}
             >
               <img
+                className="mobile-brand-logo"
                 src="/genesy-logoname.svg"
                 alt="Genesy"
                 draggable={false}

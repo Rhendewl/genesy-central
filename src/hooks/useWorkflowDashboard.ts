@@ -43,6 +43,15 @@ export function useWorkflowDashboard(pipelineId: string | null) {
     setHistoryTotal(historyJson.total ?? 0);
   }, [pipelineId, page, statusFilter]);
 
+  const clearHistory = useCallback(async (): Promise<boolean> => {
+    if (!pipelineId) return false;
+    const res = await fetch(`/api/crm/automations/history?pipeline_id=${pipelineId}`, { method: "DELETE" });
+    if (!res.ok) return false;
+    setPage(1);
+    await refetch();
+    return true;
+  }, [pipelineId, refetch]);
+
   useEffect(() => {
     mountedRef.current = true;
     setIsLoading(true);
@@ -50,5 +59,5 @@ export function useWorkflowDashboard(pipelineId: string | null) {
     return () => { mountedRef.current = false; };
   }, [refetch]);
 
-  return { stats, history, historyTotal, statusFilter, setStatusFilter, page, setPage, isLoading, refetch };
+  return { stats, history, historyTotal, statusFilter, setStatusFilter, page, setPage, isLoading, refetch, clearHistory };
 }

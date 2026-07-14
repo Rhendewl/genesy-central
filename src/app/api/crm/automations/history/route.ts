@@ -21,3 +21,23 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({ rows, total });
 }
+
+export async function DELETE(req: NextRequest) {
+  const supabase = await createServerSupabaseClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
+
+  const params = req.nextUrl.searchParams;
+  const automationId = params.get("automation_id") ?? undefined;
+  const pipelineId   = params.get("pipeline_id") ?? undefined;
+
+  if (!automationId && !pipelineId) {
+    return NextResponse.json({ error: "Informe automation_id ou pipeline_id" }, { status: 400 });
+  }
+
+  const service = new WorkflowService(supabase);
+  const { deleted, error } = await service.clearHistory({ automationId, pipelineId });
+  if (error) return NextResponse.json({ error }, { status: 500 });
+
+  return NextResponse.json({ ok: true, deleted });
+}

@@ -90,11 +90,12 @@ export function PipelineFilter({ value, onChange, pipelines }: PipelineFilterPro
         )}
         style={{
           background:           "var(--glass-bg-soft)",
-          backdropFilter:       "blur(24px)",
-          WebkitBackdropFilter: "blur(24px)",
+          backdropFilter:       "blur(28px) saturate(160%)",
+          WebkitBackdropFilter: "blur(28px) saturate(160%)",
           border: isActive
             ? "1px solid var(--border-card-hover)"
             : "1px solid var(--border-card)",
+          transform:            "translateZ(0)",
         }}
       >
         <Kanban size={13} />
@@ -121,13 +122,9 @@ export function PipelineFilter({ value, onChange, pipelines }: PipelineFilterPro
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -4, scale: 0.97 }}
             transition={{ duration: 0.15, ease: "easeOut" }}
-            className="absolute left-0 top-full mt-2 z-40 min-w-[220px] rounded-2xl overflow-hidden"
+            className="lc-modal-panel absolute left-0 top-full mt-2 z-40 min-w-[220px] rounded-2xl overflow-hidden"
             style={{
-              background:           "var(--bg-tooltip)",
-              backdropFilter:       "blur(24px) saturate(160%)",
-              WebkitBackdropFilter: "blur(24px) saturate(160%)",
-              border:               "1px solid var(--border-tooltip)",
-              boxShadow:            "0 16px 48px var(--shadow-lg), inset 0 1px 0 var(--hover)",
+              transformOrigin: "top left",
             }}
           >
             <div className="p-1.5">

@@ -110,6 +110,9 @@ export function useFormularioRenderer(slug: string): UseFormularioRendererReturn
   const answersRef           = useRef(answers);
   const screenRef            = useRef<RendererScreen>("loading");
   const currentStepIdxRef    = useRef(0);
+  const crmCaptureStepIdRef  = useRef<string | null>(null);
+  const earlyCaptureDoneRef  = useRef(false);
+  const earlyCaptureInFlightRef = useRef(false);
 
   // Event Bus ref — created in load effect (before any await) and stable across renders
   const busRef           = useRef<EventBus<FormEventType> | null>(null);
@@ -245,6 +248,10 @@ export function useFormularioRenderer(slug: string): UseFormularioRendererReturn
         }
 
         const configs: IntegrationConfig[] = integrationsJson.configs ?? [];
+        const crmConfig = configs.find(cfg => cfg.adapterName === "crm" && cfg.enabled);
+        crmCaptureStepIdRef.current = typeof crmConfig?.settings.capture_step_id === "string"
+          ? crmConfig.settings.capture_step_id
+          : null;
 
         // Create bus (sync)
         const bus = createEventBus<FormEventType>({
@@ -412,8 +419,46 @@ export function useFormularioRenderer(slug: string): UseFormularioRendererReturn
 
   // ── setAnswer ──────────────────────────────────────────────────────────────
   const setAnswer = useCallback((stepId: string, value: unknown) => {
-    setAnswers(prev => ({ ...prev, [stepId]: value }));
+    setAnswers(prev => {
+      const next = { ...prev, [stepId]: value };
+      answersRef.current = next;
+      return next;
+    });
   }, []);
+
+  const savePartialForCrmCapture = useCallback(async (stepId: string) => {
+    if (earlyCaptureDoneRef.current || earlyCaptureInFlightRef.current) return;
+    if (!isOnline) return;
+
+    earlyCaptureInFlightRef.current = true;
+    try {
+      if (!sessionTokenRef.current) {
+        await ensureSession();
+      }
+      if (!sessionTokenRef.current) return;
+
+      const res = await fetch(`/api/form/${slug}/resposta`, {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({
+          session_token: sessionTokenRef.current,
+          answers:       answersRef.current,
+          status:        "partial",
+        }),
+      }).catch(() => null);
+
+      if (res?.ok) {
+        earlyCaptureDoneRef.current = true;
+        busRef.current?.publish("form.partial.saved", {
+          formSlug: slug,
+          stepId,
+          reason: "crm_capture_step",
+        });
+      }
+    } finally {
+      earlyCaptureInFlightRef.current = false;
+    }
+  }, [ensureSession, isOnline, slug]);
 
   // ── goNext ─────────────────────────────────────────────────────────────────
   // Uses answersRef (not answers state) so this callback is stable — avoids
@@ -431,6 +476,10 @@ export function useFormularioRenderer(slug: string): UseFormularioRendererReturn
       stepId:          step.id,
       durationSeconds,
     });
+
+    if (crmCaptureStepIdRef.current === step.id) {
+      void savePartialForCrmCapture(step.id);
+    }
 
     const result = engine?.evaluate({ currentStepId: step.id, answers: answersRef.current });
 
@@ -598,6 +647,8 @@ export function useFormularioRenderer(slug: string): UseFormularioRendererReturn
     sessionTokenRef.current      = null;
     hasSubmittedRef.current      = false;
     isCreatingSessionRef.current = false;
+    earlyCaptureDoneRef.current  = false;
+    earlyCaptureInFlightRef.current = false;
     // Generate a new correlationId for the restarted session
     correlationIdRef.current     = generateId();
     setAnswers({});

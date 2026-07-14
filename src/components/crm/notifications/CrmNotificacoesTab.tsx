@@ -1,7 +1,7 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { Bell, Loader2, Plus, Trash2, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Bell, Check, ChevronDown, Loader2, Plus, Trash2, X } from "lucide-react";
 import { ensurePushSubscription } from "@/lib/notifications/push-client";
 import { useCrmNotificationRules }  from "@/hooks/useCrmNotificationRules";
 import { usePipelines }             from "@/hooks/usePipelines";
@@ -79,6 +79,78 @@ const CARD_STYLE = {
   background: "var(--card)",
   border:     "1px solid var(--border)",
 } as const;
+
+interface ModalSelectOption {
+  value: string;
+  label: string;
+}
+
+function ModalSelect({
+  value, options, onChange, disabled,
+}: {
+  value: string;
+  options: ModalSelectOption[];
+  onChange: (value: string) => void;
+  disabled?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const selected = options.find(opt => opt.value === value) ?? options[0];
+
+  useEffect(() => {
+    if (!open) return;
+    function onMouseDown(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", onMouseDown);
+    return () => document.removeEventListener("mousedown", onMouseDown);
+  }, [open]);
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => !disabled && setOpen(o => !o)}
+        disabled={disabled}
+        className="w-full rounded-lg px-3 py-2 pr-8 text-left text-sm outline-none transition-colors disabled:opacity-40"
+        style={INPUT_STYLE}
+      >
+        <span className="block truncate">{selected?.label ?? "Selecionar..."}</span>
+      </button>
+      <ChevronDown
+        size={12}
+        className="pointer-events-none absolute right-3 top-1/2 transition-transform"
+        style={{ color: "var(--muted-foreground)", transform: open ? "translateY(-50%) rotate(180deg)" : "translateY(-50%)" }}
+      />
+
+      {open && (
+        <div className="lc-modal-panel absolute left-0 right-0 top-full z-[80] mt-1.5 max-h-56 overflow-y-auto rounded-xl p-1.5">
+          {options.map(opt => {
+            const active = opt.value === value;
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => {
+                  onChange(opt.value);
+                  setOpen(false);
+                }}
+                className="flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors hover:bg-[var(--hover)]"
+                style={{
+                  background: active ? "var(--hover)" : "transparent",
+                  color: active ? "var(--text-title)" : "var(--muted-foreground)",
+                }}
+              >
+                <span className="truncate">{opt.label}</span>
+                {active && <Check size={12} style={{ color: "var(--text-title)" }} />}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
 
 // ── Rule Modal ────────────────────────────────────────────────────────────────
 
@@ -205,8 +277,8 @@ function RuleModal({ rule, onSave, onClose }: ModalProps) {
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div
-        className="flex flex-col w-full sm:max-w-xl rounded-t-2xl sm:rounded-2xl overflow-hidden"
-        style={{ ...CARD_STYLE, maxHeight: "92vh" }}
+        className="lc-modal-panel flex flex-col w-full sm:max-w-xl rounded-t-2xl sm:rounded-2xl overflow-hidden"
+        style={{ maxHeight: "92vh" }}
       >
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 flex-shrink-0" style={{ borderBottom: "1px solid var(--border)" }}>
@@ -226,32 +298,26 @@ function RuleModal({ rule, onSave, onClose }: ModalProps) {
             <div className="grid grid-cols-2 gap-3">
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-medium" style={{ color: "var(--muted-foreground)" }}>Pipeline</label>
-                <select
+                <ModalSelect
                   value={form.pipeline_id}
-                  onChange={e => patch("pipeline_id", e.target.value)}
-                  className="w-full appearance-none rounded-lg px-3 py-2 text-sm outline-none"
-                  style={INPUT_STYLE}
-                >
-                  <option value="" style={{ background: "var(--background)" }}>Selecionar…</option>
-                  {activePipelines.map(p => (
-                    <option key={p.id} value={p.id} style={{ background: "var(--background)" }}>{p.name}</option>
-                  ))}
-                </select>
+                  onChange={v => patch("pipeline_id", v)}
+                  options={[
+                    { value: "", label: "Selecionar..." },
+                    ...activePipelines.map(p => ({ value: p.id, label: p.name })),
+                  ]}
+                />
               </div>
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-medium" style={{ color: "var(--muted-foreground)" }}>Etapa</label>
-                <select
+                <ModalSelect
                   value={form.stage_id}
-                  onChange={e => patch("stage_id", e.target.value)}
+                  onChange={v => patch("stage_id", v)}
                   disabled={!form.pipeline_id}
-                  className="w-full appearance-none rounded-lg px-3 py-2 text-sm outline-none disabled:opacity-40"
-                  style={INPUT_STYLE}
-                >
-                  <option value="" style={{ background: "var(--background)" }}>Selecionar…</option>
-                  {availableStages.map(s => (
-                    <option key={s.id} value={s.id} style={{ background: "var(--background)" }}>{s.name}</option>
-                  ))}
-                </select>
+                  options={[
+                    { value: "", label: "Selecionar..." },
+                    ...availableStages.map(s => ({ value: s.id, label: s.name })),
+                  ]}
+                />
               </div>
             </div>
           )}

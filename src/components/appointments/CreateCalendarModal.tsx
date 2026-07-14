@@ -84,7 +84,7 @@ export function CreateCalendarModal({ onClose, onCreate }: CreateCalendarModalPr
         onClick={onClose}
       >
         <motion.div
-          className="w-full max-w-md lc-modal-panel p-6"
+          className="w-full max-w-md lc-modal-panel rounded-2xl overflow-hidden p-6"
           initial={{ scale: 0.95, opacity: 0, y: 12 }}
           animate={{ scale: 1,    opacity: 1, y: 0 }}
           exit={{ scale: 0.95,    opacity: 0, y: 8 }}

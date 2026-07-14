@@ -304,6 +304,13 @@ export class WorkflowRepository {
     const pageSize = params.pageSize ?? 20;
     const from = (page - 1) * pageSize;
     const to   = from + pageSize - 1;
+    let automationIds: string[] | null = null;
+
+    if (params.pipelineId) {
+      const { data } = await this.db.from("workflow_automations").select("id").eq("pipeline_id", params.pipelineId);
+      automationIds = ((data as { id: string }[]) ?? []).map(a => a.id);
+      if (automationIds.length === 0) return { rows: [], total: 0 };
+    }
 
     let query = this.db
       .from("workflow_execution_log")
@@ -313,18 +320,40 @@ export class WorkflowRepository {
 
     if (params.automationId) query = query.eq("automation_id", params.automationId);
     if (params.status)       query = query.eq("status", params.status);
+    if (automationIds)       query = query.in("automation_id", automationIds);
 
     const { data, count } = await query;
-    let rows = (data as Record<string, unknown>[]) ?? [];
-
-    if (params.pipelineId) {
-      rows = rows.filter(r => {
-        const automation = r.workflow_automations as { pipeline_id?: string } | null;
-        return automation?.pipeline_id === params.pipelineId;
-      });
-    }
+    const rows = (data as Record<string, unknown>[]) ?? [];
 
     return { rows, total: count ?? rows.length };
+  }
+
+  async clearExecutionHistory(params: {
+    automationId?: string;
+    pipelineId?:   string;
+  }): Promise<{ deleted: number; error: string | null }> {
+    let automationIds: string[] | null = null;
+
+    if (params.pipelineId) {
+      const { data, error } = await this.db
+        .from("workflow_automations")
+        .select("id")
+        .eq("pipeline_id", params.pipelineId);
+      if (error) return { deleted: 0, error: error.message };
+
+      automationIds = ((data as { id: string }[]) ?? []).map(a => a.id);
+      if (automationIds.length === 0) return { deleted: 0, error: null };
+    }
+
+    let query = this.db
+      .from("workflow_execution_log")
+      .delete({ count: "exact" });
+
+    if (params.automationId) query = query.eq("automation_id", params.automationId);
+    if (automationIds)       query = query.in("automation_id", automationIds);
+
+    const { count, error } = await query;
+    return { deleted: count ?? 0, error: error?.message ?? null };
   }
 
   // ── Dashboard ─────────────────────────────────────────────────────────────

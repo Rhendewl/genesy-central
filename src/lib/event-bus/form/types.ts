@@ -38,6 +38,7 @@ export type FormEventType =
   | "form.redirect"
   // ── Submissão ────────────────────────────────────────────────────────────
   | "form.submission.started"
+  | "form.partial.saved"
   | "form.submission.retry"
   | "form.submission.succeeded"
   | "form.submission.failed"
@@ -79,6 +80,7 @@ export interface FormEventPayloads {
   "form.redirect":              { formSlug: string; url: string };
   // ── Submissão ────────────────────────────────────────────────────────────
   "form.submission.started":    { formSlug: string };
+  "form.partial.saved":         { formSlug: string; stepId: string; reason: "crm_capture_step" };
   "form.submission.retry":      { formSlug: string; attempt: number };
   "form.submission.succeeded":  {
     formSlug:      string;

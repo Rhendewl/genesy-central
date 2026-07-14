@@ -130,6 +130,13 @@
     --workspace-progress-from: #26292e;
     --workspace-progress-to: #b0b8c1;
 
+    /* Tráfego — funil de performance */
+    --trafego-funnel-fill-0: linear-gradient(90deg, #17191d 0%, #202329 100%);
+    --trafego-funnel-fill-1: linear-gradient(90deg, #1d2025 0%, #282d34 100%);
+    --trafego-funnel-fill-2: linear-gradient(90deg, #242830 0%, #303741 100%);
+    --trafego-funnel-fill-3: linear-gradient(90deg, #2c323b 0%, #3b444f 100%);
+    --trafego-funnel-fill-border: rgba(255, 255, 255, 0.12);
+
     /* Botões de aba/segmentado (ex: Kanban/Lista) — estado ativo */
     --tab-active-bg: var(--primary);
     --tab-active-text: #ffffff;
@@ -137,6 +144,9 @@
     /* Esteira de submódulos (Clientes/Financeiro/Tráfego) — pílula ativa */
     --segment-active-bg: rgba(255, 255, 255, 0.14);
     --segment-active-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.10), 0 1px 8px rgba(0, 0, 0, 0.30);
+
+    /* Mobile shell */
+    --mobile-overlay-bg: rgba(0, 0, 0, 0.52);
   }
 
   /* ── Lancaster Light Theme ── */
@@ -255,6 +265,13 @@
     --workspace-progress-from: #7c878e;
     --workspace-progress-to: #7c878e;
 
+    /* Tráfego — funil de performance */
+    --trafego-funnel-fill-0: linear-gradient(90deg, #e6ebef 0%, #cfd5dc 100%);
+    --trafego-funnel-fill-1: linear-gradient(90deg, #e1e7ec 0%, #c8cfd7 100%);
+    --trafego-funnel-fill-2: linear-gradient(90deg, #dce2e8 0%, #c1c9d1 100%);
+    --trafego-funnel-fill-3: linear-gradient(90deg, #d6dde4 0%, #b9c2cb 100%);
+    --trafego-funnel-fill-border: rgba(124, 135, 141, 0.35);
+
     /* Botões de aba/segmentado (ex: Kanban/Lista) — estado ativo */
     --tab-active-bg: #b0b8c1;
     --tab-active-text: #000000;
@@ -262,6 +279,9 @@
     /* Esteira de submódulos (Clientes/Financeiro/Tráfego) — pílula ativa */
     --segment-active-bg: #ffffff;
     --segment-active-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8), 0 1px 6px rgba(0, 0, 0, 0.10);
+
+    /* Mobile shell */
+    --mobile-overlay-bg: rgba(248, 248, 248, 0.62);
   }
 
   * {
@@ -322,6 +342,61 @@
 
   .light .dashboard-geral-bg {
     background: transparent;
+  }
+
+  .mobile-brand-logo {
+    transition: filter 0.2s ease, opacity 0.2s ease;
+  }
+
+  .light .mobile-brand-logo {
+    filter: brightness(0) saturate(0);
+    opacity: 0.72 !important;
+  }
+
+  @media (max-width: 767px) {
+    .light {
+      --card: rgba(248, 248, 248, 0.72);
+      --bg-card: rgba(248, 248, 248, 0.72);
+      --hover: rgba(176, 184, 193, 0.16);
+      --glass-bg: rgba(248, 248, 248, 0.74);
+      --glass-bg-soft: rgba(248, 248, 248, 0.58);
+      --glass-border: rgba(124, 135, 141, 0.24);
+      --glass-shadow: 0 10px 34px rgba(0, 0, 0, 0.10), inset 0 1px 0 rgba(255, 255, 255, 0.72);
+      --dock-bg: rgba(248, 248, 248, 0.72);
+      --dock-shadow: 0 12px 34px rgba(0, 0, 0, 0.10), inset 0 1px 0 rgba(255, 255, 255, 0.72);
+      --bg-tooltip: rgba(248, 248, 248, 0.88);
+      --border-tooltip: rgba(124, 135, 141, 0.24);
+      --bg-modal: rgba(248, 248, 248, 0.94);
+      --mobile-overlay-bg: rgba(248, 248, 248, 0.56);
+      --bg-lead-card: rgba(248, 248, 248, 0.66);
+    }
+
+    .light .app-background-layer {
+      opacity: 0.28 !important;
+    }
+
+    .light .lc-card,
+    .light .lc-card-base,
+    .light .lc-glass,
+    .light .lc-modal-panel,
+    .light .lc-filter-control,
+    .light .lc-lead-card {
+      background: var(--glass-bg) !important;
+      border-color: var(--glass-border) !important;
+      box-shadow: var(--glass-shadow) !important;
+    }
+
+    .light .module-shell-bg {
+      background: rgba(248, 248, 248, 0.54) !important;
+    }
+
+    .light .lc-scrim,
+    .light .bg-black\/60,
+    .light .bg-black\/50 {
+      background: rgba(248, 248, 248, 0.62) !important;
+      backdrop-filter: blur(18px) saturate(160%) !important;
+      -webkit-backdrop-filter: blur(18px) saturate(160%) !important;
+    }
   }
 
   /* Teste de avaliação: bem mais transparente, só no tema claro */
@@ -395,6 +470,34 @@
     background: rgba(176, 184, 193, 0.09);
     border-color: rgba(176, 184, 193, 0.35);
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.10), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  }
+
+  .financial-alert-card {
+    backdrop-filter: blur(28px) saturate(170%);
+    -webkit-backdrop-filter: blur(28px) saturate(170%);
+    box-shadow:
+      0 12px 36px rgba(0, 0, 0, 0.32),
+      inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    transform: translateZ(0);
+  }
+
+  .light .financial-alert-card {
+    box-shadow:
+      0 16px 42px rgba(0, 0, 0, 0.10),
+      inset 0 1px 0 rgba(255, 255, 255, 0.65);
+  }
+
+  .crm-form-select {
+    color-scheme: dark;
+  }
+
+  .light .crm-form-select {
+    color-scheme: light;
+  }
+
+  .crm-form-select option {
+    background: var(--popover);
+    color: var(--text-title);
   }
 
   /* ── Portal card — glass real, background 7% preto ── */
@@ -486,6 +589,14 @@
     background: var(--bg-modal);
     border-color: var(--border-modal) !important;
     box-shadow: 0 24px 56px var(--shadow-modal), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  }
+
+  .nps-module {
+    --nps-warning: #f59e0b;
+  }
+
+  .light .nps-module {
+    --nps-warning: #92400e;
   }
 
   /* ── Filter inputs / selects — glassmorphism inline ── */
