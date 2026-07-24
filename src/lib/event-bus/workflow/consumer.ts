@@ -10,6 +10,7 @@ import { bootstrapWorkflowEngine } from "@/lib/workflow-engine/bootstrap";
 import { listTriggerResolvers, allListenedEvents } from "@/lib/workflow-engine/trigger-registry";
 import { WorkflowRepository } from "@/lib/workflow-engine/repositories/workflow-repository";
 import { JobScheduler } from "@/lib/workflow-engine/job-scheduler";
+import { JobExecutor } from "@/lib/workflow-engine/job-executor";
 import type { WorkflowRawEvent } from "@/lib/workflow-engine/types";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -19,6 +20,7 @@ export function createWorkflowTriggerConsumer(db: Db): EventConsumer {
   bootstrapWorkflowEngine();
   const repo      = new WorkflowRepository(db);
   const scheduler = new JobScheduler(db);
+  const executor  = new JobExecutor(db);
 
   return {
     name:     "workflow-trigger-consumer",
@@ -42,7 +44,7 @@ export function createWorkflowTriggerConsumer(db: Db): EventConsumer {
           const result = await resolver.match(ctx, automation.trigger_config);
           if (!result.matched || !result.recordId) continue;
 
-          await scheduler.scheduleJob({
+          const scheduled = await scheduler.scheduleJob({
             automationId: automation.id,
             leadId:       result.recordId,
             userId:       automation.user_id,
@@ -50,6 +52,17 @@ export function createWorkflowTriggerConsumer(db: Db): EventConsumer {
             delayConfig:  automation.delay_config,
             snapshot:     result.snapshot ?? {},
           });
+
+          if (!scheduled.ok) {
+            throw new Error(scheduled.error ?? "Não foi possível agendar a automação");
+          }
+
+          // Uma ação configurada como imediata precisa ser imediata de fato.
+          // Além de reduzir latência, isso impede que notificações simples
+          // parem de funcionar quando o scheduler externo estiver indisponível.
+          if (automation.delay_type === "immediate" && scheduled.jobId) {
+            await executor.runDueJobById(scheduled.jobId);
+          }
         }
       }
     },

@@ -32,6 +32,17 @@ const PUBLIC_ROUTES = [
 const AUTH_REDIRECT_ROUTES = ["/auth"];
 
 export async function middleware(request: NextRequest) {
+  const pathname = request.nextUrl.pathname;
+  const isPublicRoute = PUBLIC_ROUTES.some((r) => pathname.startsWith(r));
+  const isAuthRedirectRoute = AUTH_REDIRECT_ROUTES.some((r) => pathname.startsWith(r));
+
+  // Rotas públicas não precisam criar o cliente Supabase nem inspecionar a
+  // sessão. Isso reduz o trabalho no edge e permite cache de CDN no HTML dos
+  // formulários. /auth continua abaixo para redirecionar usuários logados.
+  if (isPublicRoute && !isAuthRedirectRoute) {
+    return NextResponse.next();
+  }
+
   let supabaseResponse = NextResponse.next({ request });
 
   const supabase = createServerClient(
@@ -61,10 +72,6 @@ export async function middleware(request: NextRequest) {
     data: { session },
   } = await supabase.auth.getSession();
   const user = session?.user ?? null;
-
-  const pathname = request.nextUrl.pathname;
-  const isPublicRoute      = PUBLIC_ROUTES.some((r) => pathname.startsWith(r));
-  const isAuthRedirectRoute = AUTH_REDIRECT_ROUTES.some((r) => pathname.startsWith(r));
 
   // Not authenticated + trying to access a protected route → redirect to login
   if (!user && !isPublicRoute) {

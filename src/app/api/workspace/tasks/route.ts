@@ -79,6 +79,7 @@ export async function GET(req: NextRequest) {
     const tasks = ((data ?? []) as WorkspaceTask[]).map((t) => ({
       ...t,
       assignee_ids: assigneesByTask.get(t.id) ?? [],
+      can_edit: t.created_by === user.id,
     }));
 
     return NextResponse.json({ tasks });
@@ -156,7 +157,9 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    return NextResponse.json({ task: { ...data, assignee_ids: assigneeIds } as WorkspaceTask }, { status: 201 });
+    return NextResponse.json({
+      task: { ...data, assignee_ids: assigneeIds, can_edit: data.created_by === user.id } as WorkspaceTask,
+    }, { status: 201 });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Erro interno";
     return NextResponse.json({ error: msg }, { status: 500 });

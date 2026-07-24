@@ -9,6 +9,9 @@ import type {
   UpdateLead,
 } from "@/types";
 import type { DateFilter } from "@/components/crm/PeriodFilter";
+import { useCurrentMember } from "@/context/CurrentMemberContext";
+import { isAdministrativeMember } from "@/lib/user-access";
+import { countCanonicalLeads } from "@/lib/crm/lead-identity";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // useLeads
@@ -29,6 +32,9 @@ export type LeadsByStage = Record<string, Lead[]>;
 
 export function useLeads(dateFilter?: DateFilter | null) {
   const supabase = getSupabaseClient();
+  const { member, isOwner, isLoading: memberLoading } = useCurrentMember();
+  const hasFullCrmAccess = isAdministrativeMember(member, isOwner === true);
+  const restrictedPipelineId = hasFullCrmAccess ? null : member?.crm_pipeline_id ?? null;
 
   const [leads, setLeads] = useState<Lead[]>([]);   // full unfiltered list
   const [isLoading, setIsLoading] = useState(true);
@@ -41,10 +47,18 @@ export function useLeads(dateFilter?: DateFilter | null) {
 
   const fetchLeads = useCallback(async () => {
     setError(null);
-    const { data, error: err } = await supabase
+    if (!hasFullCrmAccess && !restrictedPipelineId) {
+      if (mountedRef.current) setLeads([]);
+      return;
+    }
+
+    let query = supabase
       .from("leads")
       .select("*")
       .order("created_at", { ascending: false });
+
+    if (restrictedPipelineId) query = query.eq("pipeline_id", restrictedPipelineId);
+    const { data, error: err } = await query;
 
     if (!mountedRef.current) return;
 
@@ -58,11 +72,12 @@ export function useLeads(dateFilter?: DateFilter | null) {
       deal_value: l.deal_value ?? 0,
     }));
     setLeads(normalized);
-  }, [supabase]);
+  }, [supabase, hasFullCrmAccess, restrictedPipelineId]);
 
   // ── Real-time subscription ─────────────────────────────────────────────────
 
   useEffect(() => {
+    if (memberLoading || isOwner === null) return;
     mountedRef.current = true;
     setIsLoading(true);
 
@@ -102,7 +117,7 @@ export function useLeads(dateFilter?: DateFilter | null) {
       mountedRef.current = false;
       supabase.removeChannel(channel);
     };
-  }, [fetchLeads, supabase]);
+  }, [fetchLeads, supabase, memberLoading, isOwner]);
 
   // ── Derived: apply date filter client-side (instant, preserves real-time) ──
 
@@ -129,23 +144,27 @@ export function useLeads(dateFilter?: DateFilter | null) {
   // ── Create ─────────────────────────────────────────────────────────────────
 
   async function createLead(data: NewLead): Promise<{ error: string | null }> {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    try {
+      const res = await fetch("/api/crm/leads", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      const json = await res.json() as { lead?: Lead; id?: string; error?: string };
+      if (!res.ok) return { error: json.error ?? "Erro ao criar lead" };
 
-    if (!user) return { error: "Usuário não autenticado." };
-
-    const { data: created, error: err } = await supabase
-      .from("leads")
-      .insert({ ...data, user_id: user.id })
-      .select()
-      .single();
-
-    if (err) return { error: err.message };
-
-    // Optimistic: adiciona ao estado local imediatamente sem esperar real-time
-    setLeads((prev) => [{ ...created, deal_value: created.deal_value ?? 0 }, ...prev]);
-    return { error: null };
+      if (json.lead) {
+        setLeads((prev) => [
+          { ...json.lead!, deal_value: json.lead!.deal_value ?? 0 },
+          ...prev.filter(lead => lead.id !== json.lead!.id),
+        ]);
+      } else {
+        await fetchLeads();
+      }
+      return { error: null };
+    } catch (err) {
+      return { error: err instanceof Error ? err.message : "Erro ao criar lead" };
+    }
   }
 
   // ── Update ─────────────────────────────────────────────────────────────────
@@ -274,6 +293,34 @@ export function useLeads(dateFilter?: DateFilter | null) {
     }
   }
 
+  async function transferLead(
+    id: string,
+    targetStageId: string,
+    note?: string,
+    assigneeId?: string | null,
+  ): Promise<{ ok: boolean; requireNote: boolean; alreadyExists: boolean; error: string | null }> {
+    try {
+      const res = await fetch(`/api/crm/leads/${id}/transfer`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ stage_id: targetStageId, note, assignee_id: assigneeId ?? null }),
+      });
+      const json = await res.json() as { error?: string; already_exists?: boolean };
+      if (!res.ok) {
+        return { ok: false, requireNote: res.status === 422, alreadyExists: false, error: json.error ?? "Erro ao criar cópia do lead" };
+      }
+      await fetchLeads();
+      return { ok: true, requireNote: false, alreadyExists: json.already_exists === true, error: null };
+    } catch (err) {
+      return {
+        ok: false,
+        requireNote: false,
+        alreadyExists: false,
+        error: err instanceof Error ? err.message : "Erro ao criar cópia do lead",
+      };
+    }
+  }
+
   // ── Helpers ────────────────────────────────────────────────────────────────
 
   function getLeadById(id: string): Lead | undefined {
@@ -282,7 +329,7 @@ export function useLeads(dateFilter?: DateFilter | null) {
 
   return {
     leads:        filteredLeads,   // filtered — what the board renders
-    totalLeads:   leads.length,    // unfiltered total (for "X leads no funil" label)
+    totalLeads:   countCanonicalLeads(leads),
     leadsByStage,
     isLoading,
     error,
@@ -290,6 +337,7 @@ export function useLeads(dateFilter?: DateFilter | null) {
     updateLead,
     deleteLead,
     moveLead,
+    transferLead,
     getLeadById,
     refetch: fetchLeads,
   };

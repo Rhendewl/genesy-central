@@ -46,6 +46,21 @@ export interface MoveLeadRpcResult {
   to_column:     string | null;
 }
 
+export interface CopyLeadRpcParams {
+  leadId: string;
+  stageId: string;
+  note: string | null;
+  assigneeId: string | null;
+}
+
+export interface CopyLeadRpcResult {
+  lead_id: string;
+  canonical_lead_id: string;
+  pipeline_id: string;
+  stage_id: string;
+  already_exists: boolean;
+}
+
 export class LeadRepository {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   constructor(private readonly db: SupabaseClient<any, any, any>) {}
@@ -118,6 +133,19 @@ export class LeadRepository {
     const rows = data as MoveLeadRpcResult[] | null;
     if (!rows?.length) throw new Error("MOVE_FAILED");
 
+    return rows[0];
+  }
+
+  async copyLeadToPipeline(params: CopyLeadRpcParams): Promise<CopyLeadRpcResult> {
+    const { data, error } = await this.db.rpc("crm_copy_lead_to_pipeline", {
+      p_lead_id: params.leadId,
+      p_stage_id: params.stageId,
+      p_note: params.note,
+      p_assignee_id: params.assigneeId,
+    });
+    if (error) throw new Error(error.message);
+    const rows = data as CopyLeadRpcResult[] | null;
+    if (!rows?.length) throw new Error("COPY_FAILED");
     return rows[0];
   }
 

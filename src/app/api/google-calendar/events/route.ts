@@ -31,6 +31,17 @@ function normalizeEvent(raw: RawGoogleEvent): NormalizedCalendarEvent {
   };
 }
 
+function calendarResponse(body: CalendarEventsResponse, status = 200) {
+  return NextResponse.json(body, {
+    status,
+    headers: {
+      "Cache-Control": "private, no-store, no-cache, max-age=0, must-revalidate",
+      Pragma:          "no-cache",
+      Expires:         "0",
+    },
+  });
+}
+
 export async function GET(req: NextRequest) {
   const supabase = await createServerSupabaseClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -54,12 +65,12 @@ export async function GET(req: NextRequest) {
     });
 
     const events = raw.map(normalizeEvent);
-    return NextResponse.json({ connected: true, events } satisfies CalendarEventsResponse);
+    return calendarResponse({ connected: true, events });
   } catch (err) {
     if (err instanceof GoogleAuthError) {
-      return NextResponse.json({ connected: false, events: [] } satisfies CalendarEventsResponse);
+      return calendarResponse({ connected: false, events: [] });
     }
     const msg = err instanceof Error ? err.message : "Erro interno";
-    return NextResponse.json({ connected: true, events: [], error: msg } satisfies CalendarEventsResponse, { status: 500 });
+    return calendarResponse({ connected: true, events: [], error: msg }, 500);
   }
 }

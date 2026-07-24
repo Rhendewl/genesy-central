@@ -4,9 +4,12 @@ import { LeadService } from "@/lib/crm/lead-service";
 import { LeadScoreEngine } from "@/lib/crm/lead-score-engine";
 import { extractContactFromAnswers } from "@/lib/forms/extract-contact";
 import { getPlatformEventBus } from "@/lib/event-bus/platform";
+import { processSubmissionWebhooks } from "@/lib/forms/webhook-delivery";
 import type { FormStep } from "@/types";
 
 type Params = { params: Promise<{ slug: string }> };
+
+export const maxDuration = 30;
 
 // POST /api/form/:slug/resposta — salva ou atualiza a submissão de um visitante.
 //
@@ -71,6 +74,11 @@ export async function POST(req: NextRequest, { params }: Params) {
   if (existing) {
     // Já está completed — não faz downgrade
     if (existing.status === "completed") {
+      // Também cobre submissões concluídas antes da instalação da fila e o caso
+      // em que a resposta HTTP anterior se perdeu depois do commit no banco.
+      await processSubmissionWebhooks(supabase, existing.id).catch(err => {
+        console.error("[form/resposta] webhook recovery:", err);
+      });
       return NextResponse.json({ submission_id: existing.id });
     }
 
@@ -138,8 +146,19 @@ export async function POST(req: NextRequest, { params }: Params) {
   // existe) — quando houver uma integração "nps" ativa para este formulário.
   void syncNpsResponse(supabase, session.form_id, session.user_id, body.answers, isCompleted);
 
+  // O trigger do banco enfileira atomicamente o job junto com a conclusão.
+  // Fazemos a primeira tentativa ainda nesta execução; falhas ficam persistidas
+  // para o worker retomar, sem depender do navegador do visitante.
+  let webhookDelivery = null;
+  if (isCompleted) {
+    webhookDelivery = await processSubmissionWebhooks(supabase, submissionId).catch(err => {
+      console.error("[form/resposta] webhook dispatch:", err);
+      return { processed: 0, delivered: 0, retried: 0, deadLettered: 0 };
+    });
+  }
+
   return NextResponse.json(
-    { submission_id: submissionId },
+    { submission_id: submissionId, webhook: webhookDelivery },
     existing ? undefined : { status: 201 },
   );
 }

@@ -1,3 +1,5 @@
+import type { FormStep } from "@/types";
+
 // ── Submission ────────────────────────────────────────────────────────────────
 
 export type SubmissionStatus =
@@ -79,6 +81,7 @@ export interface IntegrationDelivery {
 
 export interface SubmissionDetail {
   submission:            SubmissionListItem;
+  formSteps:             FormStep[];
   sessionEvents:         SessionEvent[];
   integrationDeliveries: IntegrationDelivery[];
 }

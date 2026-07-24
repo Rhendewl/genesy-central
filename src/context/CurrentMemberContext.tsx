@@ -22,6 +22,7 @@ export interface MemberProfile {
   email: string;
   role: string;
   job_title: string | null;
+  crm_pipeline_id: string | null;
   is_active: boolean;
   avatar_url: string | null;
   permissions: string[];
@@ -68,13 +69,18 @@ export function CurrentMemberProvider({ children }: { children: ReactNode }) {
     // convidado — tem exatamente uma linha aqui (o dono tem uma linha
     // auto-referente, owner_id = auth_user_id = seu próprio uid).
     // RLS policy "user_profiles_member_select_own" permite este SELECT.
-    const { data } = await supabase
+    const { data: profiles } = await supabase
       .from("user_profiles")
       .select(
-        "id, owner_id, auth_user_id, full_name, email, role, job_title, is_active, avatar_url, permissions, theme"
+        "id, owner_id, auth_user_id, full_name, email, role, job_title, crm_pipeline_id, is_active, avatar_url, permissions, theme"
       )
-      .eq("auth_user_id", user.id)
-      .maybeSingle();
+      .eq("auth_user_id", user.id);
+
+    // O modelo atual admite um único workspace ativo por login. Durante a
+    // correção de convites antigos, prefira explicitamente o perfil de membro
+    // a uma eventual linha self criada por engano.
+    const activeProfiles = (profiles ?? []).filter(profile => profile.is_active);
+    const data = activeProfiles.find(profile => profile.owner_id !== user.id) ?? activeProfiles[0] ?? null;
 
     if (data) {
       setMember({

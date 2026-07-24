@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { useMemo, useState } from "react";
@@ -8,7 +9,6 @@ import {
   LayoutDashboard,
   Users,
   Wallet,
-  TrendingUp,
   Settings,
   LogOut,
   User,
@@ -19,6 +19,7 @@ import {
   BarChart3,
   Sun,
   Moon,
+  Megaphone,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useGlobalStore } from "@/store";
@@ -32,7 +33,7 @@ const NAV_ITEMS = [
   { href: "/crm",           label: "CRM",       icon: Users,           exactMatch: false, permKey: "crm" },
   { href: "/clientes",      label: "Clientes",  icon: Contact,         exactMatch: false, permKey: "clientes" },
   { href: "/financeiro",    label: "Financeiro",icon: Wallet,          exactMatch: false, permKey: "financeiro" },
-  { href: "/trafego",       label: "Tráfego",   icon: TrendingUp,      exactMatch: false, permKey: "trafego" },
+  { href: "/marketing",     label: "Marketing", icon: Megaphone,       exactMatch: false, permKey: "marketing" },
   { href: "/performance",   label: "Performance", icon: BarChart3,     exactMatch: false, permKey: "performance" },
   { href: "/formularios",   label: "Formulários", icon: NotepadText,  exactMatch: false, permKey: "formularios" },
   { href: "/agendamentos",  label: "Agenda",      icon: Calendar,  exactMatch: false, permKey: "agendamentos" },
@@ -50,16 +51,13 @@ function DockTooltip({ label, visible }: { label: string; visible: boolean }) {
           animate={{ opacity: 1, x: 0 }}
           exit={{ opacity: 0, x: -4 }}
           transition={{ duration: 0.15, ease: "easeOut" }}
-          className="pointer-events-none absolute left-[calc(100%+10px)] top-1/2 -translate-y-1/2 z-[60] whitespace-nowrap"
+          className="dock-tooltip pointer-events-none absolute left-[calc(100%+10px)] top-1/2 z-[60] -translate-y-1/2 whitespace-nowrap"
           style={{
-            background: "var(--bg-tooltip)",
-            border: "1px solid var(--border-tooltip)",
             borderRadius: 8,
             padding: "5px 10px",
             fontSize: 11,
             fontWeight: 500,
             color: "var(--text-tooltip)",
-            boxShadow: "0 4px 16px rgba(0,0,0,0.35)",
             letterSpacing: "0.02em",
           }}
         >
@@ -298,12 +296,16 @@ export function Dock() {
           <Link
             href="/"
             aria-label="Ir para o dashboard geral"
-            className="flex h-9 w-9 items-center justify-center rounded-full transition-colors hover:bg-[var(--hover)] focus:bg-[var(--hover)] focus:outline-none focus:ring-1 focus:ring-[var(--glass-border)]"
+            className="group flex h-9 w-9 items-center justify-center focus-visible:outline-none"
           >
-            <img
+            <Image
               src="/g-cinza.svg"
               alt="Genesy"
-              style={{ width: 26, height: "auto", opacity: 0.75 }}
+              width={26}
+              height={26}
+              priority
+              className="transition-[transform,filter,opacity] duration-200 ease-out group-hover:scale-110 group-hover:opacity-100 group-focus-visible:scale-110 group-focus-visible:opacity-100"
+              style={{ height: "auto", opacity: 0.75 }}
               draggable={false}
             />
           </Link>

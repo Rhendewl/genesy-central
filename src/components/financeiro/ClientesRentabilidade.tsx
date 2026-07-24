@@ -109,7 +109,7 @@ function ClienteModal({ client, onClose, onSave, onDelete }: ClientModalProps) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+      <div className="lc-modal-backdrop absolute inset-0" />
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
@@ -491,8 +491,8 @@ export function ClientesRentabilidade({ year, month }: Props) {
 
       <div className="flex justify-between items-center">
         <p className="text-sm text-[var(--silver)]">{clients.length} clientes cadastrados</p>
-        <PrimaryButton onClick={() => setModal({ open: true })} className="flex items-center gap-2 px-4 py-2.5 text-sm">
-          <Plus size={16} />
+        <PrimaryButton onClick={() => setModal({ open: true })} signature size="medium">
+          <Users size={16} />
           Novo Cliente
         </PrimaryButton>
       </div>

@@ -5,6 +5,7 @@ import { MessageSquare, Calendar as CalendarIcon } from "lucide-react";
 import { format, isBefore, isToday, isTomorrow, startOfDay } from "date-fns";
 import { ptBR } from "date-fns/locale/pt-BR";
 import { cn } from "@/lib/utils";
+import { progressBandColor, progressBandGradientFrom } from "@/lib/progress-color";
 import { PriorityBadge } from "./PriorityBadge";
 import { TagChip } from "./TagChip";
 import { AssigneeAvatarGroup } from "./AssigneeAvatarGroup";
@@ -13,6 +14,7 @@ import type { WorkspaceTask } from "@/types/workspace";
 interface TaskCardProps {
   task: WorkspaceTask;
   isDragOverlay?: boolean;
+  canDrag?: boolean;
   onClick: () => void;
 }
 
@@ -25,10 +27,10 @@ function dueDateLabel(dateStr: string): { label: string; overdue: boolean } {
   return { label: format(date, "d MMM", { locale: ptBR }), overdue };
 }
 
-export function TaskCard({ task, isDragOverlay = false, onClick }: TaskCardProps) {
+export function TaskCard({ task, isDragOverlay = false, canDrag = true, onClick }: TaskCardProps) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: task.id,
-    disabled: isDragOverlay,
+    disabled: isDragOverlay || !canDrag,
   });
 
   const due = task.due_date ? dueDateLabel(task.due_date) : null;
@@ -71,7 +73,11 @@ export function TaskCard({ task, isDragOverlay = false, onClick }: TaskCardProps
           <div className="h-1 w-full overflow-hidden rounded-full" style={{ background: "var(--border-card)" }}>
             <div
               className="h-full rounded-full transition-all"
-              style={{ width: `${checklistPct}%`, background: "var(--primary)" }}
+              style={{
+                width: `${checklistPct}%`,
+                background: `linear-gradient(90deg, ${progressBandGradientFrom(checklistPct)} 0%, ${progressBandColor(checklistPct)} 100%)`,
+                boxShadow: `0 0 8px color-mix(in srgb, ${progressBandColor(checklistPct)} 45%, transparent)`,
+              }}
             />
           </div>
           <p className="mt-1 text-[10px]" style={{ color: "var(--muted-foreground)" }}>

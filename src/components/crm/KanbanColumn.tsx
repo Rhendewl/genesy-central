@@ -35,7 +35,7 @@ export function KanbanColumn({ stage, leads, totalValue, onEditLead }: KanbanCol
   return (
     <div
       ref={setNodeRef}
-      className="flex w-72 flex-shrink-0 flex-col rounded-[20px] transition-all duration-200"
+      className="flex h-full min-h-0 w-72 flex-shrink-0 flex-col overflow-hidden rounded-[20px] transition-all duration-200"
       style={{
         background: isOver
           ? "var(--hover)"
@@ -48,7 +48,6 @@ export function KanbanColumn({ stage, leads, totalValue, onEditLead }: KanbanCol
         boxShadow: isOver
           ? "0 8px 32px var(--shadow-md), inset 0 1px 0 var(--glass-border)"
           : "0 4px 20px var(--shadow-sm), inset 0 1px 0 var(--hover)",
-        minHeight: 660,
       }}
     >
       {/* ── Header ── */}
@@ -94,7 +93,7 @@ export function KanbanColumn({ stage, leads, totalValue, onEditLead }: KanbanCol
       </div>
 
       {/* ── Cards area ── */}
-      <div className="flex flex-1 flex-col gap-2 p-3">
+      <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto overscroll-contain p-3">
         <AnimatePresence initial={false}>
           {leads.map((lead) => (
             <motion.div

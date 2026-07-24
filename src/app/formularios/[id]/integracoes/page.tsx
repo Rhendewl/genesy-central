@@ -4,7 +4,7 @@ import { useState, useMemo, useCallback } from "react";
 import { useParams } from "next/navigation";
 import { motion } from "framer-motion";
 import { Plug, Loader2, RefreshCw } from "lucide-react";
-import { Header } from "@/components/layout/Header";
+import { FormularioShell } from "../_components/FormularioShell";
 import { IntegrationCard }   from "@/components/integracoes/IntegrationCard";
 import { IntegrationDrawer } from "@/components/integracoes/IntegrationDrawer";
 import { useFormularioEditor } from "@/hooks/useFormularioEditor";
@@ -37,10 +37,11 @@ export default function FormularioIntegracoesPage() {
     return ok;
   }, [save]);
 
-  const handleCreate = useCallback(async (adapter: string) => {
+  const handleCreate = useCallback(async (adapter: string, patch: Parameters<typeof save>[1]) => {
     const row = await create(adapter);
-    return row;
-  }, [create]);
+    if (!row) return false;
+    return save(row.id, patch);
+  }, [create, save]);
 
   const handleDelete = useCallback(async (configId: string) => {
     const ok = await remove(configId);
@@ -49,13 +50,8 @@ export default function FormularioIntegracoesPage() {
   }, [remove, reload]);
 
   return (
-    <div className="flex flex-col pb-24" style={{ background: "var(--background)" }}>
-      <Header
-        title="Integrações"
-        subtitle={form?.name ?? ""}
-      />
-
-      <div className="px-4 sm:px-6 pt-2 pb-4">
+    <FormularioShell id={id}>
+      <div className="px-4 sm:px-6 py-6 pb-24">
 
         {/* Loading */}
         {isLoading && (
@@ -138,6 +134,6 @@ export default function FormularioIntegracoesPage() {
           onDelete={handleDelete}
         />
       )}
-    </div>
+    </FormularioShell>
   );
 }

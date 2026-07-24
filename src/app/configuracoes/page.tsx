@@ -3,6 +3,8 @@
 import { motion } from "framer-motion";
 import { Building2, Users, ShieldCheck, ArrowUpRight, UserRound } from "lucide-react";
 import { Header } from "@/components/layout/Header";
+import { useCurrentMember } from "@/context/CurrentMemberContext";
+import { isAdministrativeMember } from "@/lib/user-access";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SettingsCard
@@ -17,6 +19,7 @@ interface SettingsCardProps {
   delay?: number;
   accentColor: string;
   glowColor: string;
+  administrativeOnly?: boolean;
 }
 
 function SettingsCard({
@@ -127,6 +130,7 @@ const CARDS: Omit<SettingsCardProps, "delay">[] = [
     href: "/configuracoes/perfil",
     accentColor: "#27a3ff",
     glowColor: "rgba(39,163,255,0.08)",
+    administrativeOnly: true,
   },
   {
     icon: Users,
@@ -135,6 +139,7 @@ const CARDS: Omit<SettingsCardProps, "delay">[] = [
     href: "/configuracoes/usuarios",
     accentColor: "#27f2e6",
     glowColor: "rgba(39,242,230,0.07)",
+    administrativeOnly: true,
   },
   {
     icon: ShieldCheck,
@@ -147,6 +152,10 @@ const CARDS: Omit<SettingsCardProps, "delay">[] = [
 ];
 
 export default function ConfiguracoesPage() {
+  const { member, isOwner, isLoading } = useCurrentMember();
+  const canManageCompany = !isLoading && isAdministrativeMember(member, isOwner === true);
+  const visibleCards = CARDS.filter(card => !card.administrativeOnly || canManageCompany);
+
   return (
     <div className="mx-auto max-w-4xl space-y-8 px-4 sm:px-6">
       <Header title="Configurações" subtitle="Central de controle da plataforma" />
@@ -163,7 +172,7 @@ export default function ConfiguracoesPage() {
         </motion.p>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {CARDS.map((card, i) => (
+          {visibleCards.map((card, i) => (
             <SettingsCard key={card.title} {...card} delay={0.08 + i * 0.09} />
           ))}
         </div>

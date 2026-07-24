@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { getSupabaseClient } from "@/lib/supabase";
 import type { AgencyClient, NewAgencyClient, UpdateAgencyClient } from "@/types";
 
 interface UseAgencyClientsReturn {
   clients: AgencyClient[];
+  assignableClients: AgencyClient[];
   isLoading: boolean;
   error: string | null;
   createClient: (data: NewAgencyClient) => Promise<{ error: string | null; id?: string }>;
@@ -113,5 +114,10 @@ export function useAgencyClients(): UseAgencyClientsReturn {
     []
   );
 
-  return { clients, isLoading, error, createClient, updateClient, deleteClient, refetch: fetch };
+  const assignableClients = useMemo(
+    () => clients.filter((client) => client.status !== "churned"),
+    [clients]
+  );
+
+  return { clients, assignableClients, isLoading, error, createClient, updateClient, deleteClient, refetch: fetch };
 }

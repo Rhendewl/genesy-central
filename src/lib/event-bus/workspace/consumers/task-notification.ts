@@ -48,29 +48,109 @@ async function notifyAssignees(
   prefKey:     PrefKey,
   title:       string,
   body:        string,
+  taskId:      string,
+  eventId:     string,
 ): Promise<void> {
   if (assigneeIds.length === 0) return;
 
-  const { data: profiles } = await db
+  const { data: profiles, error: profilesError } = await db
     .from("user_profiles")
-    .select("id, auth_user_id")
+    .select("id, auth_user_id, owner_id")
     .in("id", assigneeIds);
+  if (profilesError) throw new Error(`Erro ao resolver destinatários: ${profilesError.message}`);
 
-  for (const p of (profiles ?? []) as { id: string; auth_user_id: string }[]) {
+  for (const p of (profiles ?? []) as { id: string; auth_user_id: string | null; owner_id: string }[]) {
+    if (!p.auth_user_id) continue;
     if (p.auth_user_id === actorUserId) continue; // nunca notifica quem executou a própria ação
 
-    const { data: prefs } = await db
+    const { data: prefs, error: preferencesError } = await db
       .from("workspace_task_notification_preferences")
       .select(prefKey)
       .eq("user_id", p.auth_user_id)
       .maybeSingle();
+    if (preferencesError) throw new Error(`Erro ao consultar preferências: ${preferencesError.message}`);
 
     // Sem linha de preferências ainda => default é notificar (mantém o
     // comportamento padrão da tabela, que nasce com todos os switches ligados).
     if (prefs && (prefs as Record<PrefKey, boolean>)[prefKey] === false) continue;
 
-    console.log(`[task-notification] ${prefKey} -> user_profiles.id=${p.id} auth_user_id=${p.auth_user_id} | ${title} | ${body}`);
-    await dispatchPushToUser(db, p.auth_user_id, title, body);
+    const actionUrl = `/workspace/kanban?task=${encodeURIComponent(taskId)}`;
+    const { data: insertedInbox, error: inboxError } = await db
+      .from("workflow_notifications")
+      .insert({
+        user_id:           p.owner_id,
+        recipient_user_id: p.id,
+        title,
+        body,
+        source:            "workspace_task",
+        task_id:           taskId,
+        action_url:        actionUrl,
+        event_id:          eventId,
+      })
+      .select("id")
+      .single();
+
+    // Um retry do EventBus pode reencontrar o mesmo evento. O índice único
+    // event_id+recipient evita duplicar o sino; outros erros devem ser refeitos.
+    if (inboxError && inboxError.code !== "23505") {
+      throw new Error(`Erro ao persistir notificação de tarefa: ${inboxError.message}`);
+    }
+
+    let notificationId = insertedInbox?.id as string | undefined;
+    if (!notificationId && inboxError?.code === "23505") {
+      const { data: existingInbox, error: existingInboxError } = await db
+        .from("workflow_notifications")
+        .select("id")
+        .eq("event_id", eventId)
+        .eq("recipient_user_id", p.id)
+        .single();
+      if (existingInboxError || !existingInbox?.id) {
+        throw new Error(`Erro ao localizar notificação deduplicada: ${existingInboxError?.message ?? "registro ausente"}`);
+      }
+      notificationId = existingInbox.id as string;
+    }
+    if (!notificationId) throw new Error("Notificação persistida sem identificador.");
+
+    let push;
+    try {
+      push = await dispatchPushToUser(db, p.auth_user_id, title, body, {
+        tag: `workspace-task-${taskId}-${prefKey}`,
+        url: actionUrl,
+      });
+    } catch (err) {
+      await db.from("workflow_notifications").update({
+        push_status:       "failed",
+        push_error:        err instanceof Error ? err.message.slice(0, 1000) : "Erro desconhecido",
+        push_attempted_at: new Date().toISOString(),
+      }).eq("id", notificationId);
+      throw err;
+    }
+
+    const pushStatus = push.skippedReason === "no_subscriptions"
+      ? "no_subscription"
+      : push.skippedReason === "vapid_not_configured"
+        ? "not_configured"
+        : push.failed === 0
+          ? "accepted"
+          : push.accepted > 0 ? "partial" : "failed";
+
+    const { error: deliveryUpdateError } = await db.from("workflow_notifications").update({
+      push_status:        pushStatus,
+      push_subscriptions: push.subscriptions,
+      push_accepted:      push.accepted,
+      push_failed:        push.failed,
+      push_removed:       push.removed,
+      push_error:         push.skippedReason ?? null,
+      push_attempted_at:  new Date().toISOString(),
+    }).eq("id", notificationId);
+    if (deliveryUpdateError) {
+      throw new Error(`Erro ao registrar resultado do push: ${deliveryUpdateError.message}`);
+    }
+
+    console.log(
+      `[task-notification] ${prefKey} -> profile=${p.id} inbox=ok push=${push.accepted}/${push.subscriptions}`
+      + (push.skippedReason ? ` skipped=${push.skippedReason}` : ""),
+    );
   }
 }
 
@@ -91,7 +171,7 @@ export function createTaskNotificationConsumer(db: Db): EventConsumer {
         const title = "Nova tarefa atribuída";
         const body = `${p.taskTitle} • Prioridade ${priorityLabel}` + (dueLabel ? ` • Prazo ${dueLabel}` : "");
 
-        await notifyAssignees(db, p.assigneeIds, p.actorUserId, "notify_on_assignment", title, body);
+        await notifyAssignees(db, p.assigneeIds, p.actorUserId, "notify_on_assignment", title, body, p.taskId, event.id);
         return;
       }
 
@@ -115,7 +195,16 @@ export function createTaskNotificationConsumer(db: Db): EventConsumer {
         body  = `${p.taskTitle} foi movida para ${statusLabel} por ${actorName}`;
       }
 
-      await notifyAssignees(db, p.assigneeIds, p.actorUserId, isCompleted ? "notify_on_completion" : "notify_on_status_change", title, body);
+      await notifyAssignees(
+        db,
+        p.assigneeIds,
+        p.actorUserId,
+        isCompleted ? "notify_on_completion" : "notify_on_status_change",
+        title,
+        body,
+        p.taskId,
+        event.id,
+      );
     },
   };
 }

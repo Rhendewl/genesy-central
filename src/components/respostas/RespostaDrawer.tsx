@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, FileText, Clock, Zap, Loader2, Star, Archive } from "lucide-react";
 import { useRespostaDetail } from "@/hooks/useRespostaDetail";
@@ -46,6 +47,17 @@ export function RespostaDrawer({
 }: RespostaDrawerProps) {
   const [activeTab,  setActiveTab]  = useState<Tab>("respostas");
   const [isStarring, setIsStarring] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => setMounted(true), []);
+
+  // Impede que a página ao fundo role enquanto o detalhe ocupa o viewport.
+  useEffect(() => {
+    if (!open || typeof document === "undefined") return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = previousOverflow; };
+  }, [open]);
 
   // Reset tab and in-flight star state when switching submissions
   useEffect(() => {
@@ -83,10 +95,12 @@ export function RespostaDrawer({
     }
   };
 
-  return (
+  if (!mounted) return null;
+
+  return createPortal(
     <AnimatePresence>
       {open && (
-        <div className="fixed inset-0 z-50 flex justify-end">
+        <div className="fixed inset-0 z-[100] flex h-[100dvh] max-h-[100dvh] justify-end overflow-hidden">
           {/* Backdrop */}
           <motion.div
             key="backdrop"
@@ -94,7 +108,7 @@ export function RespostaDrawer({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            className="lc-modal-backdrop absolute inset-0"
             onClick={onClose}
           />
 
@@ -105,7 +119,7 @@ export function RespostaDrawer({
             animate={{ x: 0 }}
             exit={{ x: "100%" }}
             transition={{ type: "spring", damping: 28, stiffness: 260 }}
-            className="relative z-10 w-full max-w-xl flex flex-col h-full overflow-hidden"
+            className="relative z-10 flex h-[100dvh] max-h-[100dvh] min-h-0 w-full max-w-xl flex-col overflow-hidden sm:my-3 sm:h-[calc(100dvh-1.5rem)] sm:max-h-[calc(100dvh-1.5rem)] sm:rounded-l-3xl"
             style={{ background: "var(--card)", borderLeft: "1px solid var(--border)" }}
           >
             {/* Header */}
@@ -192,7 +206,14 @@ export function RespostaDrawer({
             </div>
 
             {/* Content */}
-            <div className="flex-1 overflow-y-auto px-5 pt-4 pb-6">
+            <div
+              className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pt-4 sm:px-5"
+              style={{
+                paddingBottom: "max(1.5rem, env(safe-area-inset-bottom))",
+                WebkitOverflowScrolling: "touch",
+                scrollbarGutter: "stable",
+              }}
+            >
               {isLoading && (
                 <div className="flex items-center justify-center py-16">
                   <Loader2 size={20} className="animate-spin" style={{ color: "var(--muted-foreground)" }} />
@@ -205,7 +226,7 @@ export function RespostaDrawer({
 
               {!isLoading && detail && (
                 <>
-                  {activeTab === "respostas"   && <TabRespostas   submission={detail.submission} />}
+                  {activeTab === "respostas"   && <TabRespostas submission={detail.submission} steps={detail.formSteps} />}
                   {activeTab === "timeline"    && <TabTimeline    events={detail.sessionEvents} />}
                   {activeTab === "integracoes" && <TabIntegracoes deliveries={detail.integrationDeliveries} />}
                 </>
@@ -215,5 +236,6 @@ export function RespostaDrawer({
         </div>
       )}
     </AnimatePresence>
+    , document.body
   );
 }

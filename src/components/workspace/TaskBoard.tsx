@@ -1,9 +1,10 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import {
   DndContext, DragEndEvent, DragOverlay, DragStartEvent,
-  KeyboardSensor, PointerSensor, closestCorners, useSensor, useSensors,
+  KeyboardSensor, PointerSensor, closestCorners, pointerWithin, useSensor, useSensors,
+  type CollisionDetection,
 } from "@dnd-kit/core";
 import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import { motion } from "framer-motion";
@@ -11,18 +12,39 @@ import { toast } from "sonner";
 import { TaskColumn } from "./TaskColumn";
 import { TaskCard } from "./TaskCard";
 import { TaskTrashDropZone, WORKSPACE_TASK_TRASH_ID } from "./TaskTrashDropZone";
-import { WORKSPACE_TASK_STATUSES, type WorkspaceTaskStatus } from "@/types/workspace";
+import { TaskCompletionCelebration } from "./TaskCompletionCelebration";
+import { WORKSPACE_TASK_STATUSES, type WorkspaceTask, type WorkspaceTaskStatus } from "@/types/workspace";
 import type { useWorkspaceTasks } from "@/hooks/useWorkspaceTasks";
 
 interface TaskBoardProps {
   tasksHook:  ReturnType<typeof useWorkspaceTasks>;
   onOpenTask: (taskId: string) => void;
+  visibleTasks?: WorkspaceTask[];
 }
 
-export function TaskBoard({ tasksHook, onOpenTask }: TaskBoardProps) {
-  const { tasksByStatus, getTaskById, moveTask, deleteTask } = tasksHook;
+// O ponteiro é a fonte de verdade para movimentos com mouse/toque. O antigo
+// closestCorners considerava o retângulo inteiro do overlay e podia escolher a
+// lixeira à direita mesmo com o cursor ainda dentro da coluna "Concluído".
+// Para teclado (sem coordenadas de ponteiro), mantemos o fallback acessível.
+const taskCollisionDetection: CollisionDetection = (args) => {
+  const pointerHits = pointerWithin(args);
+  return pointerHits.length > 0 ? pointerHits : closestCorners(args);
+};
+
+export function TaskBoard({ tasksHook, onOpenTask, visibleTasks }: TaskBoardProps) {
+  const {
+    tasksByStatus, getTaskById, moveTask, canEditTask, canExecuteTask,
+    discardTask, restoreDiscardedTask, commitDiscardedTask,
+  } = tasksHook;
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [activeCardWidth, setActiveCardWidth] = useState<number | null>(null);
   const boardScrollRef = useRef<HTMLDivElement | null>(null);
+  const visibleTasksByStatus = useMemo(() => {
+    if (!visibleTasks) return tasksByStatus;
+    const grouped = { a_fazer: [], em_andamento: [], aguardando: [], concluido: [] } as Record<WorkspaceTaskStatus, WorkspaceTask[]>;
+    visibleTasks.forEach((task) => grouped[task.status].push(task));
+    return grouped;
+  }, [tasksByStatus, visibleTasks]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -31,23 +53,49 @@ export function TaskBoard({ tasksHook, onOpenTask }: TaskBoardProps) {
 
   const handleDragStart = useCallback((event: DragStartEvent) => {
     setActiveId(event.active.id as string);
+    setActiveCardWidth(event.active.rect.current.initial?.width ?? null);
   }, []);
 
   const handleDragEnd = useCallback(
     async (event: DragEndEvent) => {
       const { active, over } = event;
       setActiveId(null);
+      setActiveCardWidth(null);
       if (!over) return;
 
       const taskId = active.id as string;
       const draggedTask = getTaskById(taskId);
       if (!draggedTask) return;
+      if (!canExecuteTask(draggedTask)) {
+        toast.error("Somente o criador ou um responsável pode mover esta tarefa");
+        return;
+      }
 
       const overId = over.id as string;
       if (overId === WORKSPACE_TASK_TRASH_ID) {
-        const result = await deleteTask(taskId);
-        if (result.error) toast.error(result.error);
-        else toast.success("Tarefa descartada");
+        const result = discardTask(taskId);
+        if (result.error || !result.discarded) {
+          toast.error(result.error ?? "Erro ao descartar tarefa");
+          return;
+        }
+
+        const { task, index } = result.discarded;
+        const commitTimer = window.setTimeout(() => {
+          void commitDiscardedTask(task, index).then((commitResult) => {
+            if (commitResult.error) toast.error(commitResult.error);
+          });
+        }, 4000);
+
+        toast.success("Tarefa descartada", {
+          duration: 4000,
+          action: {
+            label: "Desfazer",
+            onClick: () => {
+              window.clearTimeout(commitTimer);
+              restoreDiscardedTask(task, index);
+            },
+          },
+        });
         return;
       }
 
@@ -81,10 +129,13 @@ export function TaskBoard({ tasksHook, onOpenTask }: TaskBoardProps) {
       const result = await moveTask(taskId, targetStatus, orderedIds);
       if (result.error) toast.error(result.error);
     },
-    [deleteTask, getTaskById, tasksByStatus, moveTask]
+    [canExecuteTask, commitDiscardedTask, discardTask, getTaskById, moveTask, restoreDiscardedTask, tasksByStatus]
   );
 
-  const handleDragCancel = useCallback(() => setActiveId(null), []);
+  const handleDragCancel = useCallback(() => {
+    setActiveId(null);
+    setActiveCardWidth(null);
+  }, []);
 
   const handleBoardWheelCapture = useCallback((event: React.WheelEvent<HTMLDivElement>) => {
     const scrollArea = boardScrollRef.current;
@@ -104,9 +155,11 @@ export function TaskBoard({ tasksHook, onOpenTask }: TaskBoardProps) {
   const activeTask = activeId ? getTaskById(activeId) : null;
 
   return (
+    <>
+    <TaskCompletionCelebration celebrationId={tasksHook.completionCelebrationId} />
     <DndContext
       sensors={sensors}
-      collisionDetection={closestCorners}
+      collisionDetection={taskCollisionDetection}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
       onDragCancel={handleDragCancel}
@@ -130,8 +183,9 @@ export function TaskBoard({ tasksHook, onOpenTask }: TaskBoardProps) {
               <TaskColumn
                 status={s.id}
                 label={s.label}
-                tasks={tasksByStatus[s.id]}
+                tasks={visibleTasksByStatus[s.id]}
                 onOpenTask={onOpenTask}
+                canMoveTask={canExecuteTask}
               />
             </motion.div>
           ))}
@@ -140,13 +194,14 @@ export function TaskBoard({ tasksHook, onOpenTask }: TaskBoardProps) {
         </div>
       </div>
 
-      <DragOverlay dropAnimation={{ duration: 200, easing: "ease" }}>
+      <DragOverlay adjustScale={false} dropAnimation={null}>
         {activeTask ? (
-          <div style={{ transform: "rotate(2deg)" }}>
-            <TaskCard task={activeTask} isDragOverlay onClick={() => {}} />
+          <div style={{ width: activeCardWidth ?? undefined, transform: "rotate(1deg)", transformOrigin: "center" }}>
+            <TaskCard task={activeTask} isDragOverlay canDrag={false} onClick={() => {}} />
           </div>
         ) : null}
       </DragOverlay>
     </DndContext>
+    </>
   );
 }

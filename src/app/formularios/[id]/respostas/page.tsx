@@ -13,7 +13,7 @@ import type { Form, FormStep } from "@/types";
 import type { SubmissionListItem } from "@/lib/respostas/types";
 
 const ANSWER_TYPES = new Set([
-  "short_text", "long_text", "email", "phone", "number",
+  "name", "short_text", "long_text", "email", "phone", "number",
   "multiple_choice", "single_choice", "rating", "nps_scale", "date", "file_upload",
 ]);
 
@@ -142,7 +142,19 @@ export default function FormularioRespostasPage() {
     if (selectedId) archive(selectedId);
   }, [selectedId, archive]);
 
-  const answerSteps = steps.filter(s => ANSWER_TYPES.has(s.type));
+  const answerSteps = steps
+    .filter(s => ANSWER_TYPES.has(s.type))
+    .map((step, index) => ({ step, index }))
+    .sort((a, b) => {
+      const contactPriority = (step: FormStep) => {
+        if (step.type === "name" || /\bnome\b/i.test(step.title)) return 0;
+        if (step.type === "phone" || /whats|telefone|celular|phone/i.test(step.title)) return 1;
+        if (step.type === "email" || /e-?mail/i.test(step.title)) return 2;
+        return 3;
+      };
+      return contactPriority(a.step) - contactPriority(b.step) || a.index - b.index;
+    })
+    .map(({ step }) => step);
 
   return (
     <FormularioShell id={id}>

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
+import { ensureClientFormFolder } from "@/lib/forms/form-folders";
 import type { FormStep } from "@/types";
 
 type RouteContext = {
@@ -187,6 +188,13 @@ export async function POST(request: NextRequest, context: RouteContext) {
   const slug = generateNpsSlug(client.name);
   const now = new Date().toISOString();
 
+  let folderId: string;
+  try {
+    folderId = await ensureClientFormFolder(supabase, user.id, client);
+  } catch (error) {
+    return NextResponse.json({ error: error instanceof Error ? error.message : "Erro ao preparar pasta do cliente." }, { status: 500 });
+  }
+
   const { data: form, error: formError } = await supabase
     .from("forms")
     .insert({
@@ -196,6 +204,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
       name: `NPS — ${client.name}`,
       slug,
       description: `Formulário de NPS de ${client.name}`,
+      origin: "nps",
+      client_id: client.id,
+      folder_id: folderId,
       status: "published",
       published_at: now,
       steps,

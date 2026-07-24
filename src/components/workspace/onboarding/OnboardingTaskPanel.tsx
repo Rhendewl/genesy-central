@@ -15,6 +15,7 @@ import { DueDatePicker } from "@/components/workspace/DueDatePicker";
 import { appendClientNameToken, CLIENT_NAME_TOKEN } from "@/lib/onboarding/task-title-tokens";
 import { WORKSPACE_TASK_PRIORITIES, type WorkspaceTaskPriority } from "@/types/workspace";
 import { ONBOARDING_TASK_STATUSES, type OnboardingTask, type OnboardingTaskStatus } from "@/types/onboarding";
+import { Button } from "@/components/ui/button";
 
 interface OnboardingTaskPanelProps {
   taskId:          string | null; // null = modo criação
@@ -299,15 +300,14 @@ export function OnboardingTaskPanel({ taskId, stageId, isAdmin, myProfileId, all
             )}
 
             {isCreating ? (
-              <button
+              <Button
                 onClick={handleCreate}
-                disabled={isSaving}
-                className="flex items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-sm font-medium transition-all active:scale-95 disabled:opacity-60"
-                style={{ background: "#b0b8c1", color: "#000000" }}
+                loading={isSaving}
+                fullWidth
+                size="medium"
               >
-                {isSaving && <Loader2 size={14} className="animate-spin" />}
                 Criar tarefa
-              </button>
+              </Button>
             ) : (
               <>
                 <div>
@@ -346,7 +346,7 @@ export function OnboardingTaskPanel({ taskId, stageId, isAdmin, myProfileId, all
 
       {confirmDelete && (
         <div
-          className="fixed inset-0 z-[60] flex items-center justify-center p-4 lc-scrim"
+          className="lc-modal-backdrop fixed inset-0 z-[60] flex items-center justify-center p-4"
           style={{ background: "rgba(0,0,0,0.60)", backdropFilter: "blur(6px)" }}
         >
           <motion.div

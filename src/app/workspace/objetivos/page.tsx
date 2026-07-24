@@ -67,7 +67,12 @@ export default function WorkspaceObjetivosPage() {
 
       <AnimatePresence>
         {isPanelOpen && (
-          <ObjectiveDetailPanel objectiveId={openObjectiveId} objectivesHook={objectivesHook} onClose={closePanel} />
+          <ObjectiveDetailPanel
+            objectiveId={openObjectiveId}
+            objectivesHook={objectivesHook}
+            onClose={closePanel}
+            presentation={openObjectiveId === null ? "modal" : "drawer"}
+          />
         )}
       </AnimatePresence>
     </div>

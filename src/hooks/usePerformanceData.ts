@@ -48,6 +48,14 @@ type TaskAssigneeRow = {
   assignee_id: string;
 };
 
+type TaskCompletionRow = {
+  task_id: string;
+  assignee_id: string | null;
+  task_title: string;
+  due_date: string | null;
+  completed_at: string;
+};
+
 type LeadRow = {
   id: string;
   assigned_to: string | null;
@@ -152,6 +160,7 @@ export function usePerformanceData(): UsePerformanceDataReturn {
         profilesRes,
         tasksRes,
         assigneesRes,
+        taskCompletionsRes,
         leadsRes,
         stagesRes,
         historyRes,
@@ -170,6 +179,11 @@ export function usePerformanceData(): UsePerformanceDataReturn {
         supabase
           .from("workspace_task_assignees")
           .select("task_id, assignee_id"),
+        supabase
+          .from("workspace_task_completion_history")
+          .select("task_id, assignee_id, task_title, due_date, completed_at")
+          .gte("completed_at", prevStartKey)
+          .lt("completed_at", nextKey),
         supabase
           .from("leads")
           .select("id, assigned_to, deal_value, iq_score, entered_at, created_at, updated_at")
@@ -195,6 +209,9 @@ export function usePerformanceData(): UsePerformanceDataReturn {
       ]);
 
       if (profilesRes.error) throw profilesRes.error;
+      if (tasksRes.error) throw tasksRes.error;
+      if (assigneesRes.error) throw assigneesRes.error;
+      if (taskCompletionsRes.error) throw taskCompletionsRes.error;
       const configColumnsMissing = Boolean(configsRes.error?.message?.includes("job_title_aliases") || configsRes.error?.message?.includes("member_profile_ids"));
       if (configsRes.error && configsRes.error.code !== "42P01" && !configColumnsMissing) throw configsRes.error;
 
@@ -202,6 +219,7 @@ export function usePerformanceData(): UsePerformanceDataReturn {
         .filter((profile) => canViewTeam || profile.id === member?.id);
       const tasks = (tasksRes.data ?? []) as WorkspaceTaskRow[];
       const assignees = (assigneesRes.data ?? []) as TaskAssigneeRow[];
+      const taskCompletions = (taskCompletionsRes.data ?? []) as TaskCompletionRow[];
       const leads = (leadsRes.data ?? []) as LeadRow[];
       const stages = (stagesRes.data ?? []) as StageRow[];
       const history = (historyRes.data ?? []) as StageHistoryRow[];
@@ -239,6 +257,14 @@ export function usePerformanceData(): UsePerformanceDataReturn {
           .filter((row) => row.assignee_id === profileId)
           .map((row) => taskById.get(row.task_id))
           .filter((task): task is WorkspaceTaskRow => Boolean(task));
+      };
+
+      const profileTaskCompletions = (profileId: string, currentMonth: boolean) => {
+        return taskCompletions.filter((completion) => {
+          const key = safeDateKey(completion.completed_at);
+          return completion.assignee_id === profileId
+            && (currentMonth ? key >= startKey : key >= prevStartKey && key < startKey);
+        });
       };
 
       const profileLeads = (profileId: string, currentMonth: boolean) => {
@@ -282,8 +308,8 @@ export function usePerformanceData(): UsePerformanceDataReturn {
         const assignedTasks = profileAssignedTasks(profile.id);
         const currentLeads = profileLeads(profile.id, true);
         const previousLeads = profileLeads(profile.id, false);
-        const completedTasks = currentTasks.filter((task) => task.status === "concluido");
-        const previousCompletedTasks = previousTasks.filter((task) => task.status === "concluido");
+        const completedTasks = profileTaskCompletions(profile.id, true);
+        const previousCompletedTasks = profileTaskCompletions(profile.id, false);
         const overdueTasks = assignedTasks.filter((task) => task.status !== "concluido" && task.due_date && task.due_date < todayKey);
         const onTimeTasks = completedTasks.filter((task) => !task.due_date || safeDateKey(task.completed_at) <= task.due_date);
         const meetings = profileStageEntries(
@@ -336,11 +362,13 @@ export function usePerformanceData(): UsePerformanceDataReturn {
 
         const resultScore = pct(mainGoalValue, config.mainGoalTarget);
         const previousResultScore = pct(previousMainGoalValue, config.mainGoalTarget);
-        const productivityScore = currentTasks.length
-          ? clampScore((completedTasks.length / currentTasks.length) * 70 + (onTimeTasks.length / Math.max(completedTasks.length, 1)) * 30)
+        const currentTaskTotal = Math.max(currentTasks.length, completedTasks.length);
+        const previousTaskTotal = Math.max(previousTasks.length, previousCompletedTasks.length);
+        const productivityScore = currentTaskTotal
+          ? clampScore((completedTasks.length / currentTaskTotal) * 70 + (onTimeTasks.length / Math.max(completedTasks.length, 1)) * 30)
           : 55;
-        const previousProductivityScore = previousTasks.length
-          ? clampScore((previousCompletedTasks.length / previousTasks.length) * 100)
+        const previousProductivityScore = previousTaskTotal
+          ? clampScore((previousCompletedTasks.length / previousTaskTotal) * 100)
           : 55;
         const organizationScore = clampScore(
           50 +
@@ -453,6 +481,21 @@ export function usePerformanceData(): UsePerformanceDataReturn {
   useEffect(() => {
     void fetchData();
   }, [fetchData]);
+
+  useEffect(() => {
+    if (memberLoading) return;
+    const supabase = getSupabaseClient();
+    const channel = supabase
+      .channel(`performance-task-completions-${member?.owner_id ?? "owner"}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "workspace_task_completion_history" },
+        () => { void fetchData(); }
+      )
+      .subscribe();
+
+    return () => { void supabase.removeChannel(channel); };
+  }, [fetchData, member?.owner_id, memberLoading]);
 
   return { team, collaborators, isLoading, error, refetch: fetchData };
 }

@@ -396,7 +396,7 @@ export function StepRenderer({
         return (
           <div
             className="flex gap-2 flex-wrap"
-            role="group"
+            role="radiogroup"
             aria-label={`Avaliação de 1 a ${max} estrelas`}
             aria-required={step.required}
           >
@@ -415,7 +415,8 @@ export function StepRenderer({
                 whileHover={{ scale: 1.15 }}
                 whileTap={{ scale: 0.9 }}
                 aria-label={`${n} estrela${n !== 1 ? "s" : ""}`}
-                aria-pressed={n <= cur}
+                role="radio"
+                aria-checked={n === cur}
                 className="transition-transform focus-visible:outline focus-visible:outline-2 rounded"
                 style={{ outlineColor: primary }}
               >
@@ -440,7 +441,7 @@ export function StepRenderer({
           <div>
             <div
               className="flex flex-nowrap gap-1 sm:gap-2"
-              role="group"
+              role="radiogroup"
               aria-label="Nota de 0 a 10"
               aria-required={step.required}
             >
@@ -464,7 +465,8 @@ export function StepRenderer({
                       whileHover={{ scale: 1.08 }}
                       whileTap={{ scale: 0.92 }}
                       aria-label={`Nota ${n}`}
-                      aria-pressed={selected}
+                      role="radio"
+                      aria-checked={selected}
                       className="relative flex aspect-square w-full items-center justify-center rounded-xl text-[11px] font-bold transition-colors focus-visible:outline focus-visible:outline-2 sm:text-sm"
                       style={{
                         background: selected ? scoreColor(n) : cardBg,

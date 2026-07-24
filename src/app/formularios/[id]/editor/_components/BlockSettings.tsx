@@ -98,8 +98,8 @@ function StarPicker({
             size={11}
             aria-hidden="true"
             style={{
-              color: n <= current ? "#f59e0b" : "var(--border)",
-              fill:  n <= current ? "#f59e0b" : "transparent",
+              color: n <= current ? "#f59e0b" : "color-mix(in srgb, var(--text-title) 48%, transparent)",
+              fill:  n <= current ? "#f59e0b" : "color-mix(in srgb, var(--text-title) 10%, transparent)",
             }}
           />
         </button>

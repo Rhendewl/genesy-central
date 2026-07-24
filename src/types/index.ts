@@ -51,6 +51,9 @@ export const KANBAN_COLUMNS: {
 
 export interface Lead {
   id: string;
+  canonical_lead_id?: string;
+  is_pipeline_copy?: boolean;
+  copied_from_lead_id?: string | null;
   user_id: string;
   name: string;
   contact: string;
@@ -1003,6 +1006,10 @@ export interface FormWelcomeScreen {
   buttonText: string;
   imageUrl?: string;
   imageSize?: "small" | "medium" | "large";
+  /** Imagem horizontal de destaque, exibida na largura do conteúdo. */
+  bannerUrl?: string;
+  /** Texto curto sobre o banner, por exemplo o nome da cidade. */
+  pillText?: string;
 }
 
 export interface FormEnding {
@@ -1073,6 +1080,20 @@ export interface FormIntegrations {
 // ── Form ──────────────────────────────────────────────────────────────────────
 
 export type FormStatus = "draft" | "published" | "archived" | "disabled";
+export type FormOrigin = "standard" | "nps";
+
+export interface FormFolder {
+  id: string;
+  user_id: string;
+  created_by: string | null;
+  name: string;
+  color: string | null;
+  client_id: string | null;
+  position: number;
+  created_at: string;
+  updated_at: string;
+  form_count?: number;
+}
 
 export interface Form {
   id: string;
@@ -1083,6 +1104,9 @@ export interface Form {
   slug: string;
   description: string | null;
   status: FormStatus;
+  origin: FormOrigin;
+  client_id: string | null;
+  folder_id: string | null;
   theme: FormTheme;
   settings: FormSettings;
   steps: FormStep[];
@@ -1097,10 +1121,10 @@ export interface Form {
   response_count?: number;
 }
 
-export type NewForm = Pick<Form, "name" | "slug" | "description">;
+export type NewForm = Pick<Form, "name" | "slug" | "description"> & { folder_id?: string | null };
 
 export type UpdateForm = Partial<
-  Pick<Form, "name" | "slug" | "description" | "status" | "theme" | "settings" | "steps" | "logic_rules" | "welcome_screen" | "endings" | "integrations">
+  Pick<Form, "name" | "slug" | "description" | "status" | "folder_id" | "theme" | "settings" | "steps" | "logic_rules" | "welcome_screen" | "endings" | "integrations">
 >;
 
 // ── Session ───────────────────────────────────────────────────────────────────

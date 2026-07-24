@@ -8,8 +8,8 @@ import type { FormStep } from "@/types";
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 const ANSWER_TYPES = new Set([
-  "short_text", "long_text", "email", "phone", "number",
-  "multiple_choice", "single_choice", "rating", "date", "file_upload",
+  "name", "short_text", "long_text", "email", "phone", "number",
+  "multiple_choice", "single_choice", "rating", "nps_scale", "date", "file_upload",
 ]);
 
 function formatDate(iso: string): string {
@@ -39,11 +39,27 @@ function formatAnswer(value: unknown, step: FormStep): string {
     if (choice) return choice.label;
   }
   if (step.type === "rating" && step.maxRating) return `${value}/${step.maxRating}`;
+  if (step.type === "nps_scale") return `${value}/10`;
   if (step.type === "date") {
     try { return new Date(String(value)).toLocaleDateString("pt-BR"); } catch { /* fall through */ }
   }
   const s = String(value);
   return s.length > 80 ? s.slice(0, 78) + "…" : s;
+}
+
+function contactKind(step: FormStep): "name" | "phone" | "email" | null {
+  if (step.type === "name" || /\bnome\b/i.test(step.title)) return "name";
+  if (step.type === "phone" || /whats|telefone|celular|phone/i.test(step.title)) return "phone";
+  if (step.type === "email" || /e-?mail/i.test(step.title)) return "email";
+  return null;
+}
+
+function columnLabel(step: FormStep): string {
+  const kind = contactKind(step);
+  if (kind === "name") return "Nome";
+  if (kind === "phone") return "Telefone";
+  if (kind === "email") return "E-mail";
+  return step.title;
 }
 
 // ── Sort icon ─────────────────────────────────────────────────────────────────
@@ -205,6 +221,8 @@ export function SubmissionsTable({
   onSort,
 }: SubmissionsTableProps) {
   const answerSteps = steps.filter(s => ANSWER_TYPES.has(s.type));
+  const contactSteps = answerSteps.filter(step => contactKind(step));
+  const otherSteps = answerSteps.filter(step => !contactKind(step));
   const allSelected = submissions.length > 0 && selectedIds.size === submissions.length;
   const someSelected = selectedIds.size > 0;
 
@@ -255,8 +273,11 @@ export function SubmissionsTable({
           <table className="w-full text-sm" style={{ tableLayout: "fixed", minWidth: `${280 + answerSteps.length * 180}px` }}>
             <colgroup>
               <col style={{ width: 44 }} />
+              {contactSteps.map(s => (
+                <col key={s.id} style={{ width: 180 }} />
+              ))}
               <col style={{ width: 148 }} />
-              {answerSteps.map(s => (
+              {otherSteps.map(s => (
                 <col key={s.id} style={{ width: 180 }} />
               ))}
             </colgroup>
@@ -279,11 +300,17 @@ export function SubmissionsTable({
                   />
                 </th>
 
+                {contactSteps.map(step => (
+                  <TH key={step.id} field={step.id}>
+                    <span className="truncate max-w-[140px] block">{columnLabel(step)}</span>
+                  </TH>
+                ))}
+
                 <TH field="created_at">Data</TH>
 
-                {answerSteps.map(step => (
+                {otherSteps.map(step => (
                   <TH key={step.id} field={step.id}>
-                    <span className="truncate max-w-[140px] block">{step.title}</span>
+                    <span className="truncate max-w-[140px] block">{columnLabel(step)}</span>
                   </TH>
                 ))}
               </tr>
@@ -303,17 +330,31 @@ export function SubmissionsTable({
                     }}
                   >
                     {/* Checkbox */}
-                    <td
-                      className="px-3 py-3"
-                      onClick={e => { e.stopPropagation(); onToggleSelect(s.id); }}
-                    >
+                    <td className="px-3 py-3">
                       <input
                         type="checkbox"
                         checked={isChecked}
                         onChange={() => onToggleSelect(s.id)}
+                        aria-label={`Selecionar resposta de ${formatDateShort(s.created_at)}`}
                         className="w-3.5 h-3.5 rounded cursor-pointer accent-[var(--primary)]"
                       />
                     </td>
+
+                    {/* Contact columns */}
+                    {contactSteps.map(step => {
+                      const val = (s.answers as Record<string, unknown>)[step.id];
+                      const text = formatAnswer(val, step);
+                      return (
+                        <td
+                          key={step.id}
+                          className="px-3 py-3 text-xs cursor-pointer"
+                          style={{ color: text === "—" ? "var(--muted-foreground)" : "var(--text-title)", opacity: text === "—" ? 0.4 : 1 }}
+                          onClick={() => onOpenDetail(s.id)}
+                        >
+                          <span className="block truncate max-w-[160px]">{text}</span>
+                        </td>
+                      );
+                    })}
 
                     {/* Date */}
                     <td
@@ -324,8 +365,8 @@ export function SubmissionsTable({
                       {formatDate(s.created_at)}
                     </td>
 
-                    {/* Answer columns */}
-                    {answerSteps.map(step => {
+                    {/* Remaining answer columns */}
+                    {otherSteps.map(step => {
                       const val = (s.answers as Record<string, unknown>)[step.id];
                       const text = formatAnswer(val, step);
                       return (
@@ -367,6 +408,7 @@ export function SubmissionsTable({
                   type="checkbox"
                   checked={isChecked}
                   onChange={() => onToggleSelect(s.id)}
+                  aria-label={`Selecionar resposta de ${formatDateShort(s.created_at)}`}
                   className="w-3.5 h-3.5 rounded flex-shrink-0 accent-[var(--primary)]"
                 />
                 <span className="flex-1 text-xs" style={{ color: "var(--muted-foreground)" }}>
@@ -392,7 +434,7 @@ export function SubmissionsTable({
                       className="text-[10px] min-w-0 truncate flex-shrink-0"
                       style={{ color: "var(--muted-foreground)", maxWidth: "40%" }}
                     >
-                      {step.title}
+                      {columnLabel(step)}
                     </span>
                     <span
                       className="text-[11px] truncate flex-1"

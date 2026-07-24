@@ -11,6 +11,7 @@ interface TaskColumnProps {
   label:      string;
   tasks:      WorkspaceTask[];
   onOpenTask: (taskId: string) => void;
+  canMoveTask: (task: WorkspaceTask) => boolean;
 }
 
 const STATUS_VISUALS: Record<WorkspaceTaskStatus, {
@@ -40,7 +41,7 @@ const STATUS_VISUALS: Record<WorkspaceTaskStatus, {
   },
 };
 
-export function TaskColumn({ status, label, tasks, onOpenTask }: TaskColumnProps) {
+export function TaskColumn({ status, label, tasks, onOpenTask, canMoveTask }: TaskColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id: status });
   const visual = STATUS_VISUALS[status];
   const Icon = visual.icon;
@@ -103,7 +104,7 @@ export function TaskColumn({ status, label, tasks, onOpenTask }: TaskColumnProps
                 exit={{ opacity: 0, scale: 0.94, transition: { duration: 0.15 } }}
                 transition={{ duration: 0.22, ease: "easeOut" }}
               >
-                <TaskCard task={task} onClick={() => onOpenTask(task.id)} />
+                <TaskCard task={task} canDrag={canMoveTask(task)} onClick={() => onOpenTask(task.id)} />
               </motion.div>
             ))}
           </AnimatePresence>

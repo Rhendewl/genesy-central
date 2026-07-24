@@ -22,7 +22,7 @@ export function AddContentModal({ open, onClose, onAdd }: AddContentModalProps) 
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.15 }}
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            className="lc-modal-backdrop absolute inset-0"
             onClick={onClose}
           />
 

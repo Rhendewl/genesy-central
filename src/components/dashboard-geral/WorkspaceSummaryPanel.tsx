@@ -10,7 +10,7 @@ import { HalfDonutGauge } from "./HalfDonutGauge";
 import { PriorityBadge } from "@/components/workspace/PriorityBadge";
 import { TaskDetailPanel } from "@/components/workspace/TaskDetailPanel";
 import type { useWorkspaceTasks } from "@/hooks/useWorkspaceTasks";
-import type { WorkspaceTaskPriority } from "@/types/workspace";
+import { WORKSPACE_TASK_PRIORITIES, type WorkspaceTaskPriority } from "@/types/workspace";
 
 const PRIORITY_ORDER: Record<WorkspaceTaskPriority, number> = { urgente: 0, alta: 1, media: 2, baixa: 3 };
 
@@ -24,9 +24,7 @@ export function WorkspaceSummaryPanel({ tasksHook, height, delay = 0 }: Workspac
   const [openTaskId, setOpenTaskId] = useState<string | null>(null);
   const [isPanelOpen, setIsPanelOpen] = useState(false);
 
-  const totalTasks = tasksHook.tasks.length;
-  const doneTasks  = tasksHook.tasks.filter((t) => t.status === "concluido").length;
-  const tasksPercent = totalTasks > 0 ? (doneTasks / totalTasks) * 100 : 0;
+  const { total: totalTasks, completed: doneTasks, percent: tasksPercent } = tasksHook.completionStats;
 
   const pendingTasks = tasksHook.tasks
     .filter((t) => t.status === "a_fazer" || t.status === "aguardando")
@@ -61,7 +59,7 @@ export function WorkspaceSummaryPanel({ tasksHook, height, delay = 0 }: Workspac
       <div className="flex min-w-0 flex-1 flex-col pl-6">
         <div className="mb-3 flex flex-shrink-0 items-center justify-between">
           <p className="text-[13px] font-semibold leading-tight" style={{ color: "var(--silver)" }}>Tarefas pendentes</p>
-          <Link href="/workspace" className="text-[var(--muted-foreground)] hover:text-[var(--text-title)]">
+          <Link href="/workspace/kanban" aria-label="Abrir tarefas do Workspace" className="text-[var(--muted-foreground)] hover:text-[var(--text-title)]">
             <ArrowUpRight size={15} />
           </Link>
         </div>
@@ -77,7 +75,8 @@ export function WorkspaceSummaryPanel({ tasksHook, height, delay = 0 }: Workspac
                 <div key={task.id} className="flex items-center gap-2.5 rounded-lg px-1 py-1.5 transition-colors hover:bg-[var(--hover)]">
                   <button
                     onClick={() => tasksHook.toggleComplete(task.id)}
-                    className="flex flex-shrink-0 items-center justify-center rounded-full border transition-colors"
+                    disabled={!tasksHook.canExecuteTask(task)}
+                    className="flex flex-shrink-0 items-center justify-center rounded-full border transition-colors disabled:cursor-default disabled:opacity-60"
                     style={{ width: "16px", height: "16px", borderColor: "var(--glass-border)", background: "transparent" }}
                     aria-label="Marcar como concluída"
                   />
@@ -86,7 +85,14 @@ export function WorkspaceSummaryPanel({ tasksHook, height, delay = 0 }: Workspac
                     className="flex flex-1 items-center gap-2 overflow-hidden text-left"
                   >
                     <span className="flex-1 truncate text-[13px]" style={{ color: "var(--text-title)" }}>{task.title}</span>
-                    <PriorityBadge priority={task.priority} />
+                    <span
+                      className="h-2.5 w-2.5 flex-shrink-0 rounded-full sm:hidden"
+                      style={{ background: WORKSPACE_TASK_PRIORITIES.find((priority) => priority.id === task.priority)?.color }}
+                      title={WORKSPACE_TASK_PRIORITIES.find((priority) => priority.id === task.priority)?.label}
+                    />
+                    <span className="hidden flex-shrink-0 sm:inline-flex">
+                      <PriorityBadge priority={task.priority} />
+                    </span>
                     {task.due_date && (
                       <span className="flex-shrink-0 text-[10px]" style={{ color: "var(--muted-foreground)" }}>
                         {format(new Date(`${task.due_date}T00:00:00`), "d MMM", { locale: ptBR })}
@@ -102,7 +108,7 @@ export function WorkspaceSummaryPanel({ tasksHook, height, delay = 0 }: Workspac
 
       <AnimatePresence>
         {isPanelOpen && (
-          <TaskDetailPanel taskId={openTaskId} tasksHook={tasksHook} onClose={() => { setIsPanelOpen(false); setOpenTaskId(null); }} />
+          <TaskDetailPanel presentation="modal" taskId={openTaskId} tasksHook={tasksHook} onClose={() => { setIsPanelOpen(false); setOpenTaskId(null); }} />
         )}
       </AnimatePresence>
     </motion.div>

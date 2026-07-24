@@ -4,9 +4,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { format } from "date-fns";
 import type { NormalizedCalendarEvent, CalendarEventsResponse } from "@/types/google-calendar";
 
-const CACHE_FRESH_MS = 60_000;   // serve instantly from cache below this age
-const CACHE_STALE_MS = 15_000;   // revalidate in background above this age
-const POLL_INTERVAL_MS = 120_000;
+const CACHE_FRESH_MS = 30_000;   // mantém a navegação instantânea entre telas
+const CACHE_STALE_MS = 5_000;    // ao voltar para a aba, atualiza quase imediatamente
+const POLL_INTERVAL_MS = 30_000; // consulta frequente somente com a página visível
 
 interface CacheEntry {
   events:    NormalizedCalendarEvent[];
@@ -40,7 +40,12 @@ export function useGoogleCalendarEvents(rangeStart: Date, rangeEnd: Date) {
     setError(null);
 
     try {
-      const res  = await fetch(`/api/google-calendar/events?from=${from}&to=${to}`, { signal: controller.signal });
+      const params = new URLSearchParams({ from, to, refresh: String(Date.now()) });
+      const res  = await fetch(`/api/google-calendar/events?${params.toString()}`, {
+        signal: controller.signal,
+        cache:  "no-store",
+        headers: { "Cache-Control": "no-cache" },
+      });
       const json = await res.json() as CalendarEventsResponse;
       if (!mountedRef.current || controller.signal.aborted) return;
 
@@ -94,11 +99,13 @@ export function useGoogleCalendarEvents(rangeStart: Date, rangeEnd: Date) {
     };
 
     window.addEventListener("focus", onFocusOrVisible);
+    window.addEventListener("online", onFocusOrVisible);
     document.addEventListener("visibilitychange", onFocusOrVisible);
     const interval = setInterval(onFocusOrVisible, POLL_INTERVAL_MS);
 
     return () => {
       window.removeEventListener("focus", onFocusOrVisible);
+      window.removeEventListener("online", onFocusOrVisible);
       document.removeEventListener("visibilitychange", onFocusOrVisible);
       clearInterval(interval);
     };

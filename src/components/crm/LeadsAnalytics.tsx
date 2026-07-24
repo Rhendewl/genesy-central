@@ -20,6 +20,8 @@ import { usePipelines } from "@/hooks/usePipelines";
 import { PipelineFilter } from "@/components/crm/PipelineFilter";
 import { KANBAN_COLUMNS } from "@/types";
 import { cn } from "@/lib/utils";
+import { useCurrentMember } from "@/context/CurrentMemberContext";
+import { isAdministrativeMember } from "@/lib/user-access";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // LeadsAnalytics
@@ -157,7 +159,12 @@ const INSIGHT_ICONS: Record<string, React.ReactNode> = {
 export function LeadsAnalytics() {
   const { pipelines }                                   = usePipelines();
   const { value: selectedPipelineIds, onChange: setPipelineFilter } = usePipelineFilter();
-  const { leads, stageHistory, stages, isLoading, bulkDeleteLeads } = useLeadsAnalyticsData(selectedPipelineIds);
+  const { member, isOwner } = useCurrentMember();
+  const hasFullCrmAccess = isAdministrativeMember(member, isOwner === true);
+  const effectivePipelineIds = hasFullCrmAccess
+    ? selectedPipelineIds
+    : member?.crm_pipeline_id ? [member.crm_pipeline_id] : [];
+  const { leads, stageHistory, stages, isLoading, bulkDeleteLeads } = useLeadsAnalyticsData(effectivePipelineIds);
   const analytics                                       = useLeadsAnalytics(leads, stageHistory, stages);
 
   const [search,       setSearch]       = useState("");
@@ -252,7 +259,7 @@ export function LeadsAnalytics() {
   return (
     <div className="pt-6">
       {/* ── Pipeline filter bar ─────────────────────────────────────────────── */}
-      {activePipelines.length > 0 && (
+      {hasFullCrmAccess && activePipelines.length > 0 && (
         <div className="px-4 sm:px-6 pb-5 flex items-center gap-3">
           <PipelineFilter
             pipelines={activePipelines}

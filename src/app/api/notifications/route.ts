@@ -9,6 +9,9 @@ type NotificationRow = {
   created_at: string;
   lead_id: string | null;
   automation_id: string | null;
+  source: string;
+  task_id: string | null;
+  action_url: string | null;
 };
 
 async function getCurrentProfileId() {
@@ -16,13 +19,14 @@ async function getCurrentProfileId() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { supabase, profileId: null, error: "Não autenticado", status: 401 };
 
-  const { data: profile, error } = await supabase
+  const { data: profiles, error } = await supabase
     .from("user_profiles")
-    .select("id")
-    .eq("auth_user_id", user.id)
-    .maybeSingle();
+    .select("id, owner_id, is_active")
+    .eq("auth_user_id", user.id);
 
   if (error) return { supabase, profileId: null, error: error.message, status: 500 };
+  const activeProfiles = (profiles ?? []).filter(profile => profile.is_active);
+  const profile = activeProfiles.find(profile => profile.owner_id !== user.id) ?? activeProfiles[0];
   if (!profile?.id) return { supabase, profileId: null, error: "Perfil não encontrado", status: 404 };
 
   return { supabase, profileId: profile.id as string, error: null, status: 200 };
@@ -37,7 +41,7 @@ export async function GET(req: NextRequest) {
   const [{ data, error: listError }, { count, error: countError }] = await Promise.all([
     supabase
       .from("workflow_notifications")
-      .select("id, title, body, read_at, created_at, lead_id, automation_id")
+      .select("id, title, body, read_at, created_at, lead_id, automation_id, source, task_id, action_url")
       .eq("recipient_user_id", profileId)
       .order("created_at", { ascending: false })
       .limit(limit),

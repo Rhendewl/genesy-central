@@ -14,6 +14,7 @@ import { TrafegoSummaryCard } from "@/components/dashboard-geral/TrafegoSummaryC
 import { FinanceiroSummaryCard } from "@/components/dashboard-geral/FinanceiroSummaryCard";
 import { NotesSummaryCard } from "@/components/dashboard-geral/NotesSummaryCard";
 import { DashboardHeaderActions } from "@/components/dashboard-geral/DashboardHeaderActions";
+import { dedupeCanonicalLeads } from "@/lib/crm/lead-identity";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Alturas fixas — nenhum card cresce com o conteúdo, tudo com scroll interno.
@@ -41,6 +42,7 @@ export default function DashboardPage() {
   const showFinanceiro = canSee("financeiro");
 
   const { leads } = useLeads();
+  const uniqueLeads = dedupeCanonicalLeads(leads);
 
   const now = new Date();
 
@@ -52,7 +54,7 @@ export default function DashboardPage() {
 
   // Funil CRM — sempre escopado ao mês atual (leads.entered_at)
   const monthKey = todayKey.slice(0, 7); // "yyyy-MM"
-  const leadsDoMes = leads.filter((l) => l.entered_at?.slice(0, 7) === monthKey);
+  const leadsDoMes = uniqueLeads.filter((l) => l.entered_at?.slice(0, 7) === monthKey);
   const funnelCounts = {
     totalLeads: leadsDoMes.length,
     agendadas:  leadsDoMes.filter((l) => l.kanban_column === "reuniao_agendada").length,
@@ -74,7 +76,7 @@ export default function DashboardPage() {
           <div className="flex flex-col gap-4">
             <MyDayCard
               tasksHook={tasksHook}
-              leads={showCrm ? leads : []}
+              leads={showCrm ? uniqueLeads : []}
               financeiroEnabled={showFinanceiro}
               height={CARD_H_ATTENTION}
               delay={0}

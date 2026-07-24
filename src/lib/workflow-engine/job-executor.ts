@@ -37,6 +37,11 @@ export class JobExecutor {
     return result;
   }
 
+  async runDueJobById(jobId: string): Promise<"executed" | "cancelled" | "failed" | null> {
+    const job = await this.repo.claimDueJobById(jobId);
+    return job ? this.runOne(job) : null;
+  }
+
   private async runOne(job: JobRow): Promise<"executed" | "cancelled" | "failed"> {
     const automation = await this.repo.getAutomation(job.automation_id);
 

@@ -32,6 +32,16 @@ export async function PUT(req: NextRequest, { params }: Params) {
 
   const body = await req.json() as UpdateForm;
 
+  if (body.folder_id) {
+    const { data: folder } = await supabase
+      .from("form_folders")
+      .select("id")
+      .eq("id", body.folder_id)
+      .eq("user_id", user.id)
+      .maybeSingle();
+    if (!folder) return NextResponse.json({ error: "Pasta não encontrada" }, { status: 400 });
+  }
+
   // Se o slug foi alterado, verificar unicidade
   if (body.slug) {
     const cleanSlug = normalizeSlug(body.slug);

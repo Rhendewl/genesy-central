@@ -189,7 +189,8 @@ function ConnectedBody({
         <button
           onClick={() => onToggleAutoCreate(!connection.auto_create_events)}
           disabled={isToggling}
-          aria-pressed={connection.auto_create_events}
+          role="switch"
+          aria-checked={connection.auto_create_events}
           className="relative w-10 h-5.5 rounded-full transition-colors shrink-0 disabled:opacity-60"
           style={{
             background: connection.auto_create_events ? "var(--primary)" : "var(--border)",

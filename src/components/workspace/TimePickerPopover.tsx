@@ -91,13 +91,13 @@ export function TimePickerPopover({ value, onChange, disabled = false, className
   const label = hh && mm ? `${hh}:${mm}` : "--:--";
 
   return (
-    <div ref={ref} className={`relative ${className ?? ""}`}>
+    <div ref={ref} className={`relative min-w-0 ${className ?? ""}`}>
       <button
         ref={buttonRef}
         type="button"
         disabled={disabled}
         onClick={() => setOpen((o) => !o)}
-        className="lc-filter-control flex h-8 items-center gap-2 rounded-lg px-2.5 text-xs transition-all disabled:cursor-not-allowed disabled:opacity-40"
+        className="lc-filter-control flex h-8 w-full items-center gap-2 rounded-lg px-2.5 text-xs transition-all disabled:cursor-not-allowed disabled:opacity-40"
         style={{ color: hh && mm ? "var(--text-title)" : "var(--text-placeholder)" }}
       >
         <Clock size={13} style={{ color: "var(--icon)", flexShrink: 0 }} />

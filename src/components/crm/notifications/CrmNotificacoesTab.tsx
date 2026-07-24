@@ -11,6 +11,7 @@ import type {
   NewCrmNotificationRule,
   UpdateCrmNotificationRule,
 } from "@/types/crm";
+import { Button } from "@/components/ui/button";
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -272,7 +273,7 @@ function RuleModal({ rule, onSave, onClose }: ModalProps) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 lc-scrim"
+      className="lc-modal-backdrop fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-4"
       style={{ background: "rgba(0,0,0,0.70)", backdropFilter: "blur(8px)", paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
     >
@@ -327,7 +328,8 @@ function RuleModal({ rule, onSave, onClose }: ModalProps) {
             <p className="text-sm font-medium" style={{ color: "var(--text-title)" }}>Ativar regra</p>
             <button
               onClick={() => patch("enabled", !form.enabled)}
-              aria-pressed={form.enabled}
+              role="switch"
+              aria-checked={form.enabled}
               className="relative rounded-full transition-colors shrink-0"
               style={{ background: form.enabled ? "var(--primary)" : "var(--border)", width: "40px", height: "22px" }}
             >
@@ -522,15 +524,15 @@ export function CrmNotificacoesTab() {
             Receba uma notificação quando um lead entrar em uma etapa específica.
           </p>
         </div>
-        <button
+        <Button
           type="button"
           onClick={openCreate}
-          className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium transition-all active:scale-95"
-          style={{ background: "#b0b8c1", color: "#000000" }}
+          icon={<Bell size={15} />}
+          signature
+          size="medium"
         >
-          <Plus size={15} />
           Nova notificação
-        </button>
+        </Button>
       </div>
 
       {/* Content */}
@@ -551,15 +553,15 @@ export function CrmNotificacoesTab() {
           <p className="text-xs" style={{ color: "var(--muted-foreground)" }}>
             Crie uma regra para ser notificado quando um lead entrar em uma etapa.
           </p>
-          <button
+          <Button
             type="button"
             onClick={openCreate}
-            className="mt-2 flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium transition-all"
-            style={{ background: "#b0b8c1", color: "#000000" }}
+            icon={<Bell size={14} />}
+            signature
+            size="medium"
           >
-            <Plus size={14} />
             Nova notificação
-          </button>
+          </Button>
         </div>
       ) : (
         <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
@@ -610,7 +612,8 @@ export function CrmNotificacoesTab() {
               <button
                 type="button"
                 onClick={e => { e.stopPropagation(); handleToggle(rule); }}
-                aria-pressed={rule.enabled}
+                role="switch"
+                aria-checked={rule.enabled}
                 className="relative rounded-full transition-colors"
                 style={{ background: rule.enabled ? "var(--primary)" : "var(--border-card-hover)", width: "36px", height: "20px" }}
               >

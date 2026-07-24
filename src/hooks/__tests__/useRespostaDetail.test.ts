@@ -18,6 +18,9 @@ const makeSubmission = (): SubmissionListItem => ({
 
 const makeDetail = (): SubmissionDetail => ({
   submission: makeSubmission(),
+  formSteps: [
+    { id: "q1", type: "short_text", title: "Qual é o seu nome?", required: true },
+  ],
   sessionEvents: [
     { id: "ev-1", step_id: "s1", event: "step_view", duration: 3000, created_at: "2026-06-25T11:01:00.000Z", meta: null },
     { id: "ev-2", step_id: null, event: "submission_finished", duration: null, created_at: "2026-06-25T11:05:00.000Z", meta: null },
@@ -51,9 +54,10 @@ describe("clearDetailCache()", () => {
 // ── SubmissionDetail structure tests ─────────────────────────────────────────
 
 describe("SubmissionDetail structure", () => {
-  it("has submission, sessionEvents, integrationDeliveries", () => {
+  it("has submission, formSteps, sessionEvents, integrationDeliveries", () => {
     const detail = makeDetail();
     expect(typeof detail.submission).toBe("object");
+    expect(detail.formSteps[0].title).toBe("Qual é o seu nome?");
     expect(Array.isArray(detail.sessionEvents)).toBe(true);
     expect(Array.isArray(detail.integrationDeliveries)).toBe(true);
   });

@@ -51,7 +51,7 @@ export default function CalendarDetailPage({
 
   if (isLoading) {
     return (
-      <div className="flex flex-col min-h-screen" style={{ backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)" }}>
+      <div className="flex min-h-dvh flex-col" style={{ backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)" }}>
         <Header title="Calendário" />
         <div className="flex-1 flex items-center justify-center">
           <Loader2 size={24} className="animate-spin" style={{ color: "var(--muted-foreground)" }} />
@@ -62,7 +62,7 @@ export default function CalendarDetailPage({
 
   if (error || !calendar) {
     return (
-      <div className="flex flex-col min-h-screen" style={{ backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)" }}>
+      <div className="flex min-h-dvh flex-col" style={{ backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)" }}>
         <Header title="Calendário" />
         <div className="flex-1 flex items-center justify-center flex-col gap-3">
           <CalendarX size={32} style={{ color: "var(--muted-foreground)" }} />
@@ -86,7 +86,7 @@ export default function CalendarDetailPage({
   };
 
   return (
-    <div className="flex flex-col min-h-screen pb-24" style={{ backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)" }}>
+    <div className="flex min-h-dvh flex-col pb-24" style={{ backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)" }}>
       {/* Back nav */}
       <div className="px-4 sm:px-6 pt-4 pb-0">
         <button

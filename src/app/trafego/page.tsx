@@ -8,7 +8,6 @@ import {
   ChevronLeft, ChevronRight, Plug, Globe,
 } from "lucide-react";
 import { Header } from "@/components/layout/Header";
-import { ModuleAccessGate } from "@/components/layout/ModuleAccessGate";
 import { DashboardTrafego } from "@/components/trafego/DashboardTrafego";
 import { IntegracoesTab } from "@/components/trafego/IntegracoesTab";
 import { PortaisList } from "@/components/portais/PortaisList";
@@ -126,7 +125,7 @@ function TrafegoPageInner() {
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
                     className={cn(
-                      "flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-all active:scale-95",
+                      "flex min-h-11 items-center gap-1.5 whitespace-nowrap rounded-xl px-3 py-2 text-sm font-medium transition-all active:scale-95",
                       activeTab === tab.id ? "text-[var(--text-title)]" : "text-[var(--icon)]",
                     )}
                     style={activeTab === tab.id ? {
@@ -209,10 +208,8 @@ function TrafegoPageInner() {
 
 export default function TrafegoPage() {
   return (
-    <ModuleAccessGate module="trafego">
-      <Suspense>
-        <TrafegoPageInner />
-      </Suspense>
-    </ModuleAccessGate>
+    <Suspense>
+      <TrafegoPageInner />
+    </Suspense>
   );
 }

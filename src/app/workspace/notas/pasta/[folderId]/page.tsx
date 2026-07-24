@@ -2,16 +2,16 @@
 
 import { useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { motion } from "framer-motion";
-import { ArrowLeft, Plus, Folder, Building2, Pencil, Loader2 } from "lucide-react";
+import { ArrowLeft, NotebookPen, Building2, Pencil, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Header } from "@/components/layout/Header";
 import { useWorkspaceNoteFolders } from "@/hooks/useWorkspaceNoteFolders";
 import { useWorkspaceNotes } from "@/hooks/useWorkspaceNotes";
 import { useWorkspaceViewing } from "@/context/WorkspaceViewingContext";
-import { TagChip } from "@/components/workspace/TagChip";
 import { NotesGrid } from "@/components/workspace/notes/NotesGrid";
 import { FolderModal } from "@/components/workspace/notes/FolderModal";
+import { GlassFolderIcon } from "@/components/ui/GlassFolderIcon";
+import { Button } from "@/components/ui/button";
 
 export default function WorkspaceFolderPage() {
   const { folderId } = useParams<{ folderId: string }>();
@@ -72,12 +72,7 @@ export default function WorkspaceFolderPage() {
           <div className="px-4 pb-4 sm:px-6">
             <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
               <div className="flex items-center gap-2.5">
-                <div
-                  className="flex h-9 w-9 items-center justify-center rounded-xl shrink-0"
-                  style={{ background: `${folder.color ?? "#7c878e"}18`, border: `1px solid ${folder.color ?? "#7c878e"}30` }}
-                >
-                  <Folder size={16} style={{ color: folder.color ?? "var(--text-empty)" }} />
-                </div>
+                <GlassFolderIcon color={folder.color ?? "#7c878e"} className="h-14 w-16 shrink-0" />
                 <div>
                   <h1 className="text-lg font-bold" style={{ color: "var(--text-title)" }}>{folder.name}</h1>
                   {folder.client_name && (
@@ -98,23 +93,17 @@ export default function WorkspaceFolderPage() {
                   <Pencil size={12} />
                   Editar pasta
                 </button>
-                <motion.button
+                <Button
                   onClick={handleCreate}
-                  whileHover={{ scale: 1.03 }}
-                  whileTap={{ scale: 0.97 }}
-                  className="lc-btn flex items-center gap-2 px-4 py-2 text-sm"
+                  icon={<NotebookPen size={16} strokeWidth={2.2} />}
+                  signature
+                  size="medium"
                 >
-                  <Plus size={16} strokeWidth={2.5} />
                   Nova Nota
-                </motion.button>
+                </Button>
               </div>
             </div>
 
-            {folder.tags.length > 0 && (
-              <div className="flex flex-wrap gap-1.5">
-                {folder.tags.map((tagId) => <TagChip key={tagId} tagId={tagId} />)}
-              </div>
-            )}
           </div>
 
           <div className="flex-1 px-4 sm:px-6">

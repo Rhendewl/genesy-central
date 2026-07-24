@@ -7,7 +7,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale/pt-BR";
 import { MoreHorizontal, Trash2, StickyNote, FolderInput } from "lucide-react";
-import { TagChip } from "@/components/workspace/TagChip";
 import type { WorkspaceNoteFolder, WorkspaceNoteSummary } from "@/types/workspace-notes";
 
 interface NoteCardProps {
@@ -75,12 +74,6 @@ export function NoteCard({ note, onDelete, folders, onMove }: NoteCardProps) {
             <MoreHorizontal size={14} style={{ color: "var(--muted-foreground)" }} />
           </button>
         </div>
-
-        {note.tags.length > 0 && (
-          <div className="mb-2 flex flex-wrap gap-1">
-            {note.tags.slice(0, 3).map((tagId) => <TagChip key={tagId} tagId={tagId} />)}
-          </div>
-        )}
 
         <p className="text-xs" style={{ color: "var(--muted-foreground)" }}>
           Editado {formatDistanceToNow(new Date(note.updated_at), { addSuffix: true, locale: ptBR })}

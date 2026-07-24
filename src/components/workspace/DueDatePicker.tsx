@@ -12,20 +12,20 @@ interface DueDatePickerProps {
 
 export function DueDatePicker({ date, time, onChangeDate, onChangeTime }: DueDatePickerProps) {
   return (
-    <div className="flex gap-2">
+    <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_7rem] gap-2">
       <DatePickerPopover
         value={date}
         onChange={(d) => {
           onChangeDate(d);
           if (!d) onChangeTime(null);
         }}
-        className="flex-1"
+        className="min-w-0"
       />
       <TimePickerPopover
         value={time}
         onChange={onChangeTime}
         disabled={!date}
-        className="w-28"
+        className="min-w-0"
       />
     </div>
   );

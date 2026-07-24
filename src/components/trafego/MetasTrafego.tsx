@@ -97,14 +97,13 @@ function GoalModal({ goal, clients, onSave, onClose, year, month }: GoalModalPro
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <div className="lc-modal-backdrop absolute inset-0" onClick={onClose} />
       <motion.div
         initial={{ opacity: 0, scale: 0.96, y: 12 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.96 }}
         transition={{ duration: 0.2 }}
-        className="relative w-full max-w-md rounded-2xl p-6 z-10"
-        style={{ background: "#0d1f33", border: "1px solid rgba(42,82,128,0.55)" }}
+        className="lc-modal-panel relative z-10 w-full max-w-md rounded-2xl p-6"
       >
         <div className="flex items-center justify-between mb-5">
           <div className="flex items-center gap-2">
@@ -426,8 +425,8 @@ export function MetasTrafego({ year, month }: MetasTrafegoProps) {
               {goals.length} definida{goals.length !== 1 ? "s" : ""}
             </span>
           </div>
-          <PrimaryButton onClick={openNew} className="flex items-center gap-2 text-sm px-4 py-2">
-            <Plus size={15} /> Nova Meta
+          <PrimaryButton onClick={openNew} signature size="medium">
+            <Target size={15} /> Nova Meta
           </PrimaryButton>
         </div>
 
@@ -443,7 +442,8 @@ export function MetasTrafego({ year, month }: MetasTrafegoProps) {
             <p className="text-[#5d7d9a] text-sm text-center">
               Nenhuma meta definida para este período.
             </p>
-            <PrimaryButton onClick={openNew} className="text-sm px-5 py-2">
+            <PrimaryButton onClick={openNew} signature size="medium">
+              <Target size={15} />
               Definir primeira meta
             </PrimaryButton>
           </div>
@@ -480,7 +480,7 @@ export function MetasTrafego({ year, month }: MetasTrafegoProps) {
 
         {confirmDelete && (
           <div key="confirm-delete" className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setConfirmDelete(null)} />
+            <div className="lc-modal-backdrop absolute inset-0" onClick={() => setConfirmDelete(null)} />
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}

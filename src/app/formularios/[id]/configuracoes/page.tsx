@@ -3,15 +3,14 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
-  Loader2, Eye, EyeOff, CheckCircle2, AlertCircle, ExternalLink,
-  Shield, Bell, Zap, ChevronDown, Link2, Globe, AlertTriangle,
+  Loader2, CheckCircle2, AlertCircle, ExternalLink,
+  Shield, Bell, Link2, Globe, AlertTriangle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { FormularioShell } from "../_components/FormularioShell";
 import { ConfigSubNav } from "./_components/ConfigSubNav";
-import type { Form, FormStatus, PixelMode, FormMetaPixelConfig, FormWebhookConfig } from "@/types";
+import type { Form, FormStatus } from "@/types";
 import { Switch } from "@/components/ui/Switch";
-import { useFormularioIntegracoes } from "@/hooks/useFormularioIntegracoes";
 
 // ── Local types ───────────────────────────────────────────────────────────────
 
@@ -22,38 +21,16 @@ interface Draft {
   slug:               string;
   status:             FormStatus;
   notificationEmails: string;
-  metaPixel:          FormMetaPixelConfig;
-  webhook:            FormWebhookConfig;
   antiFraudEnabled:   boolean;
 }
 
 interface Errors {
   name?: string;
   slug?: string;
-  pixelId?: string;
-  webhookUrl?: string;
   emails?: string;
 }
 
-// ── Constants ─────────────────────────────────────────────────────────────────
-
-// Default event set for Meta Pixel integrations. Stored in form_integrations.event_filter
-// when first creating a record. Preserves the value already in the DB on subsequent saves,
-// allowing per-form customization without a UI change.
-const META_PIXEL_DEFAULT_EVENTS: string[] = [
-  "form.started",
-  "form.step.completed",
-  "form.completed",
-  "form.submission.succeeded",
-];
-
 // ── Helpers ───────────────────────────────────────────────────────────────────
-
-const PIXEL_MODE_OPTIONS: { value: PixelMode; label: string }[] = [
-  { value: "browser", label: "Browser (fbq)"               },
-  { value: "capi",    label: "Conversions API"              },
-  { value: "both",    label: "Browser + Conversions API"    },
-];
 
 function normalizeSlug(s: string): string {
   return s
@@ -65,40 +42,17 @@ function normalizeSlug(s: string): string {
     .replace(/^-|-$/g, "");
 }
 
-function isValidPixelId(v: string): boolean {
-  return /^\d{10,20}$/.test(v.trim());
-}
-
-function isValidUrl(v: string): boolean {
-  try { new URL(v); return v.startsWith("https://"); } catch { return false; }
-}
-
 function isValidEmail(v: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
 }
 
 function toDraft(form: Form): Draft {
-  const mp = form.integrations?.metaPixel;
-  const wh = form.integrations?.webhook;
   const st = form.settings ?? {};
   return {
     name:               form.name,
     slug:               form.slug,
     status:             form.status,
     notificationEmails: (st.notificationEmails ?? []).join(", "),
-    metaPixel: {
-      enabled:       mp?.enabled       ?? false,
-      pixelId:       mp?.pixelId       ?? "",
-      event:         mp?.event         ?? "Lead",
-      mode:          mp?.mode          ?? "browser",
-      accessToken:   "",               // synced from form_integrations.secrets after load
-      testEventCode: mp?.testEventCode ?? "",
-    },
-    webhook: {
-      enabled: wh?.enabled ?? false,
-      url:     wh?.url     ?? "",
-      secret:  wh?.secret  ?? "",
-    },
     antiFraudEnabled: st.antiFraudEnabled ?? false,
   };
 }
@@ -197,31 +151,6 @@ function Textarea({
   );
 }
 
-function SelectField<T extends string>({
-  value, onChange, options, disabled,
-}: {
-  value: T; onChange: (v: T) => void;
-  options: { value: T; label: string }[];
-  disabled?: boolean;
-}) {
-  return (
-    <div className="relative">
-      <select
-        value={value}
-        onChange={e => onChange(e.target.value as T)}
-        disabled={disabled}
-        className="w-full appearance-none rounded-lg px-3 py-2 text-sm outline-none pr-8 disabled:opacity-50"
-        style={{ background: "var(--hover)", border: "1px solid var(--border)", color: "var(--text-title)" }}
-      >
-        {options.map(o => (
-          <option key={o.value} value={o.value} style={{ background: "var(--popover)" }}>{o.label}</option>
-        ))}
-      </select>
-      <ChevronDown size={12} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: "var(--muted-foreground)" }} />
-    </div>
-  );
-}
-
 function SwitchRow({
   label, description, checked, onChange,
 }: {
@@ -255,16 +184,9 @@ export default function FormularioConfiguracoesPage() {
   const [isSaving,  setIsSaving]  = useState(false);
   const [errors,    setErrors]    = useState<Errors>({});
 
-  // Integration configs (Meta Pixel access_token lives here)
-  const { integrations, reload: reloadIntegrations } = useFormularioIntegracoes(id);
-
   // Slug availability check
   const [slugStatus, setSlugStatus] = useState<SlugStatus>("idle");
   const slugTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Password visibility
-  const [showToken,  setShowToken]  = useState(false);
-  const [showSecret, setShowSecret] = useState(false);
 
   // ── Load ────────────────────────────────────────────────────────────────────
 
@@ -284,17 +206,6 @@ export default function FormularioConfiguracoesPage() {
       .finally(() => { if (mounted) setIsLoading(false); });
     return () => { mounted = false; };
   }, [id]);
-
-  // ── Sync accessToken from form_integrations into draft ─────────────────────
-
-  useEffect(() => {
-    const mp = integrations.find(i => i.adapter === "meta-pixel");
-    if (!mp) return;
-    const token = mp.secrets?.access_token ? "__masked__" : "";
-    setDraft(prev => prev ? { ...prev, metaPixel: { ...prev.metaPixel, accessToken: token } } : prev);
-    setSaved(prev => prev ? { ...prev, metaPixel: { ...prev.metaPixel, accessToken: token } } : prev);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [integrations]);
 
   // ── Slug check ──────────────────────────────────────────────────────────────
 
@@ -331,22 +242,6 @@ export default function FormularioConfiguracoesPage() {
     setErrors(prev => ({ ...prev, [key === "notificationEmails" ? "emails" : key]: undefined }));
   }, []);
 
-  const patchPixel = useCallback(<K extends keyof FormMetaPixelConfig>(key: K, value: FormMetaPixelConfig[K]) => {
-    setDraft(prev => prev
-      ? { ...prev, metaPixel: { ...prev.metaPixel, [key]: value } }
-      : prev
-    );
-    if (key === "pixelId") setErrors(prev => ({ ...prev, pixelId: undefined }));
-  }, []);
-
-  const patchWebhook = useCallback(<K extends keyof FormWebhookConfig>(key: K, value: FormWebhookConfig[K]) => {
-    setDraft(prev => prev
-      ? { ...prev, webhook: { ...prev.webhook, [key]: value } }
-      : prev
-    );
-    if (key === "url") setErrors(prev => ({ ...prev, webhookUrl: undefined }));
-  }, []);
-
   // ── Validate ────────────────────────────────────────────────────────────────
 
   function validate(d: Draft): Errors {
@@ -356,12 +251,6 @@ export default function FormularioConfiguracoesPage() {
     if (slugStatus === "taken")   e.slug = "Este slug já está em uso";
     if (slugStatus === "invalid") e.slug = "Slug inválido (use apenas letras, números e hífens)";
     if (slugStatus === "checking") e.slug = "Aguarde a verificação do slug";
-    if (d.metaPixel.enabled && !isValidPixelId(d.metaPixel.pixelId)) {
-      e.pixelId = "Pixel ID deve ter entre 10 e 20 dígitos";
-    }
-    if (d.webhook.enabled && d.webhook.url && !isValidUrl(d.webhook.url)) {
-      e.webhookUrl = "URL inválida (deve começar com https://)";
-    }
     if (d.notificationEmails.trim()) {
       const invalid = d.notificationEmails.split(",").filter(e => e.trim() && !isValidEmail(e));
       if (invalid.length > 0) e.emails = `E-mail inválido: ${invalid[0].trim()}`;
@@ -378,48 +267,6 @@ export default function FormularioConfiguracoesPage() {
 
     setIsSaving(true);
     try {
-      // ── 1. Upsert Meta Pixel config into form_integrations (secrets live here) ─
-      const mpInteg = integrations.find(i => i.adapter === "meta-pixel");
-      const mpSettings = {
-        pixel_id:        draft.metaPixel.pixelId,
-        mode:            draft.metaPixel.mode,
-        event:           draft.metaPixel.event,
-        test_event_code: draft.metaPixel.testEventCode,
-      };
-      const mpSecrets  = draft.metaPixel.accessToken
-        ? { access_token: draft.metaPixel.accessToken }
-        : {};
-
-      if (mpInteg) {
-        await fetch(`/api/formularios/${id}/integracoes/${mpInteg.id}`, {
-          method:  "PUT",
-          headers: { "Content-Type": "application/json" },
-          body:    JSON.stringify({
-            enabled:      draft.metaPixel.enabled,
-            settings:     mpSettings,
-            secrets:      mpSecrets,
-            // Preserve any custom event_filter already in the DB; fall back to default
-            event_filter: mpInteg.event_filter ?? META_PIXEL_DEFAULT_EVENTS,
-          }),
-        });
-      } else if (draft.metaPixel.pixelId || draft.metaPixel.enabled) {
-        // Only create when user has provided at least a pixel ID
-        await fetch(`/api/formularios/${id}/integracoes`, {
-          method:  "POST",
-          headers: { "Content-Type": "application/json" },
-          body:    JSON.stringify({
-            adapter:      "meta-pixel",
-            enabled:      draft.metaPixel.enabled,
-            settings:     mpSettings,
-            secrets:      mpSecrets,
-            event_filter: META_PIXEL_DEFAULT_EVENTS,
-          }),
-        });
-      }
-
-      // ── 2. Save form settings (without accessToken — it lives in form_integrations) ─
-      const { accessToken: _removed, ...metaPixelWithoutToken } = draft.metaPixel;
-      void _removed;
       const payload = {
         name:   draft.name.trim(),
         slug:   normalizeSlug(draft.slug),
@@ -431,11 +278,6 @@ export default function FormularioConfiguracoesPage() {
             .map(e => e.trim())
             .filter(Boolean),
           antiFraudEnabled: draft.antiFraudEnabled,
-        },
-        integrations: {
-          ...form.integrations,
-          metaPixel: metaPixelWithoutToken,
-          webhook:   draft.webhook,
         },
       };
 
@@ -454,15 +296,11 @@ export default function FormularioConfiguracoesPage() {
 
       const updated   = json.formulario as Form;
       const newDraft  = toDraft(updated);
-      // Preserve the token state (integrations are reloaded separately)
-      const curToken  = draft.metaPixel.accessToken;
-      newDraft.metaPixel.accessToken = curToken;
 
       setForm(updated);
       setDraft(newDraft);
       setSaved(newDraft);
       setSlugStatus("idle");
-      reloadIntegrations();
       toast.success("Configurações salvas!");
     } catch {
       toast.error("Erro ao salvar configurações");
@@ -563,158 +401,7 @@ export default function FormularioConfiguracoesPage() {
               />
             </SectionCard>
 
-            {/* ── 2. Meta Pixel ────────────────────────────────────────────── */}
-            <SectionCard
-              title="Meta Pixel"
-              description="Rastreie conversões e otimize suas campanhas de anúncios."
-              icon={Zap}
-            >
-              <SwitchRow
-                label="Habilitar Meta Pixel"
-                checked={draft.metaPixel.enabled}
-                onChange={v => patchPixel("enabled", v)}
-              />
-
-              {draft.metaPixel.enabled && (
-                <>
-                  <Divider />
-
-                  <FieldRow label="Pixel ID" required error={errors.pixelId} description="O ID numérico do seu pixel (15–16 dígitos)">
-                    <TextInput
-                      value={draft.metaPixel.pixelId}
-                      onChange={v => patchPixel("pixelId", v.replace(/\D/g, ""))}
-                      placeholder="123456789012345"
-                      hasError={!!errors.pixelId}
-                    />
-                  </FieldRow>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <FieldRow label="Evento no envio">
-                      <TextInput
-                        value={draft.metaPixel.event}
-                        onChange={v => patchPixel("event", v)}
-                        placeholder="Lead"
-                      />
-                    </FieldRow>
-
-                    <FieldRow label="Modo do evento">
-                      <SelectField<PixelMode>
-                        value={draft.metaPixel.mode}
-                        onChange={v => patchPixel("mode", v)}
-                        options={PIXEL_MODE_OPTIONS}
-                      />
-                    </FieldRow>
-                  </div>
-
-                  {(draft.metaPixel.mode === "capi" || draft.metaPixel.mode === "both") && (
-                    <FieldRow
-                      label="Access Token (Conversions API)"
-                      description="Token de acesso da sua conta de anúncios. Nunca compartilhe publicamente."
-                    >
-                      <TextInput
-                        value={draft.metaPixel.accessToken}
-                        onChange={v => patchPixel("accessToken", v)}
-                        placeholder="EAAxxxxxxxxxxxxxxxx"
-                        type={showToken ? "text" : "password"}
-                        suffix={
-                          <button
-                            type="button"
-                            onClick={() => setShowToken(s => !s)}
-                            className="p-0.5 hover:opacity-70 transition-opacity"
-                            style={{ color: "var(--muted-foreground)" }}
-                          >
-                            {showToken ? <EyeOff size={13} /> : <Eye size={13} />}
-                          </button>
-                        }
-                      />
-                    </FieldRow>
-                  )}
-
-                  <FieldRow label="Test Event Code" description="Opcional. Use para validar eventos no Event Manager do Meta.">
-                    <TextInput
-                      value={draft.metaPixel.testEventCode}
-                      onChange={v => patchPixel("testEventCode", v)}
-                      placeholder="TEST12345"
-                    />
-                  </FieldRow>
-                </>
-              )}
-            </SectionCard>
-
-            {/* ── 3. Webhook ───────────────────────────────────────────────── */}
-            <SectionCard
-              title="Webhook"
-              description="Receba notificações HTTP em tempo real a cada nova resposta."
-              icon={Globe}
-            >
-              <SwitchRow
-                label="Habilitar Webhook"
-                checked={draft.webhook.enabled}
-                onChange={v => patchWebhook("enabled", v)}
-              />
-
-              {draft.webhook.enabled && (
-                <>
-                  <Divider />
-
-                  <FieldRow label="URL do Webhook" required error={errors.webhookUrl} description="Endpoint HTTPS que receberá os dados via POST">
-                    <TextInput
-                      value={draft.webhook.url}
-                      onChange={v => patchWebhook("url", v)}
-                      placeholder="https://sua-api.com/webhook"
-                      hasError={!!errors.webhookUrl}
-                    />
-                  </FieldRow>
-
-                  <FieldRow label="Secret" description="Opcional. Enviado no header X-Webhook-Secret para validar a origem.">
-                    <TextInput
-                      value={draft.webhook.secret}
-                      onChange={v => patchWebhook("secret", v)}
-                      placeholder="meu-secret-seguro"
-                      type={showSecret ? "text" : "password"}
-                      suffix={
-                        <button
-                          type="button"
-                          onClick={() => setShowSecret(s => !s)}
-                          className="p-0.5 hover:opacity-70 transition-opacity"
-                          style={{ color: "var(--muted-foreground)" }}
-                        >
-                          {showSecret ? <EyeOff size={13} /> : <Eye size={13} />}
-                        </button>
-                      }
-                    />
-                  </FieldRow>
-
-                  <div
-                    className="flex items-center justify-between py-2 px-3 rounded-lg"
-                    style={{ background: "var(--hover)", border: "1px solid var(--border)" }}
-                  >
-                    <div>
-                      <p className="text-xs font-medium" style={{ color: "var(--text-title)" }}>Método</p>
-                      <p className="text-[11px]" style={{ color: "var(--muted-foreground)" }}>POST — JSON com todos os dados da resposta</p>
-                    </div>
-                    <span
-                      className="px-2 py-0.5 rounded text-[11px] font-mono font-semibold"
-                      style={{ background: "color-mix(in srgb, var(--primary) 12%, transparent)", color: "var(--primary)" }}
-                    >
-                      POST
-                    </span>
-                  </div>
-
-                  <button
-                    type="button"
-                    disabled
-                    className="flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium self-start opacity-40"
-                    style={{ border: "1px solid var(--border)", color: "var(--muted-foreground)" }}
-                    title="Em breve"
-                  >
-                    Testar Webhook
-                  </button>
-                </>
-              )}
-            </SectionCard>
-
-            {/* ── 4. Notificações ──────────────────────────────────────────── */}
+            {/* ── 2. Notificações ──────────────────────────────────────────── */}
             <SectionCard
               title="Notificações"
               description="Receba e-mails sempre que uma nova resposta for enviada."
@@ -734,7 +421,7 @@ export default function FormularioConfiguracoesPage() {
               </FieldRow>
             </SectionCard>
 
-            {/* ── 5. Após o envio ──────────────────────────────────────────── */}
+            {/* ── 3. Após o envio ──────────────────────────────────────────── */}
             <SectionCard title="Após o envio">
               <div
                 className="flex items-start gap-3 p-3 rounded-lg"
@@ -759,7 +446,7 @@ export default function FormularioConfiguracoesPage() {
               </div>
             </SectionCard>
 
-            {/* ── 6. Proteção Anti-Fraude ──────────────────────────────────── */}
+            {/* ── 4. Proteção Anti-Fraude ──────────────────────────────────── */}
             <SectionCard
               title="Proteção Anti-Fraude"
               description="Detecte e bloqueie respostas suspeitas antes de entrar no CRM."

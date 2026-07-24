@@ -24,6 +24,15 @@ describe("metaMapper", () => {
     expect(payload.endpoint).toContain("tok-abc");
   });
 
+  it("accepts the pixelId key used by the configuration screen", () => {
+    const payload = metaMapper.map(makeEvent(), makeConfig({
+      adapterName: "meta-pixel",
+      settings: { pixelId: "pixel-camel-case" },
+      secrets: { access_token: "token" },
+    }));
+    expect(payload.endpoint).toContain("pixel-camel-case");
+  });
+
   it("maps form.started → StartTrial", () => {
     const payload = metaMapper.map(makeEvent("form.started"), config);
     const data    = (payload.raw as { data: Array<{ event_name: string }> }).data;
@@ -34,6 +43,16 @@ describe("metaMapper", () => {
     const payload = metaMapper.map(makeEvent("form.completed"), config);
     const data    = (payload.raw as { data: Array<{ event_name: string }> }).data;
     expect(data[0].event_name).toBe("CompleteRegistration");
+  });
+
+  it("always maps the dedicated phone event to Lead", () => {
+    const payload = metaMapper.map(makeEvent("form.phone.answered"), makeConfig({
+      adapterName: "meta-pixel",
+      settings: { pixel_id: "123456", event: "Purchase" },
+      secrets: { access_token: "token" },
+    }));
+    const data = (payload.raw as { data: Array<{ event_name: string }> }).data;
+    expect(data[0].event_name).toBe("Lead");
   });
 
   it("maps unknown event type → CustomEvent", () => {

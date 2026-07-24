@@ -207,7 +207,8 @@ export function MetaPixelConversionCard({ calendarId, triggerEvent }: Props) {
             <p className="text-sm" style={{ color: "var(--text-title)" }}>Ativar conversão</p>
             <button
               onClick={() => patch("enabled", !form.enabled)}
-              aria-pressed={form.enabled}
+              role="switch"
+              aria-checked={form.enabled}
               className="relative rounded-full transition-colors shrink-0"
               style={{
                 background: form.enabled ? "var(--primary)" : "var(--border)",

@@ -31,11 +31,13 @@ export function progressColor(percent: number): string {
   return `rgb(${r}, ${g}, ${b})`;
 }
 
-// Ponta inicial do gradiente — mesma cor da ponta, só que puxada pra uma base
-// escura, mantendo o verde premium consistente no modo claro e escuro.
-export function progressGradientFrom(percent: number, _theme: "dark" | "light" = "dark"): string {
+// Ponta inicial do gradiente — no tema escuro preserva a base grafite atual;
+// no claro começa em uma versão pastel da mesma cor sem perder a semântica.
+export function progressGradientFrom(percent: number, theme: "dark" | "light" = "dark"): string {
   const color = progressColor(percent);
-  return `color-mix(in srgb, ${color} 55%, black)`;
+  return theme === "light"
+    ? `color-mix(in srgb, ${color} 36%, white)`
+    : `color-mix(in srgb, ${color} 55%, black)`;
 }
 
 export function progressBandColor(percent: number): string {

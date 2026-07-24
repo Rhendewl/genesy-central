@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useModalOpen } from "@/hooks/useModalOpen";
 import { AnimatePresence, motion } from "framer-motion";
-import { X, Loader2, Trash2, Tag as TagIcon, RefreshCw } from "lucide-react";
+import { X, Loader2, Trash2, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { Input } from "@/components/ui/input";
@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { MoneyInput } from "@/components/ui/MoneyInput";
 import { ProgressBar } from "@/components/workspace/ProgressBar";
-import { useTags } from "@/hooks/useTags";
+import { TagSelector } from "@/components/tags/TagSelector";
 import { useUsers } from "@/hooks/useUsers";
 import type { KanbanColumn, Lead, NewLead, UpdateLead } from "@/types";
 import { KANBAN_COLUMNS } from "@/types";
@@ -53,7 +53,7 @@ interface LeadModalProps {
   onCreate: (data: NewLead) => Promise<{ error: string | null }>;
   onUpdate: (id: string, data: UpdateLead) => Promise<{ error: string | null }>;
   onDelete: (id: string) => Promise<{ error: string | null }>;
-  onMove: (leadId: string, targetStageId: string, note?: string) => Promise<{ ok: boolean; requireNote: boolean; error: string | null }>;
+  onTransfer: (leadId: string, targetStageId: string, note?: string, assigneeId?: string | null) => Promise<{ ok: boolean; requireNote: boolean; alreadyExists: boolean; error: string | null }>;
 }
 
 const TODAY = format(new Date(), "yyyy-MM-dd");
@@ -79,9 +79,8 @@ export function LeadModal({
   onCreate,
   onUpdate,
   onDelete,
-  onMove,
+  onTransfer,
 }: LeadModalProps) {
-  const { tags } = useTags();
   const { profiles } = useUsers();
   const activeProfiles = profiles.filter((p) => p.auth_user_id && p.is_active);
   const firstInputRef = useRef<HTMLInputElement>(null);
@@ -99,6 +98,7 @@ export function LeadModal({
 
   // ── Transferir para outra pipeline ──────────────────────────────────────────
   const [transferPipelineId, setTransferPipelineId] = useState("");
+  const [transferAssigneeId, setTransferAssigneeId] = useState("");
   const [transferNote,       setTransferNote]       = useState("");
   const [transferNeedsNote,  setTransferNeedsNote]  = useState(false);
   const [isTransferring,     setIsTransferring]     = useState(false);
@@ -119,6 +119,7 @@ export function LeadModal({
       setConfirmDelete(false);
       setRecalculatedIq(undefined);
       setTransferPipelineId("");
+      setTransferAssigneeId("");
       setTransferNote("");
       setTransferNeedsNote(false);
       if (lead) {
@@ -169,13 +170,14 @@ export function LeadModal({
     () => pipelines.filter((p) => p.is_active && p.id !== lead?.pipeline_id),
     [pipelines, lead],
   );
+  const transferProfiles = useMemo(
+    () => activeProfiles.filter((profile) => profile.crm_pipeline_id === transferPipelineId),
+    [activeProfiles, transferPipelineId],
+  );
 
   // ── Transferir para outra pipeline ──────────────────────────────────────────
-  // O lead vai sempre para a primeira etapa ATIVA da pipeline de destino —
-  // mesmo endpoint de mover (PATCH /api/crm/leads/[id]/move) já usado pelo
-  // drag-and-drop do Kanban; a RPC crm_move_lead já resolve o pipeline_id a
-  // partir da própria etapa de destino, então mover pra uma etapa de outra
-  // pipeline já "transfere" o lead sem nenhuma mudança no backend.
+  // Cria um novo card operacional na primeira etapa ativa do destino. O card
+  // atual permanece nesta pipeline e ambos compartilham a identidade canônica.
   async function handleTransfer() {
     if (!lead || !transferPipelineId) return;
     const targetPipeline = pipelines.find((p) => p.id === transferPipelineId);
@@ -196,7 +198,12 @@ export function LeadModal({
     }
 
     setIsTransferring(true);
-    const result = await onMove(lead.id, firstStage.id, transferNote.trim() || undefined);
+    const result = await onTransfer(
+      lead.id,
+      firstStage.id,
+      transferNote.trim() || undefined,
+      transferAssigneeId || null,
+    );
     setIsTransferring(false);
 
     if (!result.ok) {
@@ -204,20 +211,13 @@ export function LeadModal({
       return;
     }
 
-    toast.success(`Lead transferido para "${targetPipeline.name}"`);
+    toast.success(result.alreadyExists
+      ? `Este lead já está em "${targetPipeline.name}"`
+      : `Cópia do lead criada em "${targetPipeline.name}"`);
     onClose();
   }
 
   // ── Helpers ────────────────────────────────────────────────────────────────
-
-  function toggleTag(tagId: string) {
-    setForm((prev) => ({
-      ...prev,
-      tags: prev.tags.includes(tagId)
-        ? prev.tags.filter((id) => id !== tagId)
-        : [...prev.tags, tagId],
-    }));
-  }
 
   // ── Submit ─────────────────────────────────────────────────────────────────
 
@@ -326,7 +326,7 @@ export function LeadModal({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.22 }}
-            className="fixed inset-0 z-40"
+            className="lc-modal-backdrop fixed inset-0 z-40"
             style={{
               background: "var(--dock-bg)",
               backdropFilter: "blur(12px) saturate(140%)",
@@ -488,20 +488,23 @@ export function LeadModal({
                     </div>
                   </div>
 
-                  {/* Transferir para outra pipeline (ex.: SDR → Closer) */}
+                  {/* Criar representação em outra pipeline (ex.: SDR → Closer) */}
                   {isEditing && lead && transferablePipelines.length > 0 && (
                     <div
                       className="space-y-2 rounded-2xl p-3"
                       style={{ background: "var(--hover)", border: "1px solid var(--border)" }}
                     >
                       <Label className="text-[11px] font-medium text-[var(--muted-foreground)]">
-                        Transferir para outra pipeline
+                        Criar cópia em outra pipeline
                       </Label>
                       <div className="flex items-center gap-2">
                         <select
                           value={transferPipelineId}
                           onChange={(e) => {
-                            setTransferPipelineId(e.target.value);
+                            const nextPipelineId = e.target.value;
+                            setTransferPipelineId(nextPipelineId);
+                            const candidates = activeProfiles.filter((profile) => profile.crm_pipeline_id === nextPipelineId);
+                            setTransferAssigneeId(candidates[0]?.id ?? "");
                             setTransferNeedsNote(false);
                             setTransferNote("");
                           }}
@@ -522,9 +525,24 @@ export function LeadModal({
                           style={{ background: "var(--hover)", color: "var(--text-title)" }}
                         >
                           {isTransferring && <Loader2 size={11} className="animate-spin" />}
-                          Transferir
+                          Criar cópia
                         </button>
                       </div>
+                      {transferPipelineId && (
+                        <select
+                          value={transferAssigneeId}
+                          onChange={(event) => setTransferAssigneeId(event.target.value)}
+                          className="h-9 w-full rounded-md border border-[var(--border)] bg-[var(--input)] px-3 text-xs text-[var(--text-title)] focus:outline-none focus:ring-1 focus:ring-[var(--silver)]/40"
+                          aria-label="Responsável pelo lead na pipeline de destino"
+                        >
+                          <option value="">Definir automaticamente</option>
+                          {transferProfiles.map((profile) => (
+                            <option key={profile.id} value={profile.id} style={{ background: "var(--background)" }}>
+                              {profile.full_name}
+                            </option>
+                          ))}
+                        </select>
+                      )}
                       {transferNeedsNote && (
                         <Textarea
                           value={transferNote}
@@ -535,7 +553,7 @@ export function LeadModal({
                         />
                       )}
                       <p className="text-[10px]" style={{ color: "var(--muted-foreground)" }}>
-                        O lead vai para a primeira etapa ativa da pipeline escolhida.
+                        O card atual permanece aqui. Uma cópia operacional vai para a primeira etapa ativa do destino, sem duplicar o lead nas métricas.
                       </p>
                     </div>
                   )}
@@ -560,37 +578,11 @@ export function LeadModal({
                     </select>
                   </div>
 
-                  {/* Tags */}
-                  {tags.length > 0 && (
-                    <div className="space-y-2">
-                      <Label className="flex items-center gap-1.5 text-[11px] font-medium text-[var(--muted-foreground)]">
-                        <TagIcon size={11} />
-                        Etiquetas
-                      </Label>
-                      <div className="flex flex-wrap gap-1.5">
-                        {tags.map((tag) => {
-                          const selected = form.tags.includes(tag.id);
-                          return (
-                            <button
-                              key={tag.id}
-                              type="button"
-                              onClick={() => toggleTag(tag.id)}
-                              className="rounded-full px-3 py-1 text-[11px] font-medium transition-all duration-150"
-                              style={{
-                                background: selected ? `${tag.color}28` : "var(--glass-bg)",
-                                color: selected ? tag.color : "var(--muted-foreground)",
-                                border: selected
-                                  ? `1px solid ${tag.color}40`
-                                  : "1px solid var(--border)",
-                              }}
-                            >
-                              {tag.name}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
+                  <TagSelector
+                    value={form.tags}
+                    onChange={(tags) => setForm((current) => ({ ...current, tags }))}
+                    helperText="As etiquetas são compartilhadas com o Marketing e o Workspace."
+                  />
 
                   {/* Qualificação — IQ / IE (só em edição, lead recém-criado ainda não tem) */}
                   {isEditing && lead && (

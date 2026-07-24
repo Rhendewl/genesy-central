@@ -53,6 +53,9 @@ export function initPixel(pixelId: string): void {
 
   ensureFbqScript();
   call("init", pixelId);
+  // Desativa eventos sugeridos/detectados automaticamente pelo Meta, como
+  // SubscribedButtonClick. O formulário envia somente os eventos explícitos.
+  call("set", "autoConfig", false, pixelId);
   _initializedPixels.add(pixelId);
 }
 

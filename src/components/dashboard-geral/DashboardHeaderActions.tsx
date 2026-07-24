@@ -6,8 +6,9 @@ import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale/pt-BR";
-import { CalendarDays, Plus, Bell, CheckCheck, Inbox, Trash2 } from "lucide-react";
+import { CalendarDays, ClipboardCheck, Bell, CheckCheck, Inbox, Trash2 } from "lucide-react";
 import type { useWorkspaceTasks } from "@/hooks/useWorkspaceTasks";
+import { Button } from "@/components/ui/button";
 
 function capitalize(s: string) {
   return s.charAt(0).toUpperCase() + s.slice(1);
@@ -69,15 +70,15 @@ function QuickAddTaskButton({ tasksHook }: QuickAddTaskButtonProps) {
 
   return (
     <div className="relative">
-      <button
+      <Button
         ref={btnRef}
         onClick={handleToggle}
-        className="flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium transition-transform hover:-translate-y-px"
-        style={{ background: "#b0b8c1", color: "#000000" }}
+        icon={<ClipboardCheck />}
+        signature
+        size="medium"
       >
-        <Plus size={15} />
         Nova Tarefa
-      </button>
+      </Button>
 
       {mounted && createPortal(
         <AnimatePresence>
@@ -130,6 +131,9 @@ interface PlatformNotification {
   created_at: string;
   lead_id: string | null;
   automation_id: string | null;
+  source: string;
+  task_id: string | null;
+  action_url: string | null;
 }
 
 function playNotificationTone() {
@@ -371,17 +375,12 @@ function NotificationBell() {
                         </p>
                       </div>
                     ) : (
-                      notifications.map((notification) => (
-                        <div
-                          key={notification.id}
-                          className="rounded-xl px-3 py-2.5 transition-colors hover:bg-[var(--hover)]"
-                        >
+                      notifications.map((notification) => {
+                        const content = (
                           <div className="flex items-start gap-2">
                             <span
                               className="mt-1.5 h-2 w-2 flex-shrink-0 rounded-full"
-                              style={{
-                                background: notification.read_at ? "var(--border)" : "#ef4444",
-                              }}
+                              style={{ background: notification.read_at ? "var(--border)" : "#ef4444" }}
                             />
                             <div className="min-w-0 flex-1">
                               <div className="flex items-start justify-between gap-2">
@@ -397,8 +396,26 @@ function NotificationBell() {
                               </p>
                             </div>
                           </div>
-                        </div>
-                      ))
+                        );
+
+                        return notification.action_url ? (
+                          <Link
+                            key={notification.id}
+                            href={notification.action_url}
+                            onClick={() => {
+                              setOpen(false);
+                              void markAsRead();
+                            }}
+                            className="block rounded-xl px-3 py-2.5 transition-colors hover:bg-[var(--hover)]"
+                          >
+                            {content}
+                          </Link>
+                        ) : (
+                          <div key={notification.id} className="rounded-xl px-3 py-2.5 transition-colors hover:bg-[var(--hover)]">
+                            {content}
+                          </div>
+                        );
+                      })
                     )}
                   </div>
                 </div>

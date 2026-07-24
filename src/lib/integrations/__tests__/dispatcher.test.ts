@@ -83,6 +83,29 @@ describe("Dispatcher — basic routing", () => {
     await d.dispatch(makeBusEvent());
     expect(jobs).toHaveLength(2);
   });
+
+  it("sends Meta only for the dedicated phone event", async () => {
+    const loader = new InMemoryConfigLoader().set("test-form", [
+      makeConfig({
+        adapterName: "meta-pixel",
+        settings: { pixel_id: "1234567890", event: "Lead" },
+        eventFilter: ["form.started", "form.step.completed", "form.completed"],
+      }),
+    ]);
+    const { queue, jobs } = makeQueue();
+    const d = new Dispatcher({ pipeline, queue, configLoader: loader });
+
+    await d.dispatch(makeBusEvent({ type: "form.started" }));
+    await d.dispatch(makeBusEvent({ type: "form.step.completed" }));
+    expect(jobs).toHaveLength(0);
+
+    await d.dispatch(makeBusEvent({
+      type: "form.phone.answered",
+      payload: { formSlug: "test-form", stepId: "phone-1", stepType: "phone" },
+    }));
+    expect(jobs).toHaveLength(1);
+    expect(jobs[0].event.type).toBe("form.phone.answered");
+  });
 });
 
 describe("Dispatcher — deliveryId and correlationId", () => {

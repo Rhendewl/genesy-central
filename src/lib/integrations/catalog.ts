@@ -3,10 +3,12 @@ export type AuthType = "apiKey" | "hmac" | "oauth" | "none";
 export interface FieldDefinition {
   key:          string;
   label:        string;
-  type:         "text" | "password" | "url" | "number" | "textarea";
+  type:         "text" | "password" | "url" | "number" | "textarea" | "select";
   required:     boolean;
   placeholder?: string;
   hint?:        string;
+  defaultValue?: string;
+  options?: Array<{ value: string; label: string }>;
 }
 
 export interface IntegrationDefinition {
@@ -29,12 +31,22 @@ export const INTEGRATION_CATALOG: IntegrationDefinition[] = [
     category:        "Marketing",
     version:         "1.0.0",
     authType:        "apiKey",
-    supportedEvents: ["form.started", "form.completed", "form.step.viewed", "form.step.answered", "form.abandoned"],
+    supportedEvents: ["form.phone.answered"],
     settingsSchema:  [
       { key: "pixelId", label: "Pixel ID", type: "text", required: true, placeholder: "123456789012345", hint: "Encontre em Gerenciador de Eventos → Configurações" },
+      {
+        key: "mode", label: "Modo de envio", type: "select", required: true, defaultValue: "both",
+        hint: "Browser + CAPI usa o mesmo event_id para evitar conversões duplicadas.",
+        options: [
+          { value: "browser", label: "Browser (Meta Pixel)" },
+          { value: "capi", label: "Conversions API" },
+          { value: "both", label: "Browser + Conversions API" },
+        ],
+      },
+      { key: "test_event_code", label: "Test Event Code", type: "text", required: false, placeholder: "TEST12345", hint: "Opcional. Use para validar no Gerenciador de Eventos da Meta." },
     ],
     secretsSchema: [
-      { key: "access_token", label: "Access Token", type: "password", required: true, placeholder: "EAAxxxxxxxxxxxxx...", hint: "Token de acesso gerado no painel de desenvolvedor da Meta" },
+      { key: "access_token", label: "Access Token", type: "password", required: false, placeholder: "EAAxxxxxxxxxxxxx...", hint: "Obrigatório para os modos CAPI e Browser + CAPI." },
     ],
   },
   {
@@ -59,12 +71,12 @@ export const INTEGRATION_CATALOG: IntegrationDefinition[] = [
     category:        "Automação",
     version:         "1.0.0",
     authType:        "hmac",
-    supportedEvents: ["*"],
+    supportedEvents: ["form.submission.completed"],
     settingsSchema:  [
       { key: "url", label: "URL do Endpoint", type: "url", required: true, placeholder: "https://meusite.com/webhook", hint: "Deve ser HTTPS em produção" },
     ],
     secretsSchema: [
-      { key: "hmac_secret", label: "HMAC Secret (opcional)", type: "password", required: false, placeholder: "segredo_para_assinar", hint: "Se definido, cada request terá o header X-Lancaster-Signature" },
+      { key: "hmac_secret", label: "HMAC Secret (opcional)", type: "password", required: false, placeholder: "segredo_para_assinar", hint: "Se definido, cada request terá os headers X-Genesy-Signature e X-Lancaster-Signature" },
     ],
   },
   {
@@ -89,6 +101,8 @@ export function getCatalogEntry(adapterName: string): IntegrationDefinition | un
 }
 
 export const ALL_FORM_EVENTS = [
+  "form.phone.answered",
+  "form.submission.completed",
   "form.started",
   "form.completed",
   "form.abandoned",

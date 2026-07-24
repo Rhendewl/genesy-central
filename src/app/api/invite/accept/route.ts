@@ -30,6 +30,18 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Convite expirado" }, { status: 410 });
   }
 
+  const { data: invitedProfile, error: invitedProfileError } = await admin
+    .from("user_profiles")
+    .select("id")
+    .eq("owner_id", invite.owner_id)
+    .ilike("email", invite.email)
+    .is("auth_user_id", null)
+    .maybeSingle();
+
+  if (invitedProfileError || !invitedProfile) {
+    return NextResponse.json({ error: "Perfil do convite não encontrado" }, { status: 404 });
+  }
+
   // Cria usuário no Supabase Auth
   const { data: authData, error: authErr } = await admin.auth.admin.createUser({
     email: invite.email,
@@ -58,13 +70,22 @@ export async function POST(req: Request) {
   const { error: profileErr } = await admin
     .from("user_profiles")
     .update({ auth_user_id: authData.user.id })
-    .eq("owner_id", invite.owner_id)
-    .eq("email", invite.email);
+    .eq("id", invitedProfile.id);
 
   if (profileErr) {
     await admin.auth.admin.deleteUser(authData.user.id);
     return NextResponse.json({ error: "Erro ao vincular perfil" }, { status: 500 });
   }
+
+  // Bancos ainda sem a migration case-insensitive podem ter criado uma linha
+  // self durante o trigger de auth quando o e-mail do perfil tinha maiúsculas.
+  // Remove apenas essa linha recém-criada e preserva o perfil do convite.
+  await admin
+    .from("user_profiles")
+    .delete()
+    .eq("owner_id", authData.user.id)
+    .eq("auth_user_id", authData.user.id)
+    .neq("id", invitedProfile.id);
 
   // Marca convite como aceito
   await admin.from("user_invites").update({ status: "accepted" }).eq("id", invite.id);

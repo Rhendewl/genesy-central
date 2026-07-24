@@ -120,7 +120,7 @@ export function DatePickerPopover({ value, onChange, placeholder = "Selecionar d
     : placeholder;
 
   return (
-    <div ref={ref} className={`relative ${className ?? ""}`}>
+    <div ref={ref} className={`relative min-w-0 ${className ?? ""}`}>
       <button
         ref={buttonRef}
         type="button"

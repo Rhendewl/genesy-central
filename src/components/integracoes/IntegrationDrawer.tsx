@@ -29,7 +29,7 @@ interface IntegrationDrawerProps {
   formId:     string;
   formSlug:   string;
   onSave:     (configId: string, patch: Partial<FormIntegrationRow>) => Promise<boolean>;
-  onCreate:   (adapter: string) => Promise<FormIntegrationRow | null>;
+  onCreate:   (adapter: string, patch: Partial<FormIntegrationRow>) => Promise<boolean>;
   onDelete:   (configId: string) => Promise<boolean>;
 }
 
@@ -43,8 +43,8 @@ export function IntegrationDrawer({
     return onSave(row.id, patch);
   }, [row, onSave]);
 
-  const handleCreate = useCallback(() => {
-    return onCreate(definition.adapterName);
+  const handleCreate = useCallback((patch: Partial<FormIntegrationRow>) => {
+    return onCreate(definition.adapterName, patch);
   }, [onCreate, definition.adapterName]);
 
   const handleDelete = useCallback(() => {
@@ -65,7 +65,7 @@ export function IntegrationDrawer({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            className="lc-modal-backdrop absolute inset-0"
             onClick={onClose}
           />
 

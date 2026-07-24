@@ -16,6 +16,9 @@
 # production
 /build
 
+# generated review artifacts
+/tmp/
+
 # misc
 .DS_Store
 *.pem

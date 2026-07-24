@@ -35,6 +35,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Nome e slug são obrigatórios" }, { status: 400 });
   }
 
+  if (client_id) {
+    const { data: client } = await supabase.from("agency_clients").select("status").eq("id", client_id).maybeSingle();
+    if (!client) return NextResponse.json({ error: "Cliente não encontrado" }, { status: 404 });
+    if (client.status === "churned") return NextResponse.json({ error: "Clientes churnados não podem receber novas atribuições" }, { status: 400 });
+  }
+
   // Check slug uniqueness
   const { data: existing } = await supabase
     .from("portals")

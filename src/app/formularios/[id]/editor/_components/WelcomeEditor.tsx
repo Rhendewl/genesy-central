@@ -68,6 +68,29 @@ export function WelcomeEditor({ welcome, onChange, formId }: WelcomeEditorProps)
           </Field>
         )}
 
+        <Field label="Banner">
+          <WelcomeImageUpload
+            formId={formId}
+            imageUrl={welcome.bannerUrl}
+            kind="banner"
+            onUpload={url => up({ bannerUrl: url })}
+            onRemove={() => up({ bannerUrl: undefined })}
+          />
+        </Field>
+
+        <Field label="PILL / Cidade" htmlFor="welcome-pill">
+          <StyledInput
+            id="welcome-pill"
+            value={welcome.pillText ?? ""}
+            maxLength={40}
+            placeholder="Ex.: João Pessoa PB"
+            onChange={e => up({ pillText: e.target.value })}
+          />
+          <p className="mt-1.5 text-[10px]" style={{ color: "var(--muted-foreground)" }}>
+            Texto curto exibido sobre o banner.
+          </p>
+        </Field>
+
         {/* Título — Rich Text (modo inline: apenas marcas inline) */}
         <Field label="Título">
           <RichTextEditor

@@ -17,7 +17,7 @@ type OAuthState = Record<string, unknown> & {
 // Meta redirects here after the user approves the app.
 export async function GET(req: NextRequest) {
   const origin = req.nextUrl.origin;
-  const errorUrl = `${origin}/trafego?tab=integracoes&meta_error=1`;
+  const errorUrl = `${origin}/marketing/trafego?tab=integracoes&meta_error=1`;
 
   try {
     const code       = req.nextUrl.searchParams.get("code");
@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
 
     const { tokenId, clientId, returnTo } = verifyOAuthState<OAuthState>(stateParam);
     // Only allow same-origin paths to prevent open redirect
-    const safeReturn = (returnTo && /^\/[a-zA-Z]/.test(returnTo)) ? returnTo : "/trafego";
+    const safeReturn = (returnTo && /^\/[a-zA-Z]/.test(returnTo)) ? returnTo : "/marketing/trafego";
     const redirectUri = `${origin}/api/meta/callback`;
 
     const { access_token: shortToken } = await exchangeCodeForToken(code, redirectUri);

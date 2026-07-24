@@ -110,12 +110,12 @@ export function StageFormModal({ open, stage, onClose, onSave }: Props) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 lc-scrim"
+      className="lc-modal-backdrop fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ background: "rgba(0,0,0,0.60)" }}
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div
-        className="w-full max-w-md rounded-2xl flex flex-col overflow-hidden max-h-[90vh]"
+        className="flex max-h-[calc(100dvh-2rem)] w-full max-w-md flex-col overflow-hidden rounded-2xl"
         style={{ background: "var(--card)", border: "1px solid var(--border)" }}
       >
         {/* Header */}

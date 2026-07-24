@@ -7,7 +7,6 @@ import { ArrowLeft, Trash2, Loader2 } from "lucide-react";
 import { useWorkspaceNote } from "@/hooks/useWorkspaceNote";
 import { useWorkspaceNoteFolders } from "@/hooks/useWorkspaceNoteFolders";
 import { useWorkspaceViewing } from "@/context/WorkspaceViewingContext";
-import { useTags } from "@/hooks/useTags";
 import { NoteEditor } from "@/components/workspace/notes/NoteEditor";
 import { NoteCoverUpload } from "@/components/workspace/notes/NoteCoverUpload";
 
@@ -16,7 +15,6 @@ const COLOR_SWATCHES = ["#4a8fd4", "#6b9b6f", "#e0a344", "#e05c5c", "#9b7fe0", "
 export default function WorkspaceNoteEditorPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const { tags } = useTags();
   const { viewingMember } = useWorkspaceViewing();
   const { folders } = useWorkspaceNoteFolders(viewingMember?.auth_user_id ?? undefined);
   const {
@@ -56,12 +54,6 @@ export default function WorkspaceNoteEditorPage() {
     } finally {
       setIsDeleting(false);
     }
-  }
-
-  function toggleTag(tagId: string) {
-    if (!note) return;
-    const next = note.tags.includes(tagId) ? note.tags.filter((t) => t !== tagId) : [...note.tags, tagId];
-    void saveImmediate({ tags: next });
   }
 
   if (isLoading) {
@@ -141,27 +133,6 @@ export default function WorkspaceNoteEditorPage() {
             ))}
           </select>
 
-          {tags.length > 0 && (
-            <div className="flex flex-wrap gap-1.5">
-              {tags.map((tag) => {
-                const active = note.tags.includes(tag.id);
-                return (
-                  <button
-                    key={tag.id}
-                    onClick={() => toggleTag(tag.id)}
-                    className="rounded-full px-2.5 py-1 text-[11px] font-medium transition-all"
-                    style={{
-                      background: active ? `${tag.color}30` : "var(--hover)",
-                      color:      active ? tag.color : "var(--muted-foreground)",
-                      border:     `1px solid ${active ? tag.color + "50" : "var(--glass-border)"}`,
-                    }}
-                  >
-                    {tag.name}
-                  </button>
-                );
-              })}
-            </div>
-          )}
         </div>
 
         <NoteEditor noteId={id} content={content} onChange={setContent} />
@@ -169,7 +140,7 @@ export default function WorkspaceNoteEditorPage() {
 
       {confirmDelete && (
         <div
-          className="fixed inset-0 z-[60] flex items-center justify-center p-4 lc-scrim"
+          className="lc-modal-backdrop fixed inset-0 z-[60] flex items-center justify-center p-4"
           style={{ background: "rgba(0,0,0,0.60)", backdropFilter: "blur(6px)" }}
         >
           <div

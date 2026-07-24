@@ -5,8 +5,10 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
+import { createAdminSupabaseClient } from "@/lib/supabase-admin";
 import { getPlatformEventBus } from "@/lib/event-bus/platform";
 import { handleMirrorStatusChange } from "@/lib/onboarding/sync";
+import { verifyWorkspaceTaskExecutor } from "@/lib/workspace/task-authorization";
 import type { WorkspaceTaskStatus } from "@/types/workspace";
 
 type Params = { params: Promise<{ id: string }> };
@@ -31,17 +33,27 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   }
 
   try {
+    const access = await verifyWorkspaceTaskExecutor(supabase, id, user.id);
+    if (!access.allowed) return NextResponse.json({ error: access.error }, { status: access.status });
+
+    // A RLS mantém os campos administrativos exclusivos do criador. A rota
+    // já validou acima que o ator é criador ou responsável e usa o cliente
+    // administrativo somente para a mudança operacional de etapa.
+    const db = createAdminSupabaseClient();
+
     // 0. Estado anterior — necessário pra saber se o status realmente mudou
     //    (reordenar dentro da mesma coluna não deve gerar notificação) e pra
     //    montar a mensagem (título + responsáveis) sem uma segunda rodada.
-    const { data: before } = await supabase
+    const { data: before } = await db
       .from("workspace_tasks")
-      .select("title, status")
+      .select("title, status, user_id")
       .eq("id", id)
       .maybeSingle();
 
     // 1. Move a tarefa arrastada para a nova coluna, atualiza completed_at
-    const { error: statusErr } = await supabase
+    if (!before) return NextResponse.json({ error: "Tarefa não encontrada" }, { status: 404 });
+
+    const { error: statusErr } = await db
       .from("workspace_tasks")
       .update({
         status:       body.status,
@@ -50,29 +62,39 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       .eq("id", id);
     if (statusErr) throw new Error(statusErr.message);
 
-    // 2. Reindexa a posição de todas as tarefas da coluna de destino
+    // 2. Reindexa apenas IDs pertencentes ao mesmo Workspace da tarefa. Isso
+    // mantém a ordem visual consistente sem permitir IDs de outra conta.
+    const { data: workspaceTasks, error: workspaceTasksError } = await db
+      .from("workspace_tasks")
+      .select("id")
+      .in("id", body.ordered_ids)
+      .eq("user_id", before.user_id);
+    if (workspaceTasksError) throw new Error(workspaceTasksError.message);
+    const workspaceTaskIds = new Set((workspaceTasks ?? []).map((task) => task.id));
     await Promise.all(
-      body.ordered_ids.map((taskId, idx) =>
-        supabase.from("workspace_tasks").update({ position: idx * 10 }).eq("id", taskId)
-      )
+      body.ordered_ids.map((taskId, idx) => (
+        workspaceTaskIds.has(taskId)
+          ? db.from("workspace_tasks").update({ position: idx * 10 }).eq("id", taskId)
+          : Promise.resolve()
+      ))
     );
 
     // 3. Se a tarefa é o espelho de uma onboarding_task, propaga o novo status
     //    pro registro mestre (e reavalia dependentes bloqueadas) — só quando o
     //    status de fato mudou, mesma guarda da notificação abaixo.
     if (before && before.status !== body.status) {
-      const { data: actorProfile } = await supabase
+      const { data: actorProfile } = await db
         .from("user_profiles")
         .select("id")
         .eq("auth_user_id", user.id)
         .maybeSingle();
-      await handleMirrorStatusChange(supabase, id, body.status as WorkspaceTaskStatus, actorProfile?.id ?? null);
+      await handleMirrorStatusChange(db, id, body.status as WorkspaceTaskStatus, actorProfile?.id ?? null);
     }
 
     // 4. Notifica os responsáveis (exceto quem moveu) — só quando o status
     //    de fato mudou, nunca numa simples reordenação na mesma coluna.
     if (before && before.status !== body.status) {
-      const { data: assigneeRows } = await supabase
+      const { data: assigneeRows } = await db
         .from("workspace_task_assignees")
         .select("assignee_id")
         .eq("task_id", id);

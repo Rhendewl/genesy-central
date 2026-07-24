@@ -246,6 +246,19 @@ export class WorkflowRepository {
     return (claimed as JobRow[]) ?? [];
   }
 
+  async claimDueJobById(id: string): Promise<JobRow | null> {
+    const { data } = await this.db
+      .from("workflow_jobs")
+      .update({ status: "processing" })
+      .eq("id", id)
+      .eq("status", "pending")
+      .lte("scheduled_for", new Date().toISOString())
+      .select(JOB_COLUMNS)
+      .maybeSingle();
+
+    return (data as JobRow | null) ?? null;
+  }
+
   async getPendingJobsForLead(leadId: string): Promise<JobRow[]> {
     const { data } = await this.db
       .from("workflow_jobs")

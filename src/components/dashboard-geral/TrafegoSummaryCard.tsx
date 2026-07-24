@@ -40,7 +40,7 @@ export function TrafegoSummaryCard({ year, month, height, delay = 0 }: TrafegoSu
 
   return (
     <motion.a
-      href="/trafego"
+      href="/marketing/trafego"
       className="lc-card group flex flex-col cursor-pointer overflow-hidden p-6"
       style={{ background: "var(--glass-bg-soft)", height }}
       initial={{ opacity: 0, y: 18 }}

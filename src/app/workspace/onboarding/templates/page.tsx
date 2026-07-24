@@ -2,12 +2,12 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { motion } from "framer-motion";
 import { Plus, FileStack, Layers, ListChecks, Loader2, X, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useCurrentMember } from "@/context/CurrentMemberContext";
 import { OnboardingSubNav } from "@/components/workspace/onboarding/OnboardingSubNav";
 import { useOnboardingTemplates } from "@/hooks/useOnboardingTemplates";
+import { Button } from "@/components/ui/button";
 
 export default function OnboardingTemplatesPage() {
   const router = useRouter();
@@ -82,15 +82,14 @@ export default function OnboardingTemplatesPage() {
               Etapas e tarefas reutilizáveis para iniciar a implantação de um cliente.
             </p>
           </div>
-          <motion.button
+          <Button
             onClick={() => setModalOpen(true)}
-            whileHover={{ scale: 1.03 }}
-            whileTap={{ scale: 0.97 }}
-            className="lc-btn flex items-center gap-2 px-4 py-2 text-sm"
+            icon={<FileStack size={16} strokeWidth={2.2} />}
+            signature
+            size="medium"
           >
-            <Plus size={16} strokeWidth={2.5} />
             Novo Template
-          </motion.button>
+          </Button>
         </div>
       </div>
 
@@ -146,7 +145,7 @@ export default function OnboardingTemplatesPage() {
 
       {modalOpen && (
         <div
-          className="fixed inset-0 z-[60] flex items-center justify-center p-4 lc-scrim"
+          className="lc-modal-backdrop fixed inset-0 z-[60] flex items-center justify-center p-4"
           style={{ background: "rgba(0,0,0,0.60)", backdropFilter: "blur(6px)" }}
           onClick={() => setModalOpen(false)}
         >
@@ -207,7 +206,7 @@ export default function OnboardingTemplatesPage() {
 
       {deleteTarget && (
         <div
-          className="fixed inset-0 z-[60] flex items-center justify-center p-4 lc-scrim"
+          className="lc-modal-backdrop fixed inset-0 z-[60] flex items-center justify-center p-4"
           style={{ background: "rgba(0,0,0,0.60)", backdropFilter: "blur(6px)" }}
           onClick={() => setDeleteTarget(null)}
         >

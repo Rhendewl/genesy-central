@@ -92,7 +92,7 @@ export default function ClientesPage() {
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
                     className={cn(
-                      "flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-all active:scale-95",
+                      "flex min-h-11 items-center gap-1.5 whitespace-nowrap rounded-xl px-3 py-2 text-sm font-medium transition-all active:scale-95",
                       activeTab === tab.id ? "text-[var(--text-title)]" : "text-[color-mix(in_srgb,var(--text-title)_50%,transparent)]",
                     )}
                     style={activeTab === tab.id ? {

@@ -15,7 +15,7 @@ export function Header({ title, subtitle, showLogo = false, actions }: HeaderPro
       initial={{ opacity: 0, y: -10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35, ease: "easeOut" }}
-      className="flex items-center justify-between px-4 sm:px-6 pt-4 sm:pt-6 pb-2 gap-3 min-w-0"
+      className="flex min-w-0 flex-wrap items-start justify-between gap-3 px-4 pb-2 pt-4 sm:flex-nowrap sm:px-6 sm:pt-6"
     >
       <div className="min-w-0 flex-1">
         {showLogo && (
@@ -33,10 +33,10 @@ export function Header({ title, subtitle, showLogo = false, actions }: HeaderPro
           {title}
         </h1>
         {subtitle && (
-          <p className="mt-0.5 text-xs sm:text-sm truncate" style={{ color: "var(--muted-foreground)" }}>{subtitle}</p>
+          <p className="mt-0.5 line-clamp-2 text-xs sm:line-clamp-1 sm:text-sm" style={{ color: "var(--muted-foreground)" }}>{subtitle}</p>
         )}
       </div>
-      {actions && <div className="flex flex-shrink-0 items-center gap-2.5">{actions}</div>}
+      {actions && <div className="flex flex-shrink-0 items-center justify-end gap-2.5 max-[420px]:w-full">{actions}</div>}
     </motion.header>
   );
 }

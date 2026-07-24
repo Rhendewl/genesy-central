@@ -4,12 +4,8 @@ import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import type { Form, FormStep } from "@/types";
 import { createLogicEngine, adaptLegacyRule } from "@/lib/logic-engine";
 import type { EventBus } from "@/lib/event-bus";
-import { createEventBus, generateId } from "@/lib/event-bus";
-import { FORM_SOURCE, createFormAnalyticsConsumer, type FormEventType } from "@/lib/event-bus/form";
-import { createIntegrationManager, InMemoryConfigLoader } from "@/lib/integrations/manager";
-import { getIntegrationRuntime } from "@/lib/integrations/runtime";
+import type { FormEventType } from "@/lib/event-bus/form";
 import type { IntegrationConfig } from "@/lib/integrations/types";
-import { initPixel, trackPageView } from "@/lib/integrations/adapters/fbq";
 
 // ── Screen states ─────────────────────────────────────────────────────────────
 
@@ -26,6 +22,13 @@ export type RendererScreen =
 // ── localStorage ──────────────────────────────────────────────────────────────
 
 const SESSION_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
+
+function generateCorrelationId(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`;
+}
 
 interface StoredSession {
   token: string;
@@ -90,11 +93,15 @@ export interface UseFormularioRendererReturn {
 
 // ── Hook ──────────────────────────────────────────────────────────────────────
 
-export function useFormularioRenderer(slug: string): UseFormularioRendererReturn {
+export function useFormularioRenderer(slug: string, initialForm: Form | null = null): UseFormularioRendererReturn {
   const storageKey = `genesy_form_${slug}`;
 
-  const [form,              setForm]             = useState<Form | null>(null);
-  const [screen,            setScreen]           = useState<RendererScreen>("loading");
+  const [form,              setForm]             = useState<Form | null>(initialForm);
+  const [screen,            setScreen]           = useState<RendererScreen>(() =>
+    initialForm
+      ? (initialForm.welcome_screen?.enabled ? "welcome" : "step")
+      : "loading",
+  );
   const [currentStepIndex,  setCurrentStepIndex] = useState(0);
   const [answers,           setAnswers]          = useState<Record<string, unknown>>({});
   const [endingId,          setEndingId]         = useState<string | null>(null);
@@ -113,10 +120,11 @@ export function useFormularioRenderer(slug: string): UseFormularioRendererReturn
   const crmCaptureStepIdRef  = useRef<string | null>(null);
   const earlyCaptureDoneRef  = useRef(false);
   const earlyCaptureInFlightRef = useRef(false);
+  const phoneLeadSentRef      = useRef(false);
 
   // Event Bus ref — created in load effect (before any await) and stable across renders
   const busRef           = useRef<EventBus<FormEventType> | null>(null);
-  const correlationIdRef = useRef<string>(generateId()); // restored from storage when available
+  const correlationIdRef = useRef<string>(generateCorrelationId()); // restored from storage when available
 
   useEffect(() => { answersRef.current        = answers;          });
   useEffect(() => { screenRef.current         = screen;           });
@@ -213,18 +221,23 @@ export function useFormularioRenderer(slug: string): UseFormularioRendererReturn
   useEffect(() => {
     const formUrl   = `/api/form/${slug}`;
     const configUrl = `/api/form/${slug}/integracoes`;
+    let cancelled = false;
 
     console.log("[useFormularioRenderer] fetching:", formUrl);
 
-    // Both fetches run in parallel. Integrations failure never blocks form render.
-    Promise.all([
-      fetch(formUrl).then(r => r.json() as Promise<Record<string, unknown>>),
-      fetch(configUrl)
-        .then(r => r.ok ? (r.json() as Promise<{ configs?: IntegrationConfig[] }>) : { configs: [] })
-        .catch((): { configs: IntegrationConfig[] } => ({ configs: [] })),
-    ])
-      .then(async ([formJson, integrationsJson]) => {
-        console.log("[useFormularioRenderer] responses received");
+    // A busca das integrações começa em paralelo, mas nunca bloqueia a primeira
+    // pintura. O runtime mais pesado também é baixado sob demanda.
+    const integrationsPromise = fetch(configUrl)
+      .then(r => r.ok ? (r.json() as Promise<{ configs?: IntegrationConfig[] }>) : { configs: [] })
+      .catch((): { configs: IntegrationConfig[] } => ({ configs: [] }));
+
+    const formPromise: Promise<Record<string, unknown>> = initialForm
+      ? Promise.resolve({ formulario: initialForm })
+      : fetch(formUrl).then(r => r.json() as Promise<Record<string, unknown>>);
+
+    formPromise
+      .then((formJson) => {
+        if (cancelled) return;
         if (!formJson.formulario) {
           console.warn("[useFormularioRenderer] no formulario in response → not_found. json:", formJson);
           setScreen("not_found");
@@ -247,52 +260,6 @@ export function useFormularioRenderer(slug: string): UseFormularioRendererReturn
           correlationIdRef.current = stored.correlationId;
         }
 
-        const configs: IntegrationConfig[] = integrationsJson.configs ?? [];
-        const crmConfig = configs.find(cfg => cfg.adapterName === "crm" && cfg.enabled);
-        crmCaptureStepIdRef.current = typeof crmConfig?.settings.capture_step_id === "string"
-          ? crmConfig.settings.capture_step_id
-          : null;
-
-        // Create bus (sync)
-        const bus = createEventBus<FormEventType>({
-          source:        FORM_SOURCE,
-          correlationId: correlationIdRef.current,
-          consumers:     [createFormAnalyticsConsumer(slug, () => sessionTokenRef.current)],
-          meta:          typeof window !== "undefined" ? { url: window.location.href } : {},
-          debug:         process.env.NODE_ENV === "development",
-        });
-        busRef.current = bus;
-
-        // Subscribe IntegrationManager BEFORE any publish — no race condition
-        if (configs.length > 0) {
-          const runtime      = getIntegrationRuntime();
-          const configLoader = new InMemoryConfigLoader();
-          configLoader.set(slug, configs);
-          bus.subscribe(createIntegrationManager({
-            pipeline:     runtime.pipeline,
-            queue:        runtime.queue,
-            configLoader,
-          }));
-
-          // Initialize browser Pixel — idempotent, safe on SPA re-mount
-          for (const cfg of configs) {
-            if (cfg.adapterName !== "meta-pixel" || !cfg.enabled) continue;
-            const mode    = (cfg.settings.mode as string) ?? "capi";
-            const pixelId = cfg.settings.pixel_id as string;
-            if ((mode === "browser" || mode === "both") && pixelId) {
-              initPixel(pixelId);
-              trackPageView(pixelId);
-            }
-          }
-        }
-
-        // All consumers subscribed — every event from here is guaranteed to be received
-        bus.publish("form.loaded", {
-          formSlug:   slug,
-          hasWelcome: !!loadedForm.welcome_screen?.enabled,
-          stepCount:  loadedForm.steps.length,
-        });
-
         if (stored) {
           console.log("[useFormularioRenderer] restoring stored session, stepIndex:", stored.currentStepIndex);
           sessionTokenRef.current = stored.token;
@@ -300,28 +267,93 @@ export function useFormularioRenderer(slug: string): UseFormularioRendererReturn
           setAnswers(stored.answers);
           setCurrentStepIndex(stored.currentStepIndex);
           setScreen("step");
-          bus.publish("form.resumed", {
-            formSlug:           slug,
-            restoredStepIndex:  stored.currentStepIndex,
-            answersCount:       Object.keys(stored.answers).length,
-          });
-          return;
-        }
-
-        if (!loadedForm.welcome_screen?.enabled) {
+        } else if (!loadedForm.welcome_screen?.enabled) {
           console.log("[useFormularioRenderer] welcome_screen disabled/null → screen=step");
           setScreen("step");
-          await ensureSession();
+          void ensureSession();
         } else {
           console.log("[useFormularioRenderer] welcome_screen enabled → screen=welcome");
           setScreen("welcome");
-          bus.publish("form.welcome.viewed", { formSlug: slug });
         }
+
+        void (async () => {
+          const [{ createEventBus }, { FORM_SOURCE, createFormAnalyticsConsumer }, integrationsJson] = await Promise.all([
+            import("@/lib/event-bus"),
+            import("@/lib/event-bus/form"),
+            integrationsPromise,
+          ]);
+          if (cancelled) return;
+
+          const configs: IntegrationConfig[] = integrationsJson.configs ?? [];
+          const crmConfig = configs.find(cfg => cfg.adapterName === "crm" && cfg.enabled);
+          crmCaptureStepIdRef.current = typeof crmConfig?.settings.capture_step_id === "string"
+            ? crmConfig.settings.capture_step_id
+            : null;
+
+          const bus = createEventBus<FormEventType>({
+            source: FORM_SOURCE,
+            correlationId: correlationIdRef.current,
+            consumers: [createFormAnalyticsConsumer(slug, () => sessionTokenRef.current)],
+            meta: typeof window !== "undefined" ? { url: window.location.href } : {},
+            debug: process.env.NODE_ENV === "development",
+          });
+          busRef.current = bus;
+
+          if (configs.length > 0) {
+            const [{ createIntegrationManager, InMemoryConfigLoader }, { getIntegrationRuntime }, { initPixel, trackPageView }] = await Promise.all([
+              import("@/lib/integrations/manager"),
+              import("@/lib/integrations/runtime"),
+              import("@/lib/integrations/adapters/fbq"),
+            ]);
+            if (cancelled) { bus.destroy(); return; }
+
+            const runtime = getIntegrationRuntime();
+            const configLoader = new InMemoryConfigLoader();
+            configLoader.set(slug, configs);
+            bus.subscribe(createIntegrationManager({
+              pipeline: runtime.pipeline,
+              queue: runtime.queue,
+              configLoader,
+            }));
+
+            for (const cfg of configs) {
+              if (cfg.adapterName !== "meta-pixel" || !cfg.enabled) continue;
+              const { getMetaDeliveryMode, getMetaPixelId } = await import("@/lib/integrations/meta-config");
+              const mode = getMetaDeliveryMode(cfg.settings);
+              const pixelId = getMetaPixelId(cfg.settings);
+              if ((mode === "browser" || mode === "both") && pixelId) {
+                initPixel(pixelId);
+                trackPageView(pixelId);
+              }
+            }
+          }
+
+          bus.publish("form.loaded", {
+            formSlug: slug,
+            hasWelcome: !!loadedForm.welcome_screen?.enabled,
+            stepCount: loadedForm.steps.length,
+          });
+          if (stored) {
+            bus.publish("form.resumed", {
+              formSlug: slug,
+              restoredStepIndex: stored.currentStepIndex,
+              answersCount: Object.keys(stored.answers).length,
+            });
+          } else if (loadedForm.welcome_screen?.enabled) {
+            bus.publish("form.welcome.viewed", { formSlug: slug });
+          }
+        })().catch(err => console.error("[useFormularioRenderer] runtime init error:", err));
       })
       .catch((err) => {
+        if (cancelled) return;
         console.error("[useFormularioRenderer] fetch/parse error:", err);
         setScreen("not_found");
       });
+    return () => {
+      cancelled = true;
+      busRef.current?.destroy();
+      busRef.current = null;
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug]);
 
@@ -470,6 +502,35 @@ export function useFormularioRenderer(slug: string): UseFormularioRendererReturn
     if (!step) return;
 
     const durationSeconds = Math.round((Date.now() - startTimeRef.current) / 1000);
+
+    if (step.type === "phone" && !phoneLeadSentRef.current) {
+      const rawPhone = answersRef.current[step.id];
+      const normalized = normalizePhone(String(rawPhone ?? ""));
+      const leadKey = `genesy_meta_phone_lead_${correlationIdRef.current}`;
+      let alreadySent = false;
+      try { alreadySent = sessionStorage.getItem(leadKey) === "1"; } catch { /* storage indisponível */ }
+
+      if (!alreadySent && normalized.length >= 12) {
+        phoneLeadSentRef.current = true;
+        try { sessionStorage.setItem(leadKey, "1"); } catch { /* storage indisponível */ }
+
+        void buildPhoneLeadUserData(normalized)
+          .then(userData => {
+            const bus = busRef.current;
+            if (!bus) throw new Error("Event bus indisponível");
+            return bus.publish("form.phone.answered", {
+              formSlug: slug,
+              stepId: step.id,
+              stepType: "phone",
+              user_data: userData,
+            });
+          })
+          .catch(() => {
+            phoneLeadSentRef.current = false;
+            try { sessionStorage.removeItem(leadKey); } catch { /* storage indisponível */ }
+          });
+      }
+    }
 
     busRef.current?.publish("form.step.completed", {
       formSlug:        slug,
@@ -649,8 +710,9 @@ export function useFormularioRenderer(slug: string): UseFormularioRendererReturn
     isCreatingSessionRef.current = false;
     earlyCaptureDoneRef.current  = false;
     earlyCaptureInFlightRef.current = false;
+    phoneLeadSentRef.current     = false;
     // Generate a new correlationId for the restarted session
-    correlationIdRef.current     = generateId();
+    correlationIdRef.current     = generateCorrelationId();
     setAnswers({});
     setCurrentStepIndex(0);
     setEndingId(null);
@@ -710,6 +772,18 @@ function normalizePhone(phone: string): string {
   if (d.startsWith("55") && d.length >= 12) return d;
   if (d.length >= 10) return `55${d}`;
   return d;
+}
+
+async function buildPhoneLeadUserData(normalizedPhone: string): Promise<MetaUserData & { ph: string[] }> {
+  const userData: MetaUserData & { ph: string[] } = {
+    ph: [await sha256(normalizedPhone)],
+  };
+  const fbp = readCookie("_fbp");
+  const fbc = readCookie("_fbc");
+  if (fbp) userData.fbp = fbp;
+  if (fbc) userData.fbc = fbc;
+  if (typeof navigator !== "undefined") userData.client_user_agent = navigator.userAgent;
+  return userData;
 }
 
 async function buildSubmissionUserData(

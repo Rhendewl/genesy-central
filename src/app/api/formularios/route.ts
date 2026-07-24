@@ -10,7 +10,7 @@ export async function GET() {
 
   const { data, error } = await supabase
     .from("forms")
-    .select("id, name, slug, status, description, steps, published_at, created_at, updated_at")
+    .select("id, name, slug, status, description, steps, origin, client_id, folder_id, published_at, created_at, updated_at")
     .eq("user_id", user.id)
     .is("deleted_at", null)
     .order("created_at", { ascending: false });
@@ -49,10 +49,20 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
 
   const body = await req.json() as NewForm;
-  const { name, slug, description } = body;
+  const { name, slug, description, folder_id } = body;
 
   if (!name?.trim()) {
     return NextResponse.json({ error: "Nome é obrigatório" }, { status: 400 });
+  }
+
+  if (folder_id) {
+    const { data: folder } = await supabase
+      .from("form_folders")
+      .select("id")
+      .eq("id", folder_id)
+      .eq("user_id", user.id)
+      .maybeSingle();
+    if (!folder) return NextResponse.json({ error: "Pasta não encontrada" }, { status: 400 });
   }
 
   const cleanSlug = slug?.trim()
@@ -81,6 +91,7 @@ export async function POST(req: NextRequest) {
       name: name.trim(),
       slug: cleanSlug,
       description: description?.trim() ?? null,
+      folder_id: folder_id ?? null,
     })
     .select()
     .single();

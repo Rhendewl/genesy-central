@@ -167,7 +167,7 @@
     --secondary-foreground: #000000;
 
     --muted: rgba(176, 184, 193, 0.06);
-    --muted-foreground: #4b5563;
+    --muted-foreground: #374151;
 
     --accent: rgba(176, 184, 193, 0.06);
     --accent-foreground: #000000;
@@ -184,10 +184,10 @@
     --border-color: rgba(176, 184, 193, 0.25);
     --text-title: #000000;
     --text-subtitle: #1f2937;
-    --text-body: #4b5563;
-    --text-muted: #6b7280;
-    --text-placeholder: #9ca3af;
-    --icon: #7c878e;
+    --text-body: #374151;
+    --text-muted: #475569;
+    --text-placeholder: #64748b;
+    --icon: #475569;
     --hover: rgba(176, 184, 193, 0.09);
     --btn-from: #0b0c20;
     --btn-mid: #404549;
@@ -195,7 +195,7 @@
     --btn-border: #133d83;
 
     /* Legacy silver (kept for backward compat) */
-    --silver: #6b7280;
+    --silver: #475569;
     --silver-dim: rgba(176, 184, 193, 0.06);
     --silver-border: rgba(176, 184, 193, 0.25);
 
@@ -227,13 +227,13 @@
     /* Kanban */
     --bg-lead-card: rgba(176, 184, 193, 0.06);
     --text-card-primary: rgba(0, 0, 0, 0.88);
-    --text-card-secondary: rgba(0, 0, 0, 0.68);
-    --text-card-subtle: rgba(0, 0, 0, 0.52);
+    --text-card-secondary: rgba(0, 0, 0, 0.76);
+    --text-card-subtle: rgba(0, 0, 0, 0.64);
     --border-card: rgba(176, 184, 193, 0.25);
     --border-card-hover: rgba(39, 163, 255, 0.35);
     --border-card-drag: rgba(39, 163, 255, 0.25);
     --border-empty: rgba(176, 184, 193, 0.15);
-    --text-empty: rgba(0, 0, 0, 0.22);
+    --text-empty: rgba(0, 0, 0, 0.38);
 
     /* Skeleton */
     --shimmer-base: rgba(176, 184, 193, 0.10);
@@ -293,12 +293,16 @@
     font-family: "Plus Jakarta Sans", system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    max-width: 100%;
+    overflow-x: clip;
   }
 
   body {
     background-color: #000000;
     color: var(--foreground);
     min-height: 100dvh;
+    max-width: 100%;
+    overflow-x: clip;
     position: relative;
   }
 
@@ -329,9 +333,134 @@
   .light ::-webkit-scrollbar-thumb:hover {
     background: #8f99a3;
   }
+
+  /* Compatibilidade com telas antigas que usavam preto com 20%–40% de
+     opacidade para textos auxiliares. Sobre fundos glass claros esses textos
+     ficavam abaixo de um contraste confortável. Títulos e cores semânticas
+     continuam preservados. */
+  .light :is(p, span, label, small, time, th, td, li)[style*="color-mix(in srgb, var(--text-title)"] {
+    color: var(--text-muted) !important;
+  }
+
+  .light input::placeholder,
+  .light textarea::placeholder {
+    color: var(--text-placeholder);
+    opacity: 1;
+  }
+}
+
+/* Marketing — glass com maior legibilidade e hierarquia operacional. */
+.marketing-shell {
+  backdrop-filter: blur(24px) saturate(160%);
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
+}
+
+.marketing-shell .border,
+.marketing-shell .border-t,
+.marketing-shell .border-b,
+.marketing-shell .divide-y > :not([hidden]) ~ :not([hidden]) {
+  border-color: color-mix(in srgb, var(--text-title) 16%, transparent) !important;
+}
+
+.marketing-shell [class*="muted-foreground"] {
+  color: color-mix(in srgb, var(--text-title) 70%, transparent) !important;
+  opacity: 1;
+}
+
+.marketing-shell section,
+.marketing-shell article,
+.marketing-shell a.rounded-2xl,
+.marketing-shell div.rounded-2xl.border {
+  backdrop-filter: blur(18px) saturate(145%);
+  -webkit-backdrop-filter: blur(18px) saturate(145%);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--text-title) 7%, transparent), 0 10px 30px rgba(0, 0, 0, 0.12);
+}
+
+/* Marcador dos dias com conteúdo no resumo do calendário. */
+.marketing-shell a.relative.flex.aspect-square > span.absolute {
+  width: 0.375rem !important;
+  height: 0.375rem !important;
+  background: #22c55e !important;
+  box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.16), 0 0 10px rgba(34, 197, 94, 0.92), 0 0 20px rgba(34, 197, 94, 0.42);
+  animation: marketing-calendar-glow 2.8s ease-in-out infinite;
+}
+
+@keyframes marketing-calendar-glow {
+  0%, 100% { opacity: 0.78; transform: scale(0.9); filter: blur(0); }
+  50% { opacity: 1; transform: scale(1.18); filter: blur(0.15px); }
+}
+
+.light .marketing-shell [class*="muted-foreground"] {
+  color: color-mix(in srgb, var(--text-title) 76%, transparent) !important;
+}
+
+.light .marketing-shell .border,
+.light .marketing-shell .border-t,
+.light .marketing-shell .border-b,
+.light .marketing-shell .divide-y > :not([hidden]) ~ :not([hidden]) {
+  border-color: color-mix(in srgb, var(--text-title) 22%, transparent) !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .marketing-shell a.relative.flex.aspect-square > span.absolute { animation: none; }
 }
 
 @layer components {
+  /* Cards de pasta compartilham o mesmo glass em Formulários e Notas. No
+     tema claro a cor escolhida ganha presença sem perder transparência. */
+  .glass-folder-card {
+    background: linear-gradient(
+      145deg,
+      color-mix(in srgb, var(--folder-color) 13%, var(--card)),
+      color-mix(in srgb, var(--card) 88%, transparent)
+    );
+    border-color: color-mix(in srgb, var(--folder-color) 35%, var(--border));
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 18px 50px color-mix(in srgb, var(--folder-color) 7%, transparent);
+    backdrop-filter: blur(22px) saturate(145%);
+    -webkit-backdrop-filter: blur(22px) saturate(145%);
+  }
+
+  .glass-folder-glow {
+    background: radial-gradient(circle at 28% 18%, color-mix(in srgb, var(--folder-color) 30%, transparent), transparent 48%),
+      linear-gradient(120deg, rgba(255, 255, 255, 0.08), transparent 42%);
+  }
+
+  .light .glass-folder-card {
+    background: linear-gradient(
+      145deg,
+      color-mix(in srgb, var(--folder-color) 30%, rgba(255, 255, 255, 0.66)),
+      color-mix(in srgb, var(--folder-color) 16%, rgba(239, 243, 247, 0.58))
+    ) !important;
+    border-color: color-mix(in srgb, var(--folder-color) 58%, rgba(71, 85, 105, 0.30)) !important;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.86),
+      inset 0 -1px 0 color-mix(in srgb, var(--folder-color) 20%, transparent),
+      0 14px 38px color-mix(in srgb, var(--folder-color) 20%, transparent),
+      0 4px 14px rgba(15, 23, 42, 0.08) !important;
+    backdrop-filter: blur(24px) saturate(175%);
+    -webkit-backdrop-filter: blur(24px) saturate(175%);
+  }
+
+  .light .glass-folder-glow {
+    background: radial-gradient(circle at 24% 15%, color-mix(in srgb, var(--folder-color) 48%, transparent), transparent 50%),
+      linear-gradient(125deg, rgba(255, 255, 255, 0.48), transparent 46%) !important;
+    opacity: 0.82 !important;
+  }
+
+  .light .glass-folder-icon {
+    filter: saturate(1.5) contrast(1.06) drop-shadow(0 8px 9px color-mix(in srgb, var(--folder-icon-color) 28%, transparent));
+  }
+
+  .crm-kanban-page {
+    height: calc(100dvh - 6rem - env(safe-area-inset-top, 0px));
+  }
+
+  @media (min-width: 768px) {
+    .crm-kanban-page {
+      height: calc(100dvh - 24px);
+    }
+  }
+
   .dashboard-geral-bg {
     position: relative;
     padding-top: 0.25rem;
@@ -538,23 +667,32 @@
       inset 0 1px 0 rgba(255, 255, 255, 0.05);
     transition: box-shadow 0.25s ease, transform 0.25s ease, background 0.25s ease;
   }
-  .lc-card-base:hover {
-    background: rgba(0, 0, 0, 0.62);
-    border-color: rgba(255, 255, 255, 0.12) !important;
-    box-shadow:
-      0 6px 32px rgba(0, 0, 0, 0.52),
-      inset 0 1px 0 rgba(255, 255, 255, 0.07);
-    transform: translateY(-1px);
-  }
-
   .light .lc-card-base {
     background: var(--glass-bg);
     border-color: var(--glass-border) !important;
     box-shadow: var(--glass-shadow);
   }
-  .light .lc-card-base:hover {
-    background: rgba(176, 184, 193, 0.09);
-    border-color: rgba(176, 184, 193, 0.35) !important;
+
+  @media (hover: hover) and (pointer: fine) {
+    .lc-card-base:hover {
+      background: rgba(0, 0, 0, 0.62);
+      border-color: rgba(255, 255, 255, 0.12) !important;
+      box-shadow:
+        0 6px 32px rgba(0, 0, 0, 0.52),
+        inset 0 1px 0 rgba(255, 255, 255, 0.07);
+      transform: translateY(-1px);
+    }
+
+    /* DialogContent também usa lc-card-base, mas depende de translate(-50%, -50%)
+       para permanecer centralizado. */
+    .lc-card-base[data-slot="dialog-content"]:hover {
+      transform: translate(-50%, -50%);
+    }
+
+    .light .lc-card-base:hover {
+      background: rgba(176, 184, 193, 0.09);
+      border-color: rgba(176, 184, 193, 0.35) !important;
+    }
   }
 
   /* ── Glass premium (auth card, painéis genéricos) ── */
@@ -572,6 +710,144 @@
     background: rgba(176, 184, 193, 0.08);
     border-color: var(--glass-border);
     box-shadow: 0 8px 40px rgba(0, 0, 0, 0.10), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  }
+
+  /* Backdrop único para modais e drawers: somente desfoque, sem película
+     clara ou escura. A opacidade microscópica faz o Safari/iOS compor o
+     backdrop-filter sem alterar visualmente a luminosidade da página. */
+  .lc-modal-backdrop {
+    background: rgba(255, 255, 255, 0.001) !important;
+    backdrop-filter: blur(28px) saturate(118%) !important;
+    -webkit-backdrop-filter: blur(28px) saturate(118%) !important;
+    transform: translateZ(0);
+    will-change: opacity, backdrop-filter;
+  }
+
+  .light .lc-modal-backdrop {
+    background: rgba(255, 255, 255, 0.001) !important;
+  }
+
+  .workspace-folder-modal-backdrop {
+    background: rgba(255, 255, 255, 0.001) !important;
+    backdrop-filter: blur(28px) saturate(118%) !important;
+    -webkit-backdrop-filter: blur(28px) saturate(118%) !important;
+  }
+
+  .light .workspace-folder-modal-backdrop {
+    background: rgba(255, 255, 255, 0.001) !important;
+  }
+
+  /* Switch global inspirado em um controle físico: desligado neutro e,
+     quando ligado, trilho verde luminoso com botão interno em grafite. */
+  button[role="switch"] {
+    isolation: isolate;
+    background: linear-gradient(145deg, #5f676d 0%, #343a3f 100%) !important;
+    box-shadow:
+      0 0 0 1px rgba(148, 163, 184, 0.32),
+      0 3px 8px rgba(0, 0, 0, 0.28),
+      inset 0 1px 1px rgba(255, 255, 255, 0.16),
+      inset 0 -1px 2px rgba(0, 0, 0, 0.34) !important;
+    transition: background 180ms ease, box-shadow 180ms ease !important;
+  }
+
+  button[role="switch"][aria-checked="true"] {
+    background: linear-gradient(100deg, #bbf7d0 0%, #34d399 48%, #22c55e 100%) !important;
+    box-shadow:
+      0 0 0 1px rgba(34, 197, 94, 0.78),
+      0 0 8px rgba(52, 211, 153, 0.9),
+      0 0 20px rgba(34, 197, 94, 0.52),
+      0 0 34px rgba(34, 197, 94, 0.24),
+      inset 0 1px 1px rgba(255, 255, 255, 0.58),
+      inset 0 -2px 3px rgba(21, 128, 61, 0.34) !important;
+  }
+
+  button[role="switch"] > span {
+    background: linear-gradient(145deg, #f8fafc 0%, #a8b0b7 100%) !important;
+    box-shadow:
+      0 0 0 1px rgba(15, 23, 42, 0.38),
+      0 2px 5px rgba(0, 0, 0, 0.42),
+      inset 0 1px 1px rgba(255, 255, 255, 0.72) !important;
+  }
+
+  button[role="switch"][aria-checked="true"] > span {
+    background: linear-gradient(145deg, #59615b 0%, #202521 100%) !important;
+    box-shadow:
+      0 0 0 1px rgba(20, 83, 45, 0.72),
+      -2px 0 8px rgba(21, 128, 61, 0.34),
+      0 2px 5px rgba(0, 0, 0, 0.5),
+      inset 1px 1px 1px rgba(255, 255, 255, 0.2),
+      inset -1px -1px 2px rgba(0, 0, 0, 0.5) !important;
+  }
+
+  .light button[role="switch"] {
+    background: linear-gradient(145deg, #e2e8ec 0%, #b8c2c9 100%) !important;
+    box-shadow:
+      0 0 0 1px rgba(255, 255, 255, 0.82),
+      0 3px 8px rgba(100, 116, 139, 0.16),
+      inset 0 1px 1px rgba(255, 255, 255, 0.88),
+      inset 0 -2px 3px rgba(100, 116, 139, 0.15) !important;
+  }
+
+  .light button[role="switch"][aria-checked="true"] {
+    background: linear-gradient(105deg, #d9f99d 0%, #86efac 42%, #4ade80 72%, #22c55e 100%) !important;
+    box-shadow:
+      0 0 0 1px rgba(134, 239, 172, 0.86),
+      0 0 8px rgba(74, 222, 128, 0.74),
+      0 0 18px rgba(74, 222, 128, 0.42),
+      0 0 30px rgba(134, 239, 172, 0.2),
+      inset 0 2px 2px rgba(255, 255, 255, 0.72),
+      inset 0 -2px 3px rgba(34, 197, 94, 0.22) !important;
+  }
+
+  .light button[role="switch"] > span,
+  .light button[role="switch"][aria-checked="true"] > span {
+    background: linear-gradient(145deg, #ffffff 0%, #ffffff 55%, #eef4f1 100%) !important;
+    box-shadow:
+      0 0 0 1px rgba(255, 255, 255, 0.94),
+      0 3px 6px rgba(100, 116, 139, 0.2),
+      0 1px 2px rgba(255, 255, 255, 0.9),
+      inset 1px 1px 2px rgba(255, 255, 255, 1),
+      inset -1px -1px 2px rgba(148, 163, 184, 0.14) !important;
+  }
+
+  .light button[role="switch"][aria-checked="true"] > span {
+    box-shadow:
+      0 0 0 1px rgba(255, 255, 255, 0.96),
+      -2px 0 8px rgba(74, 222, 128, 0.26),
+      0 3px 6px rgba(34, 197, 94, 0.2),
+      inset 1px 1px 2px rgba(255, 255, 255, 1),
+      inset -1px -1px 2px rgba(134, 239, 172, 0.16) !important;
+  }
+
+  button[role="switch"]:focus-visible {
+    outline: 2px solid color-mix(in srgb, #34d399 72%, white) !important;
+    outline-offset: 3px;
+  }
+
+  @media (max-width: 767px) {
+    /* Evita o zoom automático do Safari ao focar campos menores que 16px. */
+    @supports (-webkit-touch-callout: none) {
+      input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),
+      select,
+      textarea {
+        font-size: 16px !important;
+      }
+    }
+
+    button,
+    a,
+    input,
+    select,
+    textarea {
+      touch-action: manipulation;
+    }
+
+    .lc-modal-backdrop,
+    .workspace-folder-modal-backdrop {
+      background: rgba(255, 255, 255, 0.001) !important;
+      backdrop-filter: blur(28px) saturate(118%) !important;
+      -webkit-backdrop-filter: blur(28px) saturate(118%) !important;
+    }
   }
 
   /* ── Modal panel — glass escuro com blur ── */
@@ -632,31 +908,268 @@
     color: var(--text-placeholder);
   }
 
-  /* ── Lancaster Primary Action Button — metallic luminous ── */
+  /* Tooltip do dock: vidro translúcido que preserva o contexto e desfoca
+     o conteúdo imediatamente atrás do nome do módulo. */
+  .dock-tooltip {
+    background: rgba(16, 16, 16, 0.46);
+    border: 1px solid rgba(255, 255, 255, 0.13);
+    box-shadow:
+      0 8px 24px rgba(0, 0, 0, 0.34),
+      inset 0 1px 0 rgba(255, 255, 255, 0.09);
+    backdrop-filter: blur(18px) saturate(165%);
+    -webkit-backdrop-filter: blur(18px) saturate(165%);
+  }
+
+  .light .dock-tooltip {
+    background: rgba(255, 255, 255, 0.56);
+    border-color: rgba(255, 255, 255, 0.78);
+    box-shadow:
+      0 8px 22px rgba(71, 85, 105, 0.16),
+      inset 0 1px 0 rgba(255, 255, 255, 0.92);
+  }
+
+  .calendar-status-badge {
+    border: 1px solid var(--glass-border);
+  }
+  .calendar-status-badge--active {
+    background: rgba(34, 197, 94, 0.14);
+    color: #22c55e;
+  }
+  .calendar-status-badge--archived {
+    background: var(--hover);
+    color: var(--muted-foreground);
+  }
+  .light .calendar-status-badge--active {
+    background: rgba(220, 252, 231, 0.9);
+    border-color: rgba(74, 222, 128, 0.68);
+    color: #15803d;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.86);
+  }
+
+  /* ── Genesy Signature Button ─────────────────────────────────────────────
+     Cápsula compacta com disco de ícone totalmente interno à esquerda. */
+  .genesy-button--signature {
+    --gb-h: 38.08px;
+    --gb-disc: 25.6px;
+    --gb-disc-left: 6.24px;
+    --gb-content-pad: 18.72px;
+    --gb-accent: #7c878e;
+    --gb-disc-color: #4c5257;
+    --gb-ink: #ffffff;
+    --gb-shadow: rgba(0,0,0,.26);
+    position: relative;
+    display: inline-grid;
+    width: max-content;
+    min-width: 0;
+    height: var(--gb-h) !important;
+    flex: none;
+    place-items: center;
+    overflow: visible;
+    border: 0;
+    border-radius: calc(var(--gb-h) / 2);
+    padding: 0 !important;
+    background: transparent !important;
+    color: var(--gb-ink);
+    font: inherit;
+    font-size: .8rem;
+    font-weight: 600;
+    letter-spacing: -.012em;
+    white-space: nowrap;
+    cursor: pointer;
+    outline: 2px solid transparent;
+    outline-offset: 4px;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+  }
+
+  /* Disco interno do ícone. */
+  .genesy-button__disc {
+    position: absolute;
+    top: 50%;
+    left: var(--gb-disc-left);
+    z-index: 2;
+    display: grid;
+    width: var(--gb-disc);
+    height: var(--gb-disc);
+    place-items: center;
+    overflow: hidden;
+    border: 0;
+    border-radius: 50%;
+    background: var(--gb-disc-color);
+    box-shadow:
+      0 2px 7px rgba(0,0,0,.18),
+      inset 0 1px 0 rgba(255,255,255,.08);
+    transform: translateY(-50%);
+  }
+
+  .genesy-button__disc::after {
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 0 7px rgba(255,255,255,.55);
+    content: "";
+    opacity: .38;
+  }
+
+  .genesy-button__icon {
+    position: absolute;
+    inset: 0;
+    z-index: 5;
+    display: grid;
+    place-items: center;
+    color: #fff;
+  }
+  .genesy-button__icon:empty { display: none; }
+  .genesy-button__disc:has(.genesy-button__icon:not(:empty))::after { display: none; }
+  .genesy-button__icon > svg {
+    width: 46%;
+    height: 46%;
+    stroke-width: 1.85;
+    filter: drop-shadow(0 1px 2px rgba(0,0,0,.22));
+  }
+
+  /* Cápsula principal. */
+  .genesy-button__capsule {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 1;
+    border: 0;
+    border-radius: calc(var(--gb-h) / 2);
+    background: linear-gradient(90deg, rgba(17,18,19,.672) 0%, rgba(52,52,52,.644) 100%);
+    box-shadow: 0 5px 13px var(--gb-shadow), inset 0 1px 0 rgba(255,255,255,.045);
+    backdrop-filter: blur(18px) saturate(118%);
+    -webkit-backdrop-filter: blur(18px) saturate(118%);
+    transform-origin: left center;
+    transition: transform 260ms cubic-bezier(.2,.78,.2,1), filter 240ms ease, box-shadow 240ms ease, backdrop-filter 240ms ease;
+    pointer-events: none;
+  }
+
+  .genesy-button__capsule::after {
+    position: absolute;
+    inset: 0;
+    padding: 1px;
+    border-radius: inherit;
+    background: linear-gradient(90deg, rgba(124,135,142,.12) 0%, rgba(124,135,142,.42) 48%, #7c878e 100%);
+    content: "";
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    mask-composite: exclude;
+    pointer-events: none;
+  }
+
+  .genesy-button__label {
+    position: relative;
+    z-index: 2;
+    display: inline-flex;
+    width: 100%;
+    height: 100%;
+    min-width: max-content;
+    align-items: center;
+    justify-content: center;
+    gap: .45rem;
+    padding-right: var(--gb-content-pad);
+    padding-left: calc(var(--gb-disc-left) + var(--gb-disc) + var(--gb-content-pad));
+    text-align: center;
+    text-shadow: 0 1px 2px rgba(0,0,0,.20);
+  }
+  .genesy-button__label > svg { width: 1em; height: 1em; }
+
+  @media (hover: hover) and (pointer: fine) {
+    .genesy-button--signature:not(:disabled):hover .genesy-button__capsule {
+      filter: brightness(1.10);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.17), 4px 5px 15px rgba(0,0,0,.07);
+      backdrop-filter: blur(20px) saturate(125%);
+      -webkit-backdrop-filter: blur(20px) saturate(125%);
+      transform: scaleX(1.038) translateZ(0);
+    }
+  }
+  .genesy-button--signature:not(:disabled):active .genesy-button__capsule { filter: brightness(.96); transform: scaleX(1.012) scaleY(.965) translateZ(0); transition-duration: 90ms; }
+  .genesy-button--signature:focus-visible { outline-color: color-mix(in srgb, var(--ring) 82%, white 18%); box-shadow: 0 0 0 4px color-mix(in srgb, var(--ring) 17%, transparent); }
+  .genesy-button--signature:disabled { cursor: not-allowed; opacity: .43; filter: grayscale(.38) saturate(.62); }
+  .genesy-button--signature[data-loading] { cursor: wait; }
+  .genesy-button__spinner { animation: genesyButtonSpin .72s linear infinite; }
+
+  .genesy-button--signature.genesy-button--secondary {
+    --gb-accent: #78858e;
+  }
+  .genesy-button--signature.genesy-button--outline {
+    --gb-accent: #82909a;
+  }
+  .genesy-button--signature.genesy-button--ghost {
+    --gb-accent: #77858f;
+    --gb-shadow: rgba(0,0,0,.10);
+  }
+  .genesy-button--signature.genesy-button--success { --gb-accent: #43a77c; }
+  .genesy-button--signature.genesy-button--danger { --gb-accent: #c96770; }
+  .genesy-button--signature.genesy-button--warning { --gb-accent: #c9974e; }
+  .genesy-button--signature.genesy-button--link .genesy-button__label { text-decoration: underline; text-underline-offset: 3px; }
+
+  .genesy-button--signature.genesy-button--xs { --gb-h: 24.32px; --gb-disc: 16px; --gb-disc-left: 4.16px; --gb-content-pad: 9.36px; font-size: .544rem; }
+  .genesy-button--signature.genesy-button--sm { --gb-h: 31.2px; --gb-disc: 20.8px; --gb-disc-left: 5.2px; --gb-content-pad: 13.52px; font-size: .64rem; }
+  .genesy-button--signature.genesy-button--md { --gb-h: 38.08px; --gb-disc: 25.6px; --gb-disc-left: 6.24px; --gb-content-pad: 18.72px; font-size: .8rem; }
+  .genesy-button--signature.genesy-button--lg { --gb-h: 44.96px; --gb-disc: 30.4px; --gb-disc-left: 7.28px; --gb-content-pad: 21.84px; font-size: .864rem; }
+  .genesy-button--signature.genesy-button--full { width: 100%; }
+  .genesy-button--signature.genesy-button--icon { min-width: var(--gb-h); }
+  .genesy-button--signature.genesy-button--icon .genesy-button__label { display: none; }
+
+  .light .genesy-button--signature {
+    --gb-disc-color: #7c878e;
+    --gb-ink: #7c878e;
+    --gb-shadow: rgba(31,43,51,.13);
+  }
+  .light .genesy-button--signature .genesy-button__capsule {
+    background: linear-gradient(90deg, rgba(255,255,255,.658), rgba(230,233,235,.63));
+  }
+  .light .genesy-button--signature .genesy-button__label {
+    color: var(--gb-disc-color) !important;
+  }
+  .light .genesy-button--signature.genesy-button--primary { --gb-accent: #8997a1; }
+  .light .genesy-button--signature.genesy-button--secondary { --gb-accent: #7f8d97; }
+  .light .genesy-button--signature.genesy-button--success { --gb-accent: #3a9c71; }
+  .light .genesy-button--signature.genesy-button--danger { --gb-accent: #c85f69; }
+  .light .genesy-button--signature.genesy-button--warning { --gb-accent: #bd8737; }
+
+  @media (max-width: 420px) {
+    .genesy-button--signature.genesy-button--md { --gb-content-pad: 15.6px; }
+    .genesy-button--signature.genesy-button--lg { --gb-content-pad: 18.2px; }
+    .genesy-button--signature.genesy-button--full { min-width: 0; }
+  }
+
+  /* Botões convencionais: usados em login, modais, painéis e formulários. */
   .lc-btn {
-    background: #b0b8c1;
     border: none;
     border-radius: 12px;
-    color: #000000;
+    background: #b0b8c1;
+    color: #000;
     font-weight: 700;
     cursor: pointer;
-    letter-spacing: -0.01em;
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
-    box-shadow: 0 1px 10px rgba(255, 255, 255, 0.06);
+    letter-spacing: -.01em;
+    box-shadow: 0 1px 10px rgba(255,255,255,.06);
+    transition: transform .3s ease, box-shadow .3s ease;
   }
-  .lc-btn:not(:disabled):hover {
-    animation: lcGlowPulse 1.8s ease-in-out infinite;
+  .lc-btn:not(:disabled):hover { animation: lcGlowPulse 1.8s ease-in-out infinite; }
+  .lc-btn:not(:disabled):active { transform: scale(.97); animation: none; box-shadow: 0 0 8px rgba(255,255,255,.12); }
+  .lc-btn:disabled { opacity: .35; cursor: not-allowed; box-shadow: none; animation: none; }
+
+  @media (hover: none) and (pointer: coarse) {
+    .genesy-button--signature:not(:disabled):active .genesy-button__capsule {
+      animation: genesyButtonTap 190ms cubic-bezier(.2,.8,.2,1);
+    }
   }
-  .lc-btn:not(:disabled):active {
-    transform: scale(0.97);
-    animation: none;
-    box-shadow: 0 0 8px rgba(255, 255, 255, 0.12);
+
+  @media (prefers-reduced-motion: reduce) {
+    .genesy-button--signature * { animation-duration: .01ms !important; transition-duration: .01ms !important; }
   }
-  .lc-btn:disabled {
-    opacity: 0.35;
-    cursor: not-allowed;
-    box-shadow: none;
-    animation: none;
+
+  @keyframes genesyButtonSpin { to { transform: rotate(360deg); } }
+  @keyframes genesyButtonTap {
+    0%, 100% { transform: scale(1); filter: brightness(1); }
+    48% { transform: scale(1.025); filter: brightness(1.11); }
   }
 
   /* ── Lead Card (Kanban) — glassmorphism real ── */
@@ -801,17 +1314,6 @@
   @keyframes glowPulse {
     0%, 100% { box-shadow: 0 0 12px rgba(39, 163, 255, 0.3); }
     50% { box-shadow: 0 0 24px rgba(39, 163, 255, 0.6); }
-  }
-
-  @keyframes lcGlowPulse {
-    0%, 100% {
-      box-shadow: 0 0 14px rgba(255, 255, 255, 0.22),
-                  0 0 30px rgba(255, 255, 255, 0.09);
-    }
-    50% {
-      box-shadow: 0 0 26px rgba(255, 255, 255, 0.42),
-                  0 0 54px rgba(255, 255, 255, 0.18);
-    }
   }
 
   .animate-glow-pulse {

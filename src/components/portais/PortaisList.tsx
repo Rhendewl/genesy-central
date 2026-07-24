@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { NovoPortalModal } from "./NovoPortalModal";
 import { usePortais } from "@/hooks/usePortais";
 import type { Portal, NewPortal } from "@/types";
+import { Button } from "@/components/ui/button";
 
 function formatRelativeDate(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -215,13 +216,14 @@ function EmptyState({ onNew }: { onNew: () => void }) {
       <p className="text-[color-mix(in_srgb,var(--text-title)_35%,transparent)] text-sm max-w-xs mb-8">
         Crie dashboards públicos para seus clientes acompanharem resultados das campanhas em tempo real.
       </p>
-      <button
+      <Button
         onClick={onNew}
-        className="lc-btn px-5 py-2.5 text-sm rounded-xl flex items-center gap-2"
+        icon={<Globe size={15} />}
+        signature
+        size="medium"
       >
-        <Plus size={15} />
         Criar primeiro portal
-      </button>
+      </Button>
     </div>
   );
 }
@@ -278,13 +280,14 @@ export function PortaisList() {
           </div>
           <p className="text-[color-mix(in_srgb,var(--text-title)_40%,transparent)] text-sm">Dashboards públicos de campanhas para clientes</p>
         </div>
-        <button
+        <Button
           onClick={openNew}
-          className="lc-btn px-4 py-2.5 text-sm rounded-xl flex items-center gap-2"
+          icon={<Globe size={15} />}
+          signature
+          size="medium"
         >
-          <Plus size={15} />
           Novo Portal
-        </button>
+        </Button>
       </div>
 
       {portals.length === 0 ? (

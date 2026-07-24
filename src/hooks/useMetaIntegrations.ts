@@ -90,6 +90,7 @@ export function useMetaIntegrations(): UseMetaIntegrationsReturn {
   const initiateOAuth = useCallback((clientId?: string | null) => {
     const params = new URLSearchParams();
     if (clientId) params.set("clientId", clientId);
+    params.set("return_to", "/marketing/trafego");
     window.location.href = `/api/meta/auth?${params}`;
   }, []);
 

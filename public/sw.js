@@ -14,7 +14,7 @@ self.addEventListener('push', event => {
     payload = { title: 'Genesy', body: event.data.text() };
   }
 
-  const { title = 'Genesy', body = '', icon = '/favicon.png', tag } = payload;
+  const { title = 'Genesy', body = '', icon = '/favicon.png', tag, url = '/' } = payload;
 
   event.waitUntil(
     self.registration.showNotification(title, {
@@ -23,16 +23,20 @@ self.addEventListener('push', event => {
       badge: icon,
       tag,
       renotify: !!tag,
+      data: { url },
     })
   );
 });
 
 self.addEventListener('notificationclick', event => {
   event.notification.close();
+  const destination = new URL(event.notification.data?.url || '/', self.location.origin).href;
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clients => {
-      if (clients.length > 0) return clients[0].focus();
-      return self.clients.openWindow('/');
+      if (clients.length > 0) {
+        return clients[0].navigate(destination).then(client => client?.focus());
+      }
+      return self.clients.openWindow(destination);
     })
   );
 });

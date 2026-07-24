@@ -12,7 +12,7 @@ interface NewOnboardingWizardProps {
 }
 
 export function NewOnboardingWizard({ onClose, onCreate }: NewOnboardingWizardProps) {
-  const { clients } = useAgencyClients();
+  const { assignableClients: clients } = useAgencyClients();
   const { templates } = useOnboardingTemplates();
 
   const [clientId,   setClientId]   = useState("");
@@ -50,12 +50,12 @@ export function NewOnboardingWizard({ onClose, onCreate }: NewOnboardingWizardPr
 
   return (
     <div
-      className="fixed inset-0 z-[60] flex items-center justify-center p-4 lc-scrim"
+      className="lc-modal-backdrop fixed inset-0 z-[60] flex items-center justify-center p-4"
       style={{ background: "rgba(0,0,0,0.60)", backdropFilter: "blur(6px)" }}
       onClick={onClose}
     >
       <div
-        className="flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl"
+        className="lc-modal-panel flex max-h-[calc(100dvh-2rem)] w-full max-w-lg flex-col overflow-hidden rounded-2xl"
         style={{ background: "var(--bg-modal)", border: "1px solid var(--border-modal)", boxShadow: "0 24px 64px var(--shadow-modal)" }}
         onClick={(e) => e.stopPropagation()}
       >

@@ -74,12 +74,12 @@ export function AutomationFormModal({ open, pipeline, automation, onClose, onSav
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 lc-scrim"
+      className="lc-modal-backdrop fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ background: "rgba(0,0,0,0.60)" }}
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div
-        className="lc-modal-panel w-full max-w-lg rounded-2xl flex flex-col overflow-hidden max-h-[90vh]"
+        className="lc-modal-panel flex max-h-[calc(100dvh-2rem)] w-full max-w-lg flex-col overflow-hidden rounded-2xl"
       >
         <div className="flex items-center justify-between px-5 py-4 flex-shrink-0" style={{ borderBottom: "1px solid var(--border)" }}>
           <p className="text-sm font-semibold" style={{ color: "var(--text-title)" }}>

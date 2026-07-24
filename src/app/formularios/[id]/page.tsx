@@ -275,15 +275,6 @@ export default function FormularioOverviewPage() {
                   <FutureMetric label="Tempo médio" />
                 </div>
 
-                {/* Card: Integrações */}
-                <div className="lc-card-base p-4 flex flex-col gap-3">
-                  <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "var(--muted-foreground)" }}>
-                    Integrações
-                  </p>
-                  <FutureMetric label="CRM" />
-                  <FutureMetric label="Webhook" />
-                </div>
-
               </div>
             </div>
 

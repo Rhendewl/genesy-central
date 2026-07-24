@@ -6,7 +6,7 @@ import { useCurrentMember } from "@/context/CurrentMemberContext";
 // (user_profiles.permissions) — mesma fonte já usada pra filtrar o menu
 // (Dock.tsx/MobileNavigation.tsx) e os cards do Dashboard Geral.
 export function useModuleAccess(moduleKey: string) {
-  const { member, isLoading } = useCurrentMember();
-  const hasAccess = !isLoading && (member?.permissions.includes(moduleKey) ?? false);
+  const { member, isOwner, isLoading } = useCurrentMember();
+  const hasAccess = !isLoading && (isOwner === true || member?.role === "admin" || (member?.permissions.includes(moduleKey) ?? false));
   return { hasAccess, isLoading };
 }

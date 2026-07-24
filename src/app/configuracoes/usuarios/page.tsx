@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft, Plus, Search, Users, UserCheck, Mail, ShieldCheck,
   MoreHorizontal, Pencil, Power, KeyRound, Trash2, X,
-  ChevronDown, UserX, Check,
+  ChevronDown, UserX, Check, Camera, Upload, Loader2,
 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -22,6 +22,10 @@ import {
 } from "@/hooks/useUsers";
 import { useModalOpen } from "@/hooks/useModalOpen";
 import { PrimaryButton } from "@/components/ui/PrimaryButton";
+import { AdministrativeAccessGate } from "@/components/layout/AdministrativeAccessGate";
+import { usePipelines } from "@/hooks/usePipelines";
+import type { CrmPipelineWithStages } from "@/types/crm";
+import { isAdministrativeMember } from "@/lib/user-access";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Constants
@@ -37,6 +41,7 @@ const STATUS_OPTIONS = [
 ];
 
 const JOB_PROFILE_OPTIONS = [
+  { value: "Sócio",             role: "admin" as UserRole },
   { value: "Gestor de Tráfego", role: "trafego" as UserRole },
   { value: "SDR",               role: "comercial" as UserRole },
   { value: "Closer",            role: "gestor_comercial" as UserRole },
@@ -60,6 +65,115 @@ function Avatar({ name, url, size = 32 }: { name: string; url?: string | null; s
       style={{ width: size, height: size, fontSize: size * 0.36, background: `hsl(${hue}, 60%, 72%)` }}
     >
       {initials}
+    </div>
+  );
+}
+
+function AdminAvatarEditor({
+  profile,
+  onUpload,
+  onRemove,
+}: {
+  profile: UserProfile;
+  onUpload: (file: File) => Promise<{ error: string | null }>;
+  onRemove: () => Promise<{ error: string | null }>;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [preview, setPreview] = useState<string | null>(profile.avatar_url);
+  const [busy, setBusy] = useState(false);
+
+  async function handleFile(file: File) {
+    if (!["image/png", "image/jpeg", "image/webp"].includes(file.type)) {
+      toast.error("Use uma imagem PNG, JPG ou WebP");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("A imagem deve ter no máximo 5 MB");
+      return;
+    }
+
+    const previous = preview;
+    const reader = new FileReader();
+    reader.onload = () => setPreview(String(reader.result));
+    reader.readAsDataURL(file);
+    setBusy(true);
+    const result = await onUpload(file);
+    setBusy(false);
+    if (result.error) {
+      setPreview(previous);
+      toast.error("Erro ao atualizar foto", { description: result.error });
+      return;
+    }
+    toast.success("Foto do usuário atualizada");
+  }
+
+  async function handleRemove() {
+    setBusy(true);
+    const result = await onRemove();
+    setBusy(false);
+    if (result.error) {
+      toast.error("Erro ao remover foto", { description: result.error });
+      return;
+    }
+    setPreview(null);
+    toast.success("Foto do usuário removida");
+  }
+
+  return (
+    <div className="space-y-2">
+      <label className="text-[11px] font-medium uppercase tracking-widest" style={{ color: "color-mix(in srgb, var(--text-title) 40%, transparent)" }}>
+        Foto de perfil
+      </label>
+      <div className="flex items-center gap-4 rounded-xl p-3" style={{ background: "var(--hover)", border: "1px solid var(--border)" }}>
+        <div className="relative">
+          <Avatar name={profile.full_name} url={preview} size={56} />
+          <span className="absolute -bottom-0.5 -right-0.5 flex h-5 w-5 items-center justify-center rounded-full" style={{ background: "var(--primary)", color: "var(--primary-foreground)" }}>
+            <Camera size={11} />
+          </span>
+          {busy && (
+            <span className="absolute inset-0 flex items-center justify-center rounded-full bg-black/60">
+              <Loader2 size={18} className="animate-spin text-white" />
+            </span>
+          )}
+        </div>
+        <div className="flex min-w-0 flex-1 flex-col gap-2">
+          <p className="text-xs" style={{ color: "var(--muted-foreground)" }}>PNG, JPG ou WebP · máximo 5 MB</p>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => inputRef.current?.click()}
+              className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium disabled:opacity-50"
+              style={{ background: "var(--primary)", color: "var(--primary-foreground)" }}
+            >
+              <Upload size={12} />
+              {preview ? "Trocar foto" : "Adicionar foto"}
+            </button>
+            {preview && (
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => void handleRemove()}
+                className="rounded-lg px-3 py-1.5 text-xs disabled:opacity-50"
+                style={{ color: "#f87171", border: "1px solid rgba(248,113,113,0.25)" }}
+              >
+                Remover
+              </button>
+            )}
+          </div>
+        </div>
+        <input
+          ref={inputRef}
+          type="file"
+          accept="image/png,image/jpeg,image/webp"
+          className="hidden"
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            if (file) void handleFile(file);
+            event.target.value = "";
+          }}
+        />
+      </div>
     </div>
   );
 }
@@ -160,8 +274,7 @@ function RowActions({ profile, onEdit, onToggle, onReset, onDelete }: {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: openUp ? 4 : -4 }}
               transition={{ duration: 0.15 }}
-              className={`absolute right-0 z-20 min-w-[180px] rounded-xl py-1.5 shadow-2xl ${openUp ? "bottom-8" : "top-8"}`}
-              style={{ background: "var(--popover)", border: "1px solid var(--border)" }}
+              className={`lc-modal-panel absolute right-0 z-20 min-w-[180px] overflow-hidden rounded-xl py-1.5 shadow-2xl ${openUp ? "bottom-8" : "top-8"}`}
             >
               {actions.map(({ icon: ActionIcon, label, action, color }) => (
                 <button
@@ -298,6 +411,7 @@ const EMPTY_CREATE: CreateUserPayload = {
   is_active:   true,
   send_invite: false,
   permissions: ROLE_DEFAULT_PERMISSIONS["viewer"],
+  crm_pipeline_id: null,
 };
 
 function UserModal({
@@ -306,12 +420,20 @@ function UserModal({
   onClose,
   onSubmit,
   isLoading,
+  pipelines,
+  profile,
+  onAvatarUpload,
+  onAvatarRemove,
 }: {
   mode: "create" | "edit";
   initial: CreateUserPayload | UpdateUserPayload;
   onClose: () => void;
   onSubmit: (data: CreateUserPayload | UpdateUserPayload) => Promise<void>;
   isLoading: boolean;
+  pipelines: CrmPipelineWithStages[];
+  profile?: UserProfile;
+  onAvatarUpload?: (file: File) => Promise<{ error: string | null }>;
+  onAvatarRemove?: () => Promise<{ error: string | null }>;
 }) {
   useModalOpen(true);
 
@@ -323,6 +445,7 @@ function UserModal({
     is_active: boolean;
     send_invite: boolean;
     permissions: string[];
+    crm_pipeline_id: string | null;
   };
 
   const [form, setForm] = useState<FormState>({
@@ -333,6 +456,7 @@ function UserModal({
     is_active:   initial.is_active,
     send_invite: (initial as CreateUserPayload).send_invite ?? false,
     permissions: initial.permissions ?? ROLE_DEFAULT_PERMISSIONS[initial.role as UserRole],
+    crm_pipeline_id: initial.crm_pipeline_id ?? null,
   });
 
   const isCreate = mode === "create";
@@ -354,6 +478,7 @@ function UserModal({
       ...prev,
       role,
       permissions: ROLE_DEFAULT_PERMISSIONS[role],
+      ...(role === "admin" ? { crm_pipeline_id: null } : {}),
     }));
   }
 
@@ -365,19 +490,21 @@ function UserModal({
       ...(preset ? {
         role: preset.role,
         permissions: ROLE_DEFAULT_PERMISSIONS[preset.role],
+        ...(preset.role === "admin" ? { crm_pipeline_id: null } : {}),
       } : undefined),
     }));
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!isAdministrativeMember(form) && !form.crm_pipeline_id) return;
     await onSubmit(form as unknown as CreateUserPayload);
   }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <motion.div
-        className="absolute inset-0"
+        className="lc-modal-backdrop absolute inset-0"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
@@ -389,13 +516,13 @@ function UserModal({
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.96, y: 12 }}
         transition={{ duration: 0.22, ease: [0.4, 0, 0.2, 1] }}
-        className="relative w-full max-w-lg rounded-2xl"
+        className="lc-modal-panel relative w-full max-w-lg rounded-2xl"
         style={{
-          background: "var(--hover)",
-          border: "1px solid var(--border)",
-          backdropFilter: "blur(20px)",
-          WebkitBackdropFilter: "blur(20px)",
-          boxShadow: "0 24px 64px rgba(0,0,0,0.7)",
+          background: "var(--bg-modal)",
+          border: "1px solid var(--border-modal)",
+          backdropFilter: "blur(24px) saturate(160%)",
+          WebkitBackdropFilter: "blur(24px) saturate(160%)",
+          boxShadow: "0 24px 64px var(--shadow-modal)",
           maxHeight: "90dvh",
           overflowY: "auto",
         }}
@@ -411,6 +538,7 @@ function UserModal({
                 {isCreate ? "Adicione um membro à equipe" : "Atualize dados e permissões"}
               </p>
             </div>
+
             <button
               onClick={onClose}
               className="flex h-8 w-8 items-center justify-center rounded-full transition-colors"
@@ -423,6 +551,10 @@ function UserModal({
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
+            {!isCreate && profile && onAvatarUpload && onAvatarRemove && (
+              <AdminAvatarEditor profile={profile} onUpload={onAvatarUpload} onRemove={onAvatarRemove} />
+            )}
+
             {/* Nome */}
             <div className="space-y-1.5">
               <label className="text-[11px] font-medium uppercase tracking-widest" style={{ color: "color-mix(in srgb, var(--text-title) 40%, transparent)" }}>
@@ -510,6 +642,34 @@ function UserModal({
               </div>
             </div>
 
+            {!isAdministrativeMember(form) && (
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-medium uppercase tracking-widest" style={{ color: "color-mix(in srgb, var(--text-title) 40%, transparent)" }}>
+                  Pipeline do CRM *
+                </label>
+                <div className="relative">
+                  <select
+                    required
+                    value={form.crm_pipeline_id ?? ""}
+                    onChange={e => setField("crm_pipeline_id", e.target.value || null)}
+                    className="h-10 w-full appearance-none rounded-xl pl-3.5 pr-8 text-[14px] outline-none transition-all cursor-pointer"
+                    style={inputStyle}
+                  >
+                    <option value="" style={{ background: "#111" }}>Selecionar pipeline...</option>
+                    {pipelines.filter(p => p.is_active).map(pipeline => (
+                      <option key={pipeline.id} value={pipeline.id} style={{ background: "#111" }}>
+                        {pipeline.name}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown size={12} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2" style={{ color: "color-mix(in srgb, var(--text-title) 35%, transparent)" }} />
+                </div>
+                <p className="text-[11px]" style={{ color: "color-mix(in srgb, var(--text-title) 30%, transparent)" }}>
+                  O colaborador verá somente esta pipeline no CRM.
+                </p>
+              </div>
+            )}
+
             {/* Módulos disponíveis */}
             <div className="space-y-2.5">
               <div className="flex items-center justify-between">
@@ -578,7 +738,7 @@ function DeleteConfirm({ name, onClose, onConfirm, isLoading }: {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <motion.div
-        className="absolute inset-0"
+        className="lc-modal-backdrop absolute inset-0"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
@@ -590,8 +750,8 @@ function DeleteConfirm({ name, onClose, onConfirm, isLoading }: {
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.94, y: 8 }}
         transition={{ duration: 0.2 }}
-        className="relative w-full max-w-sm rounded-2xl p-6 text-center"
-        style={{ background: "var(--popover)", border: "1px solid rgba(248,113,113,0.25)", boxShadow: "0 24px 64px rgba(0,0,0,0.7)" }}
+        className="lc-modal-panel relative w-full max-w-sm rounded-2xl p-6 text-center"
+        style={{ background: "var(--bg-modal)", border: "1px solid rgba(248,113,113,0.25)", boxShadow: "0 24px 64px var(--shadow-modal)" }}
       >
         <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full" style={{ background: "rgba(248,113,113,0.12)" }}>
           <UserX size={22} style={{ color: "#f87171" }} />
@@ -655,11 +815,20 @@ type ModalState =
   | null;
 
 export default function UsuariosPage() {
+  return (
+    <AdministrativeAccessGate>
+      <UsuariosContent />
+    </AdministrativeAccessGate>
+  );
+}
+
+function UsuariosContent() {
   const {
     profiles, invites, isLoading, stats,
     createUser, updateUser, toggleActive, deleteUser,
-    revokeInvite, resetPassword,
+    revokeInvite, resetPassword, uploadUserAvatar, removeUserAvatar,
   } = useUsers();
+  const { pipelines } = usePipelines();
 
   const [modal, setModal] = useState<ModalState>(null);
   const [saving, setSaving] = useState(false);
@@ -770,9 +939,10 @@ export default function UsuariosPage() {
         </div>
         <PrimaryButton
           onClick={() => setModal({ type: "create" })}
-          className="flex items-center gap-2 px-5 py-2.5 text-[13px]"
+          signature
+          size="medium"
         >
-          <Plus size={14} />
+          <UserCheck size={14} />
           Novo Usuário
         </PrimaryButton>
       </motion.div>
@@ -838,8 +1008,8 @@ export default function UsuariosPage() {
               {search || filterStatus || filterRole ? "Nenhum usuário encontrado com os filtros" : "Nenhum usuário cadastrado ainda"}
             </p>
             {!search && !filterStatus && !filterRole && (
-              <PrimaryButton onClick={() => setModal({ type: "create" })} className="mt-1 flex items-center gap-2 px-5 py-2 text-[13px]">
-                <Plus size={13} />
+              <PrimaryButton onClick={() => setModal({ type: "create" })} signature size="medium">
+                <UserCheck size={13} />
                 Adicionar primeiro usuário
               </PrimaryButton>
             )}
@@ -963,6 +1133,7 @@ export default function UsuariosPage() {
             onClose={() => setModal(null)}
             onSubmit={handleCreate}
             isLoading={saving}
+            pipelines={pipelines}
           />
         )}
         {modal?.type === "edit" && (
@@ -974,10 +1145,15 @@ export default function UsuariosPage() {
               job_title:   modal.profile.job_title ?? "",
               is_active:   modal.profile.is_active,
               permissions: modal.profile.permissions ?? ROLE_DEFAULT_PERMISSIONS[modal.profile.role],
+              crm_pipeline_id: modal.profile.crm_pipeline_id,
             }}
             onClose={() => setModal(null)}
             onSubmit={handleEdit}
             isLoading={saving}
+            pipelines={pipelines}
+            profile={modal.profile}
+            onAvatarUpload={(file) => uploadUserAvatar(modal.profile.id, file)}
+            onAvatarRemove={() => removeUserAvatar(modal.profile.id)}
           />
         )}
         {modal?.type === "delete" && (

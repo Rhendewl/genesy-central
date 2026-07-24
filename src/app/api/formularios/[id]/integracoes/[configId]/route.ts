@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
+import { encryptToken } from "@/lib/crypto";
 
 type Params = { params: Promise<{ id: string; configId: string }> };
 
@@ -7,6 +8,13 @@ const MASK = "__masked__";
 
 function maskSecrets(secrets: Record<string, unknown>): Record<string, string> {
   return Object.fromEntries(Object.keys(secrets).map(k => [k, MASK]));
+}
+
+function encryptWebhookSecrets(secrets: Record<string, unknown>) {
+  return Object.fromEntries(Object.entries(secrets).map(([key, value]) => {
+    const text = String(value ?? "");
+    return [key, !text || text.startsWith("enc:") ? text : `enc:${encryptToken(text)}`];
+  }));
 }
 
 // Keeps existing secret values when the client sends back the mask sentinel
@@ -40,7 +48,33 @@ export async function PUT(req: NextRequest, { params }: Params) {
   const body = await req.json();
   const { enabled, settings, secrets: incomingSecrets, event_filter, retry_policy, rate_limit } = body;
 
-  const secrets = await mergeSecrets(supabase, configId, incomingSecrets ?? {});
+  const { data: existingConfig } = await supabase
+    .from("form_integrations")
+    .select("adapter")
+    .eq("id", configId)
+    .eq("form_id", id)
+    .maybeSingle();
+  if (!existingConfig) return NextResponse.json({ error: "Integração não encontrada" }, { status: 404 });
+
+  if (existingConfig.adapter === "webhook" && enabled !== false) {
+    try {
+      const url = new URL(settings?.url ?? "");
+      if (url.protocol !== "https:" || url.username || url.password || (url.port && url.port !== "443")) {
+        throw new Error();
+      }
+    } catch {
+      return NextResponse.json({ error: "Informe uma URL HTTPS válida para o webhook" }, { status: 400 });
+    }
+  }
+
+  let secrets = await mergeSecrets(supabase, configId, incomingSecrets ?? {});
+  if (existingConfig.adapter === "webhook") {
+    try {
+      secrets = encryptWebhookSecrets(secrets);
+    } catch {
+      return NextResponse.json({ error: "TOKEN_ENCRYPTION_KEY não configurada para proteger o segredo do webhook" }, { status: 500 });
+    }
+  }
 
   const { data, error } = await supabase
     .from("form_integrations")

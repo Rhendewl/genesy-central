@@ -3,11 +3,8 @@
 import { useState, useCallback } from "react";
 import { PlayCircle, CheckCircle2, XCircle, Loader2, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { getIntegrationRuntime } from "@/lib/integrations/runtime";
 import type { IntegrationDefinition } from "@/lib/integrations/catalog";
 import type { FormIntegrationRow } from "@/hooks/useFormularioIntegracoes";
-import type { IntegrationConfig, IntegrationContext } from "@/lib/integrations/types";
-import { DEFAULT_RETRY_POLICY } from "@/lib/integrations/retry";
 
 interface TestResult {
   ok:          boolean;
@@ -34,68 +31,12 @@ export function TestPanel({ definition, row, formSlug }: TestPanelProps) {
     setResult(null);
 
     try {
-      const runtime = getIntegrationRuntime();
-      const correlationId = `test-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-
-      const testEvent = runtime.pipeline.run(
-        {
-          id:            `test-evt-${Date.now()}`,
-          correlationId,
-          type:          "form.started",
-          formSlug,
-          sessionToken:  "test-session",
-          timestamp:     Date.now(),
-          payload:       { formSlug, sessionToken: "test-session", _test: true },
-          meta:          { url: "https://test.lancaster.app" },
-          version:       1,
-        },
-        { formSlug, correlationId },
+      const response = await fetch(
+        `/api/formularios/${row.form_id}/integracoes/${row.id}/test`,
+        { method: "POST" },
       );
-
-      const config: IntegrationConfig = {
-        id:           row.id,
-        adapterName:  row.adapter,
-        enabled:      true,
-        settings:     row.settings,
-        secrets:      {},      // real secrets are server-side only; test uses empty secrets
-        eventFilter:  row.event_filter ?? undefined,
-        retryPolicy:  { maxAttempts: 1, initialDelayMs: 0, maxDelayMs: 0, jitter: false, timeoutMs: 10_000, backoffFactor: 1 },
-        rateLimit:    undefined,
-      };
-
-      const mapper  = runtime.registry.getMapper(row.adapter);
-      const adapter = runtime.registry.getAdapter(row.adapter);
-
-      if (!mapper || !adapter) {
-        setResult({ ok: false, durationMs: 0, error: "Adapter não encontrado no registry", payloadSent: "{}", correlationId });
-        return;
-      }
-
-      const payload = mapper.map(testEvent, config);
-      const payloadStr = JSON.stringify(payload, null, 2);
-
-      const ctrl = new AbortController();
-      const ctx: IntegrationContext = {
-        deliveryId:  `test-del-${Date.now()}`,
-        correlationId,
-        attempt:     1,
-        maxAttempts: 1,
-        timeoutMs:   10_000,
-        signal:      ctrl.signal,
-      };
-
-      const start  = Date.now();
-      const res    = await adapter.execute(payload, ctx, config);
-      const dur    = Date.now() - start;
-
-      setResult({
-        ok:            res.ok,
-        statusCode:    res.status,
-        durationMs:    dur,
-        error:         res.error,
-        payloadSent:   payloadStr,
-        correlationId,
-      });
+      const json = await response.json() as TestResult;
+      setResult(json);
     } catch (err) {
       setResult({
         ok:            false,
@@ -107,7 +48,7 @@ export function TestPanel({ definition, row, formSlug }: TestPanelProps) {
     } finally {
       setIsRunning(false);
     }
-  }, [row, formSlug]);
+  }, [row]);
 
   return (
     <div className="flex flex-col gap-4 pb-6">
@@ -119,8 +60,8 @@ export function TestPanel({ definition, row, formSlug }: TestPanelProps) {
           Teste de integração
         </p>
         <p className="text-xs" style={{ color: "var(--muted-foreground)" }}>
-          Dispara um evento <code className="px-1 rounded text-xs" style={{ background: "var(--border)" }}>form.started</code> de teste através da infra existente.
-          Credenciais salvas são usadas na chamada real.
+          Dispara um evento <code className="px-1 rounded text-xs" style={{ background: "var(--border)" }}>{row?.adapter === "webhook" ? "form.webhook.test" : "form.started"}</code> de teste através da infra existente.
+          {row?.adapter === "webhook" ? " A chamada é feita no servidor com a assinatura HMAC salva." : " Credenciais salvas são usadas na chamada real."}
         </p>
         {!row && (
           <p className="text-xs text-amber-400">

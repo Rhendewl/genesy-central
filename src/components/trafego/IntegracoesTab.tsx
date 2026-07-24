@@ -106,17 +106,15 @@ function AccountPickerModal({
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4" style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <div className="lc-modal-backdrop absolute inset-0" onClick={onClose} />
 
       <motion.div
         initial={{ opacity: 0, scale: 0.97, y: 16 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.97, y: 8 }}
         transition={{ duration: 0.2, ease: [0.25, 0.46, 0.45, 0.94] }}
-        className="relative w-full sm:max-w-lg z-10 flex flex-col rounded-t-2xl sm:rounded-2xl overflow-hidden"
+        className="lc-modal-panel relative z-10 flex w-full flex-col overflow-hidden rounded-t-2xl sm:max-w-lg sm:rounded-2xl"
         style={{
-          background: "var(--glass-bg-soft)",
-          border: "none",
           maxHeight: "90dvh",
         }}
       >
@@ -696,7 +694,7 @@ export function IntegracoesTab() {
     initiateOAuth, connectAccount, syncAccount, disconnect, deleteAccount, fetchPendingAccounts,
   } = useMetaIntegrations();
 
-  const { clients } = useAgencyClients();
+  const { assignableClients: clients } = useAgencyClients();
 
   // Detect OAuth return with pending connection
   const pendingId      = searchParams.get("meta_pending");

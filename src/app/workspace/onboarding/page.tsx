@@ -1,14 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { motion } from "framer-motion";
-import { Plus, Rocket, Search } from "lucide-react";
+import { Rocket, Search } from "lucide-react";
 import { toast } from "sonner";
 import { OnboardingSubNav } from "@/components/workspace/onboarding/OnboardingSubNav";
 import { OnboardingProjectCard } from "@/components/workspace/onboarding/OnboardingProjectCard";
 import { NewOnboardingWizard } from "@/components/workspace/onboarding/NewOnboardingWizard";
 import { useOnboardingProjects } from "@/hooks/useOnboardingProjects";
 import { ONBOARDING_PROJECT_STATUSES, type OnboardingProjectStatus } from "@/types/onboarding";
+import { Button } from "@/components/ui/button";
 
 export default function OnboardingDashboardPage() {
   const [search, setSearch] = useState("");
@@ -26,15 +26,14 @@ export default function OnboardingDashboardPage() {
       <div className="flex flex-col gap-3 px-4 pb-4 pt-4 sm:px-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h1 className="text-lg font-bold" style={{ color: "var(--text-title)" }}>Onboardings</h1>
-          <motion.button
+          <Button
             onClick={() => setWizardOpen(true)}
-            whileHover={{ scale: 1.03 }}
-            whileTap={{ scale: 0.97 }}
-            className="lc-btn flex items-center gap-2 px-4 py-2 text-sm"
+            icon={<Rocket size={16} strokeWidth={2.2} />}
+            signature
+            size="medium"
           >
-            <Plus size={16} strokeWidth={2.5} />
             Novo Onboarding
-          </motion.button>
+          </Button>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">

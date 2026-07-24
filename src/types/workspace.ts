@@ -35,6 +35,9 @@ export interface WorkspaceTask {
   completed_at: string | null;
   created_at:   string;
   updated_at:   string;
+  // Permissão calculada pela API a partir da sessão autenticada. Evita que a
+  // edição dependa do carregamento do perfil do membro no cliente.
+  can_edit?:    boolean;
   // Denormalized counts, populated client-side by useWorkspaceTasks() for card badges
   checklist_total?: number;
   checklist_done?:  number;
@@ -79,9 +82,17 @@ export interface WorkspaceTaskAttachment {
   created_at:   string;
 }
 
+export interface WorkspaceMarketingContentLink {
+  id:           string;
+  title:        string;
+  status:       string;
+  scheduled_at: string | null;
+}
+
 // Retorno de GET /api/workspace/tasks/[id]
 export interface WorkspaceTaskDetail extends WorkspaceTask {
   checklist_items: WorkspaceTaskChecklistItem[];
   comments:        WorkspaceTaskComment[];
   attachments:     WorkspaceTaskAttachment[];
+  linked_marketing_contents: WorkspaceMarketingContentLink[];
 }

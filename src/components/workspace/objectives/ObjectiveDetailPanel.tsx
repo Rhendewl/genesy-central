@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
 import { X, Trash2, Loader2 } from "lucide-react";
@@ -21,9 +22,10 @@ interface ObjectiveDetailPanelProps {
   objectiveId: string | null; // null = modo criação
   objectivesHook: ReturnType<typeof useWorkspaceObjectives>;
   onClose:     () => void;
+  presentation?: "drawer" | "modal";
 }
 
-export function ObjectiveDetailPanel({ objectiveId, objectivesHook, onClose }: ObjectiveDetailPanelProps) {
+export function ObjectiveDetailPanel({ objectiveId, objectivesHook, onClose, presentation = "drawer" }: ObjectiveDetailPanelProps) {
   useModalOpen(true);
   const { tags } = useTags();
   const { profiles } = useUsers();
@@ -33,6 +35,7 @@ export function ObjectiveDetailPanel({ objectiveId, objectivesHook, onClose }: O
 
   const isCreating = objectiveId === null;
   const existingObjective = objectiveId ? objectives.find((o) => o.id === objectiveId) : null;
+  const isModal = presentation === "modal";
 
   const [title,       setTitle]       = useState("");
   const [description, setDescription] = useState("");
@@ -42,6 +45,18 @@ export function ObjectiveDetailPanel({ objectiveId, objectivesHook, onClose }: O
   const [objectiveTags, setObjectiveTags] = useState<string[]>([]);
   const [isSaving,    setIsSaving]    = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [portalReady, setPortalReady] = useState(false);
+
+  useEffect(() => setPortalReady(true), []);
+
+  useEffect(() => {
+    if (!portalReady) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !confirmDelete) onClose();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [confirmDelete, onClose, portalReady]);
 
   useEffect(() => {
     if (existingObjective) {
@@ -93,24 +108,32 @@ export function ObjectiveDetailPanel({ objectiveId, objectivesHook, onClose }: O
   const done  = objectiveDetailHook.detail?.steps.filter((s) => s.is_completed).length ?? 0;
   const percent = total > 0 ? (done / total) * 100 : 0;
 
-  return (
-    <div className="fixed inset-0 z-50 flex">
+  if (!portalReady) return null;
+
+  return createPortal(
+    <div className={`fixed inset-0 z-[100] isolate flex ${isModal ? "items-center justify-center p-3 sm:p-4" : ""}`}>
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="flex-1 lc-scrim"
-        style={{ background: "rgba(0,0,0,0.55)", backdropFilter: "blur(4px)" }}
+        className={isModal ? "lc-modal-backdrop absolute inset-0" : "flex-1 lc-scrim"}
+        style={isModal ? undefined : { background: "rgba(0,0,0,0.55)", backdropFilter: "blur(4px)" }}
         onClick={onClose}
       />
 
       <motion.div
-        initial={{ x: "100%" }}
-        animate={{ x: 0 }}
-        exit={{ x: "100%" }}
-        transition={{ type: "spring", damping: 28, stiffness: 280 }}
-        className="lc-modal-panel flex h-full w-full max-w-md flex-shrink-0 flex-col"
-        style={{ borderLeft: "1px solid var(--border-modal)" }}
+        initial={isModal ? { opacity: 0, scale: 0.93, y: 14 } : { x: "100%" }}
+        animate={isModal ? { opacity: 1, scale: 1, y: 0 } : { x: 0 }}
+        exit={isModal ? { opacity: 0, scale: 0.96, y: 8 } : { x: "100%" }}
+        transition={{ type: "spring", damping: isModal ? 34 : 28, stiffness: isModal ? 420 : 280 }}
+        className={isModal
+          ? "lc-modal-panel relative z-10 flex max-h-[calc(100dvh-1.5rem)] w-full max-w-md flex-col overflow-hidden rounded-3xl sm:max-h-[min(90dvh,860px)]"
+          : "lc-modal-panel flex h-full w-full max-w-md flex-shrink-0 flex-col"
+        }
+        style={isModal ? undefined : { borderLeft: "1px solid var(--border-modal)" }}
+        role="dialog"
+        aria-modal="true"
+        aria-label={isCreating ? "Novo objetivo" : "Detalhes do objetivo"}
       >
         <div
           className="sticky top-0 z-10 flex flex-shrink-0 items-center gap-3 px-5 py-4"
@@ -129,7 +152,7 @@ export function ObjectiveDetailPanel({ objectiveId, objectivesHook, onClose }: O
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-5 py-5">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-5">
           <div className="flex flex-col gap-5">
             <input
               value={title}
@@ -302,7 +325,7 @@ export function ObjectiveDetailPanel({ objectiveId, objectivesHook, onClose }: O
 
       {confirmDelete && (
         <div
-          className="fixed inset-0 z-[60] flex items-center justify-center p-4 lc-scrim"
+          className="lc-modal-backdrop fixed inset-0 z-[60] flex items-center justify-center p-4"
           style={{ background: "rgba(0,0,0,0.60)", backdropFilter: "blur(6px)" }}
         >
           <motion.div
@@ -340,6 +363,7 @@ export function ObjectiveDetailPanel({ objectiveId, objectivesHook, onClose }: O
           </motion.div>
         </div>
       )}
-    </div>
+    </div>,
+    document.body,
   );
 }

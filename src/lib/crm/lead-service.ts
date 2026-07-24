@@ -29,6 +29,13 @@ export interface MoveLeadResult {
   fromStageId: string | null;
 }
 
+export interface CopyLeadResult {
+  ok: boolean;
+  error: string | null;
+  leadId: string | null;
+  alreadyExists: boolean;
+}
+
 export type CreateLeadInput = Omit<CreateLeadParams, "pipeline_id" | "stage_id" | "kanban_column" | "ie_score"> & {
   stageId: string;
 };
@@ -198,5 +205,53 @@ export class LeadService {
     }
 
     return { ok: true, error: null, fromStageId: fromStageId ?? null };
+  }
+
+  async copyLeadToPipeline(
+    leadId: string,
+    targetStageId: string,
+    options?: MoveLeadOptions & { assigneeId?: string | null },
+  ): Promise<CopyLeadResult> {
+    const targetStage = await this.pipelines.findStageById(targetStageId);
+    if (!targetStage) return { ok: false, error: "Etapa não encontrada", leadId: null, alreadyExists: false };
+    if (targetStage.require_note && !options?.note?.trim()) {
+      return { ok: false, error: "Esta etapa exige uma observação", leadId: null, alreadyExists: false };
+    }
+
+    try {
+      const result = await this.leads.copyLeadToPipeline({
+        leadId,
+        stageId: targetStageId,
+        note: options?.note?.trim() || null,
+        assigneeId: options?.assigneeId ?? null,
+      });
+
+      if (!result.already_exists) {
+        const totalActiveStages = await this.pipelines.countActiveStages(result.pipeline_id);
+        const ieScore = LeadScoreEngine.calculateIE(targetStage.order_index, totalActiveStages);
+        await this.leads.updateIeScore(result.lead_id, ieScore);
+
+        try {
+          await this.bus.publish("lead.stage.entered", {
+            leadId: result.lead_id,
+            pipelineId: result.pipeline_id,
+            stageId: result.stage_id,
+            fromStageId: null,
+            userId: options?.movedBy ?? "",
+          });
+        } catch (err) {
+          console.error("[LeadService.copyLeadToPipeline] Falha ao publicar lead.stage.entered:", err);
+        }
+      }
+
+      return { ok: true, error: null, leadId: result.lead_id, alreadyExists: result.already_exists };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Erro ao criar cópia do lead";
+      if (message.includes("LEAD_NOT_FOUND")) return { ok: false, error: "Lead não encontrado", leadId: null, alreadyExists: false };
+      if (message.includes("STAGE_NOT_FOUND")) return { ok: false, error: "Etapa não encontrada", leadId: null, alreadyExists: false };
+      if (message.includes("NOTE_REQUIRED")) return { ok: false, error: "Esta etapa exige uma observação", leadId: null, alreadyExists: false };
+      if (message.includes("ASSIGNEE_NOT_IN_PIPELINE")) return { ok: false, error: "Responsável não pertence à pipeline de destino", leadId: null, alreadyExists: false };
+      return { ok: false, error: message, leadId: null, alreadyExists: false };
+    }
   }
 }

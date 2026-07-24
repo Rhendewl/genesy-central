@@ -5,7 +5,9 @@ import type { IntegrationConfig } from "@/lib/integrations/types";
 type Params = { params: Promise<{ slug: string }> };
 
 // GET /api/form/:slug/integracoes
-// Returns active integration configs (including secrets) for the public form renderer.
+// Returns only integrations that still need a browser runtime.
+// Webhooks run exclusively on the server and their secrets must never be sent
+// to the visitor.
 // Admin client: no user session — only published, non-deleted forms are accessible.
 // Access token is intentionally included: it's needed by MetaPixelAdapter for CAPI calls
 // that run client-side. Scope is limited to the specific form's own integrations.
@@ -29,7 +31,8 @@ export async function GET(_req: NextRequest, { params }: Params) {
     .from("form_integrations")
     .select("id, adapter, enabled, settings, secrets, event_filter, retry_policy, rate_limit")
     .eq("form_id", form.id)
-    .eq("enabled", true);
+    .eq("enabled", true)
+    .neq("adapter", "webhook");
 
   const configs: IntegrationConfig[] = (rows ?? []).map(row => ({
     id:          row.id as string,

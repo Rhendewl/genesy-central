@@ -3,6 +3,7 @@
 import { Zap } from "lucide-react";
 import type { AutomationWithDetails } from "@/lib/workflow-engine/workflow-service";
 import { AutomationCard } from "./AutomationCard";
+import { Button } from "@/components/ui/button";
 
 interface AutomationListProps {
   automations: AutomationWithDetails[];
@@ -24,13 +25,14 @@ export function AutomationList({ automations, onEdit, onToggle, onDelete, onCrea
         <p className="text-xs" style={{ color: "var(--muted-foreground)" }}>
           Crie uma automação para reagir a mudanças de etapa, tags e mais — sem precisar acompanhar manualmente.
         </p>
-        <button
+        <Button
           type="button" onClick={onCreate}
-          className="px-4 py-2 rounded-lg text-xs font-medium mt-1 transition-all hover:opacity-90"
-          style={{ background: "#b0b8c1", color: "#000000" }}
+          icon={<Zap size={12} />}
+          signature
+          size="small"
         >
           Criar Primeira Automação
-        </button>
+        </Button>
       </div>
     );
   }

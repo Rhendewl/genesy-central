@@ -51,9 +51,9 @@ export function NovoPortalModal({ open, onClose, onSave, editingPortal, onUpdate
       supabase.from("agency_clients").select("*").order("name"),
       supabase.from("ad_platform_accounts").select("*").eq("status", "connected").order("account_name"),
     ]);
-    setClients(cls ?? []);
+    setClients((cls ?? []).filter((client) => client.status !== "churned" || client.id === editingPortal?.client_id));
     setMetaAccounts(accounts ?? []);
-  }, []);
+  }, [editingPortal?.client_id]);
 
   useEffect(() => {
     if (open) {
@@ -144,7 +144,7 @@ export function NovoPortalModal({ open, onClose, onSave, editingPortal, onUpdate
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="fixed inset-0 z-[100] bg-black/[0.03] backdrop-blur-sm"
+            className="lc-modal-backdrop fixed inset-0 z-[100]"
             onClick={onClose}
           />
 

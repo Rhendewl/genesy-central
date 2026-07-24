@@ -10,11 +10,13 @@ import {
   RotateCcw,
   Loader2,
   AlertCircle,
+  GitBranch,
 } from "lucide-react";
 import { usePipelines } from "@/hooks/usePipelines";
 import type { CrmPipelineWithStages, NewCrmPipeline, UpdateCrmStage } from "@/types/crm";
 import { PipelineFormModal } from "./PipelineFormModal";
 import { StageList, type DeleteStageResult } from "./StageList";
+import { Button } from "@/components/ui/button";
 
 // ── Confirm dialog ────────────────────────────────────────────────────────────
 // Segue o mesmo padrão visual dos modais desta seção (overlay + var(--card)).
@@ -34,7 +36,7 @@ function ConfirmDialog({
   if (!open) return null;
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 lc-scrim"
+      className="lc-modal-backdrop fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ background: "rgba(0,0,0,0.60)" }}
       onClick={e => { if (e.target === e.currentTarget) onCancel(); }}
     >
@@ -339,15 +341,15 @@ export function PipelineAdmin() {
               </button>
             )}
           </div>
-          <button
+          <Button
             type="button"
             onClick={openCreate}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all hover:opacity-90"
-            style={{ background: "#b0b8c1", color: "#000000" }}
+            icon={<GitBranch size={12} />}
+            signature
+            size="small"
           >
-            <Plus size={12} />
             Novo Pipeline
-          </button>
+          </Button>
         </div>
 
         {/* Pipeline list */}
@@ -360,15 +362,15 @@ export function PipelineAdmin() {
             <p className="text-xs" style={{ color: "var(--muted-foreground)" }}>
               Crie um pipeline para começar a organizar seus leads em etapas.
             </p>
-            <button
+            <Button
               type="button"
               onClick={openCreate}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-medium mt-1 transition-all hover:opacity-90"
-              style={{ background: "#b0b8c1", color: "#000000" }}
+              icon={<GitBranch size={12} />}
+              signature
+              size="small"
             >
-              <Plus size={12} />
               Criar Primeiro Pipeline
-            </button>
+            </Button>
           </div>
         ) : (
           <div className="flex flex-col gap-2">

@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import { Save, Trash2, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 import type { IntegrationDefinition, FieldDefinition } from "@/lib/integrations/catalog";
 import { ALL_FORM_EVENTS } from "@/lib/integrations/catalog";
 import type { FormIntegrationRow } from "@/hooks/useFormularioIntegracoes";
@@ -74,6 +75,17 @@ function FieldRow({
           className="w-full text-sm rounded-lg px-3 py-2 outline-none resize-none"
           style={{ background: "var(--background)", border: "1px solid var(--border)", color: "var(--text-title)" }}
         />
+      ) : field.type === "select" ? (
+        <select
+          value={value}
+          onChange={e => onChange(e.target.value)}
+          className="w-full text-sm rounded-lg px-3 py-2 outline-none"
+          style={{ background: "var(--background)", border: "1px solid var(--border)", color: "var(--text-title)" }}
+        >
+          {(field.options ?? []).map(option => (
+            <option key={option.value} value={option.value}>{option.label}</option>
+          ))}
+        </select>
       ) : field.type === "password" ? (
         <MaskedInput field={field} value={value} onChange={onChange} />
       ) : (
@@ -105,14 +117,25 @@ interface ConfigPanelProps {
   definition: IntegrationDefinition;
   row?:       FormIntegrationRow;
   onSave:     (patch: Partial<FormIntegrationRow>) => Promise<boolean>;
-  onCreate:   () => Promise<FormIntegrationRow | null>;
+  onCreate:   (patch: Partial<FormIntegrationRow>) => Promise<boolean>;
   onDelete:   () => Promise<boolean>;
 }
 
 export function ConfigPanel({ definition, row, onSave, onCreate, onDelete }: ConfigPanelProps) {
   const [enabled,      setEnabled]      = useState(row?.enabled ?? true);
   const [settings,     setSettings]     = useState<Record<string, string>>(
-    () => Object.fromEntries(definition.settingsSchema.map(f => [f.key, String(row?.settings?.[f.key] ?? "")])),
+    () => {
+      const existing = Object.fromEntries(
+        Object.entries(row?.settings ?? {}).map(([key, value]) => [key, String(value ?? "")]),
+      );
+      const visible = Object.fromEntries(definition.settingsSchema.map(field => {
+        const legacyValue = definition.adapterName === "meta-pixel" && field.key === "pixelId"
+          ? row?.settings?.pixel_id
+          : undefined;
+        return [field.key, String(row?.settings?.[field.key] ?? legacyValue ?? field.defaultValue ?? "")];
+      }));
+      return { ...existing, ...visible };
+    },
   );
   const [secrets,      setSecrets]      = useState<Record<string, string>>(
     () => Object.fromEntries(definition.secretsSchema.map(f => [f.key, row?.secrets?.[f.key] ?? ""])),
@@ -132,11 +155,24 @@ export function ConfigPanel({ definition, row, onSave, onCreate, onDelete }: Con
   };
 
   const handleSave = async () => {
+    const missingSetting = definition.settingsSchema.find(field => field.required && !settings[field.key]?.trim());
+    const missingSecret = definition.secretsSchema.find(field => field.required && !secrets[field.key]?.trim());
+    const missingMetaToken = definition.adapterName === "meta-pixel" && settings.mode !== "browser" && !secrets.access_token?.trim();
+    if (missingSetting || missingSecret || missingMetaToken) {
+      toast.error(`Preencha o campo obrigatório: ${missingMetaToken ? "Access Token" : (missingSetting ?? missingSecret)!.label}`);
+      return;
+    }
+
     setIsSaving(true);
     try {
+      const normalizedSettings: Record<string, string> = { ...settings };
+      if (definition.adapterName === "meta-pixel") {
+        normalizedSettings.pixel_id = normalizedSettings.pixelId;
+        delete normalizedSettings.pixelId;
+      }
       const patch: Partial<FormIntegrationRow> = {
         enabled,
-        settings,
+        settings: normalizedSettings,
         secrets:      Object.fromEntries(
           Object.entries(secrets).map(([k, v]) => [k, v === "" ? MASK : v])
         ),
@@ -146,8 +182,7 @@ export function ConfigPanel({ definition, row, onSave, onCreate, onDelete }: Con
       };
 
       if (!row) {
-        const created = await onCreate();
-        if (created) await onSave(patch);
+        await onCreate(patch);
       } else {
         await onSave(patch);
       }
@@ -223,7 +258,7 @@ export function ConfigPanel({ definition, row, onSave, onCreate, onDelete }: Con
         <p className="text-xs -mt-1" style={{ color: "var(--muted-foreground)" }}>
           Sem seleção = todos os eventos são enviados
         </p>
-        {ALL_FORM_EVENTS.map(evt => (
+        {(definition.supportedEvents.includes("*") ? ALL_FORM_EVENTS : definition.supportedEvents).map(evt => (
           <label key={evt} className="flex items-center gap-2.5 cursor-pointer">
             <input
               type="checkbox"

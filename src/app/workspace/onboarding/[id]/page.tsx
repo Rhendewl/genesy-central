@@ -502,7 +502,7 @@ export default function OnboardingProjectDetailPage() {
 
       {editOpen && (
         <div
-          className="fixed inset-0 z-[60] flex items-center justify-center p-4 lc-scrim"
+          className="lc-modal-backdrop fixed inset-0 z-[60] flex items-center justify-center p-4"
           style={{ background: "rgba(0,0,0,0.60)", backdropFilter: "blur(6px)" }}
           onClick={() => setEditOpen(false)}
         >
@@ -578,7 +578,7 @@ export default function OnboardingProjectDetailPage() {
 
       {deleteOpen && (
         <div
-          className="fixed inset-0 z-[60] flex items-center justify-center p-4 lc-scrim"
+          className="lc-modal-backdrop fixed inset-0 z-[60] flex items-center justify-center p-4"
           style={{ background: "rgba(0,0,0,0.60)", backdropFilter: "blur(6px)" }}
           onClick={() => setDeleteOpen(false)}
         >
@@ -617,7 +617,7 @@ export default function OnboardingProjectDetailPage() {
 
       {stageModal && (
         <div
-          className="fixed inset-0 z-[60] flex items-center justify-center p-4 lc-scrim"
+          className="lc-modal-backdrop fixed inset-0 z-[60] flex items-center justify-center p-4"
           style={{ background: "rgba(0,0,0,0.60)", backdropFilter: "blur(6px)" }}
           onClick={() => setStageModal(null)}
         >
@@ -695,7 +695,7 @@ export default function OnboardingProjectDetailPage() {
 
       {stageDelete && (
         <div
-          className="fixed inset-0 z-[60] flex items-center justify-center p-4 lc-scrim"
+          className="lc-modal-backdrop fixed inset-0 z-[60] flex items-center justify-center p-4"
           style={{ background: "rgba(0,0,0,0.60)", backdropFilter: "blur(6px)" }}
           onClick={() => setStageDelete(null)}
         >

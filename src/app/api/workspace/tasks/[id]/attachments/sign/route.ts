@@ -5,6 +5,7 @@ export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
+import { verifyWorkspaceTaskCreator } from "@/lib/workspace/task-authorization";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -20,6 +21,9 @@ export async function POST(req: NextRequest, { params }: Params) {
   }
 
   try {
+    const access = await verifyWorkspaceTaskCreator(supabase, taskId, user.id);
+    if (!access.allowed) return NextResponse.json({ error: access.error }, { status: access.status });
+
     const ext = body.file_name.split(".").pop() ?? "bin";
     const storage_path = `workspace/${user.id}/${taskId}/${Date.now()}.${ext}`;
 

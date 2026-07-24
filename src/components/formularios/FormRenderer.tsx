@@ -243,7 +243,7 @@ export const FormRenderer = React.memo(function FormRenderer({
         aria-live="polite"
         aria-atomic="false"
       >
-        <AnimatePresence mode="wait" custom={direction}>
+        <AnimatePresence mode="wait" custom={direction} initial={false}>
           <motion.div
             key={screenKey}
             custom={direction}
@@ -251,7 +251,7 @@ export const FormRenderer = React.memo(function FormRenderer({
             initial="enter"
             animate="center"
             exit="exit"
-            className="absolute inset-0 flex items-center justify-center p-6"
+            className="absolute inset-0 flex items-center justify-center overflow-y-auto p-6"
             style={{ paddingTop: screen === "step" ? "3rem" : "1.5rem" }}
           >
 

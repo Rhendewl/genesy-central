@@ -11,6 +11,12 @@ import type { NewTag, Tag } from "@/types";
 // ─────────────────────────────────────────────────────────────────────────────
 let _cache: Tag[] | null = null;
 let _pending: Promise<Tag[]> | null = null;
+const _listeners = new Set<(tags: Tag[]) => void>();
+
+function publishTags(tags: Tag[]) {
+  _cache = tags;
+  _listeners.forEach((listener) => listener(tags));
+}
 
 function invalidateCache() {
   _cache = null;
@@ -42,8 +48,9 @@ export function useTags() {
           .select("*")
           .order("name")
           .then(({ data }) => {
-            _cache = (data as Tag[]) ?? [];
-            resolve(_cache);
+            const nextTags = (data as Tag[]) ?? [];
+            publishTags(nextTags);
+            resolve(nextTags);
           });
       });
     }
@@ -56,26 +63,35 @@ export function useTags() {
 
   useEffect(() => {
     mountedRef.current = true;
+    const listener = (nextTags: Tag[]) => {
+      if (mountedRef.current) setTags(nextTags);
+    };
+    _listeners.add(listener);
     fetchTags();
     return () => {
       mountedRef.current = false;
+      _listeners.delete(listener);
     };
   }, [fetchTags]);
 
   // ── Create ─────────────────────────────────────────────────────────────────
 
-  async function createTag(data: NewTag): Promise<{ error: string | null }> {
+  async function createTag(data: NewTag): Promise<{ tag: Tag | null; error: string | null }> {
     const {
       data: { user },
     } = await supabase.auth.getUser();
-    if (!user) return { error: "Não autenticado." };
+    if (!user) return { tag: null, error: "Não autenticado." };
 
-    const { error } = await supabase.from("tags").insert({ ...data, user_id: user.id });
-    if (error) return { error: error.message };
+    const { data: created, error } = await supabase
+      .from("tags")
+      .insert({ ...data, user_id: user.id })
+      .select("*")
+      .single();
+    if (error) return { tag: null, error: error.message };
 
     invalidateCache();
     await fetchTags();
-    return { error: null };
+    return { tag: created as Tag, error: null };
   }
 
   // ── Update ─────────────────────────────────────────────────────────────────

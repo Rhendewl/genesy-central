@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { format, parseISO } from "date-fns";
@@ -19,6 +20,18 @@ interface DayDetailDrawerProps {
 export function DayDetailDrawer({ day, events, initialFocusEvent, onClose }: DayDetailDrawerProps) {
   const router = useRouter();
   const [focusEvent, setFocusEvent] = useState<NormalizedCalendarEvent | null>(initialFocusEvent ?? null);
+  const [portalReady, setPortalReady] = useState(false);
+
+  useEffect(() => setPortalReady(true), []);
+
+  useEffect(() => {
+    if (!portalReady) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose, portalReady]);
 
   const dayKey = format(day, "yyyy-MM-dd");
 
@@ -26,26 +39,29 @@ export function DayDetailDrawer({ day, events, initialFocusEvent, onClose }: Day
     router.push(`/agendamentos?tab=agendamentos&from_date=${dayKey}&to_date=${dayKey}`);
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex">
+  if (!portalReady) return null;
+
+  return createPortal(
+    <div className="fixed inset-0 z-[100] isolate flex items-center justify-center p-3 sm:p-4">
       {/* Backdrop */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="flex-1 lc-scrim"
-        style={{ background: "rgba(0,0,0,0.55)", backdropFilter: "blur(4px)" }}
+        className="lc-modal-backdrop absolute inset-0"
         onClick={onClose}
       />
 
       {/* Panel */}
       <motion.div
-        initial={{ x: "100%" }}
-        animate={{ x: 0 }}
-        exit={{ x: "100%" }}
-        transition={{ type: "spring", damping: 28, stiffness: 280 }}
-        className="lc-modal-panel flex h-full w-full max-w-md flex-shrink-0 flex-col"
-        style={{ borderLeft: "1px solid var(--border-modal)" }}
+        initial={{ opacity: 0, scale: 0.93, y: 14 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.96, y: 8 }}
+        transition={{ type: "spring", stiffness: 420, damping: 34 }}
+        className="lc-modal-panel relative z-10 flex max-h-[calc(100dvh-1.5rem)] w-full max-w-md flex-col overflow-hidden rounded-3xl sm:max-h-[min(90dvh,760px)]"
+        role="dialog"
+        aria-modal="true"
+        aria-label={`Agenda de ${format(day, "d 'de' MMMM", { locale: ptBR })}`}
       >
         {/* Header */}
         <div
@@ -66,7 +82,7 @@ export function DayDetailDrawer({ day, events, initialFocusEvent, onClose }: Day
         </div>
 
         {/* Body */}
-        <div className="flex-1 overflow-y-auto">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
           <AnimatePresence mode="wait">
             {focusEvent ? (
               <motion.div
@@ -126,6 +142,7 @@ export function DayDetailDrawer({ day, events, initialFocusEvent, onClose }: Day
           </button>
         </div>
       </motion.div>
-    </div>
+    </div>,
+    document.body,
   );
 }

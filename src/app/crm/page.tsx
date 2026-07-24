@@ -2,24 +2,28 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { LayoutGrid, BarChart2, Settings2, Bell, Zap } from "lucide-react";
+import { LayoutGrid, BarChart2, Settings2, Bell, Zap, FileBarChart } from "lucide-react";
 import { Header } from "@/components/layout/Header";
 import { KanbanBoard } from "@/components/crm/KanbanBoard";
 import { LeadsAnalytics } from "@/components/crm/LeadsAnalytics";
 import { PipelineAdmin } from "@/components/crm/admin/PipelineAdmin";
 import { CrmNotificacoesTab } from "@/components/crm/notifications/CrmNotificacoesTab";
 import { AutomationsAdmin } from "@/components/crm/automations/AutomationsAdmin";
+import { CrmReports } from "@/components/crm/reports/CrmReports";
 import { cn } from "@/lib/utils";
+import { useCurrentMember } from "@/context/CurrentMemberContext";
+import { isAdministrativeMember } from "@/lib/user-access";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CRM Page — Kanban / Leads / Pipelines
 // ─────────────────────────────────────────────────────────────────────────────
 
-type TabId = "kanban" | "leads" | "pipelines" | "notificacoes" | "automacoes";
+type TabId = "kanban" | "leads" | "relatorios" | "pipelines" | "notificacoes" | "automacoes";
 
 const TABS: { id: TabId; label: string; icon: React.ReactNode }[] = [
   { id: "kanban",        label: "Kanban",       icon: <LayoutGrid size={15} /> },
   { id: "leads",         label: "Leads",        icon: <BarChart2  size={15} /> },
+  { id: "relatorios",    label: "Relatórios",   icon: <FileBarChart size={15} /> },
   { id: "pipelines",     label: "Pipelines",    icon: <Settings2  size={15} /> },
   { id: "notificacoes",  label: "Notificações", icon: <Bell       size={15} /> },
   { id: "automacoes",    label: "Automações",   icon: <Zap        size={15} /> },
@@ -28,6 +32,7 @@ const TABS: { id: TabId; label: string; icon: React.ReactNode }[] = [
 const SUBTITLES: Record<TabId, string> = {
   kanban:       "Funil comercial de leads",
   leads:        "Métricas e análise",
+  relatorios:   "Atividades e desempenho comercial por período",
   pipelines:    "Gerenciar pipelines e etapas",
   notificacoes: "Notificações automáticas por etapa",
   automacoes:   "Gatilho → espera → condições → ação, por pipeline",
@@ -35,13 +40,22 @@ const SUBTITLES: Record<TabId, string> = {
 
 export default function CrmPage() {
   const [activeTab, setActiveTab] = useState<TabId>("kanban");
+  const { member, isOwner } = useCurrentMember();
+  const hasFullCrmAccess = isAdministrativeMember(member, isOwner === true);
+  const visibleTabs = hasFullCrmAccess
+    ? TABS
+    : TABS.filter(tab => tab.id === "kanban" || tab.id === "leads" || tab.id === "relatorios");
+  const isKanban = activeTab === "kanban";
 
   return (
-    <div className="mx-auto max-w-[1600px]">
+    <div className={cn(
+      "mx-auto max-w-[1600px]",
+      isKanban && "crm-kanban-page flex flex-col overflow-hidden",
+    )}>
       <Header title="CRM" subtitle={SUBTITLES[activeTab]} />
 
       {/* Tab bar */}
-      <div className="sticky top-[calc(env(safe-area-inset-top,0px)+4.5rem)] md:top-0 z-30">
+      <div className="sticky top-[calc(env(safe-area-inset-top,0px)+4.5rem)] z-30 flex-none md:top-0">
 
         {/* ── Mobile: pílula glassmorphism ───────────────────────── */}
         <div className="md:hidden px-4 pt-2 pb-3">
@@ -57,17 +71,17 @@ export default function CrmPage() {
           >
             <div className="overflow-x-auto scrollbar-none px-2 py-2">
               <div className="flex gap-0.5 min-w-max">
-                {TABS.map(tab => (
+                {visibleTabs.map(tab => (
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
                     className={cn(
-                      "flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-all active:scale-95",
+                      "flex min-h-11 items-center gap-1.5 whitespace-nowrap rounded-xl px-3 py-2 text-sm font-medium transition-all active:scale-95",
                       activeTab === tab.id ? "text-[var(--text-title)]" : "text-[var(--icon)]",
                     )}
                     style={activeTab === tab.id ? {
-                      background: "var(--border-card-hover)",
-                      boxShadow:  "inset 0 1px 0 var(--border-card-drag), 0 1px 8px var(--shadow-sm)",
+                      background: "var(--segment-active-bg)",
+                      boxShadow:  "var(--segment-active-shadow)",
                     } : {}}
                   >
                     {tab.icon}
@@ -83,7 +97,7 @@ export default function CrmPage() {
         <div className="hidden md:block px-4 sm:px-6 pt-2 pb-4">
           <div className="overflow-x-auto scrollbar-none">
             <div className="flex gap-1 p-1 rounded-2xl min-w-max" style={{ background: "var(--glass-bg-soft)", border: "1px solid var(--glass-border)" }}>
-              {TABS.map(tab => (
+              {visibleTabs.map(tab => (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
@@ -92,8 +106,8 @@ export default function CrmPage() {
                     activeTab === tab.id ? "text-[var(--text-title)]" : "text-[var(--icon)] hover:text-[var(--text-title)] hover:bg-[var(--hover)]",
                   )}
                   style={activeTab === tab.id ? {
-                    background: "var(--border-card-hover)",
-                    boxShadow:  "inset 0 1px 0 var(--border-card-drag), 0 1px 8px var(--shadow-sm)",
+                    background: "var(--segment-active-bg)",
+                    boxShadow:  "var(--segment-active-shadow)",
                   } : {}}
                 >
                   {tab.icon}
@@ -113,17 +127,20 @@ export default function CrmPage() {
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -8 }}
           transition={{ duration: 0.2 }}
-          className="pb-8"
+          className={cn(
+            isKanban ? "flex min-h-0 flex-1 flex-col" : "pb-8",
+          )}
         >
           {activeTab === "kanban"       && <KanbanBoard />}
           {activeTab === "leads"        && <LeadsAnalytics />}
-          {activeTab === "pipelines"    && <PipelineAdmin />}
-          {activeTab === "notificacoes" && (
+          {activeTab === "relatorios"   && <CrmReports />}
+          {hasFullCrmAccess && activeTab === "pipelines"    && <PipelineAdmin />}
+          {hasFullCrmAccess && activeTab === "notificacoes" && (
             <div className="px-4 sm:px-6 pt-6">
               <CrmNotificacoesTab />
             </div>
           )}
-          {activeTab === "automacoes" && <AutomationsAdmin />}
+          {hasFullCrmAccess && activeTab === "automacoes" && <AutomationsAdmin />}
         </motion.div>
       </AnimatePresence>
     </div>

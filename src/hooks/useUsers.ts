@@ -26,6 +26,7 @@ export interface UserProfile {
   avatar_url: string | null;
   last_seen_at: string | null;
   permissions: string[];
+  crm_pipeline_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -49,6 +50,7 @@ export interface CreateUserPayload {
   is_active: boolean;
   send_invite: boolean;
   permissions: string[];
+  crm_pipeline_id: string | null;
 }
 
 export interface UpdateUserPayload {
@@ -57,6 +59,7 @@ export interface UpdateUserPayload {
   job_title: string;
   is_active: boolean;
   permissions: string[];
+  crm_pipeline_id: string | null;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -124,17 +127,19 @@ export function useUsers() {
       const supabase = getSupabaseClient();
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return { error: "Não autenticado" };
+      const ownerId = member?.owner_id ?? user.id;
 
       const { data, error: err } = await supabase
         .from("user_profiles")
         .insert({
-          owner_id:    user.id,
+          owner_id:    ownerId,
           full_name:   payload.full_name,
           email:       payload.email,
           role:        payload.role,
           job_title:   payload.job_title || null,
           is_active:   payload.is_active,
           permissions: payload.permissions,
+          crm_pipeline_id: payload.crm_pipeline_id,
         })
         .select()
         .single();
@@ -146,7 +151,7 @@ export function useUsers() {
         const { data: inviteData, error: invErr } = await supabase
           .from("user_invites")
           .insert({
-            owner_id:   user.id,
+            owner_id:   ownerId,
             email:      payload.email,
             role:       payload.role,
             invited_by: user.id,
@@ -177,7 +182,7 @@ export function useUsers() {
     } catch (e: unknown) {
       return { error: (e as { message?: string })?.message ?? "Erro ao criar usuário" };
     }
-  }, [fetchAll]);
+  }, [fetchAll, member?.owner_id]);
 
   const updateUser = useCallback(async (id: string, payload: UpdateUserPayload): Promise<{ error: string | null }> => {
     try {
@@ -190,6 +195,7 @@ export function useUsers() {
           job_title:   payload.job_title || null,
           is_active:   payload.is_active,
           permissions: payload.permissions,
+          crm_pipeline_id: payload.crm_pipeline_id,
         })
         .eq("id", id)
         .select()
@@ -265,6 +271,32 @@ export function useUsers() {
     }
   }, []);
 
+  const uploadUserAvatar = useCallback(async (id: string, file: File): Promise<{ error: string | null }> => {
+    try {
+      const body = new FormData();
+      body.append("file", file);
+      const res = await fetch(`/api/users/${id}/avatar`, { method: "POST", body });
+      const json = await res.json() as { avatar_url?: string; error?: string };
+      if (!res.ok || !json.avatar_url) return { error: json.error ?? "Erro ao atualizar foto" };
+      setProfiles((prev) => prev.map((profile) => profile.id === id ? { ...profile, avatar_url: json.avatar_url! } : profile));
+      return { error: null };
+    } catch (e: unknown) {
+      return { error: e instanceof Error ? e.message : "Erro ao atualizar foto" };
+    }
+  }, []);
+
+  const removeUserAvatar = useCallback(async (id: string): Promise<{ error: string | null }> => {
+    try {
+      const res = await fetch(`/api/users/${id}/avatar`, { method: "DELETE" });
+      const json = await res.json() as { error?: string };
+      if (!res.ok) return { error: json.error ?? "Erro ao remover foto" };
+      setProfiles((prev) => prev.map((profile) => profile.id === id ? { ...profile, avatar_url: null } : profile));
+      return { error: null };
+    } catch (e: unknown) {
+      return { error: e instanceof Error ? e.message : "Erro ao remover foto" };
+    }
+  }, []);
+
   const confirmedProfiles = profiles.filter(p => p.auth_user_id != null);
   const stats = {
     total:   confirmedProfiles.length,
@@ -285,6 +317,8 @@ export function useUsers() {
     deleteUser,
     revokeInvite,
     resetPassword,
+    uploadUserAvatar,
+    removeUserAvatar,
     refetch: fetchAll,
   };
 }

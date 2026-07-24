@@ -50,7 +50,7 @@ export function PipelineFormModal({ open, pipeline, onClose, onSave }: Props) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 lc-scrim"
+      className="lc-modal-backdrop fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ background: "rgba(0,0,0,0.60)" }}
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
     >

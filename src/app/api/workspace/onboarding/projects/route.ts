@@ -135,12 +135,13 @@ export async function POST(req: NextRequest) {
     if (body.client_id) {
       const { data: client, error: clientError } = await admin
         .from("agency_clients")
-        .select("id, name")
+        .select("id, name, status")
         .eq("id", body.client_id)
         .eq("user_id", ownerId)
         .maybeSingle();
       if (clientError) throw new Error(clientError.message);
       if (!client) return NextResponse.json({ error: "Cliente não encontrado para esta conta." }, { status: 400 });
+      if (client.status === "churned") return NextResponse.json({ error: "Clientes churnados não podem receber novas atribuições." }, { status: 400 });
       clientName = client.name ?? null;
     }
 

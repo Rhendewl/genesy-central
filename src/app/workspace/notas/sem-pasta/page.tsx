@@ -1,13 +1,13 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { motion } from "framer-motion";
-import { ArrowLeft, Plus } from "lucide-react";
+import { ArrowLeft, NotebookPen } from "lucide-react";
 import { toast } from "sonner";
 import { useWorkspaceNotes } from "@/hooks/useWorkspaceNotes";
 import { useWorkspaceNoteFolders } from "@/hooks/useWorkspaceNoteFolders";
 import { useWorkspaceViewing } from "@/context/WorkspaceViewingContext";
 import { NotesGrid } from "@/components/workspace/notes/NotesGrid";
+import { Button } from "@/components/ui/button";
 
 export default function WorkspaceNotesSemPastaPage() {
   const router = useRouter();
@@ -51,15 +51,14 @@ export default function WorkspaceNotesSemPastaPage() {
       <div className="px-4 pb-4 sm:px-6">
         <div className="mb-1 flex flex-wrap items-center justify-between gap-3">
           <h1 className="text-lg font-bold" style={{ color: "var(--text-title)" }}>Sem pasta</h1>
-          <motion.button
+          <Button
             onClick={handleCreate}
-            whileHover={{ scale: 1.03 }}
-            whileTap={{ scale: 0.97 }}
-            className="lc-btn flex items-center gap-2 px-4 py-2 text-sm"
+            icon={<NotebookPen size={16} strokeWidth={2.2} />}
+            signature
+            size="medium"
           >
-            <Plus size={16} strokeWidth={2.5} />
             Nova Nota
-          </motion.button>
+          </Button>
         </div>
         <p className="text-xs" style={{ color: "var(--muted-foreground)" }}>Notas que ainda não foram organizadas em uma pasta.</p>
       </div>

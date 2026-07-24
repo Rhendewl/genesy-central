@@ -22,6 +22,7 @@ export type FormEventType =
   // ── Navegação ───────────────────────────────────────────────────────────
   | "form.step.viewed"
   | "form.step.answered"
+  | "form.phone.answered"
   | "form.step.completed"
   | "form.step.back"
   | "form.step.skipped"
@@ -64,6 +65,17 @@ export interface FormEventPayloads {
   // ── Navegação ───────────────────────────────────────────────────────────
   "form.step.viewed":           { formSlug: string; stepId: string; stepIndex: number; stepType: string };
   "form.step.answered":         { formSlug: string; stepId: string; stepType: string };
+  "form.phone.answered":        {
+    formSlug: string;
+    stepId: string;
+    stepType: "phone";
+    user_data: {
+      ph: string[];
+      fbp?: string;
+      fbc?: string;
+      client_user_agent?: string;
+    };
+  };
   "form.step.completed":        { formSlug: string; stepId: string; stepIndex: number; durationSeconds: number };
   "form.step.back":             { formSlug: string; fromStepId?: string; toStepIndex: number };
   "form.step.skipped":          { formSlug: string; stepId: string; stepIndex: number };

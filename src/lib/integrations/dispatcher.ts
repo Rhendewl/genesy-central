@@ -46,6 +46,12 @@ function toIntegrationEvent(event: BusEvent): IntegrationEvent {
 }
 
 function shouldProcess(config: IntegrationConfig, event: IntegrationEvent): boolean {
+  // Meta recebe uma única conversão explícita: Lead, quando a etapa de telefone
+  // é confirmada. Os demais eventos continuam disponíveis para analytics e
+  // outras integrações, sem virar Lead por causa do nome configurado no Pixel.
+  if (config.adapterName === "meta-pixel") {
+    return event.type === "form.phone.answered";
+  }
   if (!config.eventFilter || config.eventFilter.length === 0) return true;
   return config.eventFilter.includes(event.type);
 }

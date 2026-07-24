@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useRef, useEffect } from "react";
+import Image from "next/image";
 import type { FormWelcomeScreen, FormTheme } from "@/types";
 
 interface WelcomeScreenProps {
@@ -64,6 +65,7 @@ export const WelcomeScreen = React.memo(function WelcomeScreen({
   const titleIsHtml = isHtml(welcome.title);
   const descIsHtml  = isHtml(welcome.description);
   const hasDesc     = !!welcome.description;
+  const hasBanner   = !!welcome.bannerUrl;
 
   return (
     <div
@@ -83,6 +85,45 @@ export const WelcomeScreen = React.memo(function WelcomeScreen({
             alignSelf: alignItems,
           }}
         />
+      )}
+
+      {/* Banner na mesma largura das perguntas, com desaparecimento inferior. */}
+      {hasBanner && (
+        <div
+          className="relative w-full overflow-hidden"
+          style={{
+            aspectRatio: "16 / 10",
+            borderRadius: theme?.borderRadius ?? "22px",
+            marginBottom: 28,
+            alignSelf: "stretch",
+          }}
+        >
+          <Image
+                src={welcome.bannerUrl!}
+            alt="Banner do formulário"
+            fill
+            priority
+            quality={76}
+            sizes="(max-width: 640px) calc(100vw - 48px), 512px"
+            className="absolute inset-0 h-full w-full object-cover"
+            style={{
+              WebkitMaskImage: "linear-gradient(to bottom, #000 0%, #000 66%, transparent 100%)",
+              maskImage: "linear-gradient(to bottom, #000 0%, #000 66%, transparent 100%)",
+            }}
+          />
+          {welcome.pillText?.trim() && (
+            <span
+              className="absolute left-4 top-4 max-w-[calc(100%-2rem)] truncate rounded-full px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-white"
+              style={{
+                background: "rgba(20, 31, 37, 0.82)",
+                backdropFilter: "blur(8px)",
+                WebkitBackdropFilter: "blur(8px)",
+              }}
+            >
+              {welcome.pillText.trim()}
+            </span>
+          )}
+        </div>
       )}
 
       {/* Título */}

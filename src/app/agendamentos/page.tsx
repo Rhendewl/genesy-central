@@ -10,6 +10,7 @@ import { CreateCalendarModal }           from "@/components/appointments/CreateC
 import { BookingsTable }                 from "@/components/appointments/BookingsTable";
 import { IntegracoesTab }               from "@/components/appointments/IntegracoesTab";
 import { useCalendars }                  from "@/hooks/useCalendars";
+import { Button }                        from "@/components/ui/button";
 
 type MainTab = "calendarios" | "agendamentos" | "integracoes";
 
@@ -56,14 +57,14 @@ function AgendamentosPageContent() {
 
       {/* Tab bar */}
       <div
-        className="px-4 sm:px-6 flex items-center gap-0.5 border-b"
+        className="flex items-center gap-0.5 overflow-x-auto border-b px-4 [scrollbar-width:none] sm:px-6"
         style={{ borderColor: "var(--border)" }}
       >
         {(["calendarios", "agendamentos", "integracoes"] as MainTab[]).map(tab => (
           <button
             key={tab}
             onClick={() => setMainTab(tab)}
-            className="relative px-3 py-2.5 text-sm font-medium transition-colors shrink-0"
+            className="relative min-h-11 shrink-0 px-3 py-2.5 text-sm font-medium transition-colors"
             style={{
               color: mainTab === tab ? "var(--text-title)" : "var(--muted-foreground)",
             }}
@@ -88,14 +89,14 @@ function AgendamentosPageContent() {
             {/* Action bar */}
             <div className="flex items-center justify-between mb-6">
               <div />
-              <button
+              <Button
                 onClick={() => setShowCreate(true)}
-                className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-all active:scale-95 hover:opacity-90"
-                style={{ background: "#b0b8c1", color: "#000000" }}
+                icon={<Calendar size={14} />}
+                size="medium"
+                signature
               >
-                <Plus size={14} />
                 Novo calendário
-              </button>
+              </Button>
             </div>
 
             {error && <p className="text-sm text-red-400 mb-4">{error}</p>}
@@ -104,7 +105,7 @@ function AgendamentosPageContent() {
               <EmptyState onNew={() => setShowCreate(true)} />
             ) : (
               <motion.div
-                className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
+                className="grid grid-cols-2 gap-3 sm:grid-cols-[repeat(auto-fill,minmax(132px,210px))] sm:gap-5"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
               >
@@ -171,14 +172,14 @@ function EmptyState({ onNew }: { onNew: () => void }) {
       >
         Crie seu primeiro calendário de agendamento e comece a receber reservas.
       </p>
-      <button
+      <Button
         onClick={onNew}
-        className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all active:scale-95"
-        style={{ background: "#b0b8c1", color: "#000000" }}
+        icon={<Calendar size={14} />}
+        size="medium"
+        signature
       >
-        <Plus size={14} />
         Novo calendário
-      </button>
+      </Button>
     </div>
   );
 }

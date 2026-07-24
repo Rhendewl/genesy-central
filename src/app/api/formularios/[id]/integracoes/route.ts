@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
+import { encryptToken } from "@/lib/crypto";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -9,6 +10,14 @@ function maskSecrets(secrets: Record<string, unknown>): Record<string, string> {
   return Object.fromEntries(
     Object.keys(secrets).map(k => [k, MASK])
   );
+}
+
+function encryptWebhookSecrets(adapter: string, secrets: Record<string, unknown>) {
+  if (adapter !== "webhook") return secrets;
+  return Object.fromEntries(Object.entries(secrets).map(([key, value]) => {
+    const text = String(value ?? "");
+    return [key, !text || text.startsWith("enc:") ? text : `enc:${encryptToken(text)}`];
+  }));
 }
 
 // GET /api/formularios/:id/integracoes
@@ -44,7 +53,14 @@ export async function POST(req: NextRequest, { params }: Params) {
   const body = await req.json();
   const { adapter, enabled = true, settings = {}, secrets = {}, event_filter, retry_policy, rate_limit } = body;
 
-  if (!adapter) return NextResponse.json({ error: "adapter é obrigatório" }, { status: 400 });
+  const allowedAdapters = new Set(["meta-pixel", "ga4", "webhook", "crm", "nps"]);
+  if (!adapter || !allowedAdapters.has(adapter)) {
+    return NextResponse.json({ error: "adapter inválido" }, { status: 400 });
+  }
+
+  const { data: ownedForm } = await supabase
+    .from("forms").select("id").eq("id", id).eq("user_id", user.id).is("deleted_at", null).single();
+  if (!ownedForm) return NextResponse.json({ error: "Formulário não encontrado" }, { status: 404 });
 
   const { data, error } = await supabase
     .from("form_integrations")
@@ -54,7 +70,7 @@ export async function POST(req: NextRequest, { params }: Params) {
       adapter,
       enabled,
       settings,
-      secrets,
+      secrets: encryptWebhookSecrets(adapter, secrets),
       event_filter: event_filter ?? null,
       retry_policy: retry_policy ?? null,
       rate_limit:   rate_limit   ?? null,

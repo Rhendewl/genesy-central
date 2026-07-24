@@ -62,15 +62,21 @@ export function useWorkspaceTaskDetail(taskId: string | null) {
       ...prev,
       checklist_items: prev.checklist_items.map((i) => i.id === itemId ? { ...i, is_completed: isCompleted } : i),
     } : prev);
-    await fetch(`/api/workspace/tasks/${taskId}/checklist/${itemId}`, {
+    const res = await fetch(`/api/workspace/tasks/${taskId}/checklist/${itemId}`, {
       method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ is_completed: isCompleted }),
     });
+    const json = await res.json().catch(() => ({})) as { error?: string };
+    if (!res.ok) await fetchDetail();
+    return res.ok ? { error: null } : { error: json.error ?? "Erro ao atualizar checklist" };
   }
 
   async function deleteChecklistItem(itemId: string) {
     if (!taskId) return;
     setDetail((prev) => prev ? { ...prev, checklist_items: prev.checklist_items.filter((i) => i.id !== itemId) } : prev);
-    await fetch(`/api/workspace/tasks/${taskId}/checklist/${itemId}`, { method: "DELETE" });
+    const res = await fetch(`/api/workspace/tasks/${taskId}/checklist/${itemId}`, { method: "DELETE" });
+    const json = await res.json().catch(() => ({})) as { error?: string };
+    if (!res.ok) await fetchDetail();
+    return res.ok ? { error: null } : { error: json.error ?? "Erro ao remover item" };
   }
 
   async function addComment(body: string) {

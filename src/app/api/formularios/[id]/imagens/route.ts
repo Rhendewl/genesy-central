@@ -19,7 +19,25 @@ export async function POST(
       return NextResponse.json({ error: "nome_arquivo e mime_type são obrigatórios." }, { status: 400 });
     }
 
-    const ext = nome_arquivo.split(".").pop() ?? "png";
+    const acceptedMimeTypes = ["image/png", "image/jpeg", "image/webp", "image/svg+xml", "image/gif"];
+    if (!acceptedMimeTypes.includes(mime_type)) {
+      return NextResponse.json({ error: "Formato de imagem não suportado." }, { status: 415 });
+    }
+
+    const { data: form } = await supabase
+      .from("forms")
+      .select("id")
+      .eq("id", params.id)
+      .eq("user_id", user.id)
+      .is("deleted_at", null)
+      .maybeSingle();
+    if (!form) return NextResponse.json({ error: "Formulário não encontrado." }, { status: 404 });
+
+    const extensionByMime: Record<string, string> = {
+      "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp",
+      "image/svg+xml": "svg", "image/gif": "gif",
+    };
+    const ext = extensionByMime[mime_type];
     const storage_path = `formularios/${user.id}/${params.id}/${Date.now()}.${ext}`;
 
     const { data, error } = await supabase.storage

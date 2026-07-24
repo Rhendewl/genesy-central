@@ -3,7 +3,6 @@
 import { Header } from "@/components/layout/Header";
 import { useWorkspaceTasks } from "@/hooks/useWorkspaceTasks";
 import { useWorkspaceNotes } from "@/hooks/useWorkspaceNotes";
-import { useWorkspaceObjectives } from "@/hooks/useWorkspaceObjectives";
 import { useWorkspaceViewing } from "@/context/WorkspaceViewingContext";
 import { PercentageGaugeCard } from "@/components/workspace/dashboard/PercentageGaugeCard";
 import { TodoListCard } from "@/components/workspace/dashboard/TodoListCard";
@@ -21,35 +20,19 @@ export default function WorkspaceDashboardPage() {
   // mesma lista de tarefas).
   const tasksHook      = useWorkspaceTasks(asUserId);
   const notesHook      = useWorkspaceNotes(asUserId);
-  const objectivesHook = useWorkspaceObjectives(asUserId);
 
-  const totalTasks = tasksHook.tasks.length;
-  const doneTasks  = tasksHook.tasks.filter((t) => t.status === "concluido").length;
-  const tasksPercent = totalTasks > 0 ? (doneTasks / totalTasks) * 100 : 0;
-
-  // Objetivos sem etapa nenhuma não entram na média — não é 0% nem 100%,
-  // só não têm progresso mensurável ainda.
-  const measurableObjectives = objectivesHook.objectives.filter((o) => (o.steps_total ?? 0) > 0);
-  const objectivesPercent = measurableObjectives.length > 0
-    ? measurableObjectives.reduce((sum, o) => sum + ((o.steps_done ?? 0) / (o.steps_total ?? 1)) * 100, 0) / measurableObjectives.length
-    : 0;
+  const { total: totalTasks, completed: doneTasks, percent: tasksPercent } = tasksHook.completionStats;
 
   return (
     <div className="flex flex-col gap-4 px-4 pb-24 pt-4 sm:px-6">
       <Header title="Workspace" subtitle="Visão geral da sua produtividade" />
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3">
         <PercentageGaugeCard
           title="Progresso das Tarefas"
           percent={tasksPercent}
           caption={totalTasks > 0 ? `${doneTasks} de ${totalTasks} concluídas` : "Nenhuma tarefa ainda"}
           delay={0}
-        />
-        <PercentageGaugeCard
-          title="Objetivos"
-          percent={objectivesPercent}
-          caption={measurableObjectives.length > 0 ? `Média de ${measurableObjectives.length} objetivo${measurableObjectives.length !== 1 ? "s" : ""}` : "Nenhum objetivo com etapas ainda"}
-          delay={0.05}
         />
       </div>
 

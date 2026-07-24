@@ -419,7 +419,7 @@ export default function OnboardingTemplateBuilderPage() {
 
       {stageDelete && (
         <div
-          className="fixed inset-0 z-[70] flex items-center justify-center p-4 lc-scrim"
+          className="lc-modal-backdrop fixed inset-0 z-[70] flex items-center justify-center p-4"
           style={{ background: "rgba(0,0,0,0.60)", backdropFilter: "blur(6px)" }}
           onClick={() => setStageDelete(null)}
         >

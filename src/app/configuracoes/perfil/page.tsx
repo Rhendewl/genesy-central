@@ -7,6 +7,7 @@ import Link from "next/link";
 import { toast } from "sonner";
 import { useCompanyProfile, CompanyProfilePayload } from "@/hooks/useCompanyProfile";
 import { PrimaryButton } from "@/components/ui/PrimaryButton";
+import { AdministrativeAccessGate } from "@/components/layout/AdministrativeAccessGate";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Sub-components
@@ -309,6 +310,14 @@ function SaveBar({ isDirty, isSaving, onSave }: { isDirty: boolean; isSaving: bo
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function PerfilEmpresaPage() {
+  return (
+    <AdministrativeAccessGate>
+      <PerfilEmpresaContent />
+    </AdministrativeAccessGate>
+  );
+}
+
+function PerfilEmpresaContent() {
   const { profile, isLoading, isSaving, defaults, save, uploadAndSaveLogo } = useCompanyProfile();
   const [form, setForm] = useState<CompanyProfilePayload>(defaults);
   const [isDirty, setIsDirty] = useState(false);

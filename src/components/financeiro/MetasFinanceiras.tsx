@@ -118,7 +118,7 @@ function MetaModal({ current, onClose, onSave, year, month }: MetaModalProps) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="absolute inset-0 bg-black/[0.03] backdrop-blur-sm" />
+      <div className="lc-modal-backdrop absolute inset-0" />
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
@@ -279,7 +279,7 @@ export function MetasFinanceiras({ year, month }: Props) {
             {goal ? "Progresso em relação às metas definidas" : "Nenhuma meta definida para este mês"}
           </p>
         </div>
-        <PrimaryButton onClick={() => setModalOpen(true)} className="flex items-center gap-2 px-4 py-2.5 text-sm">
+        <PrimaryButton onClick={() => setModalOpen(true)} signature size="medium">
           <Edit3 size={15} />
           {goal ? "Editar Metas" : "Definir Metas"}
         </PrimaryButton>
@@ -296,7 +296,8 @@ export function MetasFinanceiras({ year, month }: Props) {
           <p className="text-[var(--silver)] text-sm mb-6 max-w-xs mx-auto">
             Configure metas mensais para acompanhar o desempenho e tomar decisões estratégicas
           </p>
-          <PrimaryButton onClick={() => setModalOpen(true)} className="px-6 py-2.5 text-sm">
+          <PrimaryButton onClick={() => setModalOpen(true)} signature size="medium">
+            <Target size={15} />
             Criar Metas do Mês
           </PrimaryButton>
         </motion.div>

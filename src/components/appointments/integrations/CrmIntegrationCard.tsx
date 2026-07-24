@@ -124,7 +124,8 @@ export function CrmIntegrationCard({ calendarId }: Props) {
             <p className="text-sm" style={{ color: "var(--text-title)" }}>Ativar integração</p>
             <button
               onClick={() => setEnabled(v => !v)}
-              aria-pressed={enabled}
+              role="switch"
+              aria-checked={enabled}
               className="relative rounded-full transition-colors shrink-0"
               style={{ background: enabled ? "var(--primary)" : "var(--border)", width: "40px", height: "22px" }}
             >

@@ -6,6 +6,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { ArrowUpRight, ListTodo, Plus } from "lucide-react";
 import type { useWorkspaceTasks } from "@/hooks/useWorkspaceTasks";
 import { TaskDetailPanel } from "@/components/workspace/TaskDetailPanel";
+import { TaskCompletionCelebration } from "@/components/workspace/TaskCompletionCelebration";
 
 const MAX_VISIBLE = 6;
 
@@ -30,6 +31,8 @@ export function TodoListCard({ tasksHook, delay = 0 }: TodoListCardProps) {
   }
 
   return (
+    <>
+    <TaskCompletionCelebration celebrationId={tasksHook.completionCelebrationId} />
     <motion.div
       className="lc-card p-6"
       style={{ background: "var(--glass-bg-soft)" }}
@@ -74,7 +77,8 @@ export function TodoListCard({ tasksHook, delay = 0 }: TodoListCardProps) {
           <div key={task.id} className="flex items-center gap-2.5 rounded-lg px-1 py-1.5 transition-colors hover:bg-[var(--hover)]">
             <button
               onClick={() => tasksHook.toggleComplete(task.id)}
-              className="flex flex-shrink-0 items-center justify-center rounded-full border transition-colors"
+              disabled={!tasksHook.canExecuteTask(task)}
+              className="flex flex-shrink-0 items-center justify-center rounded-full border transition-colors disabled:cursor-default disabled:opacity-60"
               style={{ width: "16px", height: "16px", borderColor: "var(--border)", background: "transparent" }}
               aria-label="Marcar como concluída"
             />
@@ -97,9 +101,10 @@ export function TodoListCard({ tasksHook, delay = 0 }: TodoListCardProps) {
 
       <AnimatePresence>
         {isPanelOpen && (
-          <TaskDetailPanel taskId={openTaskId} tasksHook={tasksHook} onClose={() => { setIsPanelOpen(false); setOpenTaskId(null); }} />
+          <TaskDetailPanel presentation="modal" taskId={openTaskId} tasksHook={tasksHook} onClose={() => { setIsPanelOpen(false); setOpenTaskId(null); }} />
         )}
       </AnimatePresence>
     </motion.div>
+    </>
   );
 }

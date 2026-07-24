@@ -87,7 +87,7 @@ export function UpcomingDeadlinesCard({ tasksHook, delay = 0, bare = false, maxV
 
       <AnimatePresence>
         {isPanelOpen && (
-          <TaskDetailPanel taskId={openTaskId} tasksHook={tasksHook} onClose={() => { setIsPanelOpen(false); setOpenTaskId(null); }} />
+          <TaskDetailPanel presentation="modal" taskId={openTaskId} tasksHook={tasksHook} onClose={() => { setIsPanelOpen(false); setOpenTaskId(null); }} />
         )}
       </AnimatePresence>
     </motion.div>

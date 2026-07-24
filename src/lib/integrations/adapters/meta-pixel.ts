@@ -3,6 +3,7 @@ import type {
   IntegrationAdapter, IntegrationConfig, IntegrationContext,
 } from "../types";
 import { trackConversion } from "./fbq";
+import { getMetaDeliveryMode, getMetaPixelId } from "../meta-config";
 
 type CAPIEvent = {
   event_name:   string;
@@ -33,10 +34,8 @@ export class MetaPixelAdapter implements IntegrationAdapter {
     config:  IntegrationConfig,
   ): Promise<DeliveryResult> {
     const start      = Date.now();
-    const rawMode    = (config.settings.mode as string) ?? "capi";
-    // "server" is treated as "capi" for forward-compatibility
-    const mode       = rawMode === "server" ? "capi" : rawMode;
-    const pixelId    = config.settings.pixel_id as string;
+    const mode       = getMetaDeliveryMode(config.settings);
+    const pixelId    = getMetaPixelId(config.settings);
     const raw        = payload.raw as CAPIBody;
     const evt0       = raw.data?.[0];
     const eventId    = evt0?.event_id  ?? "";
@@ -103,13 +102,37 @@ export class MetaPixelAdapter implements IntegrationAdapter {
         body:    JSON.stringify(body),
         signal:  ctx.signal,
       });
+      let responseError: string | undefined;
+      if (!res.ok && typeof res.text === "function") {
+        const text = await res.text().catch(() => "");
+        if (text) {
+          try {
+            const parsed = JSON.parse(text) as {
+              error?: { message?: string; code?: number; error_subcode?: number; fbtrace_id?: string };
+            };
+            const metaError = parsed.error;
+            if (metaError?.message) {
+              const codes = [
+                metaError.code != null ? `código ${metaError.code}` : null,
+                metaError.error_subcode != null ? `subcódigo ${metaError.error_subcode}` : null,
+                metaError.fbtrace_id ? `trace ${metaError.fbtrace_id}` : null,
+              ].filter(Boolean).join(", ");
+              responseError = `${metaError.message}${codes ? ` (${codes})` : ""}`;
+            } else {
+              responseError = text.slice(0, 800);
+            }
+          } catch {
+            responseError = text.slice(0, 800);
+          }
+        }
+      }
       return {
         ok:            res.ok,
         status:        res.status,
         durationMs:    Date.now() - start,
         attempt:       ctx.attempt,
         correlationId: ctx.correlationId,
-        error:         res.ok ? undefined : `HTTP ${res.status}`,
+        error:         res.ok ? undefined : `HTTP ${res.status}${responseError ? `: ${responseError}` : ""}`,
       };
     } catch (err) {
       /* v8 ignore next 6 */

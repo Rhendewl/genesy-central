@@ -18,9 +18,10 @@ interface CommentsThreadProps {
   comments: CommentLike[];
   onAdd:    (body: string) => void;
   onDelete: (commentId: string) => void;
+  readOnly?: boolean;
 }
 
-export function CommentsThread({ comments, onAdd, onDelete }: CommentsThreadProps) {
+export function CommentsThread({ comments, onAdd, onDelete, readOnly = false }: CommentsThreadProps) {
   const { profiles } = useUsers();
   const [body, setBody] = useState("");
 
@@ -51,18 +52,20 @@ export function CommentsThread({ comments, onAdd, onDelete }: CommentsThreadProp
                 {comment.body}
               </p>
             </div>
-            <button
-              onClick={() => onDelete(comment.id)}
-              className="opacity-0 transition-opacity group-hover:opacity-100"
-              style={{ color: "var(--muted-foreground)" }}
-            >
-              <X size={13} />
-            </button>
+            {!readOnly && (
+              <button
+                onClick={() => onDelete(comment.id)}
+                className="opacity-0 transition-opacity group-hover:opacity-100"
+                style={{ color: "var(--muted-foreground)" }}
+              >
+                <X size={13} />
+              </button>
+            )}
           </div>
         );
       })}
 
-      <div className="flex items-center gap-2">
+      {!readOnly && <div className="flex items-center gap-2">
         <input
           value={body}
           onChange={(e) => setBody(e.target.value)}
@@ -74,7 +77,7 @@ export function CommentsThread({ comments, onAdd, onDelete }: CommentsThreadProp
         <button onClick={submit} disabled={!body.trim()} style={{ color: "var(--primary)" }} className="disabled:opacity-30">
           <Send size={16} />
         </button>
-      </div>
+      </div>}
     </div>
   );
 }

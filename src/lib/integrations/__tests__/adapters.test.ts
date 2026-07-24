@@ -68,6 +68,21 @@ describe("MetaPixelAdapter", () => {
     expect(result.error).toContain("500");
   });
 
+  it("includes Meta API error details on a rejected event", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: false,
+      status: 400,
+      text: async () => JSON.stringify({
+        error: { message: "Invalid parameter", code: 100, error_subcode: 2804019, fbtrace_id: "trace-1" },
+      }),
+    } as Response);
+
+    const result = await adapter.execute(makePayload(), makeCtx(), makeConfig({ adapterName: "meta-pixel" }));
+    expect(result.error).toContain("Invalid parameter");
+    expect(result.error).toContain("código 100");
+    expect(result.error).toContain("trace-1");
+  });
+
   it("includes attempt number in result", async () => {
     mockFetch(200);
     const result = await adapter.execute(makePayload(), makeCtx(2), makeConfig({ adapterName: "meta-pixel" }));

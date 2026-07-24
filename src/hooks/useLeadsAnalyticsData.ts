@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getSupabaseClient } from "@/lib/supabase";
+import { dedupeCanonicalLeads } from "@/lib/crm/lead-identity";
 import type { Lead } from "@/types";
 
 // Linha de histórico de movimentação — usada só para as métricas de tempo
@@ -56,8 +57,19 @@ export function useLeadsAnalyticsData(pipelineIds: string[] | null) {
     setIsLoading(true);
     setError(null);
 
-    // Empty selection — guard against caller passing []; treat as null (all).
-    const ids = pipelineIds !== null && pipelineIds.length === 0 ? null : pipelineIds;
+    // [] é usado para um colaborador que ainda não recebeu pipeline: não deve
+    // cair no comportamento de "todas" e expor dados por engano.
+    if (pipelineIds !== null && pipelineIds.length === 0) {
+      if (mountedRef.current) {
+        setLeads([]);
+        setStageHistory([]);
+        setStages([]);
+        setIsLoading(false);
+      }
+      return;
+    }
+
+    const ids = pipelineIds;
 
     let query = supabase
       .from("leads")
@@ -91,7 +103,9 @@ export function useLeadsAnalyticsData(pipelineIds: string[] | null) {
       deal_value: l.deal_value ?? 0,
     }));
 
-    setLeads(normalized);
+    // Dentro de uma pipeline cada card operacional deve aparecer. Em visões
+    // globais (ou que combinam pipelines), o mesmo lead é contado uma só vez.
+    setLeads(ids === null || ids.length > 1 ? dedupeCanonicalLeads(normalized) : normalized);
     setStageHistory((historyData as StageHistoryRow[]) ?? []);
     setStages((stagesData as StageOrderRow[]) ?? []);
     setIsLoading(false);

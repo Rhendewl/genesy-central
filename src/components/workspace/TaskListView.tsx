@@ -9,21 +9,24 @@ import { PriorityBadge } from "./PriorityBadge";
 import { AssigneeAvatarGroup } from "./AssigneeAvatarGroup";
 import type { WorkspaceTask } from "@/types/workspace";
 import type { useWorkspaceTasks } from "@/hooks/useWorkspaceTasks";
+import { TaskCompletionCelebration } from "./TaskCompletionCelebration";
 
 interface TaskListViewProps {
   tasksHook:  ReturnType<typeof useWorkspaceTasks>;
   onOpenTask: (taskId: string) => void;
+  visibleTasks?: WorkspaceTask[];
 }
 
 const PRIORITY_ORDER: Record<string, number> = { urgente: 0, alta: 1, media: 2, baixa: 3 };
 
-export function TaskListView({ tasksHook, onOpenTask }: TaskListViewProps) {
-  const { tasks, toggleComplete } = tasksHook;
+export function TaskListView({ tasksHook, onOpenTask, visibleTasks }: TaskListViewProps) {
+  const { tasks, toggleComplete, canExecuteTask } = tasksHook;
   const [showCompleted, setShowCompleted] = useState(false);
 
   const { pending, completed } = useMemo(() => {
-    const pending  = tasks.filter((t) => t.status !== "concluido");
-    const completed = tasks.filter((t) => t.status === "concluido");
+    const source = visibleTasks ?? tasks;
+    const pending  = source.filter((t) => t.status !== "concluido");
+    const completed = source.filter((t) => t.status === "concluido");
 
     pending.sort((a, b) => {
       if (a.due_date && b.due_date) return a.due_date.localeCompare(b.due_date);
@@ -34,13 +37,14 @@ export function TaskListView({ tasksHook, onOpenTask }: TaskListViewProps) {
     completed.sort((a, b) => (b.completed_at ?? "").localeCompare(a.completed_at ?? ""));
 
     return { pending, completed };
-  }, [tasks]);
+  }, [tasks, visibleTasks]);
 
   return (
     <div className="flex flex-col gap-1">
+      <TaskCompletionCelebration celebrationId={tasksHook.completionCelebrationId} />
       <AnimatePresence initial={false}>
         {pending.map((task) => (
-          <TaskRow key={task.id} task={task} onToggle={toggleComplete} onOpen={onOpenTask} />
+          <TaskRow key={task.id} task={task} canExecute={canExecuteTask(task)} onToggle={toggleComplete} onOpen={onOpenTask} />
         ))}
       </AnimatePresence>
 
@@ -62,7 +66,7 @@ export function TaskListView({ tasksHook, onOpenTask }: TaskListViewProps) {
           </button>
           <AnimatePresence initial={false}>
             {showCompleted && completed.map((task) => (
-              <TaskRow key={task.id} task={task} onToggle={toggleComplete} onOpen={onOpenTask} />
+              <TaskRow key={task.id} task={task} canExecute={canExecuteTask(task)} onToggle={toggleComplete} onOpen={onOpenTask} />
             ))}
           </AnimatePresence>
         </div>
@@ -72,9 +76,10 @@ export function TaskListView({ tasksHook, onOpenTask }: TaskListViewProps) {
 }
 
 function TaskRow({
-  task, onToggle, onOpen,
+  task, canExecute, onToggle, onOpen,
 }: {
   task:     WorkspaceTask;
+  canExecute: boolean;
   onToggle: (id: string) => void;
   onOpen:   (id: string) => void;
 }) {
@@ -91,12 +96,13 @@ function TaskRow({
     >
       <button
         onClick={(e) => { e.stopPropagation(); onToggle(task.id); }}
-        className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full border transition-colors"
+        disabled={!canExecute}
+        className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full border transition-colors disabled:cursor-default disabled:opacity-60"
         style={{
           borderColor: done ? "var(--primary)" : "var(--border)",
           background:  done ? "var(--primary)" : "transparent",
         }}
-        aria-label={done ? "Marcar como pendente" : "Marcar como concluída"}
+        aria-label={!canExecute ? "Somente o criador ou responsável pode concluir esta tarefa" : done ? "Marcar como pendente" : "Marcar como concluída"}
       >
         {done && <Check size={12} color="#fff" strokeWidth={3} />}
       </button>

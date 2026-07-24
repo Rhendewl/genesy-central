@@ -1,6 +1,8 @@
 import type { AdapterPayload, IntegrationConfig, IntegrationMapper, TransformedEvent } from "../types";
+import { getMetaPixelId } from "../meta-config";
 
 const EVENT_NAME: Record<string, string> = {
+  "form.phone.answered":         "Lead",
   "form.started":              "StartTrial",
   "form.completed":            "CompleteRegistration",
   "form.abandoned":            "CustomEvent",
@@ -12,11 +14,13 @@ export const metaMapper: IntegrationMapper = {
   adapterName: "meta-pixel",
 
   map(event: TransformedEvent, config: IntegrationConfig): AdapterPayload {
-    const pixelId         = config.settings.pixel_id as string;
+    const pixelId         = getMetaPixelId(config.settings);
     const accessToken     = config.secrets.access_token ?? "";
     const testEventCode   = config.settings.test_event_code as string | undefined;
     const configEventName = config.settings.event as string | undefined;
-    const eventName       = configEventName || EVENT_NAME[event.type] || "CustomEvent";
+    const eventName       = event.type === "form.phone.answered"
+      ? "Lead"
+      : configEventName || EVENT_NAME[event.type] || "CustomEvent";
 
     // user_data comes pre-hashed from the hook (SHA-256 via Web Crypto API)
     const ud = (event.payload.user_data as Record<string, unknown> | undefined) ?? {};

@@ -9,7 +9,6 @@ import {
   LayoutDashboard,
   Users,
   Wallet,
-  TrendingUp,
   Settings,
   LogOut,
   User,
@@ -21,6 +20,7 @@ import {
   X,
   Sun,
   Moon,
+  Megaphone,
 } from "lucide-react";
 import { useGlobalStore } from "@/store";
 import { getSupabaseClient } from "@/lib/supabase";
@@ -42,7 +42,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/crm",           label: "CRM",          icon: Users,           exactMatch: false, permKey: "crm"          },
   { href: "/clientes",      label: "Clientes",     icon: Contact,         exactMatch: false, permKey: "clientes"     },
   { href: "/financeiro",    label: "Financeiro",   icon: Wallet,          exactMatch: false, permKey: "financeiro"   },
-  { href: "/trafego",       label: "Tráfego",      icon: TrendingUp,      exactMatch: false, permKey: "trafego"      },
+  { href: "/marketing",     label: "Marketing",    icon: Megaphone,       exactMatch: false, permKey: "marketing"    },
   { href: "/performance",   label: "Performance",  icon: BarChart3,      exactMatch: false, permKey: "performance"  },
   { href: "/formularios",   label: "Formulários",  icon: NotepadText,     exactMatch: false, permKey: "formularios"  },
   { href: "/agendamentos",  label: "Agenda",       icon: Calendar,        exactMatch: false, permKey: "agendamentos" },

@@ -4,6 +4,7 @@ import type {
   SubmissionListItem, SubmissionDetail, SessionEvent,
   IntegrationDelivery, SubmissionPatch, SubmissionStatus,
 } from "@/lib/respostas/types";
+import type { FormStep } from "@/types";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -42,7 +43,7 @@ export async function GET(_req: NextRequest, { params }: Params) {
     sessionId
       ? supabase.from("form_sessions").select("*").eq("id", sessionId).single()
       : Promise.resolve({ data: null, error: null }),
-    supabase.from("forms").select("name, slug").eq("id", sub.form_id as string).single(),
+    supabase.from("forms").select("name, slug, steps").eq("id", sub.form_id as string).single(),
     sessionId
       ? supabase
           .from("form_events")
@@ -132,7 +133,8 @@ export async function GET(_req: NextRequest, { params }: Params) {
     form_slug:       (form?.slug as string) ?? "",
   };
 
-  const detail: SubmissionDetail = { submission, sessionEvents, integrationDeliveries };
+  const formSteps = (form?.steps ?? []) as FormStep[];
+  const detail: SubmissionDetail = { submission, formSteps, sessionEvents, integrationDeliveries };
   return NextResponse.json(detail);
 }
 

@@ -235,7 +235,8 @@ export function NotificacoesTab({ calendar, onSave }: Props) {
         </div>
         <button
           onClick={() => patch("enabled", !form.enabled)}
-          aria-pressed={form.enabled}
+          role="switch"
+          aria-checked={form.enabled}
           className="relative rounded-full transition-colors shrink-0 ml-4"
           style={{
             background: form.enabled ? "var(--primary)" : "var(--border)",

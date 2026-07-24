@@ -16,7 +16,7 @@ export const googleAnalyticsMapper: IntegrationMapper = {
   adapterName: "ga4",
 
   map(event: TransformedEvent, config: IntegrationConfig): AdapterPayload {
-    const measurementId = config.settings.measurement_id as string;
+    const measurementId = (config.settings.measurement_id ?? config.settings.measurementId) as string;
     const apiSecret     = config.secrets.api_secret ?? "";
     const eventName     = EVENT_NAME[event.type] ?? event.type.replace(/[.\-\s]/g, "_");
     const payload       = event.payload as Record<string, unknown>;

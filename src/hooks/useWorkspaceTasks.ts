@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getSupabaseClient } from "@/lib/supabase";
+import { useCurrentMember } from "@/context/CurrentMemberContext";
 import type {
   WorkspaceTask, NewWorkspaceTask, UpdateWorkspaceTask, WorkspaceTaskStatus,
 } from "@/types/workspace";
@@ -30,21 +31,38 @@ export type TasksByStatus = Record<WorkspaceTaskStatus, WorkspaceTask[]>;
 
 export function useWorkspaceTasks(viewAsUserId?: string) {
   const supabase = getSupabaseClient();
+  const { member } = useCurrentMember();
 
   const [tasks,     setTasks]     = useState<WorkspaceTask[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error,     setError]     = useState<string | null>(null);
+  const [completionCelebrationId, setCompletionCelebrationId] = useState<number | null>(null);
 
   const mountedRef = useRef(true);
+  const discardedTaskIdsRef = useRef<Set<string>>(new Set());
+  const celebrationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const realtimeRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const latestFetchIdRef = useRef(0);
+
+  const triggerCompletionCelebration = useCallback(() => {
+    if (celebrationTimerRef.current) clearTimeout(celebrationTimerRef.current);
+    setCompletionCelebrationId(Date.now());
+    celebrationTimerRef.current = setTimeout(() => setCompletionCelebrationId(null), 1350);
+  }, []);
+
+  useEffect(() => () => {
+    if (celebrationTimerRef.current) clearTimeout(celebrationTimerRef.current);
+  }, []);
 
   const fetchTasks = useCallback(async () => {
+    const fetchId = ++latestFetchIdRef.current;
     setError(null);
 
     const qs = viewAsUserId ? `?as_user_id=${viewAsUserId}` : "";
     const res  = await fetch(`/api/workspace/tasks${qs}`);
     const json = await res.json() as { tasks?: WorkspaceTask[]; error?: string };
 
-    if (!mountedRef.current) return;
+    if (!mountedRef.current || fetchId !== latestFetchIdRef.current) return;
     if (!res.ok || !json.tasks) {
       setError(json.error ?? "Erro ao carregar tarefas");
       return;
@@ -58,7 +76,7 @@ export function useWorkspaceTasks(viewAsUserId?: string) {
         ])
       : [{ data: [] as { task_id: string; is_completed: boolean }[] }, { data: [] as { task_id: string }[] }];
 
-    if (!mountedRef.current) return;
+    if (!mountedRef.current || fetchId !== latestFetchIdRef.current) return;
 
     const checklistCounts = new Map<string, { total: number; done: number }>();
     for (const row of checklistRes.data ?? []) {
@@ -80,8 +98,16 @@ export function useWorkspaceTasks(viewAsUserId?: string) {
       comment_count:   commentCounts.get(t.id) ?? 0,
     }));
 
-    setTasks(enriched);
+    setTasks(enriched.filter((task) => !discardedTaskIdsRef.current.has(task.id)));
   }, [supabase, viewAsUserId]);
+
+  const scheduleRealtimeRefresh = useCallback(() => {
+    if (realtimeRefreshTimerRef.current) clearTimeout(realtimeRefreshTimerRef.current);
+    realtimeRefreshTimerRef.current = setTimeout(() => {
+      realtimeRefreshTimerRef.current = null;
+      void fetchTasks();
+    }, 180);
+  }, [fetchTasks]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -93,23 +119,61 @@ export function useWorkspaceTasks(viewAsUserId?: string) {
 
     const channel = supabase
       .channel(`workspace-tasks-realtime-${viewAsUserId ?? "self"}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "workspace_tasks" }, () => fetchTasks())
-      .on("postgres_changes", { event: "*", schema: "public", table: "workspace_task_checklist_items" }, () => fetchTasks())
-      .on("postgres_changes", { event: "*", schema: "public", table: "workspace_task_comments" }, () => fetchTasks())
-      .on("postgres_changes", { event: "*", schema: "public", table: "workspace_task_assignees" }, () => fetchTasks())
+      .on("postgres_changes", { event: "*", schema: "public", table: "workspace_tasks" }, (payload) => {
+        // O status precisa refletir no gráfico no mesmo instante em que o
+        // evento realtime chega. A consulta completa continua rodando em
+        // segundo plano para enriquecer responsáveis/checklist/comentários.
+        // Invalidar uma consulta anterior também impede que uma resposta
+        // lenta restaure temporariamente o estado antigo na tela.
+        latestFetchIdRef.current += 1;
+
+        if (payload.eventType === "UPDATE") {
+          const changedTask = payload.new as Partial<WorkspaceTask> & { id?: string };
+          if (changedTask.id) {
+            setTasks((prev) => prev.map((task) => (
+              task.id === changedTask.id ? { ...task, ...changedTask } : task
+            )));
+          }
+        } else if (payload.eventType === "DELETE") {
+          const deletedTask = payload.old as { id?: string };
+          if (deletedTask.id) {
+            setTasks((prev) => prev.filter((task) => task.id !== deletedTask.id));
+          }
+        }
+
+        scheduleRealtimeRefresh();
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "workspace_task_checklist_items" }, scheduleRealtimeRefresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "workspace_task_comments" }, scheduleRealtimeRefresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "workspace_task_assignees" }, scheduleRealtimeRefresh)
       .subscribe();
 
     return () => {
       mountedRef.current = false;
+      latestFetchIdRef.current += 1;
+      if (realtimeRefreshTimerRef.current) {
+        clearTimeout(realtimeRefreshTimerRef.current);
+        realtimeRefreshTimerRef.current = null;
+      }
       supabase.removeChannel(channel);
     };
-  }, [fetchTasks, supabase, viewAsUserId]);
+  }, [fetchTasks, scheduleRealtimeRefresh, supabase, viewAsUserId]);
 
   const tasksByStatus: TasksByStatus = useMemo(() => {
     const acc: TasksByStatus = { a_fazer: [], em_andamento: [], aguardando: [], concluido: [] };
     for (const t of tasks) acc[t.status].push(t);
     return acc;
   }, [tasks]);
+
+  const completionStats = useMemo(() => {
+    const total = tasks.length;
+    const completed = tasksByStatus.concluido.length;
+    return {
+      total,
+      completed,
+      percent: total > 0 ? (completed / total) * 100 : 0,
+    };
+  }, [tasks.length, tasksByStatus]);
 
   async function createTask(data: NewWorkspaceTask): Promise<{ error: string | null; task: WorkspaceTask | null }> {
     try {
@@ -136,6 +200,9 @@ export function useWorkspaceTasks(viewAsUserId?: string) {
 
   async function updateTask(id: string, data: UpdateWorkspaceTask): Promise<{ error: string | null }> {
     const previous = tasks.find((t) => t.id === id);
+    if (!canEditTask(previous)) {
+      return { error: "Somente o criador da tarefa pode alterá-la" };
+    }
     setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, ...data } : t)));
 
     try {
@@ -158,6 +225,9 @@ export function useWorkspaceTasks(viewAsUserId?: string) {
 
   async function deleteTask(id: string): Promise<{ error: string | null }> {
     const previous = tasks.find((t) => t.id === id);
+    if (!canEditTask(previous)) {
+      return { error: "Somente o criador da tarefa pode excluí-la" };
+    }
     setTasks((prev) => prev.filter((t) => t.id !== id));
 
     try {
@@ -174,6 +244,55 @@ export function useWorkspaceTasks(viewAsUserId?: string) {
     }
   }
 
+  function discardTask(id: string): {
+    error: string | null;
+    discarded: { task: WorkspaceTask; index: number } | null;
+  } {
+    const index = tasks.findIndex((task) => task.id === id);
+    const task = index >= 0 ? tasks[index] : null;
+    if (!task || !canEditTask(task)) {
+      return { error: "Somente o criador da tarefa pode descartá-la", discarded: null };
+    }
+    discardedTaskIdsRef.current.add(id);
+    setTasks((prev) => prev.filter((item) => item.id !== id));
+    return { error: null, discarded: { task, index } };
+  }
+
+  function restoreDiscardedTask(task: WorkspaceTask, index: number) {
+    discardedTaskIdsRef.current.delete(task.id);
+    setTasks((prev) => {
+      if (prev.some((item) => item.id === task.id)) return prev;
+      const insertionIndex = Math.max(0, Math.min(index, prev.length));
+      return [...prev.slice(0, insertionIndex), task, ...prev.slice(insertionIndex)];
+    });
+  }
+
+  async function commitDiscardedTask(task: WorkspaceTask, index: number): Promise<{ error: string | null }> {
+    try {
+      const res = await fetch(`/api/workspace/tasks/${task.id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const json = await res.json() as { error?: string };
+        discardedTaskIdsRef.current.delete(task.id);
+        restoreDiscardedTask(task, index);
+        return { error: json.error ?? "Erro ao descartar tarefa" };
+      }
+      discardedTaskIdsRef.current.delete(task.id);
+      return { error: null };
+    } catch (err) {
+      discardedTaskIdsRef.current.delete(task.id);
+      restoreDiscardedTask(task, index);
+      return { error: err instanceof Error ? err.message : "Erro ao descartar tarefa" };
+    }
+  }
+
+  function updateChecklistProgress(id: string, total: number, done: number) {
+    setTasks((prev) => prev.map((task) => task.id === id ? {
+      ...task,
+      checklist_total: Math.max(0, total),
+      checklist_done:  Math.max(0, Math.min(done, total)),
+    } : task));
+  }
+
   // ── Move (drag & drop) ─────────────────────────────────────────────────────
   // orderedIds: lista completa e ordenada de tarefas da coluna de destino
   // após o drop (a tarefa `id` deve estar incluída nela).
@@ -183,6 +302,10 @@ export function useWorkspaceTasks(viewAsUserId?: string) {
     targetStatus: WorkspaceTaskStatus,
     orderedIds: string[],
   ): Promise<{ error: string | null }> {
+    const task = tasks.find((item) => item.id === id);
+    if (!task || !canExecuteTask(task)) {
+      return { error: "Somente o criador ou um responsável pode mover esta tarefa" };
+    }
     const previousTasks = tasks;
 
     // Optimistic: aplica status + reindexa posição das tarefas da coluna afetada
@@ -198,6 +321,13 @@ export function useWorkspaceTasks(viewAsUserId?: string) {
       });
       return next;
     });
+
+    // A confirmação visual pertence à ação otimista do usuário e não deve
+    // esperar toda a cadeia do servidor (espelho do onboarding, histórico e
+    // notificações). Em caso de falha, o estado da tarefa ainda é revertido.
+    if (task.status !== "concluido" && targetStatus === "concluido") {
+      triggerCompletionCelebration();
+    }
 
     try {
       const res = await fetch(`/api/workspace/tasks/${id}/move`, {
@@ -217,33 +347,80 @@ export function useWorkspaceTasks(viewAsUserId?: string) {
     }
   }
 
-  function toggleComplete(id: string): Promise<{ error: string | null }> {
+  async function toggleComplete(id: string): Promise<{ error: string | null }> {
     const task = tasks.find((t) => t.id === id);
-    if (!task) return Promise.resolve({ error: "Tarefa não encontrada" });
-
-    if (task.status === "concluido") {
-      const column = tasksByStatus.a_fazer.map((t) => t.id);
-      return moveTask(id, "a_fazer", [id, ...column]);
+    if (!task) return { error: "Tarefa não encontrada" };
+    if (!canExecuteTask(task)) {
+      return { error: "Somente o criador ou um responsável pode concluir esta tarefa" };
     }
-    const column = tasksByStatus.concluido.map((t) => t.id);
-    return moveTask(id, "concluido", [...column, id]);
+
+    const previousTasks = tasks;
+    const completed = task.status !== "concluido";
+    const targetStatus: WorkspaceTaskStatus = completed ? "concluido" : "a_fazer";
+    setTasks((prev) => prev.map((item) => item.id === id ? {
+      ...item,
+      status: targetStatus,
+      completed_at: completed ? new Date().toISOString() : null,
+    } : item));
+    if (completed) triggerCompletionCelebration();
+
+    try {
+      const res = await fetch(`/api/workspace/tasks/${id}/completion`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ completed }),
+      });
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({})) as { error?: string };
+        setTasks(previousTasks);
+        return { error: json.error ?? "Erro ao atualizar conclusão" };
+      }
+      return { error: null };
+    } catch (err) {
+      setTasks(previousTasks);
+      return { error: err instanceof Error ? err.message : "Erro ao atualizar conclusão" };
+    }
   }
 
   function getTaskById(id: string): WorkspaceTask | undefined {
     return tasks.find((t) => t.id === id);
   }
 
+  function canEditTask(task: WorkspaceTask | undefined | null): boolean {
+    if (!task) return false;
+    // A API calcula esta permissão usando a sessão autenticada, sem depender
+    // do perfil de equipe ter terminado de carregar no cliente. O fallback
+    // mantém compatibilidade com objetos otimistas/antigos sem `can_edit`.
+    return task.can_edit ?? (!!member?.auth_user_id && task.created_by === member.auth_user_id);
+  }
+
+  function canExecuteTask(task: WorkspaceTask | undefined | null): boolean {
+    if (!task) return false;
+    // `can_edit` vem calculado pela API e continua funcionando mesmo durante
+    // o carregamento do perfil local. Responsáveis podem executar/mover, sem
+    // ganhar permissão para editar os campos administrativos da tarefa.
+    return canEditTask(task) || (!!member && task.assignee_ids.includes(member.id));
+  }
+
   return {
     tasks,
     tasksByStatus,
+    completionStats,
     isLoading,
     error,
     createTask,
     updateTask,
     deleteTask,
+    discardTask,
+    restoreDiscardedTask,
+    commitDiscardedTask,
+    updateChecklistProgress,
     moveTask,
     toggleComplete,
     getTaskById,
+    canEditTask,
+    canExecuteTask,
+    completionCelebrationId,
     refetch: fetchTasks,
   };
 }

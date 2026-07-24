@@ -10,6 +10,14 @@ const EMPTY_STATS: SubmissionStats = {
   total: 0, completed: 0, abandoned: 0, completionRate: 0, avgTimeOnFormMs: 0,
 };
 
+async function readListResponse(response: Response): Promise<SubmissionsListResponse> {
+  const payload = await response.json().catch(() => null) as (SubmissionsListResponse & { error?: string }) | null;
+  if (!response.ok) {
+    throw new Error(payload?.error ?? "Erro ao carregar respostas");
+  }
+  return payload ?? { items: [], nextCursor: null, stats: EMPTY_STATS };
+}
+
 function buildUrl(base: string, params: RespostasParams): string {
   const sp = new URLSearchParams();
   if (params.form_id)   sp.set("form_id",   params.form_id);
@@ -72,8 +80,8 @@ export function useRespostas(opts: UseRespostasOptions = {}): UseRespostasReturn
     setCursor(null);
     setHasMore(false);
 
-    fetch(buildUrl("/api/respostas", paramsRef.current))
-      .then(r => r.json())
+    fetch(buildUrl("/api/respostas", paramsRef.current), { cache: "no-store" })
+      .then(readListResponse)
       .then((res: SubmissionsListResponse) => {
         if (cancelled) return;
         setSubmissions(res.items ?? []);
@@ -97,6 +105,56 @@ export function useRespostas(opts: UseRespostasOptions = {}): UseRespostasReturn
     JSON.stringify({ ...params, cursor: undefined }),
   ]);
 
+  // A aba pode permanecer aberta enquanto uma pessoa responde ao formulário
+  // em outra janela. Escutamos as mudanças do formulário atual e também
+  // atualizamos ao retornar para a aba, cobrindo navegadores que suspendem a
+  // conexão realtime em segundo plano.
+  useEffect(() => {
+    if (!enabled) return;
+
+    const formId = paramsRef.current.form_id;
+    let refreshTimer: ReturnType<typeof setTimeout> | null = null;
+    let removeRealtime: (() => void) | null = null;
+    let disposed = false;
+
+    const scheduleRefresh = () => {
+      if (refreshTimer) clearTimeout(refreshTimer);
+      refreshTimer = setTimeout(() => setRev(current => current + 1), 180);
+    };
+
+    const changes = formId
+      ? { event: "*" as const, schema: "public", table: "form_submissions", filter: `form_id=eq.${formId}` }
+      : { event: "*" as const, schema: "public", table: "form_submissions" };
+
+    // O cliente realtime é carregado depois da primeira pintura para não
+    // aumentar o JavaScript crítico da página de respostas.
+    void import("@/lib/supabase").then(({ getSupabaseClient }) => {
+      const supabase = getSupabaseClient();
+      const channel = supabase
+        .channel(`form-responses-realtime-${formId ?? "all"}`)
+        .on("postgres_changes", changes, scheduleRefresh)
+        .subscribe();
+
+      removeRealtime = () => { void supabase.removeChannel(channel); };
+      if (disposed) removeRealtime();
+    });
+
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === "visible") scheduleRefresh();
+    };
+
+    window.addEventListener("focus", scheduleRefresh);
+    document.addEventListener("visibilitychange", refreshWhenVisible);
+
+    return () => {
+      disposed = true;
+      if (refreshTimer) clearTimeout(refreshTimer);
+      window.removeEventListener("focus", scheduleRefresh);
+      document.removeEventListener("visibilitychange", refreshWhenVisible);
+      removeRealtime?.();
+    };
+  }, [enabled, params.form_id]);
+
   // ── Load next page ────────────────────────────────────────────────────────────
 
   const loadMore = useCallback(() => {
@@ -104,8 +162,8 @@ export function useRespostas(opts: UseRespostasOptions = {}): UseRespostasReturn
     setIsFetching(true);
     setError(null);
 
-    fetch(buildUrl("/api/respostas", { ...paramsRef.current, cursor }))
-      .then(r => r.json())
+    fetch(buildUrl("/api/respostas", { ...paramsRef.current, cursor }), { cache: "no-store" })
+      .then(readListResponse)
       .then((res: SubmissionsListResponse) => {
         setSubmissions(prev => {
           const existingIds = new Set(prev.map(s => s.id));

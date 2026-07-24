@@ -9,6 +9,8 @@ import type {
 const DEFAULT_LIMIT = 50;
 const MAX_LIMIT     = 100;
 
+export const dynamic = "force-dynamic";
+
 type Row = Record<string, unknown>;
 
 // Only the columns used when building SubmissionListItem — avoids fetching
@@ -187,7 +189,11 @@ export async function GET(req: NextRequest) {
     : null;
 
   const response: SubmissionsListResponse = { items, nextCursor, stats };
-  return NextResponse.json(response);
+  return NextResponse.json(response, {
+    headers: {
+      "Cache-Control": "private, no-store, no-cache, must-revalidate, max-age=0",
+    },
+  });
 }
 
 // ── DELETE /api/respostas — exclusão em lote ──────────────────────────────────

@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Loader2, Settings } from "lucide-react";
+import { ClipboardCheck, Loader2, Settings, FilterX } from "lucide-react";
 import { Header } from "@/components/layout/Header";
 import { useWorkspaceTasks } from "@/hooks/useWorkspaceTasks";
 import { useWorkspaceViewing } from "@/context/WorkspaceViewingContext";
@@ -11,13 +12,43 @@ import { WorkspaceViewSwitcher, type WorkspaceView } from "@/components/workspac
 import { TaskBoard } from "@/components/workspace/TaskBoard";
 import { TaskListView } from "@/components/workspace/TaskListView";
 import { TaskDetailPanel } from "@/components/workspace/TaskDetailPanel";
+import { useTags } from "@/hooks/useTags";
+import { useUsers } from "@/hooks/useUsers";
+import { filterWorkspaceTasks, type WorkspaceTaskDueFilter } from "@/lib/workspace/task-filters";
+import { Button } from "@/components/ui/button";
+
+const filterClass = "h-9 shrink-0 rounded-xl border border-[var(--border)] bg-[var(--background)] px-3 text-xs text-[var(--text-title)] outline-none";
 
 export default function WorkspaceKanbanPage() {
+  const searchParams = useSearchParams();
   const { viewingMember } = useWorkspaceViewing();
   const tasksHook = useWorkspaceTasks(viewingMember?.auth_user_id ?? undefined);
   const [view, setView] = useState<WorkspaceView>("kanban");
   const [openTaskId, setOpenTaskId] = useState<string | null>(null);
   const [isPanelOpen, setIsPanelOpen] = useState(false);
+  const [tagFilter, setTagFilter] = useState("");
+  const [dueFilter, setDueFilter] = useState<WorkspaceTaskDueFilter>("");
+  const [assigneeFilter, setAssigneeFilter] = useState("");
+  const { tags } = useTags();
+  const { profiles } = useUsers();
+  const activeProfiles = profiles.filter((profile) => profile.is_active);
+
+  const filteredTasks = useMemo(() => {
+    return filterWorkspaceTasks(tasksHook.tasks, {
+      tagId: tagFilter,
+      due: dueFilter,
+      assigneeId: assigneeFilter,
+    }, tags);
+  }, [assigneeFilter, dueFilter, tagFilter, tags, tasksHook.tasks]);
+
+  const hasFilters = Boolean(tagFilter || dueFilter || assigneeFilter);
+
+  useEffect(() => {
+    const taskId = searchParams.get("task");
+    if (!taskId) return;
+    setOpenTaskId(taskId);
+    setIsPanelOpen(true);
+  }, [searchParams]);
 
   function openTask(taskId: string) {
     setOpenTaskId(taskId);
@@ -48,15 +79,37 @@ export default function WorkspaceKanbanPage() {
           >
             <Settings size={16} style={{ color: "var(--muted-foreground)" }} />
           </Link>
-          <motion.button
+          <Button
             onClick={openCreate}
-            whileHover={{ scale: 1.03 }}
-            whileTap={{ scale: 0.97 }}
-            className="lc-btn flex items-center gap-2 px-4 py-2 text-sm"
+            icon={<ClipboardCheck />}
+            size="medium"
+            signature
           >
-            <Plus size={16} strokeWidth={2.5} />
             Nova Tarefa
-          </motion.button>
+          </Button>
+        </div>
+      </div>
+
+      <div className="px-4 pb-4 sm:px-6">
+        <div className="flex items-center gap-2 overflow-x-auto overscroll-x-contain pb-1 [scrollbar-width:none]">
+          <select aria-label="Filtrar por etiqueta" value={tagFilter} onChange={(event) => setTagFilter(event.target.value)} className={filterClass}>
+            <option value="">Todas as etiquetas</option>
+            {tags.map((tag) => <option key={tag.id} value={tag.id}>{tag.name}</option>)}
+          </select>
+          <select aria-label="Filtrar por prazo" value={dueFilter} onChange={(event) => setDueFilter(event.target.value as WorkspaceTaskDueFilter)} className={filterClass}>
+            <option value="">Todos os prazos</option>
+            <option value="overdue">Atrasadas</option>
+            <option value="today">Vencem hoje</option>
+            <option value="next_7_days">Próximos 7 dias</option>
+            <option value="no_due_date">Sem prazo</option>
+          </select>
+          <select aria-label="Filtrar por responsável" value={assigneeFilter} onChange={(event) => setAssigneeFilter(event.target.value)} className={filterClass}>
+            <option value="">Todos os responsáveis</option>
+            <option value="unassigned">Sem responsável</option>
+            {activeProfiles.map((profile) => <option key={profile.id} value={profile.id}>{profile.full_name}</option>)}
+          </select>
+          {hasFilters && <button type="button" onClick={() => { setTagFilter(""); setDueFilter(""); setAssigneeFilter(""); }} className="flex h-9 shrink-0 items-center gap-1.5 rounded-xl px-3 text-xs text-[var(--muted-foreground)] hover:bg-[var(--hover)]"><FilterX size={13} />Limpar</button>}
+          {hasFilters && <span className="ml-auto shrink-0 text-[11px] text-[var(--muted-foreground)]">{filteredTasks.length} de {tasksHook.tasks.length}</span>}
         </div>
       </div>
 
@@ -70,15 +123,20 @@ export default function WorkspaceKanbanPage() {
             <p className="text-sm text-red-400">{tasksHook.error}</p>
           </div>
         ) : view === "kanban" ? (
-          <TaskBoard tasksHook={tasksHook} onOpenTask={openTask} />
+          <TaskBoard tasksHook={tasksHook} visibleTasks={filteredTasks} onOpenTask={openTask} />
         ) : (
-          <TaskListView tasksHook={tasksHook} onOpenTask={openTask} />
+          <TaskListView tasksHook={tasksHook} visibleTasks={filteredTasks} onOpenTask={openTask} />
         )}
       </div>
 
       <AnimatePresence>
         {isPanelOpen && (
-          <TaskDetailPanel taskId={openTaskId} tasksHook={tasksHook} onClose={closePanel} />
+          <TaskDetailPanel
+            taskId={openTaskId}
+            tasksHook={tasksHook}
+            onClose={closePanel}
+            presentation={openTaskId === null ? "modal" : "drawer"}
+          />
         )}
       </AnimatePresence>
     </div>

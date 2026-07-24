@@ -43,9 +43,9 @@ describe("INTEGRATION_CATALOG", () => {
     }
   });
 
-  it("webhook supports all events (*)", () => {
+  it("webhook monitors completed submissions", () => {
     const webhook = INTEGRATION_CATALOG.find(d => d.adapterName === "webhook")!;
-    expect(webhook.supportedEvents).toContain("*");
+    expect(webhook.supportedEvents).toEqual(["form.submission.completed"]);
   });
 
   it("webhook has hmac authType", () => {

@@ -1,14 +1,15 @@
 "use client";
 
-import { ButtonHTMLAttributes, forwardRef } from "react";
-import { cn } from "@/lib/utils";
+import { forwardRef, type ComponentPropsWithoutRef } from "react";
+import { Button } from "@/components/ui/button";
 
-type PrimaryButtonProps = ButtonHTMLAttributes<HTMLButtonElement>;
+type PrimaryButtonProps = ComponentPropsWithoutRef<typeof Button>;
 
+/** @deprecated Use Button diretamente. Mantido como alias sem implementação visual própria. */
 export const PrimaryButton = forwardRef<HTMLButtonElement, PrimaryButtonProps>(
-  ({ className, ...props }, ref) => (
-    <button ref={ref} className={cn("lc-btn", className)} {...props} />
-  )
+  ({ variant = "primary", ...props }, ref) => (
+    <Button ref={ref} variant={variant} {...props} />
+  ),
 );
 
 PrimaryButton.displayName = "PrimaryButton";

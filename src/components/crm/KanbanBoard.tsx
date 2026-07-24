@@ -14,7 +14,7 @@ import {
 } from "@dnd-kit/core";
 import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import { motion } from "framer-motion";
-import { ChevronDown, Cog, Loader2, Plus } from "lucide-react";
+import { ChevronDown, Cog, Loader2, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 
 import { useLeads, UNASSIGNED_STAGE_KEY } from "@/hooks/useLeads";
@@ -26,6 +26,9 @@ import { LeadCard } from "./LeadCard";
 import { LeadModal } from "./LeadModal";
 import { PeriodFilter, type DateFilter } from "./PeriodFilter";
 import { CrmSettingsModal } from "./settings/CrmSettingsModal";
+import { useCurrentMember } from "@/context/CurrentMemberContext";
+import { isAdministrativeMember } from "@/lib/user-access";
+import { Button } from "@/components/ui/button";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // KanbanBoard
@@ -57,6 +60,7 @@ export function KanbanBoard() {
     isLoading: leadsLoading,
     error,
     moveLead,
+    transferLead,
     createLead,
     updateLead,
     deleteLead,
@@ -67,12 +71,17 @@ export function KanbanBoard() {
     pipelines,
     isLoading: pipelinesLoading,
   } = usePipelines();
+  const { member, isOwner } = useCurrentMember();
+  const hasFullCrmAccess = isAdministrativeMember(member, isOwner === true);
 
   // ── Pipeline selection ─────────────────────────────────────────────────────
 
   const [selectedPipelineId, setSelectedPipelineId] = useState<string | null>(null);
 
-  const activePipelines = pipelines.filter((p) => p.is_active);
+  const visiblePipelines = hasFullCrmAccess
+    ? pipelines
+    : pipelines.filter((p) => p.id === member?.crm_pipeline_id);
+  const activePipelines = visiblePipelines.filter((p) => p.is_active);
 
   // Auto-seleciona o primeiro pipeline ativo na montagem
   useEffect(() => {
@@ -259,7 +268,9 @@ export function KanbanBoard() {
       <div className="flex flex-col items-center justify-center gap-3 py-24">
         <p className="text-sm text-[var(--muted-foreground)]">Nenhum pipeline ativo.</p>
         <p className="text-xs text-[var(--muted-foreground)]/60">
-          Crie ou ative um pipeline em Configurações → CRM.
+          {hasFullCrmAccess
+            ? "Crie ou ative um pipeline em Configurações → CRM."
+            : "Solicite a um administrador que defina sua pipeline de acesso."}
         </p>
       </div>
     );
@@ -268,9 +279,9 @@ export function KanbanBoard() {
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
-    <>
+    <div className="flex min-h-0 flex-1 flex-col">
       {/* Toolbar */}
-      <div className="mb-4 flex items-center justify-between gap-3 flex-wrap px-4 sm:px-6">
+      <div className="mb-4 flex flex-none items-center justify-between gap-3 flex-wrap px-4 sm:px-6">
         <div className="flex items-center gap-3 flex-wrap">
           {/* Lead count */}
           <p className="text-sm text-[var(--text-body)]">
@@ -291,7 +302,7 @@ export function KanbanBoard() {
           </p>
 
           {/* Pipeline selector — só exibe quando há mais de um pipeline ativo */}
-          {activePipelines.length > 1 && (
+          {hasFullCrmAccess && activePipelines.length > 1 && (
             <div className="relative">
               <select
                 value={selectedPipelineId ?? ""}
@@ -320,7 +331,7 @@ export function KanbanBoard() {
 
         <div className="flex items-center gap-2 flex-wrap">
           {/* CRM settings */}
-          {selectedPipeline && (
+          {hasFullCrmAccess && selectedPipeline && (
             <button
               type="button"
               onClick={() => setIsSettingsOpen(true)}
@@ -342,15 +353,14 @@ export function KanbanBoard() {
           {/* Period filter */}
           <PeriodFilter onChange={setDateFilter} />
 
-          <motion.button
+          <Button
             onClick={openCreateModal}
-            whileHover={{ scale: 1.03 }}
-            whileTap={{ scale: 0.97 }}
-            className="lc-btn flex items-center gap-2 px-4 py-2 text-sm"
+            icon={<UserPlus />}
+            size="medium"
+            signature
           >
-            <Plus size={16} strokeWidth={2.5} />
             Novo Lead
-          </motion.button>
+          </Button>
         </div>
       </div>
 
@@ -369,7 +379,7 @@ export function KanbanBoard() {
             borda) — na prática isso travava a rolagem e às vezes fazia ela
             "pular" pra última coluna assim que o snap vencia a disputa. */}
         <div
-          className="flex gap-4 overflow-x-auto px-4 pb-4 sm:px-6"
+          className="flex min-h-0 flex-1 items-stretch gap-4 overflow-x-auto overflow-y-hidden px-4 pb-4 sm:px-6"
           style={{
             scrollSnapType: activeId ? "none" : "x mandatory",
             WebkitOverflowScrolling: "touch",
@@ -382,7 +392,7 @@ export function KanbanBoard() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.4, delay: i * 0.06, ease: "easeOut" }}
               style={{ scrollSnapAlign: "start" }}
-              className="flex-shrink-0"
+              className="h-full flex-shrink-0"
             >
               <KanbanColumn
                 stage={stage}
@@ -403,7 +413,7 @@ export function KanbanBoard() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.4, delay: stages.length * 0.06, ease: "easeOut" }}
               style={{ scrollSnapAlign: "start" }}
-              className="flex-shrink-0"
+              className="h-full flex-shrink-0"
             >
               <KanbanColumn
                 stage={{
@@ -450,7 +460,7 @@ export function KanbanBoard() {
       {/* ── Observação obrigatória dialog ──────────────────────────────────── */}
       {pendingMove && (
         <div
-          className="fixed inset-0 z-[60] flex items-center justify-center p-4 lc-scrim"
+          className="lc-modal-backdrop fixed inset-0 z-[60] flex items-center justify-center p-4"
           style={{ background: "rgba(0,0,0,0.60)", backdropFilter: "blur(6px)" }}
         >
           <motion.div
@@ -528,12 +538,12 @@ export function KanbanBoard() {
         isOpen={isModalOpen}
         lead={editingLead}
         stages={stages}
-        pipelines={pipelines}
+        pipelines={visiblePipelines}
         onClose={closeModal}
         onCreate={createLead}
         onUpdate={updateLead}
         onDelete={deleteLead}
-        onMove={moveLead}
+        onTransfer={transferLead}
       />
 
       {/* CRM Settings modal */}
@@ -545,6 +555,6 @@ export function KanbanBoard() {
           onClose={() => setIsSettingsOpen(false)}
         />
       )}
-    </>
+    </div>
   );
 }

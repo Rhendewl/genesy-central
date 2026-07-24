@@ -2,9 +2,9 @@
 
 import { useState } from "react";
 import { X, Loader2 } from "lucide-react";
-import { useTags } from "@/hooks/useTags";
 import { useAgencyClients } from "@/hooks/useAgencyClients";
 import type { NewWorkspaceNoteFolder, WorkspaceNoteFolder } from "@/types/workspace-notes";
+import { GlassFolderIcon } from "@/components/ui/GlassFolderIcon";
 
 const COLOR_SWATCHES = ["#4a8fd4", "#6b9b6f", "#e0a344", "#e05c5c", "#9b7fe0", "#7c878e"];
 
@@ -16,27 +16,22 @@ interface FolderModalProps {
 }
 
 export function FolderModal({ folder, onClose, onSave, onDelete }: FolderModalProps) {
-  const { tags } = useTags();
   const { clients } = useAgencyClients();
+  const selectableClients = clients.filter((client) => client.status !== "churned" || client.id === folder?.client_id);
 
   const [name,     setName]     = useState(folder?.name ?? "");
   const [color,    setColor]    = useState<string | null>(folder?.color ?? null);
   const [clientId, setClientId] = useState<string | null>(folder?.client_id ?? null);
-  const [selectedTags, setSelectedTags] = useState<string[]>(folder?.tags ?? []);
   const [isSaving,      setIsSaving]      = useState(false);
   const [isDeleting,    setIsDeleting]    = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  function toggleTag(tagId: string) {
-    setSelectedTags((prev) => prev.includes(tagId) ? prev.filter((t) => t !== tagId) : [...prev, tagId]);
-  }
-
   async function handleSave() {
     if (!name.trim()) { setError("Nome é obrigatório"); return; }
     setIsSaving(true);
     setError(null);
-    const result = await onSave({ name: name.trim(), color, client_id: clientId, tags: selectedTags });
+    const result = await onSave({ name: name.trim(), color, client_id: clientId, tags: [] });
     setIsSaving(false);
     if (result.error) { setError(result.error); return; }
     onClose();
@@ -51,25 +46,27 @@ export function FolderModal({ folder, onClose, onSave, onDelete }: FolderModalPr
 
   return (
     <div
-      className="fixed inset-0 z-[60] flex items-center justify-center p-4 lc-scrim"
-      style={{ background: "rgba(0,0,0,0.60)", backdropFilter: "blur(6px)" }}
+      className="workspace-folder-modal-backdrop lc-modal-backdrop fixed inset-0 z-[60] flex items-center justify-center p-4"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-sm overflow-hidden rounded-2xl"
-        style={{ background: "var(--bg-modal)", border: "1px solid var(--border-modal)", boxShadow: "0 24px 64px var(--shadow-modal)" }}
+        className="lc-modal-panel max-h-[calc(100dvh-1rem)] w-full max-w-sm overflow-y-auto overscroll-contain rounded-2xl"
+        style={{ border: "1px solid var(--border-modal)", boxShadow: "0 24px 64px var(--shadow-modal)" }}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-5 pb-2 pt-5">
           <p className="text-sm font-semibold" style={{ color: "var(--text-title)" }}>
             {folder ? "Editar pasta" : "Nova pasta"}
           </p>
-          <button onClick={onClose} className="rounded p-1 hover:bg-[var(--hover)]">
+          <button onClick={onClose} aria-label="Fechar" className="flex h-9 w-9 items-center justify-center rounded-lg hover:bg-[var(--hover)]">
             <X size={16} style={{ color: "var(--muted-foreground)" }} />
           </button>
         </div>
 
         <div className="flex flex-col gap-4 px-5 py-4">
+          <div className="flex justify-center rounded-2xl py-2" style={{ background: `radial-gradient(circle, ${color ?? "#7c878e"}24 0%, transparent 68%)` }}>
+            <GlassFolderIcon color={color ?? "#7c878e"} className="h-24 w-28" />
+          </div>
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-medium" style={{ color: "var(--muted-foreground)" }}>Nome</label>
             <input
@@ -89,7 +86,7 @@ export function FolderModal({ folder, onClose, onSave, onDelete }: FolderModalPr
                 <button
                   key={c}
                   onClick={() => setColor(color === c ? null : c)}
-                  className="h-5 w-5 rounded-full transition-transform"
+                  className="h-8 w-8 rounded-full transition-transform sm:h-6 sm:w-6"
                   style={{
                     background: c,
                     transform:  color === c ? "scale(1.2)" : "scale(1)",
@@ -109,36 +106,11 @@ export function FolderModal({ folder, onClose, onSave, onDelete }: FolderModalPr
               style={{ background: "var(--hover)", border: "1px solid var(--glass-border)", color: "var(--text-title)" }}
             >
               <option value="">Nenhum cliente</option>
-              {clients.map((c) => (
+              {selectableClients.map((c) => (
                 <option key={c.id} value={c.id}>{c.name}</option>
               ))}
             </select>
           </div>
-
-          {tags.length > 0 && (
-            <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-medium" style={{ color: "var(--muted-foreground)" }}>Tags</label>
-              <div className="flex flex-wrap gap-1.5">
-                {tags.map((tag) => {
-                  const active = selectedTags.includes(tag.id);
-                  return (
-                    <button
-                      key={tag.id}
-                      onClick={() => toggleTag(tag.id)}
-                      className="rounded-full px-2.5 py-1 text-[11px] font-medium transition-all"
-                      style={{
-                        background: active ? `${tag.color}30` : "var(--hover)",
-                        color:      active ? tag.color : "var(--muted-foreground)",
-                        border:     `1px solid ${active ? tag.color + "50" : "var(--glass-border)"}`,
-                      }}
-                    >
-                      {tag.name}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
 
           {error && <p className="text-xs" style={{ color: "#e05c5c" }}>{error}</p>}
 

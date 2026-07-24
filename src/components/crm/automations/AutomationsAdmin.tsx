@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Plus, Loader2, AlertCircle } from "lucide-react";
+import { Zap, Loader2, AlertCircle } from "lucide-react";
 import { usePipelines } from "@/hooks/usePipelines";
 import { useCrmAutomations } from "@/hooks/useCrmAutomations";
 import { useWorkflowDashboard } from "@/hooks/useWorkflowDashboard";
@@ -11,6 +11,7 @@ import { AutomationFormModal } from "./AutomationFormModal";
 import { WorkflowDashboardCards } from "./WorkflowDashboardCards";
 import { ExecutionHistoryTable } from "./ExecutionHistoryTable";
 import { AutomationSelect } from "./AutomationSelect";
+import { Button } from "@/components/ui/button";
 
 export function AutomationsAdmin() {
   const { pipelines, isLoading: pipelinesLoading } = usePipelines();
@@ -105,14 +106,14 @@ export function AutomationsAdmin() {
           className="min-w-[180px]"
           options={activePipelines.map(p => ({ value: p.id, label: p.name }))}
         />
-        <button
+        <Button
           type="button" onClick={openCreate}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all hover:opacity-90 flex-shrink-0"
-          style={{ background: "#b0b8c1", color: "#000000" }}
+          icon={<Zap size={12} />}
+          signature
+          size="small"
         >
-          <Plus size={12} />
           Nova Automação
-        </button>
+        </Button>
       </div>
 
       <WorkflowDashboardCards stats={stats} />

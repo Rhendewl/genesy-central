@@ -22,11 +22,23 @@ interface PushSubscriptionRow {
   auth_key: string;
 }
 
+export interface PushDispatchResult {
+  subscriptions: number;
+  accepted:      number;
+  failed:        number;
+  removed:       number;
+  skippedReason?: "no_subscriptions" | "vapid_not_configured";
+}
+
+export interface PushNotificationOptions {
+  icon?: string;
+  tag?:  string;
+  url?:  string;
+}
+
 let vapidConfigured = false;
 
 function ensureVapidConfigured(): boolean {
-  if (vapidConfigured) return true;
-
   const subject    = process.env.VAPID_SUBJECT;
   const publicKey  = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
   const privateKey = process.env.VAPID_PRIVATE_KEY;
@@ -35,6 +47,8 @@ function ensureVapidConfigured(): boolean {
     console.warn("[push-dispatcher] VAPID env vars missing; push delivery skipped.");
     return false;
   }
+
+  if (vapidConfigured) return true;
 
   webpush.setVapidDetails(subject, publicKey, privateKey);
   vapidConfigured = true;
@@ -45,12 +59,17 @@ async function sendPushNotification(
   sub:   PushSubscriptionRow,
   title: string,
   body:  string,
+  options: PushNotificationOptions,
 ): Promise<void> {
-  if (!ensureVapidConfigured()) return;
-
   await webpush.sendNotification(
     { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth_key } },
-    JSON.stringify({ title, body, icon: "/favicon.png", tag: "genesy-workflow" }),
+    JSON.stringify({
+      title,
+      body,
+      icon: options.icon ?? "/favicon.png",
+      tag:  options.tag ?? "genesy-workflow",
+      url:  options.url ?? "/",
+    }),
   );
 }
 
@@ -65,18 +84,33 @@ export async function dispatchPushToUser(
   userId: string,
   title:  string,
   body:   string,
-): Promise<void> {
-  const { data: subs } = await db
+  options: PushNotificationOptions = {},
+): Promise<PushDispatchResult> {
+  const { data: subs, error: subscriptionsError } = await db
     .from("push_subscriptions")
     .select("endpoint, p256dh, auth_key")
     .eq("user_id", userId);
 
-  if (!subs?.length) return;
+  if (subscriptionsError) throw new Error(`Erro ao buscar dispositivos: ${subscriptionsError.message}`);
+  if (!subs?.length) {
+    return { subscriptions: 0, accepted: 0, failed: 0, removed: 0, skippedReason: "no_subscriptions" };
+  }
+  if (!ensureVapidConfigured()) {
+    return {
+      subscriptions: subs.length,
+      accepted: 0,
+      failed: 0,
+      removed: 0,
+      skippedReason: "vapid_not_configured",
+    };
+  }
+
+  let removed = 0;
 
   const results = await Promise.allSettled(
     subs.map(async (sub) => {
       try {
-        await sendPushNotification(sub as PushSubscriptionRow, title, body);
+        await sendPushNotification(sub as PushSubscriptionRow, title, body, options);
       } catch (err) {
         const statusCode = typeof err === "object" && err !== null && "statusCode" in err
           ? Number((err as { statusCode?: number }).statusCode)
@@ -84,6 +118,7 @@ export async function dispatchPushToUser(
 
         if (statusCode === 404 || statusCode === 410) {
           await db.from("push_subscriptions").delete().eq("endpoint", (sub as PushSubscriptionRow).endpoint);
+          removed++;
         }
 
         throw err;
@@ -95,4 +130,11 @@ export async function dispatchPushToUser(
   if (rejected.length > 0) {
     console.warn(`[push-dispatcher] ${rejected.length}/${results.length} push deliveries failed.`);
   }
+
+  return {
+    subscriptions: results.length,
+    accepted: results.length - rejected.length,
+    failed: rejected.length,
+    removed,
+  };
 }

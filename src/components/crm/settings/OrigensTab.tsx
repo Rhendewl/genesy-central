@@ -1,12 +1,13 @@
 "use client";
 
-import { ChevronLeft, Eye, EyeOff, Loader2, Pencil, Plus, Trash2 } from "lucide-react";
+import { ChevronLeft, Eye, EyeOff, Globe, Loader2, Pencil, Plus, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import type {
   CrmConversionSource,
   NewCrmConversionSource,
   UpdateCrmConversionSource,
 } from "@/types/crm";
+import { Button } from "@/components/ui/button";
 
 const MASKED = "__masked__";
 
@@ -345,15 +346,15 @@ export function OrigensTab({ pipelineId, sources, onCreate, onUpdate, onDelete }
             ? "Nenhuma origem configurada"
             : `${sources.length} origem${sources.length !== 1 ? "s" : ""}`}
         </p>
-        <button
+        <Button
           type="button"
           onClick={() => setEditing("new")}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium hover:opacity-90 transition-opacity"
-          style={{ background: "#b0b8c1", color: "#000000" }}
+          icon={<Globe size={12} />}
+          signature
+          size="small"
         >
-          <Plus size={12} />
           Nova Origem
-        </button>
+        </Button>
       </div>
 
       {/* Empty state */}

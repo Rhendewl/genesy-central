@@ -3,11 +3,52 @@
 import { useCallback, useRef, useState } from "react";
 import { Upload, X, Loader2, Image as ImageIcon } from "lucide-react";
 
+async function optimizeBanner(file: File): Promise<File> {
+  if (typeof document === "undefined" || typeof createImageBitmap !== "function") return file;
+
+  const bitmap = await createImageBitmap(file);
+  try {
+    const variants = [
+      { maxWidth: 1200, quality: 0.78 },
+      { maxWidth: 1000, quality: 0.74 },
+      { maxWidth: 800, quality: 0.72 },
+    ];
+    const targetBytes = 180 * 1024;
+    let bestBlob: Blob | null = null;
+
+    for (const variant of variants) {
+      const scale = Math.min(1, variant.maxWidth / bitmap.width);
+      const width = Math.max(1, Math.round(bitmap.width * scale));
+      const height = Math.max(1, Math.round(bitmap.height * scale));
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) continue;
+      ctx.drawImage(bitmap, 0, 0, width, height);
+
+      const blob = await new Promise<Blob | null>(resolve =>
+        canvas.toBlob(resolve, "image/webp", variant.quality),
+      );
+      if (!blob) continue;
+      if (!bestBlob || blob.size < bestBlob.size) bestBlob = blob;
+      if (blob.size <= targetBytes) break;
+    }
+
+    if (!bestBlob || bestBlob.size >= file.size) return file;
+    const baseName = file.name.replace(/\.[^.]+$/, "") || "banner";
+    return new File([bestBlob], `${baseName}.webp`, { type: "image/webp", lastModified: Date.now() });
+  } finally {
+    bitmap.close();
+  }
+}
+
 interface WelcomeImageUploadProps {
   formId: string;
   imageUrl?: string;
   onUpload: (url: string) => void;
   onRemove: () => void;
+  kind?: "image" | "banner";
 }
 
 export function WelcomeImageUpload({
@@ -15,6 +56,7 @@ export function WelcomeImageUpload({
   imageUrl,
   onUpload,
   onRemove,
+  kind = "image",
 }: WelcomeImageUploadProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -24,9 +66,13 @@ export function WelcomeImageUpload({
   const upload = useCallback(async (file: File) => {
     setError(null);
 
-    const ACCEPTED = ["image/png", "image/jpeg", "image/webp", "image/svg+xml", "image/gif"];
+    const ACCEPTED = kind === "banner"
+      ? ["image/png", "image/jpeg", "image/webp"]
+      : ["image/png", "image/jpeg", "image/webp", "image/svg+xml", "image/gif"];
     if (!ACCEPTED.includes(file.type)) {
-      setError("Formato não suportado. Use PNG, JPG, WebP, SVG ou GIF.");
+      setError(kind === "banner"
+        ? "Formato não suportado. Use PNG, JPG ou WebP."
+        : "Formato não suportado. Use PNG, JPG, WebP, SVG ou GIF.");
       return;
     }
     if (file.size > 5 * 1024 * 1024) {
@@ -36,11 +82,15 @@ export function WelcomeImageUpload({
 
     setIsUploading(true);
     try {
+      const fileToUpload = kind === "banner"
+        ? await optimizeBanner(file).catch(() => file)
+        : file;
+
       // 1. Obter signed URL
       const res = await fetch(`/api/formularios/${formId}/imagens`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nome_arquivo: file.name, mime_type: file.type }),
+        body: JSON.stringify({ nome_arquivo: fileToUpload.name, mime_type: fileToUpload.type }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "Erro ao gerar URL de upload");
@@ -48,8 +98,11 @@ export function WelcomeImageUpload({
       // 2. Upload direto para Supabase Storage
       const uploadRes = await fetch(json.signed_url, {
         method: "PUT",
-        headers: { "Content-Type": file.type },
-        body: file,
+        headers: {
+          "Content-Type": fileToUpload.type,
+          "Cache-Control": "max-age=31536000",
+        },
+        body: fileToUpload,
       });
       if (!uploadRes.ok) throw new Error("Falha no upload do arquivo");
 
@@ -59,7 +112,7 @@ export function WelcomeImageUpload({
     } finally {
       setIsUploading(false);
     }
-  }, [formId, onUpload]);
+  }, [formId, kind, onUpload]);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -88,13 +141,13 @@ export function WelcomeImageUpload({
         >
           <img
             src={imageUrl}
-            alt="Imagem de boas-vindas"
-            className="w-full h-full object-contain"
+            alt={kind === "banner" ? "Banner de boas-vindas" : "Imagem de boas-vindas"}
+            className={`w-full h-full ${kind === "banner" ? "object-cover" : "object-contain"}`}
           />
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-xs font-medium truncate" style={{ color: "var(--text-title)" }}>
-            Imagem carregada
+            {kind === "banner" ? "Banner carregado" : "Imagem carregada"}
           </p>
           <button
             type="button"
@@ -114,7 +167,7 @@ export function WelcomeImageUpload({
         >
           <X size={14} style={{ color: "#ef4444" }} />
         </button>
-        <input ref={inputRef} type="file" accept="image/*" className="sr-only" onChange={handleFileChange} />
+        <input ref={inputRef} type="file" accept={kind === "banner" ? ".webp,.png,.jpg,.jpeg,image/webp,image/png,image/jpeg" : "image/*"} className="sr-only" onChange={handleFileChange} />
       </div>
     );
   }
@@ -136,7 +189,7 @@ export function WelcomeImageUpload({
           border: `1.5px dashed ${isDragging ? "#404549" : "rgba(255,255,255,0.12)"}`,
           background: isDragging ? "rgba(64,69,73,0.06)" : "rgba(255,255,255,0.02)",
         }}
-        aria-label="Área para upload de imagem ou logo"
+        aria-label={kind === "banner" ? "Área para upload do banner" : "Área para upload de imagem ou logo"}
       >
         {isUploading ? (
           <>
@@ -157,16 +210,16 @@ export function WelcomeImageUpload({
             </div>
             <div>
               <p className="text-xs font-medium" style={{ color: "var(--text-title)" }}>
-                Clique ou arraste uma imagem
+                {kind === "banner" ? "Clique ou arraste um banner" : "Clique ou arraste uma imagem"}
               </p>
               <p className="text-[10px] mt-0.5" style={{ color: "var(--muted-foreground)" }}>
-                PNG, JPG, WebP, SVG — máx. 5 MB
+                {kind === "banner" ? "PNG, JPG ou WebP — máx. 5 MB" : "PNG, JPG, WebP, SVG — máx. 5 MB"}
               </p>
             </div>
           </>
         )}
       </button>
-      <input ref={inputRef} type="file" accept="image/*" className="sr-only" onChange={handleFileChange} />
+      <input ref={inputRef} type="file" accept={kind === "banner" ? ".webp,.png,.jpg,.jpeg,image/webp,image/png,image/jpeg" : "image/*"} className="sr-only" onChange={handleFileChange} />
       {error && (
         <p className="text-[10px]" style={{ color: "#ef4444" }}>{error}</p>
       )}

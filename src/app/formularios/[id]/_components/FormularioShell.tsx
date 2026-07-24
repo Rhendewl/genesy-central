@@ -23,6 +23,7 @@ const TABS = [
   { label: "Respostas",     suffix: "/respostas"     },
   { label: "Insights",      suffix: "/insights"      },
   { label: "Configurações", suffix: "/configuracoes" },
+  { label: "Integrações",   suffix: "/integracoes"   },
 ] as const;
 
 // ── Badge de status ────────────────────────────────────────────────────────────

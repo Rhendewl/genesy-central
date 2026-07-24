@@ -18,8 +18,20 @@ export async function GET(_req: NextRequest, { params }: Params) {
     .single();
 
   if (error || !form) {
-    return NextResponse.json({ error: "Formulário não encontrado ou não publicado" }, { status: 404 });
+    return NextResponse.json(
+      { error: "Formulário não encontrado ou não publicado" },
+      { status: 404, headers: { "Cache-Control": "public, s-maxage=15, stale-while-revalidate=30" } },
+    );
   }
 
-  return NextResponse.json({ formulario: form });
+  return NextResponse.json(
+    { formulario: form },
+    {
+      headers: {
+        // O conteúdo publicado é igual para todos os visitantes. A borda pode
+        // servi-lo sem nova consulta, mantendo uma janela curta para edições.
+        "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300",
+      },
+    },
+  );
 }

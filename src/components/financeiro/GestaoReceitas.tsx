@@ -107,13 +107,13 @@ function ReceitaModal({ revenue, onClose, onSave, clients }: ModalProps) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="absolute inset-0 bg-black/[0.03] backdrop-blur-sm" />
+      <div className="lc-modal-backdrop absolute inset-0" />
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.95 }}
         transition={{ duration: 0.2 }}
-        className="lc-modal-panel relative w-full max-w-lg rounded-2xl p-6 space-y-4 max-h-[90vh] overflow-y-auto"
+        className="lc-modal-panel relative max-h-[calc(100dvh-2rem)] w-full max-w-lg space-y-4 overflow-y-auto overscroll-contain rounded-2xl p-5 sm:p-6"
         onClick={e => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-2">
@@ -301,7 +301,7 @@ export function GestaoReceitas({ year, month }: Props) {
   const { revenues, isLoading, createRevenue, updateRevenue, deleteRevenue, markAsPaid } =
     useReceitas(monthStart, monthEnd);
   const { revenues: prevRevenues } = useReceitas(prevStart, prevEnd);
-  const { clients } = useAgencyClients();
+  const { clients, assignableClients } = useAgencyClients();
 
   const [search,      setSearch]      = useState("");
   const [filterType,  setFilterType]  = useState<RevenueType | "todos">("todos");
@@ -817,9 +817,8 @@ export function GestaoReceitas({ year, month }: Props) {
           )}
         </div>
 
-        <PrimaryButton onClick={() => setModal({ open: true })}
-          className="flex items-center gap-2 px-4 py-2 text-sm shrink-0">
-          <Plus size={15} />
+        <PrimaryButton onClick={() => setModal({ open: true })} signature size="medium">
+          <TrendingUp size={15} />
           Nova Receita
         </PrimaryButton>
       </motion.div>
@@ -967,7 +966,9 @@ export function GestaoReceitas({ year, month }: Props) {
             revenue={modal.revenue}
             onClose={() => setModal({ open: false })}
             onSave={handleSave}
-            clients={clients}
+            clients={modal.revenue
+              ? clients.filter((client) => client.status !== "churned" || client.id === modal.revenue?.client_id)
+              : assignableClients}
           />
         )}
       </AnimatePresence>
