@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getSupabaseClient } from "@/lib/supabase";
 import { useCurrentMember } from "@/context/CurrentMemberContext";
+import { uniqueWorkspaceTasks, upsertWorkspaceTask } from "@/lib/workspace/task-state";
 import type {
   WorkspaceTask, NewWorkspaceTask, UpdateWorkspaceTask, WorkspaceTaskStatus,
 } from "@/types/workspace";
@@ -98,7 +99,9 @@ export function useWorkspaceTasks(viewAsUserId?: string) {
       comment_count:   commentCounts.get(t.id) ?? 0,
     }));
 
-    setTasks(enriched.filter((task) => !discardedTaskIdsRef.current.has(task.id)));
+    setTasks(uniqueWorkspaceTasks(
+      enriched.filter((task) => !discardedTaskIdsRef.current.has(task.id)),
+    ));
   }, [supabase, viewAsUserId]);
 
   const scheduleRealtimeRefresh = useCallback(() => {
@@ -185,13 +188,13 @@ export function useWorkspaceTasks(viewAsUserId?: string) {
       const json = await res.json() as { task?: WorkspaceTask; error?: string };
       if (!res.ok || !json.task) return { error: json.error ?? "Erro ao criar tarefa", task: null };
 
-      setTasks((prev) => [...prev, {
+      setTasks((prev) => upsertWorkspaceTask(prev, {
         ...json.task!,
         assignee_ids:    json.task!.assignee_ids ?? [],
         checklist_total: 0,
         checklist_done:  0,
         comment_count:   0,
-      }]);
+      }));
       return { error: null, task: json.task };
     } catch (err) {
       return { error: err instanceof Error ? err.message : "Erro ao criar tarefa", task: null };
