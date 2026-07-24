@@ -60,7 +60,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   if (!body) return NextResponse.json({ error: "Corpo inválido" }, { status: 400 });
 
   const patch: Record<string, unknown> = {};
-  for (const key of ["title", "description", "priority", "tags", "due_date", "due_time", "color", "notes"] as const) {
+  for (const key of ["board_id", "title", "description", "priority", "tags", "due_date", "due_time", "color", "notes"] as const) {
     if (key in body) patch[key] = body[key];
   }
 
@@ -75,6 +75,26 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     if (beforeTaskError) throw new Error(beforeTaskError.message);
     if (beforeAssigneesError) throw new Error(beforeAssigneesError.message);
     if (!beforeTask) return NextResponse.json({ error: "Tarefa não encontrada" }, { status: 404 });
+
+    if (body.board_id && body.board_id !== beforeTask.board_id) {
+      const { data: targetBoard, error: targetBoardError } = await supabase
+        .from("workspace_task_boards")
+        .select("id")
+        .eq("id", body.board_id)
+        .maybeSingle();
+      if (targetBoardError) throw new Error(targetBoardError.message);
+      if (!targetBoard) return NextResponse.json({ error: "Workspace de destino inválido" }, { status: 400 });
+
+      const { data: lastTask } = await supabase
+        .from("workspace_tasks")
+        .select("position")
+        .eq("board_id", body.board_id)
+        .eq("status", beforeTask.status)
+        .order("position", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      patch.position = (lastTask?.position ?? -10) + 10;
+    }
 
     let data = beforeTask;
     if (Object.keys(patch).length > 0) {
@@ -106,6 +126,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       if (newAssigneeIds.length > 0) {
         await getPlatformEventBus().publish("task.assigned", {
           taskId:      data.id,
+          boardId:     data.board_id,
           taskTitle:   data.title,
           assigneeIds: newAssigneeIds,
           actorUserId: user.id,

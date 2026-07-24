@@ -68,6 +68,7 @@ function assignmentEvent(): BusEvent {
     meta: {},
     payload: {
       taskId: "77e68ad9-b334-42f5-8371-198e4a808d60",
+      boardId: "4a89ad89-6cb0-4141-864c-ea4248cd4262",
       taskTitle: "Preparar campanha",
       assigneeIds: ["profile-1"],
       actorUserId: "actor-auth",
@@ -96,7 +97,7 @@ describe("workspace task notification consumer", () => {
         source: "workspace_task",
         task_id: "77e68ad9-b334-42f5-8371-198e4a808d60",
         event_id: "b7cc4817-3630-4b69-9ec6-2aafce0487b4",
-        action_url: "/workspace/kanban?task=77e68ad9-b334-42f5-8371-198e4a808d60",
+        action_url: "/workspace/kanban?board=4a89ad89-6cb0-4141-864c-ea4248cd4262&task=77e68ad9-b334-42f5-8371-198e4a808d60",
       }),
     ]);
     expect(pushMock).toHaveBeenCalledWith(
@@ -104,7 +105,9 @@ describe("workspace task notification consumer", () => {
       "recipient-auth",
       "Nova tarefa atribuída",
       expect.stringContaining("Preparar campanha"),
-      expect.objectContaining({ url: "/workspace/kanban?task=77e68ad9-b334-42f5-8371-198e4a808d60" }),
+      expect.objectContaining({
+        url: "/workspace/kanban?board=4a89ad89-6cb0-4141-864c-ea4248cd4262&task=77e68ad9-b334-42f5-8371-198e4a808d60",
+      }),
     );
     expect(updates).toEqual([
       expect.objectContaining({ push_status: "accepted", push_subscriptions: 1, push_accepted: 1 }),

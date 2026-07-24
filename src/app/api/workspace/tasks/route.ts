@@ -17,6 +17,7 @@ export async function GET(req: NextRequest) {
   const dueBefore   = url.searchParams.get("due_before")   ?? undefined;
   const dueAfter    = url.searchParams.get("due_after")    ?? undefined;
   const search      = url.searchParams.get("search")       ?? undefined;
+  const boardId     = url.searchParams.get("board_id")     ?? undefined;
   // De quem é este Workspace — o próprio usuário por padrão, ou (se a RLS
   // permitir, isto é, se quem pede for admin da mesma organização) um colega
   // sendo visualizado via Painel Equipe. Nunca deixamos a query sem esse
@@ -51,6 +52,7 @@ export async function GET(req: NextRequest) {
     if (dueBefore) query = query.lte("due_date", dueBefore);
     if (dueAfter)  query = query.gte("due_date", dueAfter);
     if (search)    query = query.ilike("title", `%${search}%`);
+    if (boardId)   query = query.eq("board_id", boardId);
 
     if (assigneeId) {
       const { data: rows } = await supabase
@@ -105,11 +107,13 @@ export async function POST(req: NextRequest) {
     // Escopado por user_id (o dono real da coluna, não quem está logado) —
     // sem isso, a visão ampliada de um admin (is_admin_of_user na RLS)
     // misturaria a posição de tarefas de outras pessoas neste cálculo.
-    const { data: maxRow } = await supabase
+    let maxPositionQuery = supabase
       .from("workspace_tasks")
       .select("position")
       .eq("status", status)
-      .eq("user_id", body.user_id ?? user.id)
+      .eq("user_id", body.user_id ?? user.id);
+    if (body.board_id) maxPositionQuery = maxPositionQuery.eq("board_id", body.board_id);
+    const { data: maxRow } = await maxPositionQuery
       .order("position", { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -124,6 +128,7 @@ export async function POST(req: NextRequest) {
         // sem isso, o trigger auto_set_own_id preenche com o próprio uid.
         ...(body.user_id ? { user_id: body.user_id } : {}),
         created_by:  user.id,
+        ...(body.board_id ? { board_id: body.board_id } : {}),
         title:       body.title,
         description: body.description ?? null,
         status,
@@ -149,6 +154,7 @@ export async function POST(req: NextRequest) {
 
       await getPlatformEventBus().publish("task.assigned", {
         taskId:      data.id,
+        boardId:     data.board_id,
         taskTitle:   data.title,
         assigneeIds,
         actorUserId: user.id,

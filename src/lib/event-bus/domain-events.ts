@@ -181,6 +181,7 @@ export type BookingNoShowPayload    = BookingEventPayload;
 
 export interface TaskAssignedPayload {
   taskId:      string;
+  boardId?:    string | null;
   taskTitle:   string;
   assigneeIds: string[];
   actorUserId: string;
@@ -190,6 +191,7 @@ export interface TaskAssignedPayload {
 
 export interface TaskStatusChangedPayload {
   taskId:      string;
+  boardId?:    string | null;
   taskTitle:   string;
   assigneeIds: string[];
   actorUserId: string;

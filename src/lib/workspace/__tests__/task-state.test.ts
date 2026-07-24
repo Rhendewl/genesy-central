@@ -7,6 +7,7 @@ function task(id: string, title: string): WorkspaceTask {
     id,
     user_id: "owner-1",
     created_by: "owner-1",
+    board_id: "board-1",
     title,
     description: null,
     status: "a_fazer",

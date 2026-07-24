@@ -15,7 +15,7 @@ import { CommentsThread } from "./CommentsThread";
 import { AttachmentsField, uploadAttachmentFile, type AttachmentRegistrationPayload } from "./AttachmentsField";
 import { DescriptionEditorDialog, DescriptionPreviewButton } from "./DescriptionEditorDialog";
 import { TagSelector } from "@/components/tags/TagSelector";
-import { WORKSPACE_TASK_PRIORITIES, type WorkspaceTaskPriority } from "@/types/workspace";
+import { WORKSPACE_TASK_PRIORITIES, type WorkspaceTaskBoard, type WorkspaceTaskPriority } from "@/types/workspace";
 import type { useWorkspaceTasks } from "@/hooks/useWorkspaceTasks";
 
 const COLOR_SWATCHES = ["#4a8fd4", "#6b9b6f", "#e0a344", "#e05c5c", "#9b7fe0", "#7c878e"];
@@ -25,15 +25,16 @@ interface TaskDetailPanelProps {
   tasksHook:  ReturnType<typeof useWorkspaceTasks>;
   onClose:    () => void;
   presentation?: "drawer" | "modal";
+  boards?: WorkspaceTaskBoard[];
 }
 
-export function TaskDetailPanel({ taskId, tasksHook, onClose, presentation = "drawer" }: TaskDetailPanelProps) {
+export function TaskDetailPanel({ taskId, tasksHook, onClose, presentation = "drawer", boards = [] }: TaskDetailPanelProps) {
   useModalOpen(true);
   const { getTaskById, updateTask, deleteTask, createTask, canEditTask, canExecuteTask } = tasksHook;
   const taskDetailHook = useWorkspaceTaskDetail(taskId);
 
   const isCreating = taskId === null;
-  const existingTask = taskId ? getTaskById(taskId) : null;
+  const existingTask = taskId ? (getTaskById(taskId) ?? taskDetailHook.detail) : null;
   const canEdit = isCreating || canEditTask(existingTask);
   const canExecute = isCreating || canExecuteTask(existingTask);
   const isModal = presentation === "modal";
@@ -41,6 +42,7 @@ export function TaskDetailPanel({ taskId, tasksHook, onClose, presentation = "dr
   const [title,       setTitle]       = useState("");
   const [description, setDescription] = useState("");
   const [priority,    setPriority]    = useState<WorkspaceTaskPriority>("media");
+  const [boardId,     setBoardId]     = useState(tasksHook.activeBoardId ?? "");
   const [assigneeIds, setAssigneeIds] = useState<string[]>([]);
   const [dueDate,     setDueDate]     = useState<string | null>(null);
   const [dueTime,     setDueTime]     = useState<string | null>(null);
@@ -71,6 +73,7 @@ export function TaskDetailPanel({ taskId, tasksHook, onClose, presentation = "dr
       setTitle(existingTask.title);
       setDescription(existingTask.description ?? "");
       setPriority(existingTask.priority);
+      setBoardId(existingTask.board_id);
       setAssigneeIds(existingTask.assignee_ids);
       setDueDate(existingTask.due_date);
       setDueTime(existingTask.due_time);
@@ -82,7 +85,7 @@ export function TaskDetailPanel({ taskId, tasksHook, onClose, presentation = "dr
 
   function saveField(patch: Partial<{
     title: string; description: string; priority: WorkspaceTaskPriority; assignee_ids: string[];
-    due_date: string | null; due_time: string | null; color: string | null; notes: string; tags: string[];
+    board_id: string; due_date: string | null; due_time: string | null; color: string | null; notes: string; tags: string[];
   }>) {
     if (!taskId || !canEdit) return;
     void updateTask(taskId, patch);
@@ -93,6 +96,7 @@ export function TaskDetailPanel({ taskId, tasksHook, onClose, presentation = "dr
     setIsSaving(true);
     const result = await createTask({
       title: title.trim(), description: description || undefined, priority,
+      board_id: boardId || undefined,
       assignee_ids: assigneeIds, due_date: dueDate ?? undefined, due_time: dueTime ?? undefined,
       color: color ?? undefined, notes: notes || undefined, tags: taskTags,
     });
@@ -228,6 +232,19 @@ export function TaskDetailPanel({ taskId, tasksHook, onClose, presentation = "dr
     if (result.error) toast.error(result.error);
   }
 
+  async function handleBoardChange(nextBoardId: string) {
+    setBoardId(nextBoardId);
+    if (isCreating || !taskId || !canEdit) return;
+    const result = await updateTask(taskId, { board_id: nextBoardId });
+    if (result.error) {
+      setBoardId(existingTask?.board_id ?? "");
+      toast.error(result.error);
+      return;
+    }
+    toast.success("Tarefa movida para outro workspace");
+    onClose();
+  }
+
   function handleDescriptionOpenChange(open: boolean) {
     setDescriptionOpen(open);
     if (!open && !isCreating && canEdit && description !== (existingTask?.description ?? "")) {
@@ -350,6 +367,24 @@ export function TaskDetailPanel({ taskId, tasksHook, onClose, presentation = "dr
               readOnly={!canEdit}
               autoFocus={canEdit}
             />
+
+            {boards.length > 1 && (
+              <div>
+                <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide" style={{ color: "var(--muted-foreground)" }}>
+                  Workspace
+                </p>
+                <select
+                  value={boardId}
+                  onChange={(event) => void handleBoardChange(event.target.value)}
+                  disabled={!canEdit}
+                  className="h-10 w-full rounded-xl border border-[var(--glass-border)] bg-[var(--input-bg)] px-3 text-sm text-[var(--text-title)] outline-none disabled:opacity-70"
+                >
+                  {boards.map((board) => (
+                    <option key={board.id} value={board.id}>{board.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             <div>
               <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide" style={{ color: "var(--muted-foreground)" }}>

@@ -117,7 +117,7 @@ export async function createWorkspaceTaskForMarketing(
       notes: "Tarefa criada automaticamente pelo calendário de Marketing.",
       position: (maxRow?.position ?? -10) + 10,
     })
-    .select("id,title,priority,due_date")
+    .select("id,title,priority,due_date,board_id")
     .single();
   if (error) throw new Error(error.message);
 
@@ -132,6 +132,7 @@ export async function createWorkspaceTaskForMarketing(
     try {
       await getPlatformEventBus().publish("task.assigned", {
         taskId: task.id,
+        boardId: task.board_id,
         taskTitle: task.title,
         assigneeIds,
         actorUserId: context.user.id,

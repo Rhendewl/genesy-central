@@ -18,6 +18,7 @@ import { ConsumerPriority } from "@/lib/event-bus/types";
 import type { EventConsumer } from "@/lib/event-bus/types";
 import type { TaskAssignedPayload, TaskStatusChangedPayload } from "@/lib/event-bus/domain-events";
 import { dispatchPushToUser } from "@/lib/notifications/push-dispatcher";
+import { buildWorkspaceTaskActionUrl } from "@/lib/workspace/task-notification-url";
 import { WORKSPACE_TASK_PRIORITIES, WORKSPACE_TASK_STATUSES } from "@/types/workspace";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -49,6 +50,7 @@ async function notifyAssignees(
   title:       string,
   body:        string,
   taskId:      string,
+  boardId:     string | null | undefined,
   eventId:     string,
 ): Promise<void> {
   if (assigneeIds.length === 0) return;
@@ -74,7 +76,7 @@ async function notifyAssignees(
     // comportamento padrão da tabela, que nasce com todos os switches ligados).
     if (prefs && (prefs as Record<PrefKey, boolean>)[prefKey] === false) continue;
 
-    const actionUrl = `/workspace/kanban?task=${encodeURIComponent(taskId)}`;
+    const actionUrl = buildWorkspaceTaskActionUrl(taskId, boardId);
     const { data: insertedInbox, error: inboxError } = await db
       .from("workflow_notifications")
       .insert({
@@ -171,7 +173,17 @@ export function createTaskNotificationConsumer(db: Db): EventConsumer {
         const title = "Nova tarefa atribuída";
         const body = `${p.taskTitle} • Prioridade ${priorityLabel}` + (dueLabel ? ` • Prazo ${dueLabel}` : "");
 
-        await notifyAssignees(db, p.assigneeIds, p.actorUserId, "notify_on_assignment", title, body, p.taskId, event.id);
+        await notifyAssignees(
+          db,
+          p.assigneeIds,
+          p.actorUserId,
+          "notify_on_assignment",
+          title,
+          body,
+          p.taskId,
+          p.boardId,
+          event.id,
+        );
         return;
       }
 
@@ -203,6 +215,7 @@ export function createTaskNotificationConsumer(db: Db): EventConsumer {
         title,
         body,
         p.taskId,
+        p.boardId,
         event.id,
       );
     },

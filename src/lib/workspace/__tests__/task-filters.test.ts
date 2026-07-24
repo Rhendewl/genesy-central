@@ -7,7 +7,7 @@ const tag: Tag = { id: "tag-social", user_id: "owner", name: "Social Mídia", co
 
 function task(overrides: Partial<WorkspaceTask>): WorkspaceTask {
   return {
-    id: "task", user_id: "owner", created_by: "owner", title: "Tarefa", description: null,
+    id: "task", user_id: "owner", created_by: "owner", board_id: "board", title: "Tarefa", description: null,
     status: "a_fazer", priority: "media", assignee_ids: [], tags: [], due_date: null,
     due_time: null, color: null, notes: null, position: 0, completed_at: null,
     created_at: "2026-07-01", updated_at: "2026-07-01", ...overrides,

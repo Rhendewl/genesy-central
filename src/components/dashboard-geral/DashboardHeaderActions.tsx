@@ -226,6 +226,9 @@ function NotificationBell() {
       hasInitialLoadRef.current = true;
       setNotifications(nextNotifications);
       setUnreadCount(payload.unreadCount ?? 0);
+    } catch {
+      // Durante recompilações locais ou oscilações de rede, mantém o último
+      // estado conhecido e deixa a próxima consulta periódica tentar de novo.
     } finally {
       setIsLoading(false);
     }
@@ -233,6 +236,9 @@ function NotificationBell() {
 
   const markAsRead = useCallback(async () => {
     if (unreadCount === 0) return;
+
+    const previousNotifications = notifications;
+    const previousUnreadCount = unreadCount;
 
     setUnreadCount(0);
     setNotifications((current) =>
@@ -242,8 +248,14 @@ function NotificationBell() {
       }))
     );
 
-    await fetch("/api/notifications", { method: "PATCH" });
-  }, [unreadCount]);
+    try {
+      const response = await fetch("/api/notifications", { method: "PATCH" });
+      if (!response.ok) throw new Error("Falha ao marcar notificações como lidas");
+    } catch {
+      setNotifications(previousNotifications);
+      setUnreadCount(previousUnreadCount);
+    }
+  }, [notifications, unreadCount]);
 
   const clearNotifications = useCallback(async () => {
     if (notifications.length === 0 || isClearing) return;
@@ -256,13 +268,16 @@ function NotificationBell() {
     setUnreadCount(0);
     knownIdsRef.current = new Set();
 
-    const response = await fetch("/api/notifications", { method: "DELETE" });
-    if (!response.ok) {
+    try {
+      const response = await fetch("/api/notifications", { method: "DELETE" });
+      if (!response.ok) throw new Error("Falha ao limpar notificações");
+    } catch {
       setNotifications(previousNotifications);
       setUnreadCount(previousUnreadCount);
       knownIdsRef.current = new Set(previousNotifications.map((notification) => notification.id));
+    } finally {
+      setIsClearing(false);
     }
-    setIsClearing(false);
   }, [isClearing, notifications, unreadCount]);
 
   useEffect(() => {

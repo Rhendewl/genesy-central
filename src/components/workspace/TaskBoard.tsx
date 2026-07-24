@@ -20,6 +20,7 @@ interface TaskBoardProps {
   tasksHook:  ReturnType<typeof useWorkspaceTasks>;
   onOpenTask: (taskId: string) => void;
   visibleTasks?: WorkspaceTask[];
+  themeColor?: string;
 }
 
 // O ponteiro é a fonte de verdade para movimentos com mouse/toque. O antigo
@@ -31,7 +32,7 @@ const taskCollisionDetection: CollisionDetection = (args) => {
   return pointerHits.length > 0 ? pointerHits : closestCorners(args);
 };
 
-export function TaskBoard({ tasksHook, onOpenTask, visibleTasks }: TaskBoardProps) {
+export function TaskBoard({ tasksHook, onOpenTask, visibleTasks, themeColor }: TaskBoardProps) {
   const {
     tasksByStatus, getTaskById, moveTask, canEditTask, canExecuteTask,
     discardTask, restoreDiscardedTask, commitDiscardedTask,
@@ -186,6 +187,7 @@ export function TaskBoard({ tasksHook, onOpenTask, visibleTasks }: TaskBoardProp
                 tasks={visibleTasksByStatus[s.id]}
                 onOpenTask={onOpenTask}
                 canMoveTask={canExecuteTask}
+                themeColor={themeColor}
               />
             </motion.div>
           ))}

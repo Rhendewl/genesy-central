@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { dispatchPushToUser } from "@/lib/notifications/push-dispatcher";
+import { buildWorkspaceTaskActionUrl } from "@/lib/workspace/task-notification-url";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Db = SupabaseClient<any, any, any>;
@@ -18,6 +19,7 @@ interface ProfileRow {
 
 interface WorkspaceTaskReminderRow {
   id:       string;
+  board_id: string;
   user_id:  string;
   title:    string;
   due_date: string | null;
@@ -185,7 +187,7 @@ export async function runWorkspaceTaskDeadlineReminders(db: Db, now = new Date()
         const dueDate = addDays(reminderDate, advanceDay);
         let query = db
           .from("workspace_tasks")
-          .select("id, user_id, title, due_date, due_time, status")
+          .select("id, board_id, user_id, title, due_date, due_time, status")
           .eq("due_date", dueDate)
           .neq("status", "concluido");
 
@@ -220,7 +222,10 @@ export async function runWorkspaceTaskDeadlineReminders(db: Db, now = new Date()
             continue;
           }
 
-          await dispatchPushToUser(db, pref.user_id, reminderTitle(advanceDay), reminderBody(task));
+          await dispatchPushToUser(db, pref.user_id, reminderTitle(advanceDay), reminderBody(task), {
+            tag: `workspace-task-deadline-${task.id}`,
+            url: buildWorkspaceTaskActionUrl(task.id, task.board_id),
+          });
           result.sent++;
         }
       }

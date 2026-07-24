@@ -3,6 +3,18 @@
 export type WorkspaceTaskStatus = "a_fazer" | "em_andamento" | "aguardando" | "concluido";
 export type WorkspaceTaskPriority = "baixa" | "media" | "alta" | "urgente";
 
+export interface WorkspaceTaskBoard {
+  id: string;
+  user_id: string;
+  created_by: string;
+  name: string;
+  color: string;
+  is_default: boolean;
+  position: number;
+  created_at: string;
+  updated_at: string;
+}
+
 export const WORKSPACE_TASK_STATUSES: { id: WorkspaceTaskStatus; label: string }[] = [
   { id: "a_fazer",      label: "A Fazer" },
   { id: "em_andamento", label: "Em andamento" },
@@ -21,6 +33,7 @@ export interface WorkspaceTask {
   id:           string;
   user_id:      string;
   created_by:   string;
+  board_id:     string;
   title:        string;
   description:  string | null;
   status:       WorkspaceTaskStatus;
@@ -45,11 +58,11 @@ export interface WorkspaceTask {
 }
 
 export type NewWorkspaceTask = Pick<WorkspaceTask, "title"> & Partial<Pick<WorkspaceTask,
-  "description" | "priority" | "assignee_ids" | "tags" | "due_date" | "due_time" | "color" | "notes" | "status"
+  "board_id" | "description" | "priority" | "assignee_ids" | "tags" | "due_date" | "due_time" | "color" | "notes" | "status"
 >>;
 
 export type UpdateWorkspaceTask = Partial<Pick<WorkspaceTask,
-  "title" | "description" | "priority" | "assignee_ids" | "tags" | "due_date" | "due_time" | "color" | "notes"
+  "board_id" | "title" | "description" | "priority" | "assignee_ids" | "tags" | "due_date" | "due_time" | "color" | "notes"
 >>;
 
 export interface WorkspaceTaskChecklistItem {

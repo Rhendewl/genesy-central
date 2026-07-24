@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ClipboardCheck, Loader2, Settings, FilterX } from "lucide-react";
 import { Header } from "@/components/layout/Header";
 import { useWorkspaceTasks } from "@/hooks/useWorkspaceTasks";
+import { useWorkspaceTaskBoards } from "@/hooks/useWorkspaceTaskBoards";
 import { useWorkspaceViewing } from "@/context/WorkspaceViewingContext";
 import { WorkspaceViewSwitcher, type WorkspaceView } from "@/components/workspace/WorkspaceViewSwitcher";
 import { TaskBoard } from "@/components/workspace/TaskBoard";
@@ -16,13 +17,21 @@ import { useTags } from "@/hooks/useTags";
 import { useUsers } from "@/hooks/useUsers";
 import { filterWorkspaceTasks, type WorkspaceTaskDueFilter } from "@/lib/workspace/task-filters";
 import { Button } from "@/components/ui/button";
+import { TaskBoardWorkspaceBar } from "@/components/workspace/TaskBoardWorkspaceBar";
+import { selectWorkspaceTaskBoard } from "@/lib/workspace/task-board";
 
 const filterClass = "h-9 shrink-0 rounded-xl border border-[var(--border)] bg-[var(--background)] px-3 text-xs text-[var(--text-title)] outline-none";
 
 export default function WorkspaceKanbanPage() {
   const searchParams = useSearchParams();
   const { viewingMember } = useWorkspaceViewing();
-  const tasksHook = useWorkspaceTasks(viewingMember?.auth_user_id ?? undefined);
+  const boardsHook = useWorkspaceTaskBoards();
+  const [activeBoardId, setActiveBoardId] = useState<string | undefined>();
+  const activeBoard = useMemo(
+    () => boardsHook.boards.find((board) => board.id === activeBoardId) ?? null,
+    [activeBoardId, boardsHook.boards],
+  );
+  const tasksHook = useWorkspaceTasks(viewingMember?.auth_user_id ?? undefined, activeBoardId);
   const [view, setView] = useState<WorkspaceView>("kanban");
   const [openTaskId, setOpenTaskId] = useState<string | null>(null);
   const [isPanelOpen, setIsPanelOpen] = useState(false);
@@ -32,6 +41,15 @@ export default function WorkspaceKanbanPage() {
   const { tags } = useTags();
   const { profiles } = useUsers();
   const activeProfiles = profiles.filter((profile) => profile.is_active);
+
+  useEffect(() => {
+    if (boardsHook.boards.length === 0) return;
+    if (activeBoardId && boardsHook.boards.some((board) => board.id === activeBoardId)) return;
+    const preferredId = searchParams.get("board")
+      ?? (typeof window !== "undefined" ? window.localStorage.getItem("workspace-active-task-board") : null);
+    const selected = selectWorkspaceTaskBoard(boardsHook.boards, preferredId);
+    if (selected) setActiveBoardId(selected.id);
+  }, [activeBoardId, boardsHook.boards, searchParams]);
 
   const filteredTasks = useMemo(() => {
     return filterWorkspaceTasks(tasksHook.tasks, {
@@ -60,6 +78,14 @@ export default function WorkspaceKanbanPage() {
     setIsPanelOpen(true);
   }
 
+  function changeBoard(boardId: string) {
+    setActiveBoardId(boardId);
+    window.localStorage.setItem("workspace-active-task-board", boardId);
+    setTagFilter("");
+    setDueFilter("");
+    setAssigneeFilter("");
+  }
+
   function closePanel() {
     setIsPanelOpen(false);
     setOpenTaskId(null);
@@ -67,7 +93,20 @@ export default function WorkspaceKanbanPage() {
 
   return (
     <div className="flex flex-col pb-24">
-      <Header title="Workspace" subtitle="Suas tarefas, sempre organizadas" />
+      <Header title="Workspace" subtitle={activeBoard ? `${activeBoard.name} · tarefas do projeto` : "Suas tarefas, sempre organizadas"} />
+
+      <div className="px-4 pb-4 sm:px-6">
+        <TaskBoardWorkspaceBar
+          boardsHook={boardsHook}
+          activeBoard={activeBoard}
+          onActiveChange={changeBoard}
+        />
+        {boardsHook.error && (
+          <p className="mt-2 rounded-xl border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-xs text-amber-500">
+            {boardsHook.error}
+          </p>
+        )}
+      </div>
 
       <div className="flex flex-wrap items-center justify-between gap-3 px-4 pb-4 sm:px-6">
         <WorkspaceViewSwitcher view={view} onChange={setView} />
@@ -123,7 +162,7 @@ export default function WorkspaceKanbanPage() {
             <p className="text-sm text-red-400">{tasksHook.error}</p>
           </div>
         ) : view === "kanban" ? (
-          <TaskBoard tasksHook={tasksHook} visibleTasks={filteredTasks} onOpenTask={openTask} />
+          <TaskBoard tasksHook={tasksHook} visibleTasks={filteredTasks} onOpenTask={openTask} themeColor={activeBoard?.color} />
         ) : (
           <TaskListView tasksHook={tasksHook} visibleTasks={filteredTasks} onOpenTask={openTask} />
         )}
@@ -134,6 +173,7 @@ export default function WorkspaceKanbanPage() {
           <TaskDetailPanel
             taskId={openTaskId}
             tasksHook={tasksHook}
+            boards={boardsHook.boards}
             onClose={closePanel}
             presentation={openTaskId === null ? "modal" : "drawer"}
           />

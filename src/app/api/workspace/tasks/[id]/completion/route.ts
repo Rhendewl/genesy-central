@@ -29,7 +29,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     const db = createAdminSupabaseClient();
     const { data: before, error: beforeError } = await db
       .from("workspace_tasks")
-      .select("title,status")
+      .select("title,status,board_id")
       .eq("id", id)
       .maybeSingle();
     if (beforeError) throw new Error(beforeError.message);
@@ -63,6 +63,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     if (assigneeIds.length > 0) {
       await getPlatformEventBus().publish(body.completed ? "task.completed" : "task.status_changed", {
         taskId: id,
+        boardId: before.board_id,
         taskTitle: before.title,
         assigneeIds,
         actorUserId: user.id,

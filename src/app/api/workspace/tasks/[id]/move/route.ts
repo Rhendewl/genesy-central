@@ -44,11 +44,21 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     // 0. Estado anterior — necessário pra saber se o status realmente mudou
     //    (reordenar dentro da mesma coluna não deve gerar notificação) e pra
     //    montar a mensagem (título + responsáveis) sem uma segunda rodada.
-    const { data: before } = await db
+    let { data: before, error: beforeError } = await db
       .from("workspace_tasks")
-      .select("title, status, user_id")
+      .select("title, status, user_id, board_id")
       .eq("id", id)
       .maybeSingle();
+    if (beforeError?.message.includes("board_id")) {
+      const legacy = await db
+        .from("workspace_tasks")
+        .select("title, status, user_id")
+        .eq("id", id)
+        .maybeSingle();
+      before = legacy.data ? { ...legacy.data, board_id: null } : null;
+      beforeError = legacy.error;
+    }
+    if (beforeError) throw new Error(beforeError.message);
 
     // 1. Move a tarefa arrastada para a nova coluna, atualiza completed_at
     if (!before) return NextResponse.json({ error: "Tarefa não encontrada" }, { status: 404 });
@@ -64,11 +74,13 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 
     // 2. Reindexa apenas IDs pertencentes ao mesmo Workspace da tarefa. Isso
     // mantém a ordem visual consistente sem permitir IDs de outra conta.
-    const { data: workspaceTasks, error: workspaceTasksError } = await db
+    let workspaceTasksQuery = db
       .from("workspace_tasks")
       .select("id")
       .in("id", body.ordered_ids)
       .eq("user_id", before.user_id);
+    if (before.board_id) workspaceTasksQuery = workspaceTasksQuery.eq("board_id", before.board_id);
+    const { data: workspaceTasks, error: workspaceTasksError } = await workspaceTasksQuery;
     if (workspaceTasksError) throw new Error(workspaceTasksError.message);
     const workspaceTaskIds = new Set((workspaceTasks ?? []).map((task) => task.id));
     await Promise.all(
@@ -103,6 +115,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       if (assigneeIds.length > 0) {
         await getPlatformEventBus().publish(body.status === "concluido" ? "task.completed" : "task.status_changed", {
           taskId:      id,
+          boardId:     before.board_id,
           taskTitle:   before.title,
           assigneeIds,
           actorUserId: user.id,

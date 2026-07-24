@@ -30,7 +30,7 @@ import type {
 
 export type TasksByStatus = Record<WorkspaceTaskStatus, WorkspaceTask[]>;
 
-export function useWorkspaceTasks(viewAsUserId?: string) {
+export function useWorkspaceTasks(viewAsUserId?: string, activeBoardId?: string) {
   const supabase = getSupabaseClient();
   const { member } = useCurrentMember();
 
@@ -59,7 +59,10 @@ export function useWorkspaceTasks(viewAsUserId?: string) {
     const fetchId = ++latestFetchIdRef.current;
     setError(null);
 
-    const qs = viewAsUserId ? `?as_user_id=${viewAsUserId}` : "";
+    const params = new URLSearchParams();
+    if (viewAsUserId) params.set("as_user_id", viewAsUserId);
+    if (activeBoardId) params.set("board_id", activeBoardId);
+    const qs = params.size > 0 ? `?${params.toString()}` : "";
     const res  = await fetch(`/api/workspace/tasks${qs}`);
     const json = await res.json() as { tasks?: WorkspaceTask[]; error?: string };
 
@@ -102,7 +105,7 @@ export function useWorkspaceTasks(viewAsUserId?: string) {
     setTasks(uniqueWorkspaceTasks(
       enriched.filter((task) => !discardedTaskIdsRef.current.has(task.id)),
     ));
-  }, [supabase, viewAsUserId]);
+  }, [activeBoardId, supabase, viewAsUserId]);
 
   const scheduleRealtimeRefresh = useCallback(() => {
     if (realtimeRefreshTimerRef.current) clearTimeout(realtimeRefreshTimerRef.current);
@@ -183,7 +186,11 @@ export function useWorkspaceTasks(viewAsUserId?: string) {
       const res = await fetch("/api/workspace/tasks", {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify(viewAsUserId ? { ...data, user_id: viewAsUserId } : data),
+        body:    JSON.stringify({
+          ...data,
+          ...(activeBoardId && !data.board_id ? { board_id: activeBoardId } : {}),
+          ...(viewAsUserId ? { user_id: viewAsUserId } : {}),
+        }),
       });
       const json = await res.json() as { task?: WorkspaceTask; error?: string };
       if (!res.ok || !json.task) return { error: json.error ?? "Erro ao criar tarefa", task: null };
@@ -206,7 +213,11 @@ export function useWorkspaceTasks(viewAsUserId?: string) {
     if (!canEditTask(previous)) {
       return { error: "Somente o criador da tarefa pode alterá-la" };
     }
-    setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, ...data } : t)));
+    setTasks((prev) => (
+      activeBoardId && data.board_id && data.board_id !== activeBoardId
+        ? prev.filter((task) => task.id !== id)
+        : prev.map((task) => (task.id === id ? { ...task, ...data } : task))
+    ));
 
     try {
       const res = await fetch(`/api/workspace/tasks/${id}`, {
@@ -216,12 +227,12 @@ export function useWorkspaceTasks(viewAsUserId?: string) {
       });
       if (!res.ok) {
         const json = await res.json() as { error?: string };
-        if (previous) setTasks((prev) => prev.map((t) => (t.id === id ? previous : t)));
+        if (previous) setTasks((prev) => upsertWorkspaceTask(prev, previous));
         return { error: json.error ?? "Erro ao atualizar tarefa" };
       }
       return { error: null };
     } catch (err) {
-      if (previous) setTasks((prev) => prev.map((t) => (t.id === id ? previous : t)));
+      if (previous) setTasks((prev) => upsertWorkspaceTask(prev, previous));
       return { error: err instanceof Error ? err.message : "Erro ao atualizar tarefa" };
     }
   }
@@ -424,6 +435,7 @@ export function useWorkspaceTasks(viewAsUserId?: string) {
     canEditTask,
     canExecuteTask,
     completionCelebrationId,
+    activeBoardId,
     refetch: fetchTasks,
   };
 }

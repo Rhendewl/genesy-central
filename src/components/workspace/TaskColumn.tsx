@@ -12,6 +12,7 @@ interface TaskColumnProps {
   tasks:      WorkspaceTask[];
   onOpenTask: (taskId: string) => void;
   canMoveTask: (task: WorkspaceTask) => boolean;
+  themeColor?: string;
 }
 
 const STATUS_VISUALS: Record<WorkspaceTaskStatus, {
@@ -41,7 +42,7 @@ const STATUS_VISUALS: Record<WorkspaceTaskStatus, {
   },
 };
 
-export function TaskColumn({ status, label, tasks, onOpenTask, canMoveTask }: TaskColumnProps) {
+export function TaskColumn({ status, label, tasks, onOpenTask, canMoveTask, themeColor }: TaskColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id: status });
   const visual = STATUS_VISUALS[status];
   const Icon = visual.icon;
@@ -54,6 +55,7 @@ export function TaskColumn({ status, label, tasks, onOpenTask, canMoveTask }: Ta
         background:     isOver ? "var(--hover)" : "var(--glass-bg-soft)",
         backdropFilter: "blur(14px) saturate(140%)",
         border:         isOver ? "1px solid var(--border-card-hover)" : "1px solid var(--border-card)",
+        borderTop:      `2px solid ${themeColor ?? visual.color}`,
         boxShadow:      isOver
           ? "0 8px 32px var(--shadow-md), inset 0 1px 0 rgba(255,255,255,0.08)"
           : "0 4px 20px var(--shadow-sm), inset 0 1px 0 rgba(255,255,255,0.04)",
