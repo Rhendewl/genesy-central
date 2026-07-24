@@ -383,6 +383,8 @@ function PerformanceSettingsPanel({ onSaved }: { onSaved: () => void }) {
   const [pipelines, setPipelines] = useState<CrmPipelineOption[]>([]);
   const [profiles, setProfiles] = useState<PerformanceProfileOption[]>([]);
   const [tableReady, setTableReady] = useState(true);
+  const [gamificationTableReady, setGamificationTableReady] = useState(true);
+  const [gamificationProfileIds, setGamificationProfileIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -400,8 +402,15 @@ function PerformanceSettingsPanel({ onSaved }: { onSaved: () => void }) {
         if (!alive) return;
         setConfigs(json.configs ?? Object.values(DEFAULT_PERFORMANCE_ROLE_CONFIGS));
         setPipelines(json.pipelines ?? []);
-        setProfiles(json.profiles ?? []);
+        const nextProfiles = (json.profiles ?? []) as PerformanceProfileOption[];
+        setProfiles(nextProfiles);
         setTableReady(json.tableReady !== false);
+        setGamificationTableReady(json.gamificationTableReady !== false);
+        setGamificationProfileIds(
+          Array.isArray(json.gamificationProfileIds)
+            ? json.gamificationProfileIds
+            : nextProfiles.map((profile) => profile.id),
+        );
       } catch (err) {
         if (alive) setError(err instanceof Error ? err.message : "Erro ao carregar configurações");
       } finally {
@@ -464,6 +473,15 @@ function PerformanceSettingsPanel({ onSaved }: { onSaved: () => void }) {
     });
   };
 
+  const toggleGamificationParticipant = (profileId: string) => {
+    setSaved(false);
+    setGamificationProfileIds((current) => (
+      current.includes(profileId)
+        ? current.filter((id) => id !== profileId)
+        : [...current, profileId]
+    ));
+  };
+
   const profileLabel = (profile: PerformanceProfileOption) => {
     return profile.job_title ? `${profile.full_name} · ${profile.job_title}` : profile.full_name;
   };
@@ -478,12 +496,16 @@ function PerformanceSettingsPanel({ onSaved }: { onSaved: () => void }) {
       const res = await fetch("/api/performance/config", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ configs }),
+        body: JSON.stringify({ configs, gamificationProfileIds }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "Erro ao salvar configurações");
       setConfigs(json.configs ?? configs);
       setTableReady(json.tableReady !== false);
+      setGamificationTableReady(json.gamificationTableReady !== false);
+      if (Array.isArray(json.gamificationProfileIds)) {
+        setGamificationProfileIds(json.gamificationProfileIds);
+      }
       setSaved(true);
       onSaved();
     } catch (err) {
@@ -511,6 +533,12 @@ function PerformanceSettingsPanel({ onSaved }: { onSaved: () => void }) {
         </div>
       )}
 
+      {!gamificationTableReady && (
+        <div className="rounded-2xl px-4 py-3 text-sm" style={{ background: "rgba(217,119,6,0.12)", border: "1px solid rgba(217,119,6,0.35)", color: "#d97706" }}>
+          Aplique a migration 20260761 para salvar os participantes do pódio.
+        </div>
+      )}
+
       {error && (
         <div className="rounded-2xl px-4 py-3 text-sm" style={{ background: "rgba(239,68,68,0.12)", border: "1px solid rgba(239,68,68,0.35)", color: "#ef4444" }}>
           {error}
@@ -527,13 +555,62 @@ function PerformanceSettingsPanel({ onSaved }: { onSaved: () => void }) {
         <button
           type="button"
           onClick={() => void saveConfigs()}
-          disabled={saving || !tableReady}
+          disabled={saving || !tableReady || !gamificationTableReady}
           className="inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold transition-all disabled:cursor-not-allowed disabled:opacity-50"
           style={{ background: "var(--primary)", color: "#ffffff" }}
         >
           <Save size={16} />
           {saving ? "Salvando..." : saved ? "Salvo" : "Salvar configurações"}
         </button>
+      </div>
+
+      <div className="lc-card p-5" style={{ background: "var(--glass-bg-soft)" }}>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <div className="flex items-center gap-2">
+              <Trophy size={17} style={{ color: "#f6c453" }} />
+              <h3 className="text-base font-bold" style={{ color: "var(--text-title)" }}>
+                Participantes da gamificação
+              </h3>
+            </div>
+            <p className="mt-1 text-xs" style={{ color: "var(--muted-foreground)" }}>
+              Somente os usuários selecionados aparecem no pódio e na área de baixa performance.
+            </p>
+          </div>
+          <span className="text-xs font-semibold" style={{ color: "var(--muted-foreground)" }}>
+            {gamificationProfileIds.length} de {profiles.length} selecionado(s)
+          </span>
+        </div>
+
+        <div className="mt-4 grid max-h-52 grid-cols-1 gap-2 overflow-y-auto pr-1 sm:grid-cols-2 xl:grid-cols-3">
+          {profiles.map((profile) => {
+            const checked = gamificationProfileIds.includes(profile.id);
+            return (
+              <label
+                key={profile.id}
+                className="flex cursor-pointer items-center gap-3 rounded-2xl px-3 py-2.5 transition-colors"
+                style={{
+                  background: checked ? "rgba(246,196,83,0.10)" : "var(--hover)",
+                  border: checked ? "1px solid rgba(246,196,83,0.34)" : "1px solid var(--glass-border)",
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={checked}
+                  onChange={() => toggleGamificationParticipant(profile.id)}
+                />
+                <span className="min-w-0">
+                  <span className="block truncate text-sm font-semibold" style={{ color: "var(--text-title)" }}>
+                    {profile.full_name}
+                  </span>
+                  <span className="block truncate text-[11px]" style={{ color: "var(--muted-foreground)" }}>
+                    {profile.job_title || profile.role}
+                  </span>
+                </span>
+              </label>
+            );
+          })}
+        </div>
       </div>
 
       {unlinkedProfiles.length > 0 && (

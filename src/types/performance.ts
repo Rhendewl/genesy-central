@@ -67,6 +67,7 @@ export interface PerformanceTeamData {
   ranking: PerformanceCollaborator[];
   best: PerformanceCollaborator[];
   attention: PerformanceCollaborator[];
+  gamificationRanking: PerformanceCollaborator[];
   byRole: Array<{ role: string; average: number; count: number }>;
   evolution: Array<{ month: string; score: number }>;
   updatedAt: string;

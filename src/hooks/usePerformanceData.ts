@@ -166,6 +166,7 @@ export function usePerformanceData(): UsePerformanceDataReturn {
         historyRes,
         metricsRes,
         configsRes,
+        gamificationRes,
       ] = await Promise.all([
         supabase
           .from("user_profiles")
@@ -206,6 +207,11 @@ export function usePerformanceData(): UsePerformanceDataReturn {
           .from("performance_role_configs")
           .select("id, role_key, role_label, main_goal_type, main_goal_label, main_goal_target, weight_resultado, weight_produtividade, weight_organizacao, weight_disciplina, crm_pipeline_id, meeting_stage_ids, sales_stage_ids, job_title_aliases, member_profile_ids, is_active")
           .eq("user_id", ownerId),
+        supabase
+          .from("performance_gamification_settings")
+          .select("participant_profile_ids")
+          .eq("user_id", ownerId)
+          .maybeSingle(),
       ]);
 
       if (profilesRes.error) throw profilesRes.error;
@@ -214,6 +220,9 @@ export function usePerformanceData(): UsePerformanceDataReturn {
       if (taskCompletionsRes.error) throw taskCompletionsRes.error;
       const configColumnsMissing = Boolean(configsRes.error?.message?.includes("job_title_aliases") || configsRes.error?.message?.includes("member_profile_ids"));
       if (configsRes.error && configsRes.error.code !== "42P01" && !configColumnsMissing) throw configsRes.error;
+      const gamificationTableMissing = gamificationRes.error?.code === "42P01"
+        || Boolean(gamificationRes.error?.message?.includes("performance_gamification_settings"));
+      if (gamificationRes.error && !gamificationTableMissing) throw gamificationRes.error;
 
       const profiles = ((profilesRes.data ?? []) as UserProfileRow[])
         .filter((profile) => canViewTeam || profile.id === member?.id);
@@ -447,6 +456,12 @@ export function usePerformanceData(): UsePerformanceDataReturn {
         .map(buildCollaborator)
         .filter((item): item is PerformanceCollaborator => Boolean(item))
         .sort((a, b) => b.score - a.score);
+      const configuredGamificationIds = gamificationTableMissing || !gamificationRes.data
+        ? null
+        : ((gamificationRes.data.participant_profile_ids ?? []) as string[]);
+      const gamificationRanking = configuredGamificationIds === null
+        ? nextCollaborators
+        : nextCollaborators.filter((item) => configuredGamificationIds.includes(item.id));
       const averageScore = average(nextCollaborators.map((item) => item.score));
       const previousAverageScore = average(nextCollaborators.map((item) => item.previousScore));
       const byRole = PERFORMANCE_ROLES.map((role) => roleConfigs[role]?.roleLabel ?? DEFAULT_PERFORMANCE_ROLE_CONFIGS[role].roleLabel)
@@ -464,6 +479,7 @@ export function usePerformanceData(): UsePerformanceDataReturn {
         ranking: nextCollaborators,
         best: nextCollaborators.slice(0, 3),
         attention: nextCollaborators.filter((item) => item.needsAttention).slice(0, 4),
+        gamificationRanking,
         byRole,
         evolution: [
           { month: "Mês anterior", score: previousAverageScore },

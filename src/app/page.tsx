@@ -12,8 +12,8 @@ import { CrmFunnelPanel } from "@/components/dashboard-geral/CrmFunnelPanel";
 import { WorkspaceSummaryPanel } from "@/components/dashboard-geral/WorkspaceSummaryPanel";
 import { TrafegoSummaryCard } from "@/components/dashboard-geral/TrafegoSummaryCard";
 import { FinanceiroSummaryCard } from "@/components/dashboard-geral/FinanceiroSummaryCard";
-import { NotesSummaryCard } from "@/components/dashboard-geral/NotesSummaryCard";
 import { DashboardHeaderActions } from "@/components/dashboard-geral/DashboardHeaderActions";
+import { PerformancePodiumCard } from "@/components/dashboard-geral/PerformancePodiumCard";
 import { dedupeCanonicalLeads } from "@/lib/crm/lead-identity";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -24,7 +24,6 @@ const CARD_H_ATTENTION      = 228;
 const CARD_H_TRAFEGO_FIN    = 220;
 const CARD_H_WORKSPACE      = 216;
 const CARD_H_FUNNEL         = 350;
-const CARD_H_NOTES          = 214;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // DashboardPage — Centro de Comando
@@ -32,7 +31,7 @@ const CARD_H_NOTES          = 214;
 
 export default function DashboardPage() {
   const { greeting, name, isLoading: greetingLoading } = useGreeting();
-  const { member, isLoading: memberLoading } = useCurrentMember();
+  const { member, isOwner, isLoading: memberLoading } = useCurrentMember();
 
   // Enquanto o perfil ainda carrega, nenhum widget condicionado por papel é
   // exibido — evita o flash de mostrar e depois esconder um card.
@@ -40,6 +39,7 @@ export default function DashboardPage() {
   const showCrm       = canSee("crm");
   const showTrafego   = canSee("trafego");
   const showFinanceiro = canSee("financeiro");
+  const showPerformance = !memberLoading && (isOwner === true || (member?.permissions.includes("performance") ?? false));
 
   const { leads } = useLeads();
   const uniqueLeads = dedupeCanonicalLeads(leads);
@@ -71,9 +71,9 @@ export default function DashboardPage() {
           actions={<DashboardHeaderActions tasksHook={tasksHook} name={name} avatarUrl={member?.avatar_url ?? null} />}
         />
 
-        <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.6fr)]">
+        <div className="grid grid-cols-1 items-stretch gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.6fr)]">
           {/* ── Coluna esquerda ──────────────────────────────────────────────── */}
-          <div className="flex flex-col gap-4">
+          <div className="flex h-full min-h-0 flex-col gap-4 [&>*:last-child]:flex-1">
             <MyDayCard
               tasksHook={tasksHook}
               leads={showCrm ? uniqueLeads : []}
@@ -96,34 +96,36 @@ export default function DashboardPage() {
           </div>
 
           {/* ── Coluna direita ───────────────────────────────────────────────── */}
-          <div className="flex flex-col gap-4">
-            {/* Linha 1: Calendário */}
+          <div className="flex h-full min-h-0 flex-col gap-4">
+            {/* Linha 1: Pódio de Performance */}
+            {showPerformance && <PerformancePodiumCard delay={0.08} />}
+
+            {/* Linha 2: Calendário */}
             <motion.div
-              className="lc-card flex h-auto flex-col overflow-hidden p-5 xl:h-[360px]"
+              className="lc-card flex min-h-[360px] flex-1 flex-col overflow-hidden p-5"
               style={{ background: "var(--glass-bg-soft)" }}
               initial={{ opacity: 0, y: 18 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.4, delay: 0.08, ease: "easeOut" }}
+              transition={{ duration: 0.4, delay: 0.12, ease: "easeOut" }}
             >
               <AgendaSemanalPanel mobileLayout="compact-grid" />
             </motion.div>
-
-            {/* Linha 2: Tráfego | Financeiro — colapsa conforme a permissão do usuário */}
-            {(showTrafego || showFinanceiro) && (
-              <div className={`grid grid-cols-1 gap-4 ${showTrafego && showFinanceiro ? "lg:grid-cols-2" : ""}`}>
-                {showTrafego && (
-                  <TrafegoSummaryCard year={now.getFullYear()} month={now.getMonth() + 1} height={CARD_H_TRAFEGO_FIN} delay={0.12} />
-                )}
-                {showFinanceiro && (
-                  <FinanceiroSummaryCard year={now.getFullYear()} month={now.getMonth() + 1} height={CARD_H_TRAFEGO_FIN} delay={0.16} />
-                )}
-              </div>
-            )}
-
-            {/* Linha 3: Notas */}
-            <NotesSummaryCard height={CARD_H_NOTES} delay={0.2} />
           </div>
         </div>
+
+        {/* Linha inferior: um card em cada coluna, com bases alinhadas */}
+        {(showTrafego || showFinanceiro) && (
+          <div className="grid grid-cols-1 items-stretch gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.6fr)]">
+            {showTrafego ? (
+              <TrafegoSummaryCard year={now.getFullYear()} month={now.getMonth() + 1} height={CARD_H_TRAFEGO_FIN} delay={0.16} />
+            ) : (
+              <div className="hidden xl:block" aria-hidden="true" />
+            )}
+            {showFinanceiro && (
+              <FinanceiroSummaryCard year={now.getFullYear()} month={now.getMonth() + 1} height={CARD_H_TRAFEGO_FIN} delay={0.2} />
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

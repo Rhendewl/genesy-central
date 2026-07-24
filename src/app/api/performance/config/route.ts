@@ -20,6 +20,7 @@ type CurrentProfile = {
 
 type SavePayload = {
   configs?: Array<Partial<PerformanceRoleConfig>>;
+  gamificationProfileIds?: string[];
 };
 
 const CONFIG_SELECT = [
@@ -81,6 +82,36 @@ function isMissingConfigTable(error: { code?: string; message?: string } | null)
 
 function isMissingGroupColumns(error: { message?: string } | null) {
   return Boolean(error?.message?.includes("job_title_aliases") || error?.message?.includes("member_profile_ids"));
+}
+
+function isMissingGamificationTable(error: { code?: string; message?: string } | null) {
+  return error?.code === "42P01"
+    || Boolean(error?.message?.includes("performance_gamification_settings"));
+}
+
+async function loadGamificationSettings(
+  supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>,
+  ownerId: string,
+) {
+  const { data, error } = await supabase
+    .from("performance_gamification_settings")
+    .select("participant_profile_ids")
+    .eq("user_id", ownerId)
+    .maybeSingle();
+
+  if (error) {
+    if (isMissingGamificationTable(error)) {
+      return { gamificationProfileIds: null, gamificationTableReady: false };
+    }
+    throw error;
+  }
+
+  return {
+    gamificationProfileIds: data
+      ? ((data.participant_profile_ids ?? []) as string[])
+      : null,
+    gamificationTableReady: true,
+  };
 }
 
 async function loadConfigs(supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>, ownerId: string) {
@@ -153,8 +184,9 @@ export async function GET() {
     const { supabase, user, ownerId } = await getSessionContext();
     if (!user || !ownerId) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
 
-    const [{ configs, tableReady }, pipelinesRes, profilesRes] = await Promise.all([
+    const [{ configs, tableReady }, gamification, pipelinesRes, profilesRes] = await Promise.all([
       loadConfigs(supabase, ownerId),
+      loadGamificationSettings(supabase, ownerId),
       supabase
         .from("crm_pipelines")
         .select("id, name, is_active, crm_stages(id, name, pipeline_id, is_won, is_active, order_index)")
@@ -176,6 +208,7 @@ export async function GET() {
       pipelines: pipelinesRes.data ?? [],
       profiles: profilesRes.data ?? [],
       tableReady,
+      ...gamification,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Erro ao carregar configurações de performance";
@@ -193,6 +226,37 @@ export async function PATCH(req: NextRequest) {
     const nextConfigs = (body?.configs ?? []).map(sanitizeConfig).filter(Boolean);
     if (nextConfigs.length === 0) {
       return NextResponse.json({ error: "Nenhuma configuração válida enviada" }, { status: 400 });
+    }
+
+    const gamification = await loadGamificationSettings(supabase, ownerId);
+    if (Array.isArray(body?.gamificationProfileIds) && !gamification.gamificationTableReady) {
+      return NextResponse.json({
+        error: "Aplique a migration 20260761 para salvar os participantes da gamificação.",
+      }, { status: 409 });
+    }
+
+    let savedGamificationProfileIds = gamification.gamificationProfileIds;
+    if (Array.isArray(body?.gamificationProfileIds)) {
+      if (body.gamificationProfileIds.length > 0) {
+        const { data: validProfiles, error: profilesError } = await supabase
+          .from("user_profiles")
+          .select("id")
+          .eq("owner_id", ownerId)
+          .eq("is_active", true)
+          .in("id", body.gamificationProfileIds);
+        if (profilesError) throw profilesError;
+        savedGamificationProfileIds = (validProfiles ?? []).map((profile) => profile.id);
+      } else {
+        savedGamificationProfileIds = [];
+      }
+
+      const { error: gamificationError } = await supabase
+        .from("performance_gamification_settings")
+        .upsert({
+          user_id: ownerId,
+          participant_profile_ids: savedGamificationProfileIds,
+        }, { onConflict: "user_id" });
+      if (gamificationError) throw gamificationError;
     }
 
     const rows = nextConfigs.map((config) => ({
@@ -221,7 +285,12 @@ export async function PATCH(req: NextRequest) {
     if (error) throw error;
 
     const { configs, tableReady } = await loadConfigs(supabase, ownerId);
-    return NextResponse.json({ configs, tableReady });
+    return NextResponse.json({
+      configs,
+      tableReady,
+      gamificationProfileIds: savedGamificationProfileIds,
+      gamificationTableReady: gamification.gamificationTableReady,
+    });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Erro ao salvar configurações de performance";
     return NextResponse.json({ error: message }, { status: 500 });
