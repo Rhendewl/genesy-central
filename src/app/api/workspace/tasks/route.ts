@@ -123,10 +123,10 @@ export async function POST(req: NextRequest) {
     const { data, error } = await supabase
       .from("workspace_tasks")
       .insert({
-        // user_id só é enviado quando o admin cria "em nome de" um colega
-        // (Painel Equipe) — a RLS (is_admin_of_user) valida se é permitido;
-        // sem isso, o trigger auto_set_own_id preenche com o próprio uid.
-        ...(body.user_id ? { user_id: body.user_id } : {}),
+        // Sempre explícito para que a validação do board_id não dependa da
+        // ordem alfabética dos triggers BEFORE INSERT no PostgreSQL.
+        // A RLS continua validando criações em nome de outro usuário.
+        user_id:     body.user_id ?? user.id,
         created_by:  user.id,
         ...(body.board_id ? { board_id: body.board_id } : {}),
         title:       body.title,
