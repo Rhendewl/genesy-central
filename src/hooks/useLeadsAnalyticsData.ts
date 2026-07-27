@@ -42,8 +42,18 @@ export interface StageOrderRow {
 // não um board ao vivo. Usa refetch() para atualizar manualmente se necessário.
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function useLeadsAnalyticsData(pipelineIds: string[] | null) {
+export function useLeadsAnalyticsData(
+  pipelineIds: string[] | null,
+  enabled = true,
+) {
   const supabase = getSupabaseClient();
+  // Arrays montados pelo componente chamador não têm identidade estável entre
+  // renders. Usar uma chave por valor impede que o effect reinicie a consulta
+  // continuamente (skeleton → conteúdo → skeleton), especialmente para
+  // colaboradores que recebem exatamente uma pipeline.
+  const pipelineKey = pipelineIds === null
+    ? null
+    : [...pipelineIds].sort().join(",");
 
   const [leads,        setLeads]        = useState<Lead[]>([]);
   const [stageHistory, setStageHistory] = useState<StageHistoryRow[]>([]);
@@ -52,15 +62,23 @@ export function useLeadsAnalyticsData(pipelineIds: string[] | null) {
   const [error,        setError]        = useState<string | null>(null);
 
   const mountedRef = useRef(true);
+  const requestIdRef = useRef(0);
 
   const fetchLeads = useCallback(async () => {
+    if (!enabled) return;
+
+    const requestId = ++requestIdRef.current;
     setIsLoading(true);
     setError(null);
 
+    const ids = pipelineKey === null
+      ? null
+      : pipelineKey === "" ? [] : pipelineKey.split(",");
+
     // [] é usado para um colaborador que ainda não recebeu pipeline: não deve
     // cair no comportamento de "todas" e expor dados por engano.
-    if (pipelineIds !== null && pipelineIds.length === 0) {
-      if (mountedRef.current) {
+    if (ids !== null && ids.length === 0) {
+      if (mountedRef.current && requestId === requestIdRef.current) {
         setLeads([]);
         setStageHistory([]);
         setStages([]);
@@ -68,8 +86,6 @@ export function useLeadsAnalyticsData(pipelineIds: string[] | null) {
       }
       return;
     }
-
-    const ids = pipelineIds;
 
     let query = supabase
       .from("leads")
@@ -90,7 +106,7 @@ export function useLeadsAnalyticsData(pipelineIds: string[] | null) {
       supabase.from("crm_stages").select("id, pipeline_id, order_index, is_active"),
     ]);
 
-    if (!mountedRef.current) return;
+    if (!mountedRef.current || requestId !== requestIdRef.current) return;
 
     if (err) {
       setError(err.message);
@@ -109,13 +125,20 @@ export function useLeadsAnalyticsData(pipelineIds: string[] | null) {
     setStageHistory((historyData as StageHistoryRow[]) ?? []);
     setStages((stagesData as StageOrderRow[]) ?? []);
     setIsLoading(false);
-  }, [supabase, pipelineIds]);
+  }, [supabase, enabled, pipelineKey]);
 
   useEffect(() => {
     mountedRef.current = true;
-    fetchLeads();
-    return () => { mountedRef.current = false; };
-  }, [fetchLeads]);
+    if (enabled) {
+      fetchLeads();
+    } else {
+      setIsLoading(true);
+    }
+    return () => {
+      mountedRef.current = false;
+      requestIdRef.current += 1;
+    };
+  }, [enabled, fetchLeads]);
 
   // Exclusão em lote — usada pela seleção múltipla na tabela de leads.
   // Uma única query (.in) em vez de N chamadas; RLS continua valendo por

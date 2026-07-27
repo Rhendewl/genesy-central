@@ -159,12 +159,19 @@ const INSIGHT_ICONS: Record<string, React.ReactNode> = {
 export function LeadsAnalytics() {
   const { pipelines }                                   = usePipelines();
   const { value: selectedPipelineIds, onChange: setPipelineFilter } = usePipelineFilter();
-  const { member, isOwner } = useCurrentMember();
+  const { member, isOwner, isLoading: memberLoading } = useCurrentMember();
   const hasFullCrmAccess = isAdministrativeMember(member, isOwner === true);
-  const effectivePipelineIds = hasFullCrmAccess
-    ? selectedPipelineIds
-    : member?.crm_pipeline_id ? [member.crm_pipeline_id] : [];
-  const { leads, stageHistory, stages, isLoading, bulkDeleteLeads } = useLeadsAnalyticsData(effectivePipelineIds);
+  const accessResolved = !memberLoading && isOwner !== null;
+  const effectivePipelineIds = useMemo(
+    () => hasFullCrmAccess
+      ? selectedPipelineIds
+      : member?.crm_pipeline_id ? [member.crm_pipeline_id] : [],
+    [hasFullCrmAccess, member?.crm_pipeline_id, selectedPipelineIds],
+  );
+  const { leads, stageHistory, stages, isLoading, bulkDeleteLeads } = useLeadsAnalyticsData(
+    effectivePipelineIds,
+    accessResolved,
+  );
   const analytics                                       = useLeadsAnalytics(leads, stageHistory, stages);
 
   const [search,       setSearch]       = useState("");

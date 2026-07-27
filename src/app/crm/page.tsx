@@ -44,7 +44,7 @@ export default function CrmPage() {
   const hasFullCrmAccess = isAdministrativeMember(member, isOwner === true);
   const visibleTabs = hasFullCrmAccess
     ? TABS
-    : TABS.filter(tab => tab.id === "kanban" || tab.id === "leads" || tab.id === "relatorios");
+    : TABS.filter(tab => tab.id === "kanban" || tab.id === "leads");
   const isKanban = activeTab === "kanban";
 
   return (
@@ -133,7 +133,7 @@ export default function CrmPage() {
         >
           {activeTab === "kanban"       && <KanbanBoard />}
           {activeTab === "leads"        && <LeadsAnalytics />}
-          {activeTab === "relatorios"   && <CrmReports />}
+          {hasFullCrmAccess && activeTab === "relatorios" && <CrmReports />}
           {hasFullCrmAccess && activeTab === "pipelines"    && <PipelineAdmin />}
           {hasFullCrmAccess && activeTab === "notificacoes" && (
             <div className="px-4 sm:px-6 pt-6">
