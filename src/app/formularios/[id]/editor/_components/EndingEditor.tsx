@@ -89,6 +89,9 @@ export function EndingEditor({ endings, onChange }: EndingEditorProps) {
               placeholder="https://..."
               onChange={e => updateEnding(ending.id, { redirectUrl: e.target.value || undefined })}
             />
+            <p className="mt-1 text-[10px]" style={{ color: "var(--muted-foreground)" }}>
+              O lead será direcionado depois que as respostas forem salvas.
+            </p>
           </Field>
         </div>
       ))}

@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   NotepadText, Plus, MoreHorizontal, Trash2, Archive,
@@ -14,6 +14,11 @@ import { toast } from "sonner";
 import type { Form, FormFolder, FormOrigin } from "@/types";
 import { GlassFolderIcon } from "@/components/ui/GlassFolderIcon";
 import { Button } from "@/components/ui/button";
+import {
+  readFormListContext,
+  withFormListContext,
+  type FormFolderSelection,
+} from "@/lib/forms/navigation";
 
 const STATUS_LABEL: Record<string, string> = {
   draft:     "Inativo",
@@ -41,6 +46,7 @@ function FormCard({
   onToggleStatus,
   onMove,
   folders,
+  detailsHref,
 }: {
   form: Form;
   onDelete: (id: string) => void;
@@ -49,6 +55,7 @@ function FormCard({
   onToggleStatus: (id: string) => void;
   onMove: (id: string, folderId: string | null) => void;
   folders: FormFolder[];
+  detailsHref: string;
 }) {
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -81,7 +88,7 @@ function FormCard({
       whileHover={{ y: -2 }}
       transition={{ duration: 0.2 }}
       className="relative group p-4 cursor-pointer lc-card"
-      onClick={() => router.push(`/formularios/${form.id}`)}
+      onClick={() => router.push(detailsHref)}
     >
       {/* Topo */}
       <div className="flex items-start justify-between gap-2 mb-3">
@@ -456,15 +463,34 @@ function FolderNavigation({ folders, forms, onSelect, onRename, onDelete }: {
 
 export default function FormulariosPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const initialContext = readFormListContext(searchParams);
   const {
     formularios, folders, isLoading, createFormulario, deleteFormulario, updateStatus, duplicarFormulario,
     moveFormulario, createFolder, renameFolder, deleteFolder,
   } = useFormularios();
   const [modalOpen, setModalOpen] = useState(false);
-  const [activeOrigin, setActiveOrigin] = useState<FormOrigin>("standard");
-  const [selectedFolder, setSelectedFolder] = useState<FolderSelection>("root");
+  const [activeOrigin, setActiveOrigin] = useState<FormOrigin>(initialContext.origin);
+  const [selectedFolder, setSelectedFolder] = useState<FolderSelection>(initialContext.folder);
   const [folderModalOpen, setFolderModalOpen] = useState(false);
   const [editingFolder, setEditingFolder] = useState<FormFolder | null>(null);
+
+  useEffect(() => {
+    const context = readFormListContext(searchParams);
+    setActiveOrigin(context.origin);
+    setSelectedFolder(context.folder);
+  }, [searchParams]);
+
+  const navigateList = (folder: FormFolderSelection, origin: FormOrigin = activeOrigin) => {
+    setActiveOrigin(origin);
+    setSelectedFolder(folder);
+    router.replace(withFormListContext("/formularios", { folder, origin }), { scroll: false });
+  };
+
+  const detailsHref = (formId: string) => withFormListContext(`/formularios/${formId}`, {
+    folder: selectedFolder,
+    origin: activeOrigin,
+  });
 
   const handleCreate = async (name: string) => {
     const folderId = selectedFolder !== "root" && selectedFolder !== "unfiled" ? selectedFolder : null;
@@ -473,7 +499,7 @@ export default function FormulariosPage() {
       toast.error("Erro ao criar formulário", { description: error ?? undefined });
     } else {
       setModalOpen(false);
-      router.push(`/formularios/${data.id}`);
+      router.push(detailsHref(data.id));
     }
   };
 
@@ -503,7 +529,7 @@ export default function FormulariosPage() {
     if (error || !data) toast.error("Erro ao duplicar formulário");
     else {
       toast.success("Formulário duplicado");
-      router.push(`/formularios/${data.id}`);
+      router.push(detailsHref(data.id));
     }
   };
 
@@ -521,7 +547,7 @@ export default function FormulariosPage() {
     } else {
       const { data, error } = await createFolder(name, color);
       if (error || !data) { toast.error(error ?? "Erro ao criar pasta"); return; }
-      setSelectedFolder(data.id);
+      navigateList(data.id);
       toast.success("Pasta criada");
     }
     setFolderModalOpen(false);
@@ -532,7 +558,7 @@ export default function FormulariosPage() {
     if (!window.confirm(`Excluir a pasta "${folder.name}"? Os formulários ficarão em Sem pasta.`)) return;
     const { error } = await deleteFolder(folder.id);
     if (error) { toast.error(error); return; }
-    if (selectedFolder === folder.id) setSelectedFolder("root");
+    if (selectedFolder === folder.id) navigateList("root");
     toast.success("Pasta excluída");
   };
 
@@ -574,7 +600,7 @@ export default function FormulariosPage() {
           ]).map((tab) => (
             <button
               key={tab.id}
-              onClick={() => { setActiveOrigin(tab.id); setSelectedFolder("root"); }}
+              onClick={() => navigateList("root", tab.id)}
               className="relative flex items-center gap-2 px-4 py-3 text-sm font-medium"
               style={{ color: activeOrigin === tab.id ? "var(--text-title)" : "var(--muted-foreground)" }}
             >
@@ -616,7 +642,7 @@ export default function FormulariosPage() {
             <FolderNavigation
               folders={visibleFolders}
               forms={originForms}
-              onSelect={setSelectedFolder}
+              onSelect={(folder) => navigateList(folder)}
               onRename={(folder) => { setEditingFolder(folder); setFolderModalOpen(true); }}
               onDelete={handleFolderDelete}
             />
@@ -626,7 +652,7 @@ export default function FormulariosPage() {
             <div className="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-2xl border px-4 py-3"
               style={{ background: "color-mix(in srgb, var(--card) 78%, transparent)", borderColor: "var(--border)", backdropFilter: "blur(18px)" }}>
               <div className="flex min-w-0 items-center gap-3">
-                <button type="button" onClick={() => setSelectedFolder("root")}
+                <button type="button" onClick={() => navigateList("root")}
                   className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl transition-colors hover:bg-[var(--hover)]"
                   style={{ color: "var(--muted-foreground)" }} title="Voltar para pastas">
                   <ArrowLeft size={17} />
@@ -688,6 +714,7 @@ export default function FormulariosPage() {
                 onToggleStatus={handleToggleStatus}
                 onMove={handleMove}
                 folders={folders}
+                detailsHref={detailsHref(form.id)}
               />
             ))}
           </div>
@@ -710,6 +737,7 @@ export default function FormulariosPage() {
                   onToggleStatus={handleToggleStatus}
                   onMove={handleMove}
                   folders={folders}
+                  detailsHref={detailsHref(form.id)}
                 />
               ))}
             </div>

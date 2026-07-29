@@ -68,7 +68,7 @@ export function TaskBoard({ tasksHook, onOpenTask, visibleTasks, themeColor }: T
       const draggedTask = getTaskById(taskId);
       if (!draggedTask) return;
       if (!canExecuteTask(draggedTask)) {
-        toast.error("Somente o criador ou um responsável pode mover esta tarefa");
+        toast.error("Somente o criador, um responsável ou um administrador pode mover esta tarefa");
         return;
       }
 

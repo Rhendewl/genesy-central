@@ -15,6 +15,7 @@ export function FormPublicClient({ slug, initialForm }: { slug: string; initialF
     form,
     screen,
     currentStepIndex,
+    currentStep,
     answers,
     endingId,
     isOnline,
@@ -35,6 +36,20 @@ export function FormPublicClient({ slug, initialForm }: { slug: string; initialF
   const handleNext  = useCallback(() => { setDirection(1);  goNext();   }, [goNext]);
   const handleBack  = useCallback(() => { setDirection(-1); goBack();   }, [goBack]);
   const handleRestart = useCallback(() => { setDirection(1); restart(); }, [restart]);
+
+  // Blocos de redirecionamento são terminais e não exibem botão. Ao alcançá-los,
+  // encaminhamos o fluxo para a submissão; a navegação externa só acontece
+  // depois que o servidor confirma que as respostas foram salvas.
+  const handledRedirectStepRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (screen !== "step" || currentStep?.type !== "redirect") {
+      handledRedirectStepRef.current = null;
+      return;
+    }
+    if (handledRedirectStepRef.current === currentStep.id) return;
+    handledRedirectStepRef.current = currentStep.id;
+    handleNext();
+  }, [currentStep, handleNext, screen]);
 
   // ── Submissão automática ao atingir a tela de encerramento ────────────────
   // Ref pattern evita closure stale quando submitForm é recriado (ex: isOnline muda).

@@ -4,7 +4,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { createAdminSupabaseClient } from "@/lib/supabase-admin";
-import { verifyWorkspaceTaskCreator, verifyWorkspaceTaskExecutor } from "@/lib/workspace/task-authorization";
+import { verifyWorkspaceTaskEditor, verifyWorkspaceTaskExecutor } from "@/lib/workspace/task-authorization";
 import type { WorkspaceTaskChecklistItem } from "@/types/workspace";
 
 type Params = { params: Promise<{ id: string; itemId: string }> };
@@ -25,7 +25,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   try {
     const changesLabel = typeof body.label === "string";
     const access = changesLabel
-      ? await verifyWorkspaceTaskCreator(supabase, id, user.id)
+      ? await verifyWorkspaceTaskEditor(supabase, id, user.id)
       : await verifyWorkspaceTaskExecutor(supabase, id, user.id);
     if (!access.allowed) return NextResponse.json({ error: access.error }, { status: access.status });
 
@@ -58,7 +58,7 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
   if (!user) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
 
   try {
-    const access = await verifyWorkspaceTaskCreator(supabase, id, user.id);
+    const access = await verifyWorkspaceTaskEditor(supabase, id, user.id);
     if (!access.allowed) return NextResponse.json({ error: access.error }, { status: access.status });
 
     const { error } = await supabase.from("workspace_task_checklist_items").delete().eq("id", itemId).eq("task_id", id);

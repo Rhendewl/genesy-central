@@ -9,8 +9,8 @@ import type { WorkspaceTaskStatus } from "@/types/workspace";
 type Params = { params: Promise<{ id: string }> };
 
 // A conclusão é uma ação operacional, separada da edição da tarefa:
-// criador e responsáveis podem concluir/reabrir, mas somente o criador pode
-// alterar os demais campos pela rota principal.
+// criador, administradores e responsáveis podem concluir/reabrir; os demais
+// campos ficam restritos ao criador e aos administradores.
 export async function PATCH(req: NextRequest, { params }: Params) {
   const { id } = await params;
   const supabase = await createServerSupabaseClient();

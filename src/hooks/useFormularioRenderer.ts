@@ -6,6 +6,7 @@ import { createLogicEngine, adaptLegacyRule } from "@/lib/logic-engine";
 import type { EventBus } from "@/lib/event-bus";
 import type { FormEventType } from "@/lib/event-bus/form";
 import type { IntegrationConfig } from "@/lib/integrations/types";
+import { normalizeFormRedirectUrl } from "@/lib/forms/redirect";
 
 // ── Screen states ─────────────────────────────────────────────────────────────
 
@@ -121,6 +122,8 @@ export function useFormularioRenderer(slug: string, initialForm: Form | null = n
   const earlyCaptureDoneRef  = useRef(false);
   const earlyCaptureInFlightRef = useRef(false);
   const phoneLeadSentRef      = useRef(false);
+  const endingIdRef           = useRef<string | null>(null);
+  const pendingRedirectUrlRef = useRef<string | null>(null);
 
   // Event Bus ref — created in load effect (before any await) and stable across renders
   const busRef           = useRef<EventBus<FormEventType> | null>(null);
@@ -458,6 +461,11 @@ export function useFormularioRenderer(slug: string, initialForm: Form | null = n
     });
   }, []);
 
+  const selectEnding = useCallback((id: string | null) => {
+    endingIdRef.current = id;
+    setEndingId(id);
+  }, []);
+
   const savePartialForCrmCapture = useCallback(async (stepId: string) => {
     if (earlyCaptureDoneRef.current || earlyCaptureInFlightRef.current) return;
     if (!isOnline) return;
@@ -542,6 +550,16 @@ export function useFormularioRenderer(slug: string, initialForm: Form | null = n
       void savePartialForCrmCapture(step.id);
     }
 
+    // O bloco Redirecionar encerra e salva a resposta antes de sair do site.
+    // Isso evita perder o lead quando o navegador inicia a navegação externa.
+    if (step.type === "redirect") {
+      pendingRedirectUrlRef.current = normalizeFormRedirectUrl(step.content);
+      const defaultEndingId = form.endings?.[0]?.id ?? null;
+      selectEnding(defaultEndingId);
+      setScreen("ending");
+      return;
+    }
+
     const result = engine?.evaluate({ currentStepId: step.id, answers: answersRef.current });
 
     switch (result?.type) {
@@ -565,13 +583,15 @@ export function useFormularioRenderer(slug: string, initialForm: Form | null = n
           totalSteps: form.steps.length,
           endingId:   result.endingId,
         });
-        setEndingId(result.endingId);
+        selectEnding(result.endingId);
         setScreen("ending");
         return;
       }
       case "redirect": {
-        busRef.current?.publish("form.redirect", { formSlug: slug, url: result.url });
-        if (typeof window !== "undefined") window.location.href = result.url;
+        pendingRedirectUrlRef.current = normalizeFormRedirectUrl(result.url);
+        const defaultEndingId = form.endings?.[0]?.id ?? null;
+        selectEnding(defaultEndingId);
+        setScreen("ending");
         return;
       }
       case "complete": {
@@ -581,7 +601,7 @@ export function useFormularioRenderer(slug: string, initialForm: Form | null = n
           totalSteps: form.steps.length,
           endingId:   defaultEndingId ?? undefined,
         });
-        setEndingId(defaultEndingId);
+        selectEnding(defaultEndingId);
         setScreen("ending");
         return;
       }
@@ -598,7 +618,7 @@ export function useFormularioRenderer(slug: string, initialForm: Form | null = n
         totalSteps: form.steps.length,
         endingId:   defaultEndingId ?? undefined,
       });
-      setEndingId(defaultEndingId);
+      selectEnding(defaultEndingId);
       setScreen("ending");
     } else {
       setCurrentStepIndex(nextIndex);
@@ -609,7 +629,7 @@ export function useFormularioRenderer(slug: string, initialForm: Form | null = n
         stepType:  form.steps[nextIndex].type,
       });
     }
-  }, [form, currentStepIndex, engine, slug]);
+  }, [form, currentStepIndex, engine, slug, savePartialForCrmCapture, selectEnding]);
 
   // ── goBack ─────────────────────────────────────────────────────────────────
   const goBack = useCallback(() => {
@@ -678,6 +698,17 @@ export function useFormularioRenderer(slug: string, initialForm: Form | null = n
     if (success) {
       clearStorage(storageKey);
       setScreen("submitted");
+
+      const selectedEnding = endingIdRef.current
+        ? form?.endings?.find(ending => ending.id === endingIdRef.current)
+        : form?.endings?.[0];
+      const redirectUrl = pendingRedirectUrlRef.current
+        ?? normalizeFormRedirectUrl(selectedEnding?.redirectUrl);
+
+      if (redirectUrl && typeof window !== "undefined") {
+        busRef.current?.publish("form.redirect", { formSlug: slug, url: redirectUrl });
+        window.location.assign(redirectUrl);
+      }
     } else {
       busRef.current?.publish("form.submission.failed", {
         formSlug: slug,
@@ -711,11 +742,12 @@ export function useFormularioRenderer(slug: string, initialForm: Form | null = n
     earlyCaptureDoneRef.current  = false;
     earlyCaptureInFlightRef.current = false;
     phoneLeadSentRef.current     = false;
+    pendingRedirectUrlRef.current = null;
     // Generate a new correlationId for the restarted session
     correlationIdRef.current     = generateCorrelationId();
     setAnswers({});
     setCurrentStepIndex(0);
-    setEndingId(null);
+    selectEnding(null);
 
     if (form?.welcome_screen?.enabled) {
       setScreen("welcome");
@@ -724,7 +756,7 @@ export function useFormularioRenderer(slug: string, initialForm: Form | null = n
       setScreen("step");
       await ensureSession();
     }
-  }, [form, ensureSession, storageKey, slug]);
+  }, [form, ensureSession, storageKey, slug, selectEnding]);
 
   const currentStep = form?.steps?.[currentStepIndex] ?? null;
   const canGoBack   = screen === "step" && currentStepIndex > 0;

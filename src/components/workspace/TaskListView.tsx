@@ -102,7 +102,7 @@ function TaskRow({
           borderColor: done ? "var(--primary)" : "var(--border)",
           background:  done ? "var(--primary)" : "transparent",
         }}
-        aria-label={!canExecute ? "Somente o criador ou responsável pode concluir esta tarefa" : done ? "Marcar como pendente" : "Marcar como concluída"}
+        aria-label={!canExecute ? "Somente o criador, responsável ou administrador pode concluir esta tarefa" : done ? "Marcar como pendente" : "Marcar como concluída"}
       >
         {done && <Check size={12} color="#fff" strokeWidth={3} />}
       </button>

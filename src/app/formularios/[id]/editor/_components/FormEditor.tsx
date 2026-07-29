@@ -6,7 +6,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2, MousePointer2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -25,6 +25,7 @@ import { WelcomeEditor }  from "./WelcomeEditor";
 import { EndingEditor }   from "./EndingEditor";
 import { ThemeEditor }    from "./ThemeEditor";
 import { createDefaultStep } from "./blocks";
+import { preserveFormListContext } from "@/lib/forms/navigation";
 
 // ── Defaults ──────────────────────────────────────────────────────────────────
 
@@ -58,6 +59,7 @@ interface FormEditorProps {
 
 export function FormEditor({ id }: FormEditorProps) {
   const router   = useRouter();
+  const searchParams = useSearchParams();
   const editor   = useFormularioEditor(id);
   const { publicarFormulario } = useFormularios();
   const { form, isLoading, isSaving, isDirty, save, updateSteps } = editor;
@@ -440,7 +442,9 @@ export function FormEditor({ id }: FormEditorProps) {
         isDirty={isDirty}
         isSaving={isSaving}
         onSave={save}
-        onBack={() => router.push(`/formularios/${id}`)}
+        onBack={() => router.push(
+          preserveFormListContext(`/formularios/${id}`, searchParams),
+        )}
         onChangeName={name =>
           editor.updateMeta({ name, description: form.description ?? null, slug: form.slug })
         }

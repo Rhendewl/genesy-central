@@ -1,11 +1,12 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, Globe, Loader2, Send } from "lucide-react";
 import { toast } from "sonner";
 import { useFormularios } from "@/hooks/useFormularios";
 import type { Form, FormStatus } from "@/types";
+import { preserveFormListContext } from "@/lib/forms/navigation";
 
 // ── Tipos ──────────────────────────────────────────────────────────────────────
 
@@ -40,6 +41,7 @@ const STATUS_STYLE: Record<FormStatus, { label: string; bg: string; color: strin
 export function FormularioShell({ id, children }: FormularioShellProps) {
   const router   = useRouter();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { publicarFormulario } = useFormularios();
 
   // Metadados leves para o cabeçalho (nome, status, slug)
@@ -76,6 +78,9 @@ export function FormularioShell({ id, children }: FormularioShellProps) {
     return pathname === `/formularios/${id}${suffix}`;
   }
 
+  const contextualHref = (pathname: string) =>
+    preserveFormListContext(pathname, searchParams);
+
   const st        = meta ? STATUS_STYLE[meta.status] : null;
   const publicUrl = meta?.status === "published" && meta.slug
     ? (typeof window !== "undefined" ? `${window.location.origin}/form/${meta.slug}` : null)
@@ -97,7 +102,7 @@ export function FormularioShell({ id, children }: FormularioShellProps) {
         <div className="flex items-center gap-3 mb-3 min-w-0">
 
           <button
-            onClick={() => router.push("/formularios")}
+            onClick={() => router.push(contextualHref("/formularios"))}
             className="flex items-center gap-1.5 text-xs flex-shrink-0 transition-opacity hover:opacity-70"
             style={{ color: "var(--muted-foreground)" }}
             aria-label="Voltar para lista de formulários"
@@ -182,7 +187,7 @@ export function FormularioShell({ id, children }: FormularioShellProps) {
                 key={tab.suffix}
                 role="tab"
                 aria-selected={active}
-                onClick={() => router.push(`/formularios/${id}${tab.suffix}`)}
+                onClick={() => router.push(contextualHref(`/formularios/${id}${tab.suffix}`))}
                 className="flex-shrink-0 px-4 py-2 text-xs font-medium transition-all border-b-2"
                 style={{
                   color: active ? "var(--text-title)" : "var(--muted-foreground)",

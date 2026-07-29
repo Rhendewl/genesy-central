@@ -4,6 +4,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { getPlatformEventBus } from "@/lib/event-bus/platform";
+import { isWorkspaceAdminOfUser } from "@/lib/workspace/task-authorization";
 import type { NewWorkspaceTask, WorkspaceTask } from "@/types/workspace";
 
 export async function GET(req: NextRequest) {
@@ -78,10 +79,21 @@ export async function GET(req: NextRequest) {
       assigneesByTask.set(row.task_id, cur);
     }
 
-    const tasks = ((data ?? []) as WorkspaceTask[]).map((t) => ({
+    const taskRows = (data ?? []) as WorkspaceTask[];
+    const workspaceUserIds = Array.from(new Set(taskRows.map(task => task.user_id)));
+    const adminAccess = new Set(
+      (await Promise.all(workspaceUserIds.map(async targetUserId => ({
+        targetUserId,
+        allowed: await isWorkspaceAdminOfUser(supabase, targetUserId),
+      }))))
+        .filter(result => result.allowed)
+        .map(result => result.targetUserId),
+    );
+
+    const tasks = taskRows.map((t) => ({
       ...t,
       assignee_ids: assigneesByTask.get(t.id) ?? [],
-      can_edit: t.created_by === user.id,
+      can_edit: t.created_by === user.id || adminAccess.has(t.user_id),
     }));
 
     return NextResponse.json({ tasks });
@@ -164,7 +176,7 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({
-      task: { ...data, assignee_ids: assigneeIds, can_edit: data.created_by === user.id } as WorkspaceTask,
+      task: { ...data, assignee_ids: assigneeIds, can_edit: true } as WorkspaceTask,
     }, { status: 201 });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Erro interno";

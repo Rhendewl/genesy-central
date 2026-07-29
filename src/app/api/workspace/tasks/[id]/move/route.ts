@@ -36,8 +36,8 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     const access = await verifyWorkspaceTaskExecutor(supabase, id, user.id);
     if (!access.allowed) return NextResponse.json({ error: access.error }, { status: access.status });
 
-    // A RLS mantém os campos administrativos exclusivos do criador. A rota
-    // já validou acima que o ator é criador ou responsável e usa o cliente
+    // A RLS mantém os campos administrativos exclusivos de criador/admin. A
+    // rota já validou acima que o ator é criador, admin ou responsável e usa o cliente
     // administrativo somente para a mudança operacional de etapa.
     const db = createAdminSupabaseClient();
 

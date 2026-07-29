@@ -331,8 +331,8 @@ export function TaskDetailPanel({ taskId, tasksHook, onClose, presentation = "dr
               >
                 <Lock size={13} className="flex-shrink-0" />
                 {canExecute
-                  ? "Você pode concluir a tarefa e marcar o checklist. Os demais campos só podem ser alterados pelo criador."
-                  : "Somente o criador pode editar esta tarefa. Você possui acesso de visualização."
+                  ? "Você pode concluir a tarefa e marcar o checklist. Os demais campos só podem ser alterados pelo criador ou por um administrador."
+                  : "Somente o criador ou um administrador pode editar esta tarefa. Você possui acesso de visualização."
                 }
               </div>
             )}

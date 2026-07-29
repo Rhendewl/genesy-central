@@ -1,7 +1,8 @@
 "use client";
 
-import { useParams, usePathname, useRouter } from "next/navigation";
+import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Settings, Users } from "lucide-react";
+import { preserveFormListContext } from "@/lib/forms/navigation";
 
 const SUB_TABS = [
   { label: "Configurações Gerais", suffix: "",     icon: Settings },
@@ -12,6 +13,7 @@ export function ConfigSubNav() {
   const { id }   = useParams<{ id: string }>();
   const pathname = usePathname();
   const router   = useRouter();
+  const searchParams = useSearchParams();
 
   return (
     <div className="flex items-center gap-1 overflow-x-auto">
@@ -22,7 +24,7 @@ export function ConfigSubNav() {
         return (
           <button
             key={tab.suffix}
-            onClick={() => router.push(href)}
+            onClick={() => router.push(preserveFormListContext(href, searchParams))}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors"
             style={{
               background: active ? "rgba(255,255,255,0.10)" : "transparent",

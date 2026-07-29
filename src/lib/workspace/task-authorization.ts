@@ -1,34 +1,62 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-export type WorkspaceTaskCreatorAccess =
+export type WorkspaceTaskEditorAccess =
   | { allowed: true }
   | { allowed: false; status: 403 | 404; error: string };
 
-export type WorkspaceTaskExecutorAccess = WorkspaceTaskCreatorAccess;
+export type WorkspaceTaskExecutorAccess = WorkspaceTaskEditorAccess;
+
+interface WorkspaceTaskOwnership {
+  created_by: string;
+  user_id: string;
+}
+
+export function hasWorkspaceTaskEditPermission(
+  task: WorkspaceTaskOwnership,
+  userId: string,
+  isAdminOfWorkspace: boolean,
+) {
+  return task.created_by === userId || isAdminOfWorkspace;
+}
+
+export async function isWorkspaceAdminOfUser(
+  supabase: SupabaseClient,
+  targetUserId: string,
+): Promise<boolean> {
+  const { data, error } = await supabase.rpc("is_admin_of_user", {
+    target_user_id: targetUserId,
+  });
+  if (error) throw new Error(error.message);
+  return data === true;
+}
 
 /**
- * Autoriza mutações de uma tarefa exclusivamente pelo usuário que a criou.
+ * Autoriza mutações administrativas pelo criador ou por um administrador
+ * ativo da mesma organização.
  * A consulta continua respeitando a RLS de leitura, portanto não revela tarefas
  * que o usuário não pode visualizar.
  */
-export async function verifyWorkspaceTaskCreator(
+export async function verifyWorkspaceTaskEditor(
   supabase: SupabaseClient,
   taskId: string,
   userId: string,
-): Promise<WorkspaceTaskCreatorAccess> {
+): Promise<WorkspaceTaskEditorAccess> {
   const { data, error } = await supabase
     .from("workspace_tasks")
-    .select("created_by")
+    .select("created_by, user_id")
     .eq("id", taskId)
     .maybeSingle();
 
   if (error) throw new Error(error.message);
   if (!data) return { allowed: false, status: 404, error: "Tarefa não encontrada" };
-  if (data.created_by !== userId) {
+  if (data.created_by === userId) return { allowed: true };
+
+  const isAdmin = await isWorkspaceAdminOfUser(supabase, data.user_id);
+  if (!hasWorkspaceTaskEditPermission(data, userId, isAdmin)) {
     return {
       allowed: false,
       status: 403,
-      error: "Somente o criador da tarefa pode alterá-la",
+      error: "Somente o criador ou um administrador pode alterar esta tarefa",
     };
   }
 
@@ -36,9 +64,8 @@ export async function verifyWorkspaceTaskCreator(
 }
 
 /**
- * Autoriza as ações operacionais da tarefa (concluir/reabrir e marcar o
- * checklist) para o criador ou para um usuário explicitamente responsável.
- * Isso não concede acesso aos campos administrativos da tarefa.
+ * Autoriza ações operacionais (concluir/reabrir e marcar checklist) para
+ * criador, administrador ou usuário explicitamente responsável.
  */
 export async function verifyWorkspaceTaskExecutor(
   supabase: SupabaseClient,
@@ -47,13 +74,14 @@ export async function verifyWorkspaceTaskExecutor(
 ): Promise<WorkspaceTaskExecutorAccess> {
   const { data: task, error: taskError } = await supabase
     .from("workspace_tasks")
-    .select("created_by")
+    .select("created_by, user_id")
     .eq("id", taskId)
     .maybeSingle();
 
   if (taskError) throw new Error(taskError.message);
   if (!task) return { allowed: false, status: 404, error: "Tarefa não encontrada" };
   if (task.created_by === userId) return { allowed: true };
+  if (await isWorkspaceAdminOfUser(supabase, task.user_id)) return { allowed: true };
 
   const { data: profile, error: profileError } = await supabase
     .from("user_profiles")

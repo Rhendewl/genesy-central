@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
+import { normalizeFormRedirectUrl } from "@/lib/forms/redirect";
 import type { FormStep, LogicRule, FormEnding } from "@/types";
 
 type Params = { params: Promise<{ id: string }> };
@@ -16,11 +17,23 @@ function validatePublish(steps: FormStep[], logicRules: LogicRule[], endings: Fo
     if (step.type === "calendar" && (!step.calendarId || !step.calendarSlug)) {
       return "O bloco Calendário precisa de um calendário selecionado antes de publicar";
     }
+    if (step.type === "redirect" && !normalizeFormRedirectUrl(step.content)) {
+      return "O bloco Redirecionar precisa de uma URL de destino válida antes de publicar";
+    }
+  }
+
+  for (const ending of endings) {
+    if (ending.redirectUrl && !normalizeFormRedirectUrl(ending.redirectUrl)) {
+      return "A tela de encerramento possui uma URL de redirecionamento inválida";
+    }
   }
 
   const stepIds   = new Set(steps.map(s => s.id));
   const endingIds = new Set(endings.map(e => e.id));
   for (const rule of logicRules) {
+    if (rule.action.type === "redirect" && !normalizeFormRedirectUrl(rule.action.url)) {
+      return "Uma regra de redirecionamento possui uma URL de destino inválida";
+    }
     if (!rule.action.target) continue;
     const targetExists = rule.action.type === "jump"
       ? stepIds.has(rule.action.target)

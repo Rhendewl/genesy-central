@@ -6,7 +6,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { getPlatformEventBus } from "@/lib/event-bus/platform";
 import { recordHistory } from "@/lib/onboarding/sync";
-import { verifyWorkspaceTaskCreator } from "@/lib/workspace/task-authorization";
+import {
+  isWorkspaceAdminOfUser,
+  verifyWorkspaceTaskEditor,
+} from "@/lib/workspace/task-authorization";
 import type {
   UpdateWorkspaceTask, WorkspaceTask, WorkspaceTaskDetail,
   WorkspaceTaskChecklistItem, WorkspaceTaskComment, WorkspaceTaskAttachment, WorkspaceMarketingContentLink,
@@ -33,10 +36,13 @@ export async function GET(_req: NextRequest, { params }: Params) {
     if (taskRes.error) throw new Error(taskRes.error.message);
     if (!taskRes.data) return NextResponse.json({ error: "Tarefa não encontrada" }, { status: 404 });
 
+    const canEdit = taskRes.data.created_by === user.id
+      || await isWorkspaceAdminOfUser(supabase, taskRes.data.user_id);
+
     const detail: WorkspaceTaskDetail = {
       ...(taskRes.data as WorkspaceTask),
       assignee_ids:    (assigneesRes.data ?? []).map((a) => a.assignee_id),
-      can_edit:         taskRes.data.created_by === user.id,
+      can_edit:         canEdit,
       checklist_items: (checklistRes.data ?? []) as WorkspaceTaskChecklistItem[],
       comments:        (commentsRes.data ?? [])  as WorkspaceTaskComment[],
       attachments:     (attachmentsRes.data ?? []) as WorkspaceTaskAttachment[],
@@ -65,7 +71,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   }
 
   try {
-    const access = await verifyWorkspaceTaskCreator(supabase, id, user.id);
+    const access = await verifyWorkspaceTaskEditor(supabase, id, user.id);
     if (!access.allowed) return NextResponse.json({ error: access.error }, { status: access.status });
 
     const [{ data: beforeTask, error: beforeTaskError }, { data: beforeAssigneesData, error: beforeAssigneesError }] = await Promise.all([
@@ -139,7 +145,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     }
 
     return NextResponse.json({
-      task: { ...data, assignee_ids: assigneeIds, can_edit: data.created_by === user.id } as WorkspaceTask,
+      task: { ...data, assignee_ids: assigneeIds, can_edit: true } as WorkspaceTask,
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Erro interno";
@@ -154,7 +160,7 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
   if (!user) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
 
   try {
-    const access = await verifyWorkspaceTaskCreator(supabase, id, user.id);
+    const access = await verifyWorkspaceTaskEditor(supabase, id, user.id);
     if (!access.allowed) return NextResponse.json({ error: access.error }, { status: access.status });
 
     const [{ data: attachments }, { data: taskRow }] = await Promise.all([

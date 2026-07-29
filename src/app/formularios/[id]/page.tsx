@@ -1,6 +1,6 @@
 "use client";
 
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import {
   Pencil, FileText, Clock, Calendar, CheckSquare,
   Loader2, Link2, ExternalLink,
@@ -11,6 +11,7 @@ import { FormularioShell } from "./_components/FormularioShell";
 import { useFormularioEditor } from "@/hooks/useFormularioEditor";
 import { FormRenderer } from "@/components/formularios/FormRenderer";
 import type { FormRendererScreen } from "@/components/formularios/FormRenderer";
+import { preserveFormListContext } from "@/lib/forms/navigation";
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -71,6 +72,7 @@ function FutureMetric({ label }: { label: string }) {
 export default function FormularioOverviewPage() {
   const { id }  = useParams<{ id: string }>();
   const router  = useRouter();
+  const searchParams = useSearchParams();
   const { form, isLoading } = useFormularioEditor(id);
 
   // Dados derivados
@@ -195,7 +197,9 @@ export default function FormularioOverviewPage() {
 
               {/* Editor Visual — CTA principal */}
               <button
-                onClick={() => router.push(`/formularios/${id}/editor`)}
+                onClick={() => router.push(
+                  preserveFormListContext(`/formularios/${id}/editor`, searchParams),
+                )}
                 className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:opacity-90 active:scale-[0.98]"
                 style={{ background: "#b0b8c1", color: "#000000" }}
                 aria-label="Abrir o Editor Visual deste formulário"

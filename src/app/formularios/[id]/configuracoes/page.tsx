@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import {
   Loader2, CheckCircle2, AlertCircle, ExternalLink,
   Shield, Bell, Link2, Globe, AlertTriangle,
@@ -11,6 +11,7 @@ import { FormularioShell } from "../_components/FormularioShell";
 import { ConfigSubNav } from "./_components/ConfigSubNav";
 import type { Form, FormStatus } from "@/types";
 import { Switch } from "@/components/ui/Switch";
+import { preserveFormListContext } from "@/lib/forms/navigation";
 
 // ── Local types ───────────────────────────────────────────────────────────────
 
@@ -176,6 +177,7 @@ function Divider() {
 export default function FormularioConfiguracoesPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const [form,      setForm]      = useState<Form | null>(null);
   const [draft,     setDraft]     = useState<Draft | null>(null);
@@ -436,7 +438,9 @@ export default function FormularioConfiguracoesPage() {
                   </p>
                   <button
                     type="button"
-                    onClick={() => router.push(`/formularios/${id}/editor`)}
+                    onClick={() => router.push(
+                      preserveFormListContext(`/formularios/${id}/editor`, searchParams),
+                    )}
                     className="inline-flex items-center gap-1 mt-2 text-[11px] font-medium hover:underline"
                     style={{ color: "var(--primary)" }}
                   >

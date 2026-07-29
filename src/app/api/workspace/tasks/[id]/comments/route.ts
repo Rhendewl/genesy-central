@@ -2,7 +2,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
-import { verifyWorkspaceTaskCreator } from "@/lib/workspace/task-authorization";
+import { verifyWorkspaceTaskEditor } from "@/lib/workspace/task-authorization";
 import type { WorkspaceTaskComment } from "@/types/workspace";
 
 type Params = { params: Promise<{ id: string }> };
@@ -17,7 +17,7 @@ export async function POST(req: NextRequest, { params }: Params) {
   if (!body?.body) return NextResponse.json({ error: "body é obrigatório" }, { status: 400 });
 
   try {
-    const access = await verifyWorkspaceTaskCreator(supabase, taskId, user.id);
+    const access = await verifyWorkspaceTaskEditor(supabase, taskId, user.id);
     if (!access.allowed) return NextResponse.json({ error: access.error }, { status: access.status });
 
     // author_id é nulo quando quem comenta é o dono da conta (sem linha em user_profiles)

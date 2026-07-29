@@ -32,7 +32,7 @@ export type TasksByStatus = Record<WorkspaceTaskStatus, WorkspaceTask[]>;
 
 export function useWorkspaceTasks(viewAsUserId?: string, activeBoardId?: string) {
   const supabase = getSupabaseClient();
-  const { member } = useCurrentMember();
+  const { member, isOwner } = useCurrentMember();
 
   const [tasks,     setTasks]     = useState<WorkspaceTask[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -211,7 +211,7 @@ export function useWorkspaceTasks(viewAsUserId?: string, activeBoardId?: string)
   async function updateTask(id: string, data: UpdateWorkspaceTask): Promise<{ error: string | null }> {
     const previous = tasks.find((t) => t.id === id);
     if (!canEditTask(previous)) {
-      return { error: "Somente o criador da tarefa pode alterá-la" };
+      return { error: "Somente o criador ou um administrador pode alterar esta tarefa" };
     }
     setTasks((prev) => (
       activeBoardId && data.board_id && data.board_id !== activeBoardId
@@ -240,7 +240,7 @@ export function useWorkspaceTasks(viewAsUserId?: string, activeBoardId?: string)
   async function deleteTask(id: string): Promise<{ error: string | null }> {
     const previous = tasks.find((t) => t.id === id);
     if (!canEditTask(previous)) {
-      return { error: "Somente o criador da tarefa pode excluí-la" };
+      return { error: "Somente o criador ou um administrador pode excluir esta tarefa" };
     }
     setTasks((prev) => prev.filter((t) => t.id !== id));
 
@@ -265,7 +265,7 @@ export function useWorkspaceTasks(viewAsUserId?: string, activeBoardId?: string)
     const index = tasks.findIndex((task) => task.id === id);
     const task = index >= 0 ? tasks[index] : null;
     if (!task || !canEditTask(task)) {
-      return { error: "Somente o criador da tarefa pode descartá-la", discarded: null };
+      return { error: "Somente o criador ou um administrador pode descartar esta tarefa", discarded: null };
     }
     discardedTaskIdsRef.current.add(id);
     setTasks((prev) => prev.filter((item) => item.id !== id));
@@ -318,7 +318,7 @@ export function useWorkspaceTasks(viewAsUserId?: string, activeBoardId?: string)
   ): Promise<{ error: string | null }> {
     const task = tasks.find((item) => item.id === id);
     if (!task || !canExecuteTask(task)) {
-      return { error: "Somente o criador ou um responsável pode mover esta tarefa" };
+      return { error: "Somente o criador, um responsável ou um administrador pode mover esta tarefa" };
     }
     const previousTasks = tasks;
 
@@ -365,7 +365,7 @@ export function useWorkspaceTasks(viewAsUserId?: string, activeBoardId?: string)
     const task = tasks.find((t) => t.id === id);
     if (!task) return { error: "Tarefa não encontrada" };
     if (!canExecuteTask(task)) {
-      return { error: "Somente o criador ou um responsável pode concluir esta tarefa" };
+      return { error: "Somente o criador, um responsável ou um administrador pode concluir esta tarefa" };
     }
 
     const previousTasks = tasks;
@@ -405,7 +405,11 @@ export function useWorkspaceTasks(viewAsUserId?: string, activeBoardId?: string)
     // A API calcula esta permissão usando a sessão autenticada, sem depender
     // do perfil de equipe ter terminado de carregar no cliente. O fallback
     // mantém compatibilidade com objetos otimistas/antigos sem `can_edit`.
-    return task.can_edit ?? (!!member?.auth_user_id && task.created_by === member.auth_user_id);
+    return task.can_edit ?? (
+      isOwner === true
+      || member?.role === "admin"
+      || (!!member?.auth_user_id && task.created_by === member.auth_user_id)
+    );
   }
 
   function canExecuteTask(task: WorkspaceTask | undefined | null): boolean {
