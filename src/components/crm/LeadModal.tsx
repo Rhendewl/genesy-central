@@ -141,7 +141,7 @@ export function LeadModal({
       setTimeout(() => firstInputRef.current?.focus(), 180);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, lead]);
+  }, [isOpen, lead?.id]);
 
   // ── Escape para fechar ─────────────────────────────────────────────────────
 

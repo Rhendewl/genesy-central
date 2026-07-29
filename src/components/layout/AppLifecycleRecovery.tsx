@@ -2,6 +2,8 @@
 
 import { Fragment, useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { getSupabaseClient } from "@/lib/supabase";
+import { useGlobalStore } from "@/store";
+import { canRemountAppForRecovery } from "@/lib/app-lifecycle-recovery";
 
 const LONG_SUSPEND_MS = 60_000;
 const RECOVERY_THROTTLE_MS = 5_000;
@@ -38,6 +40,13 @@ export function AppLifecycleRecovery({ children }: { children: ReactNode }) {
       }
 
       lastRecoveryRef.current = now;
+
+      // Um modal aberto contém estado local ainda não salvo (ex.: notas do
+      // card de lead). Remontar a árvore nesse momento apagaria o rascunho e
+      // a seleção atual. A sessão já foi validada acima; apenas adiamos a
+      // reconstrução visual, que só é necessária quando a interface travou.
+      if (!canRemountAppForRecovery(useGlobalStore.getState().modalCount)) return;
+
       setGeneration(current => current + 1);
     } finally {
       recoveringRef.current = false;
