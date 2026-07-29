@@ -74,6 +74,13 @@ export async function POST(req: NextRequest, { params }: Params) {
   if (existing) {
     // Já está completed — não faz downgrade
     if (existing.status === "completed") {
+      // Recovery path: a previous response may have committed the submission
+      // while the serverless execution ended before CRM/NPS finished.
+      await Promise.all([
+        createCrmLead(supabase, session.form_id, session.user_id, body.answers, existing.id),
+        syncNpsResponse(supabase, session.form_id, session.user_id, body.answers, true),
+      ]);
+
       // Também cobre submissões concluídas antes da instalação da fila e o caso
       // em que a resposta HTTP anterior se perdeu depois do commit no banco.
       await processSubmissionWebhooks(supabase, existing.id).catch(err => {
@@ -140,11 +147,15 @@ export async function POST(req: NextRequest, { params }: Params) {
   // (nome/telefone/e-mail); o lead é criado assim que houver dado suficiente,
   // sem esperar a conclusão. Se a pessoa completar depois, o mesmo lead é
   // atualizado em vez de duplicado — ver createCrmLead().
-  void createCrmLead(supabase, session.form_id, session.user_id, body.answers, submissionId);
-
-  // ── Auto-lançar nota de NPS — só em respostas concluídas (nota parcial não
-  // existe) — quando houver uma integração "nps" ativa para este formulário.
-  void syncNpsResponse(supabase, session.form_id, session.user_id, body.answers, isCompleted);
+  // These tasks must be awaited. Vercel may freeze a serverless execution as
+  // soon as the response is returned, which previously made CRM/NPS delivery
+  // intermittent even though the submission itself had been saved.
+  await Promise.all([
+    createCrmLead(supabase, session.form_id, session.user_id, body.answers, submissionId),
+    // ── Auto-lançar nota de NPS — só em respostas concluídas (nota parcial não
+    // existe) — quando houver uma integração "nps" ativa para este formulário.
+    syncNpsResponse(supabase, session.form_id, session.user_id, body.answers, isCompleted),
+  ]);
 
   // O trigger do banco enfileira atomicamente o job junto com a conclusão.
   // Fazemos a primeira tentativa ainda nesta execução; falhas ficam persistidas

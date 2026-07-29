@@ -128,16 +128,19 @@ export function useFormularios(): UseFormulariosReturn {
   }, []);
 
   const duplicarFormulario = useCallback(async (id: string) => {
-    const original = formularios.find(f => f.id === id);
-    if (!original) return { data: null, error: "Formulário não encontrado" };
-
-    return createFormulario({
-      name: `${original.name} (cópia)`,
-      slug: "",
-      description: original.description ?? null,
-      folder_id: original.folder_id,
-    });
-  }, [formularios, createFormulario]);
+    try {
+      const res = await fetch(`/api/formularios/${id}/duplicar`, { method: "POST" });
+      const json = await res.json();
+      if (!res.ok) return { data: null, error: json.error ?? "Erro ao duplicar formulário" };
+      await refetch();
+      return { data: json.formulario as Form, error: null };
+    } catch (error) {
+      return {
+        data: null,
+        error: error instanceof Error ? error.message : "Erro ao duplicar formulário",
+      };
+    }
+  }, [refetch]);
 
   const moveFormulario = useCallback(async (id: string, folderId: string | null) => {
     const previous = formularios.find((form) => form.id === id)?.folder_id ?? null;

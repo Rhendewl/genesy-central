@@ -1,4 +1,4 @@
-import { MARKETING_CONTENT_STATUSES, MARKETING_FORMATS, MARKETING_IDEA_STATUSES, MARKETING_PLATFORMS, MARKETING_PRIORITIES, type MarketingContent, type MarketingContentInput, type MarketingIdeaInput } from "@/types/marketing";
+import { MARKETING_CONTENT_STATUSES, MARKETING_FORMATS, MARKETING_IDEA_STATUSES, MARKETING_PLATFORMS, MARKETING_PRIORITIES, type MarketingContent, type MarketingContentInput, type MarketingIdeaInput, type MarketingVgvSaleInput } from "@/types/marketing";
 
 const isOneOf = <T extends readonly string[]>(values: T, value: unknown): value is T[number] => typeof value === "string" && values.includes(value);
 const cleanText = (value: unknown, max: number) => typeof value === "string" ? value.trim().slice(0, max) : "";
@@ -54,6 +54,38 @@ export function parseMarketingIdeaInput(value: unknown): MarketingIdeaInput {
     suggested_assignee_id: typeof body.suggested_assignee_id === "string" ? body.suggested_assignee_id : null,
     reference_links: links(body.reference_links),
     tag_names: tagNames(body.tag_names),
+  };
+}
+
+export function parseMarketingVgvSaleInput(value: unknown): MarketingVgvSaleInput {
+  if (!value || typeof value !== "object") throw new Error("Corpo inválido");
+  const body = value as Record<string, unknown>;
+  const saleValue = typeof body.sale_value === "number" ? body.sale_value : Number(body.sale_value);
+  const commissionPercentage = typeof body.commission_percentage === "number"
+    ? body.commission_percentage
+    : Number(body.commission_percentage);
+  const brokerName = cleanText(body.broker_name, 160);
+  const clientName = cleanText(body.client_name, 160);
+  const saleDate = typeof body.sale_date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(body.sale_date) ? body.sale_date : "";
+  const [year, month, day] = saleDate.split("-").map(Number);
+  const parsedSaleDate = new Date(Date.UTC(year, month - 1, day));
+  const isValidSaleDate = saleDate
+    && parsedSaleDate.getUTCFullYear() === year
+    && parsedSaleDate.getUTCMonth() === month - 1
+    && parsedSaleDate.getUTCDate() === day;
+
+  if (!Number.isFinite(saleValue) || saleValue <= 0 || saleValue > 999_999_999_999.99) throw new Error("Informe um valor de venda válido");
+  if (!brokerName) throw new Error("Nome do corretor é obrigatório");
+  if (!clientName) throw new Error("Cliente atribuído é obrigatório");
+  if (!Number.isFinite(commissionPercentage) || commissionPercentage < 0 || commissionPercentage > 100) throw new Error("A comissão deve estar entre 0% e 100%");
+  if (!isValidSaleDate) throw new Error("Data da venda inválida");
+
+  return {
+    sale_value: Math.round(saleValue * 100) / 100,
+    broker_name: brokerName,
+    client_name: clientName,
+    commission_percentage: Math.round(commissionPercentage * 100) / 100,
+    sale_date: saleDate,
   };
 }
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { marketingStats, parseMarketingContentInput, parseMarketingIdeaInput } from "@/lib/marketing/domain";
+import { marketingStats, parseMarketingContentInput, parseMarketingIdeaInput, parseMarketingVgvSaleInput } from "@/lib/marketing/domain";
 import type { MarketingContent } from "@/types/marketing";
 
 describe("marketing domain validation", () => {
@@ -44,6 +44,28 @@ describe("marketing domain validation", () => {
     });
     expect(input.scheduled_at).toBe("2026-07-25T15:00:00.000Z");
     expect(input.delivery_at).toBe("2026-07-23T18:00:00.000Z");
+  });
+
+  it("normaliza um registro manual de VGV", () => {
+    expect(parseMarketingVgvSaleInput({
+      sale_value: 750000.559,
+      broker_name: "  Marina Alves ",
+      client_name: " João e Ana ",
+      commission_percentage: 3.456,
+      sale_date: "2026-07-28",
+    })).toEqual({
+      sale_value: 750000.56,
+      broker_name: "Marina Alves",
+      client_name: "João e Ana",
+      commission_percentage: 3.46,
+      sale_date: "2026-07-28",
+    });
+  });
+
+  it("rejeita valores e percentuais inválidos no VGV", () => {
+    expect(() => parseMarketingVgvSaleInput({ sale_value: 0, broker_name: "A", client_name: "B", commission_percentage: 3, sale_date: "2026-07-28" })).toThrow("valor de venda");
+    expect(() => parseMarketingVgvSaleInput({ sale_value: 100, broker_name: "A", client_name: "B", commission_percentage: 101, sale_date: "2026-07-28" })).toThrow("comissão");
+    expect(() => parseMarketingVgvSaleInput({ sale_value: 100, broker_name: "A", client_name: "B", commission_percentage: 3, sale_date: "2026-02-31" })).toThrow("Data da venda");
   });
 });
 

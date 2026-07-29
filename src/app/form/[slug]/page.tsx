@@ -3,9 +3,10 @@ import { notFound } from "next/navigation";
 import { getPublicFormBySlug } from "@/lib/forms/public-form";
 import { FormPublicClient } from "./FormPublicClient";
 
-export const revalidate = 60;
-export const dynamic = "force-static";
-export const dynamicParams = true;
+// A visitor may try this URL before the owner publishes the form. Rendering it
+// dynamically prevents that first 404 from being cached after publication.
+export const revalidate = 0;
+export const dynamic = "force-dynamic";
 
 type PageProps = { params: { slug: string } };
 

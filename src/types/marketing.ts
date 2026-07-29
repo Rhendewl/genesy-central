@@ -35,6 +35,24 @@ export interface MarketingAsset {
 }
 export interface MarketingChecklistItem { id: string; content_id: string; label: string; is_completed: boolean; position: number; }
 export interface MarketingComment { id: string; content_id: string; body: string; author_profile_id: string | null; created_by: string; created_at: string; }
+export interface MarketingVgvSale {
+  id: string;
+  organization_id: string;
+  sale_value: number;
+  broker_name: string;
+  client_name: string;
+  commission_percentage: number;
+  sale_date: string;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+  can_delete: boolean;
+}
+
+export type MarketingVgvSaleInput = Pick<
+  MarketingVgvSale,
+  "sale_value" | "broker_name" | "client_name" | "commission_percentage" | "sale_date"
+>;
 
 export type MarketingContentInput = Partial<Omit<MarketingContent, "id" | "organization_id" | "created_by" | "updated_by" | "created_at" | "updated_at" | "archived_at" | "checklist" | "comments" | "can_edit" | "can_delete">> & {
   title: string;

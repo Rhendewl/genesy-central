@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
+import { createAdminSupabaseClient } from "@/lib/supabase-admin";
 import type { NewForm } from "@/types";
 
 // GET /api/formularios — lista todos os formulários do usuário autenticado
@@ -69,13 +70,14 @@ export async function POST(req: NextRequest) {
     ? normalizeSlug(slug)
     : generateSlug(name);
 
-  // Verifica unicidade do slug para este usuário
-  const { data: existing } = await supabase
+  // O link /form/:slug é global, portanto a disponibilidade também precisa
+  // ser global (e não apenas dentro da conta atual).
+  const { data: existing } = await createAdminSupabaseClient()
     .from("forms")
     .select("id")
-    .eq("user_id", user.id)
     .eq("slug", cleanSlug)
     .is("deleted_at", null)
+    .limit(1)
     .maybeSingle();
 
   if (existing) {

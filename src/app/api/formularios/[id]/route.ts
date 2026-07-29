@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
+import { createAdminSupabaseClient } from "@/lib/supabase-admin";
 import type { UpdateForm } from "@/types";
 
 type Params = { params: Promise<{ id: string }> };
@@ -32,6 +34,17 @@ export async function PUT(req: NextRequest, { params }: Params) {
 
   const body = await req.json() as UpdateForm;
 
+  const { data: currentForm } = await supabase
+    .from("forms")
+    .select("slug")
+    .eq("id", id)
+    .eq("user_id", user.id)
+    .is("deleted_at", null)
+    .maybeSingle();
+  if (!currentForm) {
+    return NextResponse.json({ error: "Formulário não encontrado" }, { status: 404 });
+  }
+
   if (body.folder_id) {
     const { data: folder } = await supabase
       .from("form_folders")
@@ -45,13 +58,13 @@ export async function PUT(req: NextRequest, { params }: Params) {
   // Se o slug foi alterado, verificar unicidade
   if (body.slug) {
     const cleanSlug = normalizeSlug(body.slug);
-    const { data: existing } = await supabase
+    const { data: existing } = await createAdminSupabaseClient()
       .from("forms")
       .select("id")
-      .eq("user_id", user.id)
       .eq("slug", cleanSlug)
       .is("deleted_at", null)
       .neq("id", id)
+      .limit(1)
       .maybeSingle();
 
     if (existing) {
@@ -69,6 +82,8 @@ export async function PUT(req: NextRequest, { params }: Params) {
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  revalidatePath(`/form/${currentForm.slug}`);
+  if (data.slug !== currentForm.slug) revalidatePath(`/form/${data.slug}`);
   return NextResponse.json({ formulario: data });
 }
 
@@ -85,6 +100,15 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     return NextResponse.json({ error: "Status inválido" }, { status: 400 });
   }
 
+  const { data: form } = await supabase
+    .from("forms")
+    .select("slug")
+    .eq("id", id)
+    .eq("user_id", user.id)
+    .is("deleted_at", null)
+    .maybeSingle();
+  if (!form) return NextResponse.json({ error: "Formulário não encontrado" }, { status: 404 });
+
   const updates: Record<string, unknown> = { status, updated_by: user.id };
   if (status === "published") updates.published_at = new Date().toISOString();
 
@@ -95,6 +119,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     .eq("user_id", user.id);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  revalidatePath(`/form/${form.slug}`);
   return NextResponse.json({ ok: true });
 }
 

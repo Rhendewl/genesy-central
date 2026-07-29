@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import type { FormStep, LogicRule, FormEnding } from "@/types";
 
@@ -12,7 +13,7 @@ function validatePublish(steps: FormStep[], logicRules: LogicRule[], endings: Fo
     return "O formulário precisa ter ao menos uma pergunta para ser publicado";
   }
   for (const step of steps) {
-    if (step.type === "calendar" && !step.calendarId) {
+    if (step.type === "calendar" && (!step.calendarId || !step.calendarSlug)) {
       return "O bloco Calendário precisa de um calendário selecionado antes de publicar";
     }
   }
@@ -97,6 +98,10 @@ export async function POST(_req: NextRequest, { params }: Params) {
     .eq("user_id", user.id);
 
   if (updateErr) return NextResponse.json({ error: updateErr.message }, { status: 500 });
+
+  // Clears any 404 or older render produced before this publication. The page
+  // is also dynamic, so this is defense in depth for existing edge entries.
+  revalidatePath(`/form/${form.slug}`);
 
   return NextResponse.json({ ok: true, version: nextVersion, published_at: now });
 }
