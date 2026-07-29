@@ -5,6 +5,7 @@ import { Toaster } from "sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useGlobalStore, THEME_STORAGE_KEY } from "@/store";
 import { CurrentMemberProvider, useCurrentMember } from "@/context/CurrentMemberContext";
+import { AppLifecycleRecovery } from "./AppLifecycleRecovery";
 
 // Sincroniza o tema salvo no perfil (banco) apenas quando este navegador/
 // dispositivo ainda não tem uma preferência local — ou seja, só corrige o
@@ -36,7 +37,7 @@ export function AuthenticatedProviders({ children }: { children: React.ReactNode
     <TooltipProvider delay={300}>
       <CurrentMemberProvider>
         <ThemeProfileSync />
-        {children}
+        <AppLifecycleRecovery>{children}</AppLifecycleRecovery>
       </CurrentMemberProvider>
       <Toaster
         position="bottom-center"
