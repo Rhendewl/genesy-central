@@ -12,6 +12,7 @@ import type { DateFilter } from "@/components/crm/PeriodFilter";
 import { useCurrentMember } from "@/context/CurrentMemberContext";
 import { isAdministrativeMember } from "@/lib/user-access";
 import { countCanonicalLeads } from "@/lib/crm/lead-identity";
+import { sortLeadsByRecentActivity } from "@/lib/crm/lead-order";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // useLeads
@@ -122,11 +123,11 @@ export function useLeads(dateFilter?: DateFilter | null) {
   // ── Derived: apply date filter client-side (instant, preserves real-time) ──
 
   const filteredLeads = useMemo(() => {
-    if (!dateFilter) return leads;
-    return leads.filter(l => {
+    const visibleLeads = !dateFilter ? leads : leads.filter(l => {
       const d = new Date(l[dateFilter.field]);
       return d >= dateFilter.from && d <= dateFilter.to;
     });
+    return sortLeadsByRecentActivity(visibleLeads);
   }, [leads, dateFilter]);
 
   const leadsByStage: LeadsByStage = useMemo(() =>
@@ -242,15 +243,17 @@ export function useLeads(dateFilter?: DateFilter | null) {
   ): Promise<{ ok: boolean; requireNote: boolean; error: string | null }> {
     const previousLead = leads.find((l) => l.id === id);
     const prevStageId = previousLead?.stage_id ?? null;
+    const previousUpdatedAt = previousLead?.updated_at;
 
     if (prevStageId === targetStageId) {
       return { ok: true, requireNote: false, error: null };
     }
 
     // Optimistic update — stage_id muda imediatamente na UI
+    const movedAt = new Date().toISOString();
     setLeads((prev) =>
       prev.map((l) =>
-        l.id === id ? { ...l, stage_id: targetStageId } : l
+        l.id === id ? { ...l, stage_id: targetStageId, updated_at: movedAt } : l
       )
     );
 
@@ -266,7 +269,9 @@ export function useLeads(dateFilter?: DateFilter | null) {
         // Reverte optimistic update em qualquer erro
         setLeads((prev) =>
           prev.map((l) =>
-            l.id === id ? { ...l, stage_id: prevStageId } : l
+            l.id === id
+              ? { ...l, stage_id: prevStageId, updated_at: previousUpdatedAt ?? l.updated_at }
+              : l
           )
         );
         const requireNote = res.status === 422;
@@ -282,7 +287,9 @@ export function useLeads(dateFilter?: DateFilter | null) {
       // Reverte em caso de erro de rede
       setLeads((prev) =>
         prev.map((l) =>
-          l.id === id ? { ...l, stage_id: prevStageId } : l
+          l.id === id
+            ? { ...l, stage_id: prevStageId, updated_at: previousUpdatedAt ?? l.updated_at }
+            : l
         )
       );
       return {
