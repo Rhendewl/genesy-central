@@ -13,7 +13,6 @@ import { WorkspaceViewSwitcher, type WorkspaceView } from "@/components/workspac
 import { TaskBoard } from "@/components/workspace/TaskBoard";
 import { TaskListView } from "@/components/workspace/TaskListView";
 import { TaskDetailPanel } from "@/components/workspace/TaskDetailPanel";
-import { useTags } from "@/hooks/useTags";
 import { useUsers } from "@/hooks/useUsers";
 import { filterWorkspaceTasks, type WorkspaceTaskDueFilter } from "@/lib/workspace/task-filters";
 import { Button } from "@/components/ui/button";
@@ -35,10 +34,8 @@ export default function WorkspaceKanbanPage() {
   const [view, setView] = useState<WorkspaceView>("kanban");
   const [openTaskId, setOpenTaskId] = useState<string | null>(null);
   const [isPanelOpen, setIsPanelOpen] = useState(false);
-  const [tagFilter, setTagFilter] = useState("");
   const [dueFilter, setDueFilter] = useState<WorkspaceTaskDueFilter>("");
   const [assigneeFilter, setAssigneeFilter] = useState("");
-  const { tags } = useTags();
   const { profiles } = useUsers();
   const activeProfiles = profiles.filter((profile) => profile.is_active);
 
@@ -53,13 +50,12 @@ export default function WorkspaceKanbanPage() {
 
   const filteredTasks = useMemo(() => {
     return filterWorkspaceTasks(tasksHook.tasks, {
-      tagId: tagFilter,
       due: dueFilter,
       assigneeId: assigneeFilter,
-    }, tags);
-  }, [assigneeFilter, dueFilter, tagFilter, tags, tasksHook.tasks]);
+    });
+  }, [assigneeFilter, dueFilter, tasksHook.tasks]);
 
-  const hasFilters = Boolean(tagFilter || dueFilter || assigneeFilter);
+  const hasFilters = Boolean(dueFilter || assigneeFilter);
 
   useEffect(() => {
     const taskId = searchParams.get("task");
@@ -81,7 +77,6 @@ export default function WorkspaceKanbanPage() {
   function changeBoard(boardId: string) {
     setActiveBoardId(boardId);
     window.localStorage.setItem("workspace-active-task-board", boardId);
-    setTagFilter("");
     setDueFilter("");
     setAssigneeFilter("");
   }
@@ -131,10 +126,6 @@ export default function WorkspaceKanbanPage() {
 
       <div className="px-4 pb-4 sm:px-6">
         <div className="flex items-center gap-2 overflow-x-auto overscroll-x-contain pb-1 [scrollbar-width:none]">
-          <select aria-label="Filtrar por etiqueta" value={tagFilter} onChange={(event) => setTagFilter(event.target.value)} className={filterClass}>
-            <option value="">Todas as etiquetas</option>
-            {tags.map((tag) => <option key={tag.id} value={tag.id}>{tag.name}</option>)}
-          </select>
           <select aria-label="Filtrar por prazo" value={dueFilter} onChange={(event) => setDueFilter(event.target.value as WorkspaceTaskDueFilter)} className={filterClass}>
             <option value="">Todos os prazos</option>
             <option value="overdue">Atrasadas</option>
@@ -147,7 +138,7 @@ export default function WorkspaceKanbanPage() {
             <option value="unassigned">Sem responsável</option>
             {activeProfiles.map((profile) => <option key={profile.id} value={profile.id}>{profile.full_name}</option>)}
           </select>
-          {hasFilters && <button type="button" onClick={() => { setTagFilter(""); setDueFilter(""); setAssigneeFilter(""); }} className="flex h-9 shrink-0 items-center gap-1.5 rounded-xl px-3 text-xs text-[var(--muted-foreground)] hover:bg-[var(--hover)]"><FilterX size={13} />Limpar</button>}
+          {hasFilters && <button type="button" onClick={() => { setDueFilter(""); setAssigneeFilter(""); }} className="flex h-9 shrink-0 items-center gap-1.5 rounded-xl px-3 text-xs text-[var(--muted-foreground)] hover:bg-[var(--hover)]"><FilterX size={13} />Limpar</button>}
           {hasFilters && <span className="ml-auto shrink-0 text-[11px] text-[var(--muted-foreground)]">{filteredTasks.length} de {tasksHook.tasks.length}</span>}
         </div>
       </div>

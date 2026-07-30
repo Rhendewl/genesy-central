@@ -58,11 +58,11 @@ export interface WorkspaceTask {
 }
 
 export type NewWorkspaceTask = Pick<WorkspaceTask, "title"> & Partial<Pick<WorkspaceTask,
-  "board_id" | "description" | "priority" | "assignee_ids" | "tags" | "due_date" | "due_time" | "color" | "notes" | "status"
+  "board_id" | "description" | "priority" | "assignee_ids" | "due_date" | "due_time" | "color" | "notes" | "status"
 >>;
 
 export type UpdateWorkspaceTask = Partial<Pick<WorkspaceTask,
-  "board_id" | "title" | "description" | "priority" | "assignee_ids" | "tags" | "due_date" | "due_time" | "color" | "notes"
+  "board_id" | "title" | "description" | "priority" | "assignee_ids" | "due_date" | "due_time" | "color" | "notes"
 >>;
 
 export interface WorkspaceTaskChecklistItem {

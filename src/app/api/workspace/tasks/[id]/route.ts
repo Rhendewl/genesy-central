@@ -66,7 +66,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   if (!body) return NextResponse.json({ error: "Corpo inválido" }, { status: 400 });
 
   const patch: Record<string, unknown> = {};
-  for (const key of ["board_id", "title", "description", "priority", "tags", "due_date", "due_time", "color", "notes"] as const) {
+  for (const key of ["board_id", "title", "description", "priority", "due_date", "due_time", "color", "notes"] as const) {
     if (key in body) patch[key] = body[key];
   }
 

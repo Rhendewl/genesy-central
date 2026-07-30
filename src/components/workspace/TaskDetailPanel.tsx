@@ -14,7 +14,6 @@ import { ChecklistField, type ChecklistItemLike } from "./ChecklistField";
 import { CommentsThread } from "./CommentsThread";
 import { AttachmentsField, uploadAttachmentFile, type AttachmentRegistrationPayload } from "./AttachmentsField";
 import { DescriptionEditorDialog, DescriptionPreviewButton } from "./DescriptionEditorDialog";
-import { TagSelector } from "@/components/tags/TagSelector";
 import { WORKSPACE_TASK_PRIORITIES, type WorkspaceTaskBoard, type WorkspaceTaskPriority } from "@/types/workspace";
 import type { useWorkspaceTasks } from "@/hooks/useWorkspaceTasks";
 
@@ -48,7 +47,6 @@ export function TaskDetailPanel({ taskId, tasksHook, onClose, presentation = "dr
   const [dueTime,     setDueTime]     = useState<string | null>(null);
   const [color,       setColor]       = useState<string | null>(null);
   const [notes,       setNotes]       = useState("");
-  const [taskTags,    setTaskTags]    = useState<string[]>([]);
   const [isSaving,    setIsSaving]    = useState(false);
   const [isTogglingCompletion, setIsTogglingCompletion] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -79,13 +77,12 @@ export function TaskDetailPanel({ taskId, tasksHook, onClose, presentation = "dr
       setDueTime(existingTask.due_time);
       setColor(existingTask.color);
       setNotes(existingTask.notes ?? "");
-      setTaskTags(existingTask.tags);
     }
   }, [existingTask]);
 
   function saveField(patch: Partial<{
     title: string; description: string; priority: WorkspaceTaskPriority; assignee_ids: string[];
-    board_id: string; due_date: string | null; due_time: string | null; color: string | null; notes: string; tags: string[];
+    board_id: string; due_date: string | null; due_time: string | null; color: string | null; notes: string;
   }>) {
     if (!taskId || !canEdit) return;
     void updateTask(taskId, patch);
@@ -98,7 +95,7 @@ export function TaskDetailPanel({ taskId, tasksHook, onClose, presentation = "dr
       title: title.trim(), description: description || undefined, priority,
       board_id: boardId || undefined,
       assignee_ids: assigneeIds, due_date: dueDate ?? undefined, due_time: dueTime ?? undefined,
-      color: color ?? undefined, notes: notes || undefined, tags: taskTags,
+      color: color ?? undefined, notes: notes || undefined,
     });
     if (result.error || !result.task) {
       setIsSaving(false);
@@ -470,16 +467,6 @@ export function TaskDetailPanel({ taskId, tasksHook, onClose, presentation = "dr
                 />
               </div>
             </div>
-
-            <TagSelector
-              value={taskTags}
-              disabled={!canEdit}
-              onChange={(next) => {
-                setTaskTags(next);
-                if (!isCreating && canEdit) saveField({ tags: next });
-              }}
-              helperText="As etiquetas são compartilhadas com o CRM e o Marketing."
-            />
 
             <div>
               <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide" style={{ color: "var(--muted-foreground)" }}>

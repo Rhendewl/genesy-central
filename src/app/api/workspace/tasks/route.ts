@@ -145,7 +145,7 @@ export async function POST(req: NextRequest) {
         description: body.description ?? null,
         status,
         priority:    body.priority ?? "media",
-        tags:        body.tags ?? [],
+        tags:        [],
         due_date:    body.due_date ?? null,
         due_time:    body.due_time ?? null,
         color:       body.color ?? null,

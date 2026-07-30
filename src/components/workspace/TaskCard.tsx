@@ -7,7 +7,6 @@ import { ptBR } from "date-fns/locale/pt-BR";
 import { cn } from "@/lib/utils";
 import { progressBandColor, progressBandGradientFrom } from "@/lib/progress-color";
 import { PriorityBadge } from "./PriorityBadge";
-import { TagChip } from "./TagChip";
 import { AssigneeAvatarGroup } from "./AssigneeAvatarGroup";
 import type { WorkspaceTask } from "@/types/workspace";
 
@@ -65,7 +64,6 @@ export function TaskCard({ task, isDragOverlay = false, canDrag = true, onClick 
 
       <div className="mb-2 flex flex-wrap items-center gap-1">
         <PriorityBadge priority={task.priority} />
-        {task.tags.slice(0, 3).map((tagId) => <TagChip key={tagId} tagId={tagId} />)}
       </div>
 
       {hasChecklist && (
