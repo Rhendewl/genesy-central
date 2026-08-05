@@ -349,6 +349,28 @@
   }
 }
 
+/* Chips e etiquetas com cores dinâmicas. No tema claro, tons luminosos
+   (especialmente amarelo/amber) ganham contraste sem perder sua identidade. */
+.lc-semantic-chip {
+  color: var(--chip-color);
+  background-color: color-mix(in srgb, var(--chip-color) 10%, transparent);
+  border-color: color-mix(in srgb, var(--chip-color) 22%, transparent);
+}
+
+.light .lc-semantic-chip {
+  color: color-mix(in srgb, var(--chip-color) 58%, #000000);
+  background-color: color-mix(in srgb, var(--chip-color) 16%, transparent);
+  border-color: color-mix(in srgb, var(--chip-color) 45%, transparent);
+}
+
+/* Estados semânticos antigos que ainda usam utilitários Tailwind. */
+.light .text-amber-400,
+.light .text-amber-500,
+.light .text-yellow-400,
+.light .text-yellow-500 {
+  color: #925f08;
+}
+
 /* Marketing — glass com maior legibilidade e hierarquia operacional. */
 .marketing-shell {
   backdrop-filter: blur(24px) saturate(160%);

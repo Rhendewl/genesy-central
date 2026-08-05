@@ -13,6 +13,7 @@ import { usePipelines } from "@/hooks/usePipelines";
 import { useTags } from "@/hooks/useTags";
 import { useUsers } from "@/hooks/useUsers";
 import type { FormStep, Form } from "@/types";
+import { semanticChipStyle } from "@/lib/semantic-chip";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -209,8 +210,8 @@ function TagMultiSelect({
           {selectedTags.map(tag => (
             <span
               key={tag.id}
-              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium"
-              style={{ background: `${tag.color}22`, color: tag.color, border: `1px solid ${tag.color}44` }}
+              className="lc-semantic-chip inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium"
+              style={semanticChipStyle(tag.color)}
             >
               {tag.name}
               <button type="button" onClick={() => toggle(tag.id)} className="hover:opacity-70">

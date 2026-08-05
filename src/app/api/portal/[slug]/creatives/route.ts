@@ -104,6 +104,7 @@ export async function GET(
     const now = new Date();
     const since = sp.get("since") || format(startOfMonth(now), "yyyy-MM-dd");
     const until = sp.get("until") || format(now, "yyyy-MM-dd");
+    const refreshImages = sp.get("refresh_images") === "1";
 
     // 3. Linked accounts
     const { data: portalAccounts } = await admin
@@ -206,7 +207,7 @@ export async function GET(
     const top8 = creatives.slice(0, 8);
 
     // 9. Real-time thumbnail enrichment — 4 phases, all non-fatal
-    const needsThumb = top8.filter(c => !c.image_url);
+    const needsThumb = refreshImages ? top8 : top8.filter(c => !c.image_url);
     if (needsThumb.length > 0) {
       try {
         const extIdToUUID = new Map<string, string>();
@@ -357,8 +358,16 @@ export async function GET(
           const uuid = extIdToUUID.get(metaId);
           if (!uuid) continue;
           const entry = top8.find(c => c.ad_id === uuid);
-          if (entry && !entry.image_url) entry.image_url = imgUrl;
+          if (entry && (refreshImages || !entry.image_url)) entry.image_url = imgUrl;
         }
+
+        // Mantém o cache do banco aquecido e substitui URLs expiradas da CDN.
+        await Promise.all(top8
+          .filter(creative => creative.image_url)
+          .map(creative => admin
+            .from("campaigns")
+            .update({ thumbnail_url: creative.image_url })
+            .eq("id", creative.ad_id)));
 
         const enriched = top8.filter(c => c.image_url).length;
         console.log(`[portal/creatives] final: ${enriched}/${top8.length} with thumbnail`);
@@ -367,7 +376,10 @@ export async function GET(
       }
     }
 
-    return NextResponse.json({ creatives: top8 });
+    return NextResponse.json(
+      { creatives: top8 },
+      { headers: { "Cache-Control": "no-store, max-age=0" } },
+    );
 
   } catch (err) {
     console.error("[portal/creatives] unhandled error:", err);

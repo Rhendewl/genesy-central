@@ -464,6 +464,9 @@ export interface CreatePublicBookingPayload {
   custom_form_responses: Record<string, unknown>;
   attribution?:          BookingAttribution;
   lgpd_accepted?:        boolean;
+  /** Token opaco da sessão quando o widget está dentro de um formulário.
+   *  O servidor o valida antes de vincular booking, submissão e lead. */
+  form_session_token?:   string;
 }
 
 export interface PublicBookingResult {

@@ -27,6 +27,7 @@ export function FormPublicClient({ slug, initialForm }: { slug: string; initialF
     submitForm,
     retrySubmit,
     restart,
+    prepareCalendarBooking,
   } = useFormularioRenderer(slug, initialForm);
 
   // ── Direção da animação ────────────────────────────────────────────────────
@@ -224,6 +225,7 @@ export function FormPublicClient({ slug, initialForm }: { slug: string; initialF
           onBack={handleBack}
           onRestart={handleRestart}
           onAnswer={setAnswer}
+          onPrepareCalendarBooking={prepareCalendarBooking}
           mode="public"
         />
       </div>

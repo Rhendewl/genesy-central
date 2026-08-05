@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ComposedChart, Line, Area,
@@ -11,6 +11,7 @@ import {
   Download, ChevronDown, Filter, TrendingUp, Users,
   DollarSign, Eye, MousePointer, BarChart2, Loader2, AlertTriangle,
   CalendarDays, Check, Sun, Moon,
+  RefreshCw,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format, startOfMonth, endOfMonth, subDays, subMonths } from "date-fns";
@@ -211,6 +212,9 @@ export function PortalPublicDashboard({ slug }: Props) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
+  const [refreshVersion, setRefreshVersion] = useState(0);
+  const [syncing, setSyncing] = useState(false);
+  const syncingRef = useRef(false);
 
   // Filters
   const [period, setPeriod]           = useState("month");
@@ -220,8 +224,8 @@ export function PortalPublicDashboard({ slug }: Props) {
 
   const { since, until } = useMemo(() => getPeriodDates(period), [period]);
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
+  const fetchData = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     setError(null);
     try {
       const params = new URLSearchParams({ since, until });
@@ -229,7 +233,7 @@ export function PortalPublicDashboard({ slug }: Props) {
       if (campaignId !== "all") params.set("campaign_id", campaignId);
       if (statusFilter !== "all") params.set("status", statusFilter);
 
-      const res = await fetch(`/api/portal/${slug}/data?${params}`);
+      const res = await fetch(`/api/portal/${slug}/data?${params}`, { cache: "no-store" });
       const json = await res.json();
 
       if (!res.ok) {
@@ -240,11 +244,54 @@ export function PortalPublicDashboard({ slug }: Props) {
     } catch {
       setError("Erro de conexão");
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [slug, since, until, accountId, campaignId, statusFilter]);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => { void fetchData(); }, [fetchData]);
+
+  const refreshFromMeta = useCallback(async (manual = false) => {
+    if (!manual && document.visibilityState === "hidden") return;
+    if (syncingRef.current) return;
+    syncingRef.current = true;
+    setSyncing(true);
+    try {
+      const response = await fetch(`/api/portal/${slug}/refresh`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ since, until, manual }),
+        cache: "no-store",
+      }).catch(() => null);
+      if (!response?.ok) return;
+      const result = await response.json() as { refreshed?: boolean };
+      if (result.refreshed) {
+        await fetchData(true);
+        setRefreshVersion(version => version + 1);
+      } else if (manual) {
+        // Mesmo quando o servidor informa que o snapshot já está fresco,
+        // relê os dados para o botão sempre produzir feedback imediato.
+        await fetchData(true);
+      }
+    } finally {
+      syncingRef.current = false;
+      setSyncing(false);
+    }
+  }, [fetchData, since, slug, until]);
+
+  // O snapshot aparece imediatamente; em paralelo, buscamos dados novos da
+  // Meta. O servidor limita a frequência e impede sincronizações concorrentes.
+  useEffect(() => {
+    void refreshFromMeta(false);
+    const interval = window.setInterval(() => void refreshFromMeta(false), 60_000);
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") void refreshFromMeta(false);
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
+  }, [refreshFromMeta]);
 
   const handleExportPDF = async () => {
     if (exporting || !data) return;
@@ -371,7 +418,18 @@ export function PortalPublicDashboard({ slug }: Props) {
             {loading && <div className="h-4 w-28 rounded-lg bg-[var(--shimmer-base)] animate-pulse" />}
           </div>
 
-          <ThemeToggleButton />
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => void refreshFromMeta(true)}
+              disabled={syncing}
+              className="lc-filter-control flex h-8 items-center gap-1.5 rounded-xl px-2.5 text-[11px] font-medium text-[#27a3ff] transition-colors disabled:opacity-50 sm:h-9 sm:px-3 sm:text-xs"
+              title="Atualizar dados agora"
+            >
+              <RefreshCw size={13} className={syncing ? "animate-spin" : ""} />
+              <span className="hidden sm:inline">{syncing ? "Sincronizando…" : "Sincronizar"}</span>
+            </button>
+            <ThemeToggleButton />
+          </div>
 
           {/* PDF button hidden temporarily */}
         </div>
@@ -575,7 +633,7 @@ export function PortalPublicDashboard({ slug }: Props) {
             </section>
 
             {/* ── Melhores Criativos ────────────────────────────────── */}
-            <MelhoresCreativos slug={slug} since={since} until={until} />
+            <MelhoresCreativos slug={slug} since={since} until={until} refreshVersion={refreshVersion} />
 
             {/* ── Distribuição de leads por campanha ───────────────── */}
             {campaigns.length > 0 && (

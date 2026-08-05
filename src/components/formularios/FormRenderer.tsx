@@ -80,6 +80,7 @@ export interface FormRendererProps {
 
   // ── Respostas ─────────────────────────────────────────────────────────────
   onAnswer: (stepId: string, value: unknown) => void;
+  onPrepareCalendarBooking?: () => Promise<string | null>;
 
   // ── Analytics — todos opcionais, zero coupling ────────────────────────────
   onRendererLoaded?: () => void;
@@ -110,6 +111,7 @@ export const FormRenderer = React.memo(function FormRenderer({
   onBack,
   onRestart,
   onAnswer,
+  onPrepareCalendarBooking,
   onRendererLoaded,
   onWelcomeView,
   onStepView,
@@ -280,6 +282,7 @@ export const FormRenderer = React.memo(function FormRenderer({
                   mode={mode}
                   formSteps={steps}
                   formAnswers={answers}
+                  onPrepareCalendarBooking={onPrepareCalendarBooking}
                 />
               </div>
             )}

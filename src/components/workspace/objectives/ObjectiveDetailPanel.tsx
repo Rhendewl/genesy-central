@@ -17,6 +17,7 @@ import { AttachmentsField } from "@/components/workspace/AttachmentsField";
 import { ProgressBar } from "@/components/workspace/ProgressBar";
 import { WORKSPACE_TASK_PRIORITIES, type WorkspaceTaskPriority } from "@/types/workspace";
 import type { useWorkspaceObjectives } from "@/hooks/useWorkspaceObjectives";
+import { semanticChipStyle } from "@/lib/semantic-chip";
 
 interface ObjectiveDetailPanelProps {
   objectiveId: string | null; // null = modo criação
@@ -255,12 +256,8 @@ export function ObjectiveDetailPanel({ objectiveId, objectivesHook, onClose, pre
                       <button
                         key={tag.id}
                         onClick={() => toggleTag(tag.id)}
-                        className="rounded-full px-2.5 py-1 text-[11px] font-medium transition-all"
-                        style={{
-                          background: active ? `${tag.color}30` : "var(--hover)",
-                          color:      active ? tag.color : "var(--muted-foreground)",
-                          border:     `1px solid ${active ? tag.color + "50" : "var(--glass-border)"}`,
-                        }}
+                        className={`rounded-full border px-2.5 py-1 text-[11px] font-medium transition-all ${active ? "lc-semantic-chip" : ""}`}
+                        style={active ? semanticChipStyle(tag.color) : { background: "var(--hover)", color: "var(--muted-foreground)", borderColor: "var(--glass-border)" }}
                       >
                         {tag.name}
                       </button>

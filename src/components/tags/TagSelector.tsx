@@ -5,6 +5,7 @@ import { Loader2, Plus, Tag as TagIcon, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useTags } from "@/hooks/useTags";
 import { cn } from "@/lib/utils";
+import { semanticChipStyle } from "@/lib/semantic-chip";
 
 interface TagSelectorProps {
   value: string[];
@@ -103,14 +104,14 @@ export function TagSelector({ value, onChange, disabled = false, className, help
             return (
               <span
                 key={tag.id}
-                className="inline-flex overflow-hidden rounded-full"
-                style={{ background: active ? `${tag.color}30` : "var(--hover)", border: `1px solid ${active ? tag.color + "60" : "var(--glass-border)"}` }}
+                className={cn("inline-flex overflow-hidden rounded-full border", active && "lc-semantic-chip")}
+                style={active ? semanticChipStyle(tag.color) : { background: "var(--hover)", borderColor: "var(--glass-border)" }}
               >
-                <button type="button" onClick={() => toggle(tag.id)} disabled={disabled} className="px-2.5 py-1 text-[11px] font-medium disabled:cursor-default" style={{ color: active ? tag.color : "var(--muted-foreground)" }}>
+                <button type="button" onClick={() => toggle(tag.id)} disabled={disabled} className="px-2.5 py-1 text-[11px] font-medium disabled:cursor-default" style={{ color: active ? "inherit" : "var(--muted-foreground)" }}>
                   {tag.name}
                 </button>
                 {!disabled && (
-                  <button type="button" onClick={() => void remove(tag.id, tag.name)} disabled={deletingId === tag.id} className="flex items-center border-l px-1.5 opacity-60 transition-opacity hover:opacity-100" style={{ borderColor: active ? `${tag.color}45` : "var(--glass-border)", color: active ? tag.color : "var(--muted-foreground)" }} aria-label={`Apagar etiqueta ${tag.name}`}>
+                  <button type="button" onClick={() => void remove(tag.id, tag.name)} disabled={deletingId === tag.id} className="flex items-center border-l px-1.5 opacity-60 transition-opacity hover:opacity-100" style={{ borderColor: active ? "currentColor" : "var(--glass-border)", color: active ? "inherit" : "var(--muted-foreground)" }} aria-label={`Apagar etiqueta ${tag.name}`}>
                     {deletingId === tag.id ? <Loader2 size={10} className="animate-spin" /> : <Trash2 size={10} />}
                   </button>
                 )}

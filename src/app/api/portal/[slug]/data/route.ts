@@ -53,22 +53,16 @@ export async function GET(
     return NextResponse.json({ error: "Portal pausado" }, { status: 403 });
   }
 
-  // Load client name
-  let clientName: string | null = null;
-  if (rawPortal.client_id) {
-    const { data: clientData } = await db
-      .from("agency_clients")
-      .select("name")
-      .eq("id", rawPortal.client_id)
-      .maybeSingle();
-    clientName = clientData?.name ?? null;
-  }
-
-  // 2. Load allowed ad_account_ids
-  const { data: portalAccounts } = await db
-    .from("portal_accounts")
-    .select("ad_account_id")
-    .eq("portal_id", rawPortal.id);
+  // Nome do cliente e contas vinculadas são independentes: buscar em paralelo
+  // reduz o tempo até o primeiro dashboard.
+  const [clientResult, portalAccountsResult] = await Promise.all([
+    rawPortal.client_id
+      ? db.from("agency_clients").select("name").eq("id", rawPortal.client_id).maybeSingle()
+      : Promise.resolve({ data: null }),
+    db.from("portal_accounts").select("ad_account_id").eq("portal_id", rawPortal.id),
+  ]);
+  const clientName: string | null = clientResult.data?.name ?? null;
+  const portalAccounts = portalAccountsResult.data;
 
   const allowedAccountIds: string[] = (portalAccounts ?? []).map(
     (pa: { ad_account_id: string }) => pa.ad_account_id
@@ -87,7 +81,7 @@ export async function GET(
   // Find ad_platform_accounts records (scoped to portal owner for security)
   const { data: platformAccounts } = await admin
     .from("ad_platform_accounts")
-    .select("id, account_id, account_name")
+    .select("id, account_id, account_name, last_sync_at")
     .eq("user_id", rawPortal.user_id)
     .in("account_id", allowedAccountIds);
 
@@ -132,7 +126,15 @@ export async function GET(
     campaignsQuery = campaignsQuery.eq("id", filterCampaignId);
   }
 
-  const { data: campaigns } = await campaignsQuery;
+  const [campaignsResult, allCampaignsResult] = await Promise.all([
+    campaignsQuery,
+    admin
+      .from("campaigns")
+      .select("id, name, status")
+      .in("platform_account_id", filteredPlatformAccountIds)
+      .order("name"),
+  ]);
+  const campaigns = campaignsResult.data;
   const campaignMap = new Map<string, { name: string; status: string }>();
   (campaigns ?? []).forEach((c: { id: string; name: string; status: string }) => {
     campaignMap.set(c.id, { name: c.name, status: c.status });
@@ -141,11 +143,7 @@ export async function GET(
   const campaignIds = Array.from(campaignMap.keys());
 
   // 6. Get all available campaigns (for filter dropdown — no status filter)
-  const { data: allCampaigns } = await admin
-    .from("campaigns")
-    .select("id, name, status")
-    .in("platform_account_id", filteredPlatformAccountIds)
-    .order("name");
+  const allCampaigns = allCampaignsResult.data;
 
   // 7. Fetch campaign metrics
   const metricsData: {
@@ -260,6 +258,11 @@ export async function GET(
       client_name: clientName,
       status: rawPortal.status,
     },
+    updated_at: (platformAccounts ?? [])
+      .map((account: { last_sync_at: string | null }) => account.last_sync_at)
+      .filter((value): value is string => Boolean(value))
+      .sort()
+      .at(-1) ?? null,
     kpis: {
       investimento: totalSpend,
       leads: totalLeads,
@@ -279,7 +282,7 @@ export async function GET(
         status: c.status,
       })
     ),
-  });
+  }, { headers: { "Cache-Control": "no-store, max-age=0" } });
   } catch (err) {
     console.error("[portal/data] unhandled error:", err);
     return NextResponse.json({ error: "Erro interno" }, { status: 500 });
@@ -289,6 +292,7 @@ export async function GET(
 function buildEmptyResponse(name: string, clientName: string | null, status: string) {
   return {
     portal: { name, client_name: clientName, status },
+    updated_at: null,
     kpis: { investimento: 0, leads: 0, cpl: 0, alcance: 0, cliques: 0, ctr: 0, impressoes: 0 },
     daily: [],
     campaigns: [],

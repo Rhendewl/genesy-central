@@ -90,6 +90,7 @@ export interface UseFormularioRendererReturn {
   submitForm: () => Promise<void>;
   retrySubmit: () => void;
   restart: () => void;
+  prepareCalendarBooking: () => Promise<string | null>;
 }
 
 // ── Hook ──────────────────────────────────────────────────────────────────────
@@ -500,6 +501,28 @@ export function useFormularioRenderer(slug: string, initialForm: Form | null = n
     }
   }, [ensureSession, isOnline, slug]);
 
+  // Antes de confirmar um horário, garante que a submissão parcial e seu
+  // lead já existam. O token permite ao endpoint da Agenda vincular a reunião
+  // a esse registro exato, sem depender de deduplicação por texto de contato.
+  const prepareCalendarBooking = useCallback(async (): Promise<string | null> => {
+    if (!isOnline) return null;
+    if (!sessionTokenRef.current) await ensureSession();
+    const token = sessionTokenRef.current;
+    if (!token) return null;
+
+    const res = await fetch(`/api/form/${slug}/resposta`, {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({
+        session_token: token,
+        answers:       answersRef.current,
+        status:        "partial",
+      }),
+    }).catch(() => null);
+
+    return res?.ok ? token : null;
+  }, [ensureSession, isOnline, slug]);
+
   // ── goNext ─────────────────────────────────────────────────────────────────
   // Uses answersRef (not answers state) so this callback is stable — avoids
   // re-rendering all children on every answer change.
@@ -777,6 +800,7 @@ export function useFormularioRenderer(slug: string, initialForm: Form | null = n
     submitForm,
     retrySubmit,
     restart,
+    prepareCalendarBooking,
   };
 }
 

@@ -38,6 +38,9 @@ export interface CrmSyncPayload {
    *  ponderada. `null` = agendamento fora de um formulário, ou formulário
    *  sem pergunta ponderada — não há o que propagar. */
   iqScore:      number | null;
+  /** Lead já criado pela submissão do formulário. Tem precedência sobre
+   *  qualquer deduplicação por e-mail/telefone. */
+  preferredLeadId: string | null;
 }
 
 export class BookingCrmSyncService {
@@ -62,16 +65,30 @@ export class BookingCrmSyncService {
 
   private async _doSync(payload: CrmSyncPayload): Promise<void> {
     const cfg = payload.crmSettings;
-    if (!cfg?.enabled || !cfg.stage_id) return;
+    const hasActiveCrmIntegration = !!(cfg?.enabled && cfg.stage_id);
 
-    // 1. Deduplicate: find existing lead by email OR phone
+    let existingLeadId: string | null = null;
+
+    if (payload.preferredLeadId) {
+      const { data: preferredLead } = await this.db
+        .from("leads")
+        .select("id")
+        .eq("id", payload.preferredLeadId)
+        .eq("user_id", payload.userId)
+        .maybeSingle();
+      existingLeadId = preferredLead?.id ?? null;
+    }
+
+    // Sem lead vindo do formulário e sem integração própria da Agenda,
+    // não há sincronização de CRM a executar.
+    if (!existingLeadId && !hasActiveCrmIntegration) return;
+
+    // 1. Fallback para agendamentos standalone: deduplicar por e-mail/telefone.
     const filters: string[] = [];
     if (payload.visitorEmail) filters.push(`email.eq.${payload.visitorEmail}`);
     if (payload.visitorPhone) filters.push(`contact.eq.${payload.visitorPhone}`);
 
-    let existingLeadId: string | null = null;
-
-    if (filters.length > 0) {
+    if (!existingLeadId && filters.length > 0) {
       const { data } = await this.db
         .from("leads")
         .select("id")
@@ -85,15 +102,18 @@ export class BookingCrmSyncService {
     const svc = new LeadService(this.db);
 
     if (existingLeadId) {
-      // 2a. Lead exists → move to configured stage
-      const moveResult = await svc.moveLead(
-        existingLeadId,
-        cfg.stage_id,
-        { note: `Agendamento via calendário: ${payload.calendarName} em ${new Date(payload.startsAt).toLocaleString("pt-BR")}` },
-      );
+      // Lead do formulário sempre é enriquecido com a reunião. A mudança de
+      // etapa só ocorre quando o calendário possui integração CRM ativa.
+      if (hasActiveCrmIntegration) {
+        const moveResult = await svc.moveLead(
+          existingLeadId,
+          cfg!.stage_id!,
+          { note: `Agendamento via calendário: ${payload.calendarName} em ${new Date(payload.startsAt).toLocaleString("pt-BR")}` },
+        );
 
-      if (!moveResult.ok) {
-        throw new Error(`moveLead failed: ${moveResult.error}`);
+        if (!moveResult.ok) {
+          throw new Error(`moveLead failed: ${moveResult.error}`);
+        }
       }
 
       // Backfill de IQ: só se o lead existente ainda não tiver um (nunca
@@ -137,9 +157,10 @@ export class BookingCrmSyncService {
         event_type: "crm_updated",
         actor:      "system",
         actor_id:   null,
-        payload:    { lead_id: existingLeadId, stage_id: cfg.stage_id },
+        payload:    { lead_id: existingLeadId, stage_id: cfg?.stage_id ?? null },
       }).then();
     } else {
+      if (!hasActiveCrmIntegration) return;
       // 2b. New lead → create in configured pipeline/stage.
       // Dados do agendamento vão em integration_notes, nunca em "notes"
       // (reservado para observações manuais do CRM).
@@ -152,7 +173,7 @@ export class BookingCrmSyncService {
 
       const createResult = await svc.createLead({
         user_id:  payload.userId,
-        stageId:  cfg.stage_id,
+        stageId:  cfg!.stage_id!,
         name:     payload.visitorName,
         contact:  payload.visitorPhone ?? payload.visitorEmail,
         email:    payload.visitorEmail,
@@ -179,7 +200,7 @@ export class BookingCrmSyncService {
         event_type: "crm_created",
         actor:      "system",
         actor_id:   null,
-        payload:    { lead_id: createResult.leadId, stage_id: cfg.stage_id },
+        payload:    { lead_id: createResult.leadId, stage_id: cfg!.stage_id! },
       }).then();
     }
   }

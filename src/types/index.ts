@@ -863,6 +863,7 @@ export interface PortalPublicData {
     client_name: string | null;
     status: PortalStatus;
   };
+  updated_at: string | null;
   kpis: PortalKPIs;
   daily: PortalDailyMetric[];
   campaigns: PortalCampaignSummary[];

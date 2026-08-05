@@ -44,6 +44,39 @@ export async function POST(req: NextRequest, { params }: Params) {
       return NextResponse.json({ error: "Calendário não encontrado" }, { status: 404 });
     }
 
+    // Quando o widget pertence a um formulário, resolve a identidade pelo
+    // token opaco da sessão. Isso é mais forte que comparar e-mail/telefone e
+    // impede que o agendamento gere um segundo lead sem as respostas.
+    let formContext: { sessionId: string; submissionId: string; leadId: string | null } | null = null;
+    if (payload.form_session_token) {
+      const { data: formSession } = await db
+        .from("form_sessions")
+        .select("id")
+        .eq("token", payload.form_session_token)
+        .eq("user_id", calendar.user_id)
+        .maybeSingle();
+
+      if (!formSession) {
+        return NextResponse.json({ error: "Sessão do formulário inválida" }, { status: 422 });
+      }
+
+      const { data: submission } = await db
+        .from("form_submissions")
+        .select("id, lead_id")
+        .eq("session_id", formSession.id)
+        .maybeSingle();
+
+      if (!submission) {
+        return NextResponse.json({ error: "Salve os dados do formulário antes de agendar" }, { status: 409 });
+      }
+
+      formContext = {
+        sessionId:    formSession.id,
+        submissionId: submission.id,
+        leadId:       submission.lead_id ?? null,
+      };
+    }
+
     const svc    = new BookingService(db);
     const result = await svc.createPublicBooking(calendar, payload);
 
@@ -68,6 +101,18 @@ export async function POST(req: NextRequest, { params }: Params) {
     // — ver CalendarStepField.tsx / BookingCrmSyncService.
     const sourceIqScoreRaw = payload.custom_form_responses?._source_iq_score;
     const sourceIqScore    = typeof sourceIqScoreRaw === "number" ? sourceIqScoreRaw : null;
+
+    if (formContext) {
+      await db
+        .from("appointment_bookings")
+        .update({
+          session_id:    formContext.sessionId,
+          submission_id: formContext.submissionId,
+          lead_id:       formContext.leadId,
+        })
+        .eq("id", bookingId)
+        .eq("user_id", calendar.user_id);
+    }
 
     // 1. Google Calendar — awaited so Vercel doesn't kill the process before it completes.
     await new GoogleCalendarSyncService(db).syncBooking({
@@ -103,6 +148,7 @@ export async function POST(req: NextRequest, { params }: Params) {
       attribution,
       correlationId: null,
       iqScore: sourceIqScore,
+      preferredLeadId: formContext?.leadId ?? null,
     });
 
     // booking.created já é publicado dentro de BookingService.createPublicBooking()

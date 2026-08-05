@@ -35,6 +35,17 @@ export interface MarketingAsset {
 }
 export interface MarketingChecklistItem { id: string; content_id: string; label: string; is_completed: boolean; position: number; }
 export interface MarketingComment { id: string; content_id: string; body: string; author_profile_id: string | null; created_by: string; created_at: string; }
+export interface MarketingInstagramConnection {
+  id: string; instagram_user_id: string; username: string; display_name: string | null; profile_picture_url: string | null;
+  followers_count: number; media_count: number; status: "connected" | "error" | "disconnected"; last_sync_at: string | null;
+  sync_error: string | null; token_expires_at: string | null; created_at: string;
+}
+export interface MarketingInstagramMedia {
+  id: string; connection_id: string; marketing_content_id: string | null; instagram_media_id: string; media_type: string;
+  media_product_type: string | null; caption: string | null; media_url: string | null; thumbnail_url: string | null;
+  permalink: string | null; published_at: string; reach: number; views: number; plays: number; likes: number; comments: number;
+  saved: number; shares: number; total_interactions: number; average_watch_time: number; total_watch_time: number; last_synced_at: string;
+}
 export interface MarketingVgvSale {
   id: string;
   organization_id: string;

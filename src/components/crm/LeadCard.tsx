@@ -8,6 +8,7 @@ import type { Lead } from "@/types";
 import { cn } from "@/lib/utils";
 import { useTags } from "@/hooks/useTags";
 import { LeadScoreEngine } from "@/lib/crm/lead-score-engine";
+import { semanticChipStyle } from "@/lib/semantic-chip";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // LeadCard
@@ -120,12 +121,8 @@ export function LeadCard({ lead, isDragOverlay = false, onEdit }: LeadCardProps)
           {leadTags.slice(0, 3).map((tag) => (
             <span
               key={tag.id}
-              className="rounded-full px-2 py-0.5 text-[10px] font-medium leading-none"
-              style={{
-                background: `${tag.color}18`,
-                color: tag.color,
-                border: `1px solid ${tag.color}28`,
-              }}
+              className="lc-semantic-chip rounded-full border px-2 py-0.5 text-[10px] font-medium leading-none"
+              style={semanticChipStyle(tag.color)}
             >
               {tag.name}
             </span>

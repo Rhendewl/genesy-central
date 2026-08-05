@@ -31,6 +31,7 @@ export interface StepRendererProps {
    *  para extrair nome/e-mail/telefone já coletados em steps anteriores. */
   formSteps?: FormStep[];
   formAnswers?: Record<string, unknown>;
+  onPrepareCalendarBooking?: () => Promise<string | null>;
 }
 
 // ── Máscara de telefone ────────────────────────────────────────────────────────
@@ -119,6 +120,7 @@ export function StepRenderer({
   mode = "public",
   formSteps = [],
   formAnswers = {},
+  onPrepareCalendarBooking,
 }: StepRendererProps) {
   const [error,     setError]     = useState<string | null>(null);
   const [isFocused, setIsFocused] = useState(false);
@@ -540,6 +542,7 @@ export function StepRenderer({
             step={step}
             formSteps={formSteps}
             formAnswers={formAnswers}
+            onPrepareBooking={onPrepareCalendarBooking}
             theme={theme}
             onChange={handleChange}
             onNext={() => onNextRef.current?.()}

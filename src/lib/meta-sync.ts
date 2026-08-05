@@ -126,62 +126,53 @@ export async function syncMetaAccount(params: SyncParams): Promise<SyncResult> {
 
     // ── Sync campaigns ───────────────────────────────────────────────────────
 
-    for (const camp of metaCampaigns) {
-      const { data: existing, error: findErr } = await supabase
-        .from("campaigns")
-        .select("id")
-        .eq("user_id", userId)
-        .eq("external_id", camp.id)
-        .maybeSingle();
-
-      if (findErr) {
-        console.error(`[meta-sync] erro ao buscar campanha ${camp.id}:`, findErr.message);
-        warnings.push(`Erro ao buscar campanha ${camp.name}: ${findErr.message}`);
-        continue;
-      }
-
-      if (existing) {
-        const { error: updErr } = await supabase
+    const metaCampaignIds = metaCampaigns.map(campaign => campaign.id);
+    const { data: existingCampaigns, error: existingCampaignsError } = metaCampaignIds.length
+      ? await supabase
           .from("campaigns")
-          .update({
-            name:                camp.name,
-            status:              mapCampaignStatus(camp.status),
-            objective:           mapObjective(camp.objective),
-            platform_account_id: platformAccountId,
-          })
-          .eq("id", existing.id);
+          .select("id, external_id")
+          .eq("user_id", userId)
+          .in("external_id", metaCampaignIds)
+      : { data: [], error: null };
 
-        if (updErr) {
-          console.error(`[meta-sync] erro ao atualizar campanha ${camp.id}:`, updErr.message);
-          warnings.push(`Erro ao atualizar ${camp.name}: ${updErr.message}`);
-          continue;
-        }
-      } else {
-        const { error: insErr } = await supabase
-          .from("campaigns")
-          .insert({
-            user_id:             userId,
-            client_id:           clientId,
-            platform_account_id: platformAccountId,
-            name:                camp.name,
-            platform:            "meta",
-            objective:           mapObjective(camp.objective),
-            status:              mapCampaignStatus(camp.status),
-            daily_budget:        camp.daily_budget    ? parseFloat(camp.daily_budget)    / 100 : 0,
-            total_budget:        camp.lifetime_budget ? parseFloat(camp.lifetime_budget) / 100 : 0,
-            start_date:          camp.created_time.split("T")[0],
-            external_id:         camp.id,
+    if (existingCampaignsError) {
+      throw new Error(`Falha ao buscar campanhas existentes: ${existingCampaignsError.message}`);
+    }
+
+    const existingByExternalId = new Map(
+      (existingCampaigns ?? []).map(campaign => [campaign.external_id as string, campaign.id as string]),
+    );
+    const campaignWrites = metaCampaigns.map(async campaign => {
+      const existingId = existingByExternalId.get(campaign.id);
+      const values = {
+        name:                campaign.name,
+        status:              mapCampaignStatus(campaign.status),
+        objective:           mapObjective(campaign.objective),
+        platform_account_id: platformAccountId,
+      };
+
+      const { error } = existingId
+        ? await supabase.from("campaigns").update(values).eq("id", existingId)
+        : await supabase.from("campaigns").insert({
+            ...values,
+            user_id:         userId,
+            client_id:       clientId,
+            platform:        "meta",
+            daily_budget:    campaign.daily_budget    ? parseFloat(campaign.daily_budget)    / 100 : 0,
+            total_budget:    campaign.lifetime_budget ? parseFloat(campaign.lifetime_budget) / 100 : 0,
+            start_date:      campaign.created_time.split("T")[0],
+            external_id:     campaign.id,
           });
 
-        if (insErr) {
-          console.error(`[meta-sync] erro ao inserir campanha ${camp.id}:`, insErr.message);
-          warnings.push(`Erro ao inserir ${camp.name}: ${insErr.message}`);
-          continue;
-        }
+      if (error) {
+        warnings.push(`Erro ao sincronizar ${campaign.name}: ${error.message}`);
+        return false;
       }
+      return true;
+    });
 
-      campaignsSynced++;
-    }
+    const campaignWriteResults = await Promise.all(campaignWrites);
+    campaignsSynced = campaignWriteResults.filter(Boolean).length;
 
     console.log(`[meta-sync] campanhas sincronizadas: ${campaignsSynced}`);
 
@@ -209,6 +200,7 @@ export async function syncMetaAccount(params: SyncParams): Promise<SyncResult> {
     // ── Sync metrics ─────────────────────────────────────────────────────────
 
     const monthlySpend = new Map<string, number>();
+    const metricRows: Record<string, unknown>[] = [];
 
     for (const row of insights) {
       if (!row.date_start) {
@@ -260,45 +252,43 @@ export async function syncMetaAccount(params: SyncParams): Promise<SyncResult> {
 
       // ── Upsert campaign_metrics ─────────────────────────────────────────────
 
-      const { error: upsertErr } = await supabase
-        .from("campaign_metrics")
-        .upsert(
-          {
-            user_id:             userId,
-            campaign_id:         internalId,
-            client_id:           clientId,
-            platform_account_id: platformAccountId,
-            date:                row.date_start,
-            impressions:         imps,
-            clicks:              totalClicks,
-            link_clicks:         linkClicks,
-            unique_ctr:          uniqueCtr,
-            spend,
-            leads,
-            conversions,
-            reach,
-            frequency:           freq,
-            video_views:         0,
-          },
-          { onConflict: "campaign_id,date" }
-        );
-
-      if (upsertErr) {
-        console.error(
-          `[meta-sync] upsert falhou para camp ${row.campaign_id} em ${row.date_start}:`,
-          upsertErr.message, upsertErr.details ?? ""
-        );
-        warnings.push(
-          `Erro ao salvar métrica ${row.campaign_name} em ${row.date_start}: ${upsertErr.message}`
-        );
-        metricsSkipped++;
-        continue;
-      }
+      metricRows.push({
+        user_id:             userId,
+        campaign_id:         internalId,
+        client_id:           clientId,
+        platform_account_id: platformAccountId,
+        date:                row.date_start,
+        impressions:         imps,
+        clicks:              totalClicks,
+        link_clicks:         linkClicks,
+        unique_ctr:          uniqueCtr,
+        spend,
+        leads,
+        conversions,
+        reach,
+        frequency:           freq,
+        video_views:         0,
+      });
 
       // Accumulate monthly spend for financial integration
       const monthKey = row.date_start.slice(0, 7);
       monthlySpend.set(monthKey, (monthlySpend.get(monthKey) ?? 0) + spend);
-      metricsSynced++;
+    }
+
+    // Persiste em lotes, reduzindo centenas de viagens ao banco a poucas
+    // operações mesmo em contas com muitas campanhas.
+    const METRIC_BATCH_SIZE = 500;
+    for (let index = 0; index < metricRows.length; index += METRIC_BATCH_SIZE) {
+      const batch = metricRows.slice(index, index + METRIC_BATCH_SIZE);
+      const { error: upsertErr } = await supabase
+        .from("campaign_metrics")
+        .upsert(batch, { onConflict: "campaign_id,date" });
+      if (upsertErr) {
+        warnings.push(`Erro ao salvar lote de métricas: ${upsertErr.message}`);
+        metricsSkipped += batch.length;
+      } else {
+        metricsSynced += batch.length;
+      }
     }
 
     console.log(
@@ -369,35 +359,30 @@ export async function syncMetaAccount(params: SyncParams): Promise<SyncResult> {
       const geoRows = await getInsightsGeo(adAccountId, accessToken, since, until);
       console.log(`[meta-sync] geo: ${geoRows.length} linhas com breakdown de região`);
 
-      for (const row of geoRows) {
-        if (!row.date_start || !row.region?.trim()) continue;
-
+      const geoValues = geoRows.flatMap(row => {
+        if (!row.date_start || !row.region?.trim()) return [];
         const internalId = campMap.get(row.campaign_id);
-        if (!internalId) continue;
-
+        if (!internalId) return [];
+        return [{
+          user_id:             userId,
+          campaign_id:         internalId,
+          client_id:           clientId,
+          platform_account_id: platformAccountId,
+          date:                row.date_start,
+          region:              row.region.trim(),
+          spend:               parseFloat(row.spend ?? "0"),
+          leads:               extractLeads(row.actions),
+          clicks:              parseInt(row.clicks ?? "0", 10),
+          link_clicks:         parseInt(row.inline_link_clicks ?? "0", 10),
+          impressions:         parseInt(row.impressions ?? "0", 10),
+          reach:               parseInt(row.reach ?? "0", 10),
+        }];
+      });
+      for (let index = 0; index < geoValues.length; index += 500) {
         const { error: geoErr } = await supabase
           .from("campaign_geo_metrics")
-          .upsert(
-            {
-              user_id:             userId,
-              campaign_id:         internalId,
-              client_id:           clientId,
-              platform_account_id: platformAccountId,
-              date:                row.date_start,
-              region:              row.region.trim(),
-              spend:               parseFloat(row.spend ?? "0"),
-              leads:               extractLeads(row.actions),
-              clicks:              parseInt(row.clicks ?? "0", 10),
-              link_clicks:         parseInt(row.inline_link_clicks ?? "0", 10),
-              impressions:         parseInt(row.impressions ?? "0", 10),
-              reach:               parseInt(row.reach ?? "0", 10),
-            },
-            { onConflict: "campaign_id,date,region" }
-          );
-
-        if (geoErr) {
-          console.warn("[meta-sync] geo upsert error:", geoErr.message);
-        }
+          .upsert(geoValues.slice(index, index + 500), { onConflict: "campaign_id,date,region" });
+        if (geoErr) console.warn("[meta-sync] geo batch upsert error:", geoErr.message);
       }
     } catch (geoErr) {
       console.warn("[meta-sync] geo sync falhou (não-fatal):", geoErr);
@@ -422,14 +407,15 @@ export async function syncMetaAccount(params: SyncParams): Promise<SyncResult> {
 
       console.log(`[meta-sync] thumbnails: ${thumbMap.size} campanhas com imagem`);
 
-      for (const [metaCampaignId, thumbUrl] of Array.from(thumbMap)) {
+      await Promise.all(Array.from(thumbMap).map(([metaCampaignId, thumbUrl]) => {
         const internalId = campMap.get(metaCampaignId);
-        if (!internalId) continue;
-        await supabase
+        if (!internalId) return Promise.resolve();
+        return supabase
           .from("campaigns")
           .update({ thumbnail_url: thumbUrl })
-          .eq("id", internalId);
-      }
+          .eq("id", internalId)
+          .then();
+      }));
     } catch (thumbErr) {
       console.warn("[meta-sync] sync de thumbnails falhou (não-fatal):", thumbErr);
     }

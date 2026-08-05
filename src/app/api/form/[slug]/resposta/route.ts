@@ -6,6 +6,7 @@ import { extractContactFromAnswers } from "@/lib/forms/extract-contact";
 import { getPlatformEventBus } from "@/lib/event-bus/platform";
 import { processSubmissionWebhooks } from "@/lib/forms/webhook-delivery";
 import type { FormStep } from "@/types";
+import { format } from "date-fns";
 
 type Params = { params: Promise<{ slug: string }> };
 
@@ -239,6 +240,9 @@ async function createCrmLead(
       const answer = answers[step.id];
       if (answer === undefined || answer === null || answer === "") continue;
       if (consumedSet.has(step.id)) continue;
+      // O calendário salva um objeto técnico (bookingId/startsAt/endsAt).
+      // A reunião é apresentada abaixo com data, hora e nome do calendário.
+      if (step.type === "calendar") continue;
 
       const val = Array.isArray(answer) ? answer.join(", ") : String(answer);
 
@@ -281,6 +285,11 @@ async function createCrmLead(
       .single();
 
     if (existingSubmission?.lead_id) {
+      const notesWithBookings = await appendLinkedBookingNotes(
+        supabase,
+        existingSubmission.lead_id,
+        integrationNotes,
+      );
       await supabase
         .from("leads")
         .update({
@@ -289,7 +298,7 @@ async function createCrmLead(
           email:      leadEmail ?? null,
           tags:       settings.tag_ids ?? [],
           deal_value: settings.value_mode === "fixed" ? (settings.fixed_value ?? 0) : dealValue,
-          integration_notes: integrationNotes,
+          integration_notes: notesWithBookings,
           iq_score:   iqScore,
         })
         .eq("id", existingSubmission.lead_id);
@@ -366,6 +375,45 @@ async function createCrmLead(
   } catch (err) {
     console.error("[resposta/crm] Falha ao criar lead:", err);
   }
+}
+
+async function appendLinkedBookingNotes(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  leadId: string,
+  formNotes: string | null,
+): Promise<string | null> {
+  const { data: bookings } = await supabase
+    .from("appointment_bookings")
+    .select("calendar_id, starts_at, visitor_notes")
+    .eq("lead_id", leadId)
+    .in("status", ["pending", "confirmed", "completed"])
+    .order("starts_at", { ascending: true });
+
+  if (!bookings?.length) return formNotes;
+
+  const calendarIds = Array.from(new Set(
+    bookings.map((booking: { calendar_id: string }) => booking.calendar_id),
+  ));
+  const { data: calendars } = await supabase
+    .from("appointment_calendars")
+    .select("id, name")
+    .in("id", calendarIds);
+  const names = new Map<string, string>(
+    (calendars ?? []).map((calendar: { id: string; name: string }) => [calendar.id, calendar.name]),
+  );
+
+  const bookingNotes = bookings.map((booking: {
+    calendar_id: string;
+    starts_at: string;
+    visitor_notes: string | null;
+  }) => [
+    `Reunião agendada para ${format(new Date(booking.starts_at), "dd/MM 'às' HH:mm'h'")}`,
+    `Calendário: ${names.get(booking.calendar_id) ?? "Agenda"}`,
+    booking.visitor_notes ? `Observações: ${booking.visitor_notes}` : null,
+  ].filter(Boolean).join("\n"));
+
+  return [formNotes, ...bookingNotes].filter(Boolean).join("\n\n") || null;
 }
 
 interface NpsIntegrationSettings {

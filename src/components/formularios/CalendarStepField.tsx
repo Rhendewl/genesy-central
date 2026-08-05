@@ -40,9 +40,10 @@ export interface CalendarStepFieldProps {
   theme?:      Partial<FormTheme>;
   onChange:    (value: unknown) => void;
   onNext:      () => void;
+  onPrepareBooking?: () => Promise<string | null>;
 }
 
-export function CalendarStepField({ step, formSteps, formAnswers, theme, onChange, onNext }: CalendarStepFieldProps) {
+export function CalendarStepField({ step, formSteps, formAnswers, theme, onChange, onNext, onPrepareBooking }: CalendarStepFieldProps) {
   const { primary, textColor, muted, cardBg, borderC, widgetBg } = resolveThemeColors(theme);
   // "var(--primary)" não pode ser usado com sufixo de alpha hex (ex. `${cor}18`)
   // — cai num fallback sólido só nesse caso-limite; fora isso, é a cor do tema.
@@ -102,6 +103,13 @@ export function CalendarStepField({ step, formSteps, formAnswers, theme, onChang
     setIsSubmitting(true);
     setSubmitError(null);
 
+    const formSessionToken = onPrepareBooking ? await onPrepareBooking() : null;
+    if (onPrepareBooking && !formSessionToken) {
+      setSubmitError("Não foi possível salvar seus dados antes do agendamento. Tente novamente.");
+      setIsSubmitting(false);
+      return;
+    }
+
     const payload: CreatePublicBookingPayload = {
       starts_at:             slot.startsAt,
       visitor_name:          finalName,
@@ -111,6 +119,7 @@ export function CalendarStepField({ step, formSteps, formAnswers, theme, onChang
       custom_form_responses: { _source: "form", _form_step_id: step.id, _source_iq_score: sourceIqScore },
       lgpd_accepted:         lgpdAccepted || undefined,
       attribution:           attributionData,
+      form_session_token:    formSessionToken ?? undefined,
     };
 
     try {
@@ -142,7 +151,7 @@ export function CalendarStepField({ step, formSteps, formAnswers, theme, onChang
       setSubmitError("Erro de conexão. Verifique sua internet e tente novamente.");
       setIsSubmitting(false);
     }
-  }, [step.calendarSlug, step.calendarId, step.id, finalName, finalEmail, contact.phone, lgpdAccepted, attributionData, sourceIqScore, selectedDate, selectDate, onChange, onNext]);
+  }, [step.calendarSlug, step.calendarId, step.id, finalName, finalEmail, contact.phone, lgpdAccepted, attributionData, sourceIqScore, selectedDate, selectDate, onChange, onNext, onPrepareBooking]);
 
   const selectSlot = useCallback((slot: AdminSlot) => {
     setSelectedSlot(slot);

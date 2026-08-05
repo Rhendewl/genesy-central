@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { differenceInDays, endOfMonth, format, startOfMonth } from "date-fns";
 import {
   Area,
@@ -19,6 +19,7 @@ import {
 } from "recharts";
 import { Info } from "lucide-react";
 import { Header } from "@/components/layout/Header";
+import { InstagramGlyph, InstagramReports } from "@/components/marketing/InstagramReports";
 import { MarketingEmptyState, MarketingSkeleton } from "@/components/marketing/MarketingUI";
 import { useMarketing } from "@/context/MarketingContext";
 import { marketingStats } from "@/lib/marketing/domain";
@@ -37,8 +38,12 @@ const tooltipStyle = {
 
 export default function MarketingReportsPage() {
   const marketing = useMarketing();
+  const [view, setView] = useState<"editorial" | "instagram">("editorial");
   const [start, setStart] = useState(format(startOfMonth(new Date()), "yyyy-MM-dd"));
   const [end, setEnd] = useState(format(endOfMonth(new Date()), "yyyy-MM-dd"));
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("view") === "instagram") setView("instagram");
+  }, []);
 
   const contents = useMemo(
     () => marketing.contents.filter((item) => {
@@ -76,14 +81,18 @@ export default function MarketingReportsPage() {
 
   return (
     <div className="pb-10">
-      <Header title="Relatórios de Marketing" subtitle="Métricas internas da operação editorial" />
+      <Header title="Relatórios de Marketing" subtitle={view === "instagram" ? "Desempenho orgânico das contas conectadas" : "Métricas internas da operação editorial"} />
       <div className="px-4 sm:px-6">
+        <div className="mb-5 inline-flex rounded-xl border p-1" style={{ background: "var(--glass-bg-soft)" }}>
+          <button onClick={() => setView("editorial")} className={`rounded-lg px-3 py-2 text-sm font-medium transition ${view === "editorial" ? "bg-[var(--primary)] text-white shadow-sm" : "text-[var(--muted-foreground)] hover:text-[var(--text-title)]"}`}>Operação editorial</button>
+          <button onClick={() => setView("instagram")} className={`flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition ${view === "instagram" ? "bg-gradient-to-r from-[#7c3aed] via-[#db2777] to-[#f97316] text-white shadow-sm" : "text-[var(--muted-foreground)] hover:text-[var(--text-title)]"}`}><InstagramGlyph size={14} /> Instagram</button>
+        </div>
         <div className="mb-5 flex flex-wrap gap-3">
           <DateFilter label="De" value={start} onChange={setStart} />
           <DateFilter label="Até" value={end} onChange={setEnd} />
         </div>
 
-        {marketing.isLoading ? <MarketingSkeleton /> : contents.length === 0 ? (
+        {view === "instagram" ? <InstagramReports start={start} end={end} /> : marketing.isLoading ? <MarketingSkeleton /> : contents.length === 0 ? (
           <MarketingEmptyState title="Nenhum dado no período" description="Os relatórios serão preenchidos a partir dos conteúdos reais cadastrados." />
         ) : (
           <>

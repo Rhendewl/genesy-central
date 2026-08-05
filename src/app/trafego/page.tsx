@@ -5,8 +5,10 @@ import { useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   LayoutDashboard,
-  ChevronLeft, ChevronRight, Plug, Globe,
+  ChevronLeft, ChevronRight, Plug, Globe, RefreshCw,
 } from "lucide-react";
+import { format, startOfMonth, endOfMonth } from "date-fns";
+import { toast } from "sonner";
 import { Header } from "@/components/layout/Header";
 import { DashboardTrafego } from "@/components/trafego/DashboardTrafego";
 import { IntegracoesTab } from "@/components/trafego/IntegracoesTab";
@@ -45,9 +47,10 @@ function TrafegoPageInner() {
   const [year, setYear]                         = useState(now.getFullYear());
   const [month, setMonth]                       = useState(now.getMonth() + 1);
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
+  const [dashboardRevision, setDashboardRevision] = useState(0);
 
   // Fetch connected Meta accounts for the selector
-  const { connections } = useMetaIntegrations();
+  const { connections, syncAccount, syncing } = useMetaIntegrations();
   const metaAccounts = useMemo(
     () => connections.filter(c => c.platform === "meta" && c.status !== "disconnected"),
     [connections]
@@ -66,6 +69,29 @@ function TrafegoPageInner() {
   };
 
   const isCurrentMonth = year === now.getFullYear() && month === now.getMonth() + 1;
+  const relevantAccounts = selectedAccountId
+    ? metaAccounts.filter(account => account.id === selectedAccountId)
+    : metaAccounts.filter(account => account.status === "connected");
+  const isSyncing = relevantAccounts.some(account => syncing[account.id]);
+
+  const handleSync = async () => {
+    if (!relevantAccounts.length || isSyncing) return;
+    const monthDate = new Date(year, month - 1, 1);
+    const since = format(startOfMonth(monthDate), "yyyy-MM-dd");
+    const until = format(isCurrentMonth ? new Date() : endOfMonth(monthDate), "yyyy-MM-dd");
+    const results = await Promise.all(
+      relevantAccounts.map(account => syncAccount(account.id, since, until)),
+    );
+    const failures = results.filter(result => result.error);
+    if (failures.length === results.length) {
+      toast.error(failures[0]?.error ?? "Não foi possível sincronizar");
+      return;
+    }
+    setDashboardRevision(revision => revision + 1);
+    failures.length
+      ? toast.warning("Dados atualizados, mas uma conta apresentou erro")
+      : toast.success("Dados da Meta atualizados");
+  };
 
   const tabSubtitle = useMemo(() => {
     if (activeTab === "integracoes") return "Integração com plataformas de mídia";
@@ -114,6 +140,14 @@ function TrafegoPageInner() {
                     <AccountSelector accounts={metaAccounts} selectedAccountId={selectedAccountId} onChange={setSelectedAccountId} />
                   </div>
                 )}
+                <button
+                  onClick={() => void handleSync()}
+                  disabled={!relevantAccounts.length || isSyncing}
+                  title="Sincronizar dados da Meta"
+                  className="flex h-7 w-7 items-center justify-center rounded-lg text-[#4a8fd4] transition-colors hover:bg-[#4a8fd4]/10 disabled:opacity-40"
+                >
+                  <RefreshCw size={13} className={isSyncing ? "animate-spin" : ""} />
+                </button>
               </div>
             )}
             {showPeriodNav && <div className="mx-3 h-px" style={{ background: "var(--border)" }} />}
@@ -164,6 +198,15 @@ function TrafegoPageInner() {
               {metaAccounts.length >= 1 && (
                 <AccountSelector accounts={metaAccounts} selectedAccountId={selectedAccountId} onChange={setSelectedAccountId} />
               )}
+              <button
+                onClick={() => void handleSync()}
+                disabled={!relevantAccounts.length || isSyncing}
+                className="lc-filter-control ml-auto flex h-9 items-center gap-2 rounded-xl px-3 text-xs font-medium text-[#4a8fd4] disabled:opacity-40"
+                title="Atualiza manualmente os dados; a sincronização automática continua ativa"
+              >
+                <RefreshCw size={13} className={isSyncing ? "animate-spin" : ""} />
+                {isSyncing ? "Sincronizando…" : "Sincronizar"}
+              </button>
             </div>
           )}
           <div className="overflow-x-auto scrollbar-none">
@@ -197,7 +240,7 @@ function TrafegoPageInner() {
           transition={{ duration: 0.2 }}
           className="pb-8"
         >
-          {activeTab === "dashboard"   && <DashboardTrafego year={year} month={month} platformAccountId={selectedAccountId} />}
+          {activeTab === "dashboard"   && <DashboardTrafego key={dashboardRevision} year={year} month={month} platformAccountId={selectedAccountId} />}
           {activeTab === "portais"     && <PortaisList />}
           {activeTab === "integracoes" && <IntegracoesTab />}
         </motion.div>

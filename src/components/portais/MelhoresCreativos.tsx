@@ -102,16 +102,13 @@ function SkeletonCard() {
 
 // ── Creative card ─────────────────────────────────────────────────────────────
 
-// Minimum width (px) to consider an image "high enough quality" for display.
-// Meta thumbnail_url is typically 100-200px; real creative images are 1000px+.
-const MIN_IMG_WIDTH = 280;
-
 function CreativeCard({ creative, index }: { creative: PortalCreative; index: number }) {
   const [imgError, setImgError] = useState(false);
-  const [imgTooSmall, setImgTooSmall] = useState(false);
   const rankStyle = getRankStyle(creative.ranking);
 
-  const showImage = creative.image_url && !imgError && !imgTooSmall;
+  useEffect(() => setImgError(false), [creative.image_url]);
+
+  const showImage = creative.image_url && !imgError;
 
   return (
     <motion.div
@@ -147,13 +144,8 @@ function CreativeCard({ creative, index }: { creative: PortalCreative; index: nu
             className="w-full h-full"
             style={{ objectFit: "cover", objectPosition: "center", display: "block" }}
             onError={() => setImgError(true)}
-            onLoad={(e) => {
-              const img = e.currentTarget;
-              if (img.naturalWidth > 0 && img.naturalWidth < MIN_IMG_WIDTH) {
-                setImgTooSmall(true);
-              }
-            }}
             loading="lazy"
+            referrerPolicy="no-referrer"
           />
         ) : (
           <div
@@ -310,23 +302,25 @@ interface MelhoresCreativosProps {
   slug: string;
   since: string;
   until: string;
+  refreshVersion?: number;
 }
 
-export function MelhoresCreativos({ slug, since, until }: MelhoresCreativosProps) {
+export function MelhoresCreativos({ slug, since, until, refreshVersion = 0 }: MelhoresCreativosProps) {
   const [creatives, setCreatives] = useState<PortalCreative[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     setLoading(true);
     const params = new URLSearchParams({ since, until });
-    fetch(`/api/portal/${slug}/creatives?${params}`)
+    if (refreshVersion > 0) params.set("refresh_images", "1");
+    fetch(`/api/portal/${slug}/creatives?${params}`, { cache: "no-store" })
       .then(r => r.json())
       .then((json: { creatives: PortalCreative[] }) => {
         setCreatives(json.creatives ?? []);
       })
       .catch(() => setCreatives([]))
       .finally(() => setLoading(false));
-  }, [slug, since, until]);
+  }, [slug, since, until, refreshVersion]);
 
   return (
     <section>
