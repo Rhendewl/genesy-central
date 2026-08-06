@@ -13,6 +13,13 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
   return output;
 }
 
+function sameApplicationServerKey(subscription: PushSubscription, expected: Uint8Array): boolean {
+  const current = subscription.options.applicationServerKey;
+  if (!current) return false;
+  const bytes = new Uint8Array(current);
+  return bytes.length === expected.length && bytes.every((value, index) => value === expected[index]);
+}
+
 export async function ensurePushSubscription(options?: { requestPermission?: boolean }): Promise<PushSubscription | null> {
   if (typeof window === "undefined") return null;
   if (!("Notification" in window)) throw new Error("Seu navegador não suporta notificações.");
@@ -28,14 +35,23 @@ export async function ensurePushSubscription(options?: { requestPermission?: boo
 
   const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
   if (!publicKey) throw new Error("NEXT_PUBLIC_VAPID_PUBLIC_KEY não configurada.");
+  const applicationServerKey = urlBase64ToUint8Array(publicKey);
 
   const registration = await navigator.serviceWorker.ready;
   let subscription = await registration.pushManager.getSubscription();
 
+  // Uma rotação de VAPID invalida silenciosamente inscrições antigas. O
+  // navegador continua devolvendo a subscription anterior, então precisamos
+  // recriá-la com a chave atualmente configurada.
+  if (subscription && !sameApplicationServerKey(subscription, applicationServerKey)) {
+    await subscription.unsubscribe();
+    subscription = null;
+  }
+
   if (!subscription) {
     subscription = await registration.pushManager.subscribe({
       userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(publicKey) as unknown as BufferSource,
+      applicationServerKey: applicationServerKey as unknown as BufferSource,
     });
   }
 

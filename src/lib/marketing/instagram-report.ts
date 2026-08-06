@@ -1,10 +1,10 @@
 import { format } from "date-fns";
-import type { MarketingInstagramMedia } from "@/types/marketing";
+import type { MarketingInstagramAccountTotals, MarketingInstagramDailyInsight, MarketingInstagramMedia } from "@/types/marketing";
 
 const number = (value: number) => Number(value) || 0;
 
-export function instagramReport(media: MarketingInstagramMedia[]) {
-  const totals = media.reduce((sum, item) => ({
+export function instagramReport(media: MarketingInstagramMedia[], account?: MarketingInstagramAccountTotals | null, dailyInsights: MarketingInstagramDailyInsight[] = []) {
+  const contentTotals = media.reduce((sum, item) => ({
     reach: sum.reach + number(item.reach),
     views: sum.views + Math.max(number(item.views), number(item.plays)),
     interactions: sum.interactions + number(item.total_interactions),
@@ -14,28 +14,54 @@ export function instagramReport(media: MarketingInstagramMedia[]) {
     shares: sum.shares + number(item.shares),
   }), { reach: 0, views: 0, interactions: 0, likes: 0, comments: 0, saved: 0, shares: 0 });
 
-  const daily = new Map<string, { date: string; reach: number; interactions: number; posts: number }>();
+  const totals = account ? {
+    reach: number(account.reach), views: number(account.views), interactions: number(account.total_interactions),
+    accountsEngaged: number(account.accounts_engaged), profileViews: number(account.profile_views), profileLinksTaps: number(account.profile_links_taps),
+    likes: number(account.likes), comments: number(account.comments), saved: number(account.saves), shares: number(account.shares),
+  } : { ...contentTotals, accountsEngaged: 0, profileViews: 0, profileLinksTaps: 0 };
+
+  const contentDaily = new Map<string, { date: string; reach: number; views: number; interactions: number; posts: number }>();
   for (const item of [...media].reverse()) {
     const key = format(new Date(item.published_at), "yyyy-MM-dd");
-    const current = daily.get(key) ?? { date: format(new Date(item.published_at), "dd/MM"), reach: 0, interactions: 0, posts: 0 };
+    const current = contentDaily.get(key) ?? { date: format(new Date(item.published_at), "dd/MM"), reach: 0, views: 0, interactions: 0, posts: 0 };
     current.reach += number(item.reach);
+    current.views += Math.max(number(item.views), number(item.plays));
     current.interactions += number(item.total_interactions);
     current.posts += 1;
-    daily.set(key, current);
+    contentDaily.set(key, current);
   }
 
-  const formats = new Map<string, number>();
+  const formats = new Map<string, { name: string; publications: number; reach: number }>();
   for (const item of media) {
     const raw = item.media_product_type || item.media_type;
-    const label = raw === "REELS" ? "Reels" : raw === "CAROUSEL_ALBUM" ? "Carrossel" : raw === "VIDEO" ? "Vídeo" : "Imagem";
-    formats.set(label, (formats.get(label) ?? 0) + 1);
+    const label = raw === "REELS" || item.media_type === "VIDEO" ? "Reels" : item.media_type === "CAROUSEL_ALBUM" ? "Carrossel" : "Estático";
+    const current = formats.get(label) ?? { name: label, publications: 0, reach: 0 };
+    current.publications += 1;
+    current.reach += number(item.reach);
+    formats.set(label, current);
   }
+
+  const accountDaily = dailyInsights.map((item) => {
+    const content = contentDaily.get(item.insight_date);
+    return {
+      date: format(new Date(`${item.insight_date}T12:00:00`), "dd/MM"),
+      reach: number(item.reach),
+      views: number(item.views),
+      interactions: number(item.total_interactions) || content?.interactions || 0,
+      followers: number(item.follower_count),
+      posts: content?.posts ?? 0,
+    };
+  });
 
   return {
     totals,
-    engagementRate: totals.reach ? (totals.interactions / totals.reach) * 100 : 0,
-    daily: Array.from(daily.values()),
-    formats: Array.from(formats, ([name, value]) => ({ name, value })),
+    contentTotals,
+    engagementRate: totals.reach ? ((totals.accountsEngaged || totals.interactions) / totals.reach) * 100 : 0,
+    profileConversionRate: totals.reach ? (totals.profileViews / totals.reach) * 100 : 0,
+    averageInteractions: media.length ? contentTotals.interactions / media.length : 0,
+    daily: accountDaily.length ? accountDaily : Array.from(contentDaily.values()).map((item) => ({ ...item, followers: 0 })),
+    contentDaily: Array.from(contentDaily.values()),
+    formats: ["Estático", "Carrossel", "Reels"].map((name) => formats.get(name) ?? { name, publications: 0, reach: 0 }),
     best: [...media].sort((a, b) => number(b.total_interactions) - number(a.total_interactions)).slice(0, 6),
   };
 }

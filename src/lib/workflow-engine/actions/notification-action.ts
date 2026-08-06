@@ -66,10 +66,11 @@ export const notificationAction: ActionExecutor = {
     const title = renderWorkflowTemplate(config.title, ctx.variables);
     const body  = renderWorkflowTemplate(config.body,  ctx.variables);
 
-    const { data: profiles } = await ctx.db
+    const { data: profiles, error: profilesError } = await ctx.db
       .from("user_profiles")
       .select("id, auth_user_id")
       .in("id", recipientIds);
+    if (profilesError) return { ok: false, error: `Erro ao resolver destinatários: ${profilesError.message}` };
 
     const rows = recipientIds.map(recipientId => ({
       user_id:           ctx.userId,
@@ -79,17 +80,59 @@ export const notificationAction: ActionExecutor = {
       lead_id:           ctx.recordId,
       title,
       body,
+      source:            "workflow",
+      action_url:        "/crm",
     }));
 
-    const { error } = await ctx.db.from("workflow_notifications").insert(rows);
+    const { data: inserted, error } = await ctx.db
+      .from("workflow_notifications")
+      .insert(rows)
+      .select("id, recipient_user_id");
     if (error) return { ok: false, error: error.message };
 
-    // Best-effort — push real ainda é um stub sem chaves VAPID (limitação
-    // pré-existente de src/lib/notifications/push-dispatcher.ts).
-    const authUserIds = ((profiles as { id: string; auth_user_id: string | null }[]) ?? [])
-      .map(p => p.auth_user_id)
-      .filter((id): id is string => !!id);
-    await Promise.allSettled(authUserIds.map(uid => dispatchPushToUser(ctx.db, uid, title, body)));
+    const authByProfile = new Map(
+      ((profiles as { id: string; auth_user_id: string | null }[]) ?? []).map(profile => [profile.id, profile.auth_user_id]),
+    );
+
+    await Promise.all(((inserted as { id: string; recipient_user_id: string }[]) ?? []).map(async notification => {
+      const authUserId = authByProfile.get(notification.recipient_user_id);
+      if (!authUserId) {
+        await ctx.db.from("workflow_notifications").update({
+          push_status: "failed",
+          push_error: "Perfil sem vínculo de autenticação",
+          push_attempted_at: new Date().toISOString(),
+        }).eq("id", notification.id);
+        return;
+      }
+
+      try {
+        const push = await dispatchPushToUser(ctx.db, authUserId, title, body, {
+          tag: `crm-workflow-${ctx.automationId}-${ctx.recordId}`,
+          url: "/crm",
+        });
+        const pushStatus = push.skippedReason === "no_subscriptions"
+          ? "no_subscription"
+          : push.skippedReason === "vapid_not_configured"
+            ? "not_configured"
+            : push.failed === 0 ? "accepted" : push.accepted > 0 ? "partial" : "failed";
+
+        await ctx.db.from("workflow_notifications").update({
+          push_status: pushStatus,
+          push_subscriptions: push.subscriptions,
+          push_accepted: push.accepted,
+          push_failed: push.failed,
+          push_removed: push.removed,
+          push_error: push.skippedReason ?? null,
+          push_attempted_at: new Date().toISOString(),
+        }).eq("id", notification.id);
+      } catch (pushError) {
+        await ctx.db.from("workflow_notifications").update({
+          push_status: "failed",
+          push_error: pushError instanceof Error ? pushError.message.slice(0, 1000) : "Erro desconhecido",
+          push_attempted_at: new Date().toISOString(),
+        }).eq("id", notification.id);
+      }
+    }));
 
     return { ok: true, renderedSnapshot: { title, body, recipientType: config.recipientType, recipientIds } };
   },

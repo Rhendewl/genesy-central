@@ -70,6 +70,10 @@ async function sendPushNotification(
       tag:  options.tag ?? "genesy-workflow",
       url:  options.url ?? "/",
     }),
+    {
+      TTL: 24 * 60 * 60,
+      urgency: "high",
+    },
   );
 }
 

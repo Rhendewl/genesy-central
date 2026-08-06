@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { differenceInDays, endOfMonth, format, startOfMonth } from "date-fns";
+import { addMonths, differenceInCalendarDays, differenceInDays, endOfMonth, format, startOfMonth, subDays } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import {
   Area,
   AreaChart,
@@ -17,7 +18,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { Info } from "lucide-react";
+import { ChevronLeft, ChevronRight, Info } from "lucide-react";
 import { Header } from "@/components/layout/Header";
 import { InstagramGlyph, InstagramReports } from "@/components/marketing/InstagramReports";
 import { MarketingEmptyState, MarketingSkeleton } from "@/components/marketing/MarketingUI";
@@ -38,12 +39,34 @@ const tooltipStyle = {
 
 export default function MarketingReportsPage() {
   const marketing = useMarketing();
-  const [view, setView] = useState<"editorial" | "instagram">("editorial");
+  const today = new Date();
+  const [view, setView] = useState<"editorial" | "instagram">("instagram");
+  const [period, setPeriod] = useState<"month" | "7d" | "15d" | "30d">("month");
+  const [selectedMonth, setSelectedMonth] = useState(startOfMonth(today));
   const [start, setStart] = useState(format(startOfMonth(new Date()), "yyyy-MM-dd"));
-  const [end, setEnd] = useState(format(endOfMonth(new Date()), "yyyy-MM-dd"));
+  const [end, setEnd] = useState(format(today, "yyyy-MM-dd"));
   useEffect(() => {
-    if (new URLSearchParams(window.location.search).get("view") === "instagram") setView("instagram");
+    if (new URLSearchParams(window.location.search).get("view") === "editorial") setView("editorial");
   }, []);
+  const compareDays = differenceInCalendarDays(new Date(`${end}T12:00:00`), new Date(`${start}T12:00:00`)) + 1;
+  const compareEnd = format(subDays(new Date(`${start}T12:00:00`), 1), "yyyy-MM-dd");
+  const compareStart = format(subDays(new Date(`${start}T12:00:00`), compareDays), "yyyy-MM-dd");
+
+  const applyMonth = (month: Date) => {
+    const monthStart = startOfMonth(month);
+    const monthEnd = endOfMonth(month);
+    const isCurrent = format(monthStart, "yyyy-MM") === format(today, "yyyy-MM");
+    setSelectedMonth(monthStart);
+    setPeriod("month");
+    setStart(format(monthStart, "yyyy-MM-dd"));
+    setEnd(format(isCurrent ? today : monthEnd, "yyyy-MM-dd"));
+  };
+
+  const applyFixedPeriod = (days: 7 | 15 | 30) => {
+    setPeriod(`${days}d` as "7d" | "15d" | "30d");
+    setStart(format(subDays(today, days - 1), "yyyy-MM-dd"));
+    setEnd(format(today, "yyyy-MM-dd"));
+  };
 
   const contents = useMemo(
     () => marketing.contents.filter((item) => {
@@ -81,18 +104,22 @@ export default function MarketingReportsPage() {
 
   return (
     <div className="pb-10">
-      <Header title="Relatórios de Marketing" subtitle={view === "instagram" ? "Desempenho orgânico das contas conectadas" : "Métricas internas da operação editorial"} />
+      <Header title={view === "instagram" ? "Instagram" : "Operação editorial"} subtitle={view === "instagram" ? "Desempenho, audiência e engajamento das contas conectadas" : "Métricas internas da operação de conteúdo"} />
       <div className="px-4 sm:px-6">
-        <div className="mb-5 inline-flex rounded-xl border p-1" style={{ background: "var(--glass-bg-soft)" }}>
-          <button onClick={() => setView("editorial")} className={`rounded-lg px-3 py-2 text-sm font-medium transition ${view === "editorial" ? "bg-[var(--primary)] text-white shadow-sm" : "text-[var(--muted-foreground)] hover:text-[var(--text-title)]"}`}>Operação editorial</button>
+        <div className="mb-4 inline-flex max-w-full rounded-xl border p-1" style={{ background: "var(--glass-bg-soft)" }}>
           <button onClick={() => setView("instagram")} className={`flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition ${view === "instagram" ? "bg-gradient-to-r from-[#7c3aed] via-[#db2777] to-[#f97316] text-white shadow-sm" : "text-[var(--muted-foreground)] hover:text-[var(--text-title)]"}`}><InstagramGlyph size={14} /> Instagram</button>
+          <button onClick={() => setView("editorial")} className={`rounded-lg px-3 py-2 text-sm font-medium transition ${view === "editorial" ? "bg-[var(--primary)] text-white shadow-sm" : "text-[var(--muted-foreground)] hover:text-[var(--text-title)]"}`}>Operação editorial</button>
         </div>
-        <div className="mb-5 flex flex-wrap gap-3">
-          <DateFilter label="De" value={start} onChange={setStart} />
-          <DateFilter label="Até" value={end} onChange={setEnd} />
-        </div>
+        <PeriodFilter
+          period={period}
+          selectedMonth={selectedMonth}
+          start={start}
+          end={end}
+          onMonth={applyMonth}
+          onFixed={applyFixedPeriod}
+        />
 
-        {view === "instagram" ? <InstagramReports start={start} end={end} /> : marketing.isLoading ? <MarketingSkeleton /> : contents.length === 0 ? (
+        {view === "instagram" ? <InstagramReports start={start} end={end} compareStart={compareStart} compareEnd={compareEnd} /> : marketing.isLoading ? <MarketingSkeleton /> : contents.length === 0 ? (
           <MarketingEmptyState title="Nenhum dado no período" description="Os relatórios serão preenchidos a partir dos conteúdos reais cadastrados." />
         ) : (
           <>
@@ -183,8 +210,8 @@ export default function MarketingReportsPage() {
             <div className="mt-5 flex gap-3 rounded-2xl border p-4" style={{ background: "var(--glass-bg-soft)" }}>
               <Info size={18} className="shrink-0 text-[#27a3ff]" />
               <div>
-                <p className="text-sm font-medium">Insights de redes sociais</p>
-                <p className="text-xs text-[var(--muted-foreground)]">A arquitetura separa métricas internas das futuras métricas externas. Alcance, impressões e engajamento aparecerão somente após uma integração oficial com a Meta.</p>
+                <p className="text-sm font-medium">Operação e audiência conectadas</p>
+                <p className="text-xs text-[var(--muted-foreground)]">Esta aba acompanha o fluxo editorial interno. Para alcance, audiência e engajamento reais, consulte a aba Instagram.</p>
               </div>
             </div>
           </>
@@ -194,8 +221,27 @@ export default function MarketingReportsPage() {
   );
 }
 
-function DateFilter({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
-  return <label className="text-xs font-medium">{label}<input type="date" value={value} onChange={(event) => onChange(event.target.value)} className="ml-2 rounded-lg border px-2 py-1.5" style={{ background: "var(--bg-modal)" }} /></label>;
+function PeriodFilter({ period, selectedMonth, start, end, onMonth, onFixed }: {
+  period: "month" | "7d" | "15d" | "30d"; selectedMonth: Date; start: string; end: string;
+  onMonth: (month: Date) => void; onFixed: (days: 7 | 15 | 30) => void;
+}) {
+  const isCurrentMonth = format(selectedMonth, "yyyy-MM") === format(new Date(), "yyyy-MM");
+  return (
+    <section className="mb-5 flex flex-col gap-2 rounded-[22px] border p-2 sm:flex-row sm:items-center sm:justify-between" style={{ background: "var(--glass-bg-soft)" }}>
+      <div className="flex items-center justify-between gap-1 rounded-[15px] border p-1.5 sm:justify-start" style={{ background: "var(--hover)" }}>
+        <button aria-label="Mês anterior" onClick={() => onMonth(addMonths(selectedMonth, -1))} className="grid h-8 w-8 shrink-0 place-items-center rounded-lg transition hover:bg-[var(--bg-modal)]"><ChevronLeft size={16} /></button>
+        <button onClick={() => onMonth(selectedMonth)} className="min-w-0 flex-1 rounded-lg px-2 text-center sm:min-w-[170px]">
+          <span className="block truncate text-sm font-semibold capitalize">{format(selectedMonth, "MMMM 'de' yyyy", { locale: ptBR })}</span>
+          <span className="block text-[10px] text-[var(--muted-foreground)]">{format(new Date(`${start}T12:00:00`), "dd/MM")} – {format(new Date(`${end}T12:00:00`), "dd/MM")}</span>
+        </button>
+        <button aria-label="Próximo mês" disabled={isCurrentMonth} onClick={() => onMonth(addMonths(selectedMonth, 1))} className="grid h-8 w-8 shrink-0 place-items-center rounded-lg transition hover:bg-[var(--bg-modal)] disabled:cursor-not-allowed disabled:opacity-35"><ChevronRight size={16} /></button>
+      </div>
+      <div className="grid grid-cols-4 gap-1 sm:flex sm:items-center">
+        {([7, 15, 30] as const).map((days) => <button key={days} onClick={() => onFixed(days)} className={`min-h-9 rounded-xl px-2 text-xs font-medium transition sm:px-3 ${period === `${days}d` ? "bg-[var(--primary)] text-white shadow-sm" : "text-[var(--muted-foreground)] hover:bg-[var(--hover)] hover:text-[var(--text-title)]"}`}>{days} dias</button>)}
+        <button onClick={() => onMonth(startOfMonth(new Date()))} className={`min-h-9 rounded-xl px-2 text-xs font-medium transition sm:px-3 ${period === "month" && isCurrentMonth ? "bg-[var(--primary)] text-white shadow-sm" : "text-[var(--muted-foreground)] hover:bg-[var(--hover)] hover:text-[var(--text-title)]"}`}>Este mês</button>
+      </div>
+    </section>
+  );
 }
 
 function Metric({ label, value, accent }: { label: string; value: string | number; accent: string }) {

@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
     if (!connectionId) throw Object.assign(new Error("Conta não informada"), { status: 400 });
     const { data: connection, error } = await supabase
       .from("marketing_instagram_connections")
-      .select("id,organization_id,encrypted_access_token,token_expires_at")
+      .select("id,organization_id,instagram_user_id,encrypted_access_token,token_expires_at")
       .eq("id", connectionId)
       .eq("organization_id", context.organizationId)
       .single();

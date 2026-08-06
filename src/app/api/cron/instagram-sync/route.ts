@@ -14,7 +14,7 @@ async function handle(req: NextRequest) {
   const staleBefore = new Date(Date.now() - 30 * 60 * 1000).toISOString();
   const { data: connections, error } = await supabase
     .from("marketing_instagram_connections")
-    .select("id,organization_id,encrypted_access_token,token_expires_at")
+    .select("id,organization_id,instagram_user_id,encrypted_access_token,token_expires_at")
     .in("status", ["connected", "error"])
     .or(`last_sync_at.is.null,last_sync_at.lt.${staleBefore}`)
     .limit(2);

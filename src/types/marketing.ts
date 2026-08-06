@@ -46,6 +46,13 @@ export interface MarketingInstagramMedia {
   permalink: string | null; published_at: string; reach: number; views: number; plays: number; likes: number; comments: number;
   saved: number; shares: number; total_interactions: number; average_watch_time: number; total_watch_time: number; last_synced_at: string;
 }
+export interface MarketingInstagramAccountTotals {
+  reach: number; views: number; profile_views: number; accounts_engaged: number; total_interactions: number;
+  likes: number; comments: number; shares: number; saves: number; profile_links_taps: number; follower_count: number;
+}
+export interface MarketingInstagramDailyInsight extends MarketingInstagramAccountTotals {
+  insight_date: string;
+}
 export interface MarketingVgvSale {
   id: string;
   organization_id: string;
