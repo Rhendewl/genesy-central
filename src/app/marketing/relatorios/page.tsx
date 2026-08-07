@@ -41,9 +41,9 @@ export default function MarketingReportsPage() {
   const marketing = useMarketing();
   const today = new Date();
   const [view, setView] = useState<"editorial" | "instagram">("instagram");
-  const [period, setPeriod] = useState<"month" | "7d" | "15d" | "30d">("month");
+  const [period, setPeriod] = useState<"month" | "7d" | "15d" | "30d">("30d");
   const [selectedMonth, setSelectedMonth] = useState(startOfMonth(today));
-  const [start, setStart] = useState(format(startOfMonth(new Date()), "yyyy-MM-dd"));
+  const [start, setStart] = useState(format(subDays(today, 29), "yyyy-MM-dd"));
   const [end, setEnd] = useState(format(today, "yyyy-MM-dd"));
   useEffect(() => {
     if (new URLSearchParams(window.location.search).get("view") === "editorial") setView("editorial");
