@@ -28,6 +28,26 @@ self.addEventListener('push', event => {
   );
 });
 
+// Chrome/Android dispara este evento quando o provedor troca ou invalida a
+// inscrição. Renovamos usando a mesma chave VAPID e sincronizamos o novo
+// endpoint com a sessão autenticada, sem exigir que o usuário abra ajustes.
+self.addEventListener('pushsubscriptionchange', event => {
+  const applicationServerKey = event.oldSubscription?.options?.applicationServerKey;
+  if (!applicationServerKey) return;
+
+  event.waitUntil(
+    self.registration.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey,
+    }).then(subscription => fetch('/api/notifications/push/subscribe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ subscription: subscription.toJSON() }),
+    }))
+  );
+});
+
 self.addEventListener('notificationclick', event => {
   event.notification.close();
   const destination = new URL(event.notification.data?.url || '/', self.location.origin).href;

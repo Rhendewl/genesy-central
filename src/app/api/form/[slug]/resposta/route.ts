@@ -5,6 +5,7 @@ import { LeadScoreEngine } from "@/lib/crm/lead-score-engine";
 import { extractContactFromAnswers } from "@/lib/forms/extract-contact";
 import { getPlatformEventBus } from "@/lib/event-bus/platform";
 import { processSubmissionWebhooks } from "@/lib/forms/webhook-delivery";
+import { duplicateSubmissionCutoff, findExactDuplicateSubmission } from "@/lib/forms/submission-dedup";
 import type { FormStep } from "@/types";
 import { format } from "date-fns";
 
@@ -69,6 +70,37 @@ export async function POST(req: NextRequest, { params }: Params) {
     .select("id, status")
     .eq("session_id", session.id)
     .maybeSingle();
+
+  // Bloqueia replays automatizados que criam novas sessões para reenviar
+  // exatamente a mesma resposta. A fila de webhook já é idempotente por
+  // submissão; esta proteção atua um nível antes, entre sessões diferentes.
+  // A comparação é exata e limitada a 30 dias para não impedir que um contato
+  // responda novamente no futuro com dados novos.
+  // Um retry da mesma sessão já concluída segue pelo recovery path abaixo;
+  // deduplicação entre sessões só se aplica antes da conclusão desta sessão.
+  if (isCompleted && existing?.status !== "completed") {
+    const { data: duplicateCandidates } = await supabase
+      .from("form_submissions")
+      .select("id, session_id, answers")
+      .eq("form_id", session.form_id)
+      .eq("status", "completed")
+      .neq("session_id", session.id)
+      .gte("completed_at", duplicateSubmissionCutoff())
+      .contains("answers", body.answers)
+      .order("completed_at", { ascending: false })
+      .limit(20);
+
+    const duplicate = findExactDuplicateSubmission(duplicateCandidates ?? [], body.answers);
+    if (duplicate) {
+      await supabase
+        .from("form_sessions")
+        .update({ is_partial: false, finished_at: now })
+        .eq("id", session.id);
+
+      console.warn(`[form/resposta] replay bloqueado form=${session.form_id} session=${session.id} original=${duplicate.id}`);
+      return NextResponse.json({ submission_id: duplicate.id, deduplicated: true });
+    }
+  }
 
   let submissionId: string;
 

@@ -1,5 +1,22 @@
 import type { WorkspaceTask } from "@/types/workspace";
 
+export const COMPLETED_TASK_RETENTION_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Tarefas concluídas permanecem no quadro por 24 horas. Depois disso o cron
+ * as exclui; este filtro evita que o intervalo entre ticks ainda polua a UI e
+ * os indicadores de tarefas ativas.
+ */
+export function shouldKeepWorkspaceTask(task: WorkspaceTask, now = new Date()): boolean {
+  if (task.status !== "concluido") return true;
+
+  const completedAt = task.completed_at ?? task.updated_at ?? task.created_at;
+  const completedAtMs = Date.parse(completedAt);
+  if (!Number.isFinite(completedAtMs)) return false;
+
+  return now.getTime() - completedAtMs < COMPLETED_TASK_RETENTION_MS;
+}
+
 /**
  * Insere ou substitui uma tarefa pelo ID.
  *

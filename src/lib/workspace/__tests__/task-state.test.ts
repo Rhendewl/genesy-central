@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { WorkspaceTask } from "@/types/workspace";
-import { uniqueWorkspaceTasks, upsertWorkspaceTask } from "../task-state";
+import { shouldKeepWorkspaceTask, uniqueWorkspaceTasks, upsertWorkspaceTask } from "../task-state";
 
 function task(id: string, title: string): WorkspaceTask {
   return {
@@ -44,5 +44,22 @@ describe("workspace task state", () => {
   it("remove IDs repetidos recebidos defensivamente em uma recarga", () => {
     const repeated = task("task-1", "Tarefa teste");
     expect(uniqueWorkspaceTasks([repeated, repeated])).toEqual([repeated]);
+  });
+
+  it("mantém concluídas por 24 horas e depois as retira da lista ativa", () => {
+    const now = new Date("2026-08-10T15:00:00.000Z");
+
+    expect(shouldKeepWorkspaceTask({ ...task("recent", "Recente"),
+      status: "concluido",
+      completed_at: "2026-08-09T15:00:01.000Z",
+    }, now)).toBe(true);
+    expect(shouldKeepWorkspaceTask({ ...task("expired", "Expirada"),
+      status: "concluido",
+      completed_at: "2026-08-09T15:00:00.000Z",
+    }, now)).toBe(false);
+    expect(shouldKeepWorkspaceTask({
+      ...task("active", "Ativa"),
+      status: "em_andamento",
+    }, now)).toBe(true);
   });
 });

@@ -58,6 +58,8 @@ export async function ensurePushSubscription(options?: { requestPermission?: boo
   const res = await fetch("/api/notifications/push/subscribe", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
+    cache: "no-store",
+    credentials: "same-origin",
     body: JSON.stringify({ subscription: subscription.toJSON() }),
   });
 

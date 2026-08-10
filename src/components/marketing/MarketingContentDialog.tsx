@@ -6,9 +6,7 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DueDatePicker } from "@/components/workspace/DueDatePicker";
-import { TagSelector } from "@/components/tags/TagSelector";
 import { useMarketing } from "@/context/MarketingContext";
-import { useTags } from "@/hooks/useTags";
 import {
   CONTENT_STATUS_LABELS,
   FORMAT_LABELS,
@@ -58,7 +56,6 @@ export function MarketingContentDialog({
   planIdea?: MarketingIdea | null;
 }) {
   const marketing = useMarketing();
-  const { tags } = useTags();
   const [saving, setSaving] = useState(false);
 
   const defaults = useMemo(() => {
@@ -77,7 +74,6 @@ export function MarketingContentDialog({
       deliveryTime: delivery.time,
       primaryAssigneeId: content?.primary_assignee_id ?? planIdea?.suggested_assignee_id ?? "",
       assignToWorkspace: !!content?.workspace_task_id,
-      workspaceTagIds: content?.workspace_tag_ids ?? [],
     };
   }, [content, initialDate, planIdea]);
 
@@ -88,7 +84,6 @@ export function MarketingContentDialog({
   const workspacePriority = WORKSPACE_TASK_PRIORITIES.find((item) => item.id === PRIORITY_TO_WORKSPACE[form.priority as MarketingPriority]);
 
   function payload(): MarketingContentInput {
-    const selectedTagNames = tags.filter((tag) => form.workspaceTagIds.includes(tag.id)).map((tag) => tag.name);
     return {
       title: form.title.trim(),
       description: form.description.trim() || null,
@@ -102,8 +97,6 @@ export function MarketingContentDialog({
       assignee_ids: form.primaryAssigneeId ? [form.primaryAssigneeId] : [],
       workspace_task_id: form.assignToWorkspace ? content?.workspace_task_id ?? null : null,
       create_workspace_task: form.assignToWorkspace && !content?.workspace_task_id,
-      workspace_tag_ids: form.workspaceTagIds,
-      tag_names: selectedTagNames,
       // Mantém os campos avançados antigos ao editar, embora eles não ocupem
       // mais espaço no fluxo principal de criação do calendário.
       caption: content?.caption ?? null,
@@ -191,12 +184,6 @@ export function MarketingContentDialog({
                 <Select label="Formato" value={form.contentFormat} onChange={(contentFormat) => setForm((current) => ({ ...current, contentFormat: contentFormat as MarketingContent["format"] }))} options={MARKETING_FORMATS.map((value) => [value, FORMAT_LABELS[value]])} disabled={!canEdit} />
               </div>
 
-              <TagSelector
-                value={form.workspaceTagIds}
-                disabled={!canEdit}
-                onChange={(workspaceTagIds) => setForm((current) => ({ ...current, workspaceTagIds }))}
-                helperText="As mesmas etiquetas serão aplicadas ao conteúdo e à tarefa criada no Workspace. Use o ícone de lixeira para apagar uma etiqueta."
-              />
             </section>
 
             <aside className="min-w-0 space-y-5 rounded-2xl border border-[var(--glass-border)] bg-[var(--glass-bg-soft)] p-3.5 sm:p-5">
@@ -232,7 +219,7 @@ export function MarketingContentDialog({
                   <input type="checkbox" checked={form.assignToWorkspace} onChange={(event) => setForm((current) => ({ ...current, assignToWorkspace: event.target.checked }))} disabled={!canEdit} className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--primary)]" />
                   <span className="min-w-0 flex-1">
                     <span className="block text-sm font-medium text-[var(--text-title)]">Atribuir ao Workspace</span>
-                    <span className="mt-0.5 block text-[11px] leading-relaxed text-[var(--muted-foreground)]">Cria uma tarefa usando título, briefing, data de entrega, prioridade, etiquetas e responsável deste conteúdo.</span>
+                    <span className="mt-0.5 block text-[11px] leading-relaxed text-[var(--muted-foreground)]">Cria uma tarefa usando título, briefing, data de entrega, prioridade e responsável deste conteúdo.</span>
                   </span>
                 </label>
                 {content?.workspace_task_id && form.assignToWorkspace && (

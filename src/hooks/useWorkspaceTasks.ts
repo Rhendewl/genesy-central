@@ -3,7 +3,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getSupabaseClient } from "@/lib/supabase";
 import { useCurrentMember } from "@/context/CurrentMemberContext";
-import { uniqueWorkspaceTasks, upsertWorkspaceTask } from "@/lib/workspace/task-state";
+import {
+  COMPLETED_TASK_RETENTION_MS,
+  shouldKeepWorkspaceTask,
+  uniqueWorkspaceTasks,
+  upsertWorkspaceTask,
+} from "@/lib/workspace/task-state";
 import type {
   WorkspaceTask, NewWorkspaceTask, UpdateWorkspaceTask, WorkspaceTaskStatus,
 } from "@/types/workspace";
@@ -63,7 +68,7 @@ export function useWorkspaceTasks(viewAsUserId?: string, activeBoardId?: string)
     if (viewAsUserId) params.set("as_user_id", viewAsUserId);
     if (activeBoardId) params.set("board_id", activeBoardId);
     const qs = params.size > 0 ? `?${params.toString()}` : "";
-    const res  = await fetch(`/api/workspace/tasks${qs}`);
+    const res  = await fetch(`/api/workspace/tasks${qs}`, { cache: "no-store" });
     const json = await res.json() as { tasks?: WorkspaceTask[]; error?: string };
 
     if (!mountedRef.current || fetchId !== latestFetchIdRef.current) return;
@@ -152,7 +157,9 @@ export function useWorkspaceTasks(viewAsUserId?: string, activeBoardId?: string)
       .on("postgres_changes", { event: "*", schema: "public", table: "workspace_task_checklist_items" }, scheduleRealtimeRefresh)
       .on("postgres_changes", { event: "*", schema: "public", table: "workspace_task_comments" }, scheduleRealtimeRefresh)
       .on("postgres_changes", { event: "*", schema: "public", table: "workspace_task_assignees" }, scheduleRealtimeRefresh)
-      .subscribe();
+      .subscribe(status => {
+        if (status === "SUBSCRIBED") scheduleRealtimeRefresh();
+      });
 
     return () => {
       mountedRef.current = false;
@@ -164,6 +171,39 @@ export function useWorkspaceTasks(viewAsUserId?: string, activeBoardId?: string)
       supabase.removeChannel(channel);
     };
   }, [fetchTasks, scheduleRealtimeRefresh, supabase, viewAsUserId]);
+
+  // iOS/Android podem pausar o websocket do PWA em segundo plano. O retorno
+  // ao app dispara uma reconciliação leve, mantendo a UI atual sem refresh manual.
+  useEffect(() => {
+    const refreshWhenActive = () => {
+      if (document.visibilityState === "visible") scheduleRealtimeRefresh();
+    };
+    document.addEventListener("visibilitychange", refreshWhenActive);
+    window.addEventListener("focus", refreshWhenActive);
+    window.addEventListener("online", refreshWhenActive);
+    return () => {
+      document.removeEventListener("visibilitychange", refreshWhenActive);
+      window.removeEventListener("focus", refreshWhenActive);
+      window.removeEventListener("online", refreshWhenActive);
+    };
+  }, [scheduleRealtimeRefresh]);
+
+  // Retira a tarefa da tela exatamente ao completar 24 horas, mesmo se o app
+  // permanecer aberto entre duas execuções do cron de limpeza.
+  useEffect(() => {
+    const expirations = tasks
+      .filter(task => task.status === "concluido")
+      .map(task => Date.parse(task.completed_at ?? task.updated_at ?? task.created_at) + COMPLETED_TASK_RETENTION_MS)
+      .filter(Number.isFinite);
+    if (expirations.length === 0) return;
+
+    const nextExpiration = Math.min(...expirations);
+    const timer = window.setTimeout(() => {
+      setTasks(current => current.filter(task => shouldKeepWorkspaceTask(task)));
+    }, Math.max(0, nextExpiration - Date.now()) + 50);
+
+    return () => window.clearTimeout(timer);
+  }, [tasks]);
 
   const tasksByStatus: TasksByStatus = useMemo(() => {
     const acc: TasksByStatus = { a_fazer: [], em_andamento: [], aguardando: [], concluido: [] };

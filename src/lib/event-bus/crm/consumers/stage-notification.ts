@@ -24,13 +24,22 @@ export function createCrmStageNotificationConsumer(db: Db): EventConsumer {
 
     async handle(event: BusEvent): Promise<void> {
       const payload = event.payload as LeadStageEnteredPayload;
-      if (!payload?.stageId || !payload?.userId || !payload?.leadId) return;
+      if (!payload?.stageId || !payload?.leadId) return;
 
-      // 1. Find an enabled rule for this user + stage
+      // O ator que moveu o lead pode ser um membro da equipe. A regra e a
+      // inscrição push pertencem ao dono real do CRM, armazenado em leads.user_id.
+      const { data: lead } = await db
+        .from("leads")
+        .select("name, email, contact, user_id")
+        .eq("id", payload.leadId)
+        .maybeSingle();
+      if (!lead?.user_id) return;
+
+      // 1. Find an enabled rule for the CRM owner + stage
       const { data: rule } = await db
         .from("crm_notification_rules")
         .select("channels, title, body")
-        .eq("user_id",  payload.userId)
+        .eq("user_id",  lead.user_id)
         .eq("stage_id", payload.stageId)
         .eq("enabled",  true)
         .maybeSingle();
@@ -39,13 +48,6 @@ export function createCrmStageNotificationConsumer(db: Db): EventConsumer {
 
       const channels = (rule.channels as string[]) ?? [];
       if (!channels.includes("pwa")) return;
-
-      // 2. Load lead data for template vars (name, email, phone)
-      const { data: lead } = await db
-        .from("leads")
-        .select("name, email, contact")
-        .eq("id", payload.leadId)
-        .maybeSingle();
 
       // 3. Load stage name + pipeline name (joined)
       const { data: stage } = await db
@@ -69,7 +71,10 @@ export function createCrmStageNotificationConsumer(db: Db): EventConsumer {
       const title = renderTemplate(rule.title as string, vars);
       const body  = renderTemplate(rule.body  as string, vars);
 
-      await dispatchPushToUser(db, payload.userId, title, body);
+      await dispatchPushToUser(db, lead.user_id, title, body, {
+        tag: `crm-stage-${event.id}`,
+        url: "/crm",
+      });
     },
   };
 }

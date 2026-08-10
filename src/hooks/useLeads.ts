@@ -31,6 +31,17 @@ export const UNASSIGNED_STAGE_KEY = "__unassigned__" as const;
 
 export type LeadsByStage = Record<string, Lead[]>;
 
+function normalizeLead(lead: Lead): Lead {
+  return { ...lead, deal_value: lead.deal_value ?? 0 };
+}
+
+function upsertLead(leads: Lead[], lead: Lead): Lead[] {
+  const normalized = normalizeLead(lead);
+  return leads.some(item => item.id === lead.id)
+    ? leads.map(item => item.id === lead.id ? { ...item, ...normalized } : item)
+    : [normalized, ...leads];
+}
+
 export function useLeads(dateFilter?: DateFilter | null) {
   const supabase = getSupabaseClient();
   const { member, isOwner, isLoading: memberLoading } = useCurrentMember();
@@ -43,10 +54,13 @@ export function useLeads(dateFilter?: DateFilter | null) {
 
   // Ref para evitar atualização de estado em componente desmontado
   const mountedRef = useRef(true);
+  const latestFetchIdRef = useRef(0);
+  const realtimeRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ── Fetch ──────────────────────────────────────────────────────────────────
 
   const fetchLeads = useCallback(async () => {
+    const fetchId = ++latestFetchIdRef.current;
     setError(null);
     if (!hasFullCrmAccess && !restrictedPipelineId) {
       if (mountedRef.current) setLeads([]);
@@ -61,19 +75,24 @@ export function useLeads(dateFilter?: DateFilter | null) {
     if (restrictedPipelineId) query = query.eq("pipeline_id", restrictedPipelineId);
     const { data, error: err } = await query;
 
-    if (!mountedRef.current) return;
+    if (!mountedRef.current || fetchId !== latestFetchIdRef.current) return;
 
     if (err) {
       setError(err.message);
       return;
     }
     // Normaliza deal_value: registros antigos podem não ter o campo ainda
-    const normalized = ((data as Lead[]) ?? []).map((l) => ({
-      ...l,
-      deal_value: l.deal_value ?? 0,
-    }));
+    const normalized = ((data as Lead[]) ?? []).map(normalizeLead);
     setLeads(normalized);
   }, [supabase, hasFullCrmAccess, restrictedPipelineId]);
+
+  const scheduleRealtimeRefresh = useCallback(() => {
+    if (realtimeRefreshTimerRef.current) clearTimeout(realtimeRefreshTimerRef.current);
+    realtimeRefreshTimerRef.current = setTimeout(() => {
+      realtimeRefreshTimerRef.current = null;
+      void fetchLeads();
+    }, 180);
+  }, [fetchLeads]);
 
   // ── Real-time subscription ─────────────────────────────────────────────────
 
@@ -99,26 +118,62 @@ export function useLeads(dateFilter?: DateFilter | null) {
               duration: 7000,
             });
           }
-          fetchLeads();
+          latestFetchIdRef.current += 1;
+          if (!restrictedPipelineId || lead.pipeline_id === restrictedPipelineId) {
+            setLeads(prev => upsertLead(prev, lead));
+          }
+          scheduleRealtimeRefresh();
         }
       )
       .on(
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "leads" },
-        () => { fetchLeads(); }
+        (payload) => {
+          latestFetchIdRef.current += 1;
+          const lead = payload.new as Lead;
+          setLeads(prev => restrictedPipelineId && lead.pipeline_id !== restrictedPipelineId
+            ? prev.filter(item => item.id !== lead.id)
+            : upsertLead(prev, lead));
+          scheduleRealtimeRefresh();
+        }
       )
       .on(
         "postgres_changes",
         { event: "DELETE", schema: "public", table: "leads" },
-        () => { fetchLeads(); }
+        (payload) => {
+          latestFetchIdRef.current += 1;
+          const deleted = payload.old as { id?: string };
+          if (deleted.id) setLeads(prev => prev.filter(item => item.id !== deleted.id));
+          scheduleRealtimeRefresh();
+        }
       )
-      .subscribe();
+      .subscribe(status => {
+        if (status === "SUBSCRIBED") scheduleRealtimeRefresh();
+      });
 
     return () => {
       mountedRef.current = false;
+      latestFetchIdRef.current += 1;
+      if (realtimeRefreshTimerRef.current) clearTimeout(realtimeRefreshTimerRef.current);
       supabase.removeChannel(channel);
     };
-  }, [fetchLeads, supabase, memberLoading, isOwner]);
+  }, [fetchLeads, supabase, memberLoading, isOwner, restrictedPipelineId, scheduleRealtimeRefresh]);
+
+  // Realtime pode ser suspenso pelo sistema operacional quando o PWA fica em
+  // segundo plano. Ao voltar, reconciliamos silenciosamente sem recarregar a página.
+  useEffect(() => {
+    const refreshWhenActive = () => {
+      if (document.visibilityState === "visible") scheduleRealtimeRefresh();
+    };
+    document.addEventListener("visibilitychange", refreshWhenActive);
+    window.addEventListener("focus", refreshWhenActive);
+    window.addEventListener("online", refreshWhenActive);
+    return () => {
+      document.removeEventListener("visibilitychange", refreshWhenActive);
+      window.removeEventListener("focus", refreshWhenActive);
+      window.removeEventListener("online", refreshWhenActive);
+    };
+  }, [scheduleRealtimeRefresh]);
 
   // ── Derived: apply date filter client-side (instant, preserves real-time) ──
 
@@ -174,6 +229,9 @@ export function useLeads(dateFilter?: DateFilter | null) {
     id: string,
     data: UpdateLead
   ): Promise<{ error: string | null }> {
+    const previous = leads.find(lead => lead.id === id);
+    setLeads(current => current.map(lead => lead.id === id ? { ...lead, ...data } as Lead : lead));
+
     // tags passa pelo servidor (não pelo update direto abaixo) — é o único
     // jeito do Workflow Engine conseguir reagir a "lead recebeu/removeu tag",
     // já que essa rota publica lead.tag.added/removed no EventBus.
@@ -187,6 +245,7 @@ export function useLeads(dateFilter?: DateFilter | null) {
       });
       if (!res.ok) {
         const json = await res.json() as { error?: string };
+        if (previous) setLeads(current => upsertLead(current, previous));
         return { error: json.error ?? "Erro ao atualizar tags" };
       }
     }
@@ -196,9 +255,14 @@ export function useLeads(dateFilter?: DateFilter | null) {
         .from("leads")
         .update(rest)
         .eq("id", id);
-      if (err) return { error: err.message };
+      if (err) {
+        if (previous) setLeads(current => upsertLead(current, previous));
+        void fetchLeads();
+        return { error: err.message };
+      }
     }
 
+    scheduleRealtimeRefresh();
     return { error: null };
   }
 

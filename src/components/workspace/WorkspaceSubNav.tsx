@@ -3,11 +3,10 @@
 import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, ListChecks, StickyNote, Calendar, Rocket } from "lucide-react";
+import { ListChecks, StickyNote, Calendar, Rocket } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const SECTIONS = [
-  { href: "/workspace",            label: "Dashboard",   icon: LayoutDashboard, exact: true },
   { href: "/workspace/kanban",     label: "Tarefas",     icon: ListChecks,      exact: false },
   { href: "/workspace/notas",      label: "Notas",       icon: StickyNote,      exact: false },
   { href: "/workspace/calendario", label: "Calendário",  icon: Calendar,        exact: false },
