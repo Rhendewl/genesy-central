@@ -1,18 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
-import { createAdminSupabaseClient } from "@/lib/supabase-admin";
 import { startOfMonth, format } from "date-fns";
+import { authorizePortalAccess, portalNoStoreHeaders } from "@/lib/portal-access";
 
-// Anon client — fallback for dev environments without service role key
-function createAnonClient() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { auth: { persistSession: false } }
-  );
-}
-
-// GET /api/portal/[slug]/data — public endpoint, no auth required
+// GET /api/portal/[slug]/data — exige credencial segura do portal
 // Query params: since, until, account_id, campaign_id, status
 export async function GET(
   req: NextRequest,
@@ -22,44 +12,20 @@ export async function GET(
   const { slug } = await params;
   const sp = req.nextUrl.searchParams;
 
-  // Use admin client to bypass RLS — portal slug lookup is public by design.
-  // Falls back to anon in dev environments without SUPABASE_SERVICE_ROLE_KEY.
-  let admin;
-  let db: ReturnType<typeof createAnonClient>;
-  try {
-    admin = createAdminSupabaseClient();
-    db = admin;
-  } catch {
-    console.warn("[portal/data] service role key not configured — using anon client");
-    db = createAnonClient();
+  const access = await authorizePortalAccess(req, slug);
+  if (!access.ok) {
+    return NextResponse.json({ error: access.error }, { status: access.status, headers: portalNoStoreHeaders() });
   }
-
-  // 1. Load portal by slug
-  const { data: rawPortal, error: portalErr } = await db
-    .from("portals")
-    .select("id, user_id, name, status, client_id")
-    .eq("slug", slug)
-    .maybeSingle();
-
-  if (portalErr) {
-    console.error("[portal/data] portals query error:", portalErr);
-    return NextResponse.json({ error: "Portal não encontrado" }, { status: 404 });
-  }
-  if (!rawPortal) {
-    return NextResponse.json({ error: "Portal não encontrado" }, { status: 404 });
-  }
-
-  if (rawPortal.status === "pausado") {
-    return NextResponse.json({ error: "Portal pausado" }, { status: 403 });
-  }
+  const admin = access.db;
+  const rawPortal = access.portal;
 
   // Nome do cliente e contas vinculadas são independentes: buscar em paralelo
   // reduz o tempo até o primeiro dashboard.
   const [clientResult, portalAccountsResult] = await Promise.all([
     rawPortal.client_id
-      ? db.from("agency_clients").select("name").eq("id", rawPortal.client_id).maybeSingle()
+      ? admin.from("agency_clients").select("name").eq("id", rawPortal.client_id).maybeSingle()
       : Promise.resolve({ data: null }),
-    db.from("portal_accounts").select("ad_account_id").eq("portal_id", rawPortal.id),
+    admin.from("portal_accounts").select("ad_account_id").eq("portal_id", rawPortal.id),
   ]);
   const clientName: string | null = clientResult.data?.name ?? null;
   const portalAccounts = portalAccountsResult.data;
@@ -69,13 +35,7 @@ export async function GET(
   );
 
   if (allowedAccountIds.length === 0) {
-    return NextResponse.json(buildEmptyResponse(rawPortal.name, clientName, rawPortal.status));
-  }
-
-  // 3. Campaign data requires service role
-  if (!admin) {
-    console.warn("[portal/data] service role key not configured — returning empty metrics");
-    return NextResponse.json(buildEmptyResponse(rawPortal.name, clientName, rawPortal.status));
+    return NextResponse.json(buildEmptyResponse(rawPortal.name, clientName, rawPortal.status), { headers: portalNoStoreHeaders() });
   }
 
   // Find ad_platform_accounts records (scoped to portal owner for security)
@@ -110,7 +70,7 @@ export async function GET(
   }
 
   if (filteredPlatformAccountIds.length === 0) {
-    return NextResponse.json(buildEmptyResponse(rawPortal.name, clientName, rawPortal.status));
+    return NextResponse.json(buildEmptyResponse(rawPortal.name, clientName, rawPortal.status), { headers: portalNoStoreHeaders() });
   }
 
   // 5. Get campaigns for these platform accounts
@@ -282,10 +242,10 @@ export async function GET(
         status: c.status,
       })
     ),
-  }, { headers: { "Cache-Control": "no-store, max-age=0" } });
+  }, { headers: portalNoStoreHeaders() });
   } catch (err) {
     console.error("[portal/data] unhandled error:", err);
-    return NextResponse.json({ error: "Erro interno" }, { status: 500 });
+    return NextResponse.json({ error: "Erro interno" }, { status: 500, headers: portalNoStoreHeaders() });
   }
 }
 

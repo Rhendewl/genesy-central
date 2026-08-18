@@ -1,20 +1,11 @@
 export const dynamic = "force-dynamic"; // always live, never cached
 
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
-import { createAdminSupabaseClient } from "@/lib/supabase-admin";
 import { decryptToken } from "@/lib/crypto";
+import { authorizePortalAccess, portalNoStoreHeaders } from "@/lib/portal-access";
 import { getAdAccountDetails } from "@/lib/meta-api";
 import type { PortalAccountBalance } from "@/types";
 import { META_BR_TAX_RATE } from "@/types";
-
-function createAnonClient() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { auth: { persistSession: false } }
-  );
-}
 
 function mapFundingType(raw: number | string | undefined): string {
   // Meta returns funding_source_details.type as a numeric code
@@ -104,7 +95,7 @@ function computeBalance(
   return { balance_net: 0, balance_gross: 0, is_prepay: false, has_spend_cap: false, spend_cap_remaining: 0 };
 }
 
-// GET /api/portal/[slug]/balance — public endpoint, no auth required
+// GET /api/portal/[slug]/balance — exige credencial segura do portal
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ slug: string }> }
@@ -112,29 +103,12 @@ export async function GET(
   try {
     const { slug } = await params;
 
-    let admin;
-    let db: ReturnType<typeof createAnonClient>;
-    try {
-      admin = createAdminSupabaseClient();
-      db = admin;
-    } catch {
-      console.warn("[portal/balance] service role key not configured");
-      db = createAnonClient();
+    const access = await authorizePortalAccess(req, slug);
+    if (!access.ok) {
+      return NextResponse.json({ error: access.error }, { status: access.status, headers: portalNoStoreHeaders() });
     }
-
-    // 1. Resolve portal
-    const { data: rawPortal } = await db
-      .from("portals")
-      .select("id, user_id, status")
-      .eq("slug", slug)
-      .maybeSingle();
-
-    if (!rawPortal || rawPortal.status === "pausado") {
-      return NextResponse.json({ balances: [], error: "Portal indisponível" });
-    }
-    if (!admin) {
-      return NextResponse.json({ balances: [], error: "Configuração incompleta" });
-    }
+    const admin = access.db;
+    const rawPortal = access.portal;
 
     // 2. Allowed ad accounts for this portal
     const { data: portalAccounts } = await admin
@@ -145,7 +119,7 @@ export async function GET(
     const allowedAccountIds = (portalAccounts ?? []).map(
       (pa: { ad_account_id: string }) => pa.ad_account_id
     );
-    if (allowedAccountIds.length === 0) return NextResponse.json({ balances: [] });
+    if (allowedAccountIds.length === 0) return NextResponse.json({ balances: [] }, { headers: portalNoStoreHeaders() });
 
     // 3. Platform accounts (scoped to portal owner)
     const { data: platformAccounts } = await admin
@@ -154,7 +128,7 @@ export async function GET(
       .eq("user_id", rawPortal.user_id)
       .in("account_id", allowedAccountIds);
 
-    if (!platformAccounts?.length) return NextResponse.json({ balances: [] });
+    if (!platformAccounts?.length) return NextResponse.json({ balances: [] }, { headers: portalNoStoreHeaders() });
 
     const platformAccountIds = platformAccounts.map((pa: { id: string }) => pa.id);
 
@@ -165,7 +139,7 @@ export async function GET(
       .in("platform_account_id", platformAccountIds);
 
     if (!tokens?.length) {
-      return NextResponse.json({ balances: [], error: "Conta Meta não conectada" });
+      return NextResponse.json({ balances: [], error: "Conta Meta não conectada" }, { headers: portalNoStoreHeaders() });
     }
 
     const tokenMap = new Map<string, string>();
@@ -174,7 +148,7 @@ export async function GET(
       catch { /* skip bad tokens */ }
     }
     if (tokenMap.size === 0) {
-      return NextResponse.json({ balances: [], error: "Token inválido ou expirado" });
+      return NextResponse.json({ balances: [], error: "Token inválido ou expirado" }, { headers: portalNoStoreHeaders() });
     }
 
     // 5. Fetch account details live from Meta API
@@ -257,10 +231,10 @@ export async function GET(
       }
     }
 
-    return NextResponse.json({ balances });
+    return NextResponse.json({ balances }, { headers: portalNoStoreHeaders() });
 
   } catch (err) {
     console.error("[portal/balance] unhandled error:", err);
-    return NextResponse.json({ balances: [], error: "Erro ao consultar saldo" });
+    return NextResponse.json({ balances: [], error: "Erro ao consultar saldo" }, { status: 500, headers: portalNoStoreHeaders() });
   }
 }

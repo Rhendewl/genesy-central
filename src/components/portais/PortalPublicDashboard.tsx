@@ -344,12 +344,14 @@ export function PortalPublicDashboard({ slug }: Props) {
             <AlertTriangle size={28} className="text-red-400" strokeWidth={1.4} />
           </div>
           <h1 className="text-[var(--text-title)] font-semibold text-lg mb-2">
-            {error === "Portal pausado" ? "Portal pausado" : "Portal não encontrado"}
+            {error === "Portal pausado" ? "Portal pausado" : error.includes("Link") ? "Acesso protegido" : "Portal não encontrado"}
           </h1>
           <p className="text-[color-mix(in_srgb,var(--text-title)_40%,transparent)] text-sm">
             {error === "Portal pausado"
               ? "Este dashboard está temporariamente indisponível."
-              : "O link que você acessou não existe ou foi removido."}
+              : error.includes("Link")
+                ? "Este link é inválido, expirou ou foi revogado. Solicite um novo acesso."
+                : "O link que você acessou não existe ou foi removido."}
           </p>
         </div>
       </div>

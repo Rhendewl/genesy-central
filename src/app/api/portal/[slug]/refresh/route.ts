@@ -3,9 +3,9 @@ export const maxDuration = 60;
 
 import { NextRequest, NextResponse } from "next/server";
 import { format, startOfMonth } from "date-fns";
-import { createAdminSupabaseClient } from "@/lib/supabase-admin";
 import { decryptToken } from "@/lib/crypto";
 import { syncMetaAccount } from "@/lib/meta-sync";
+import { authorizePortalAccess, portalNoStoreHeaders } from "@/lib/portal-access";
 
 const REFRESH_INTERVAL_MS = 90_000;
 
@@ -17,7 +17,12 @@ export async function POST(
   { params }: { params: Promise<{ slug: string }> },
 ) {
   const { slug } = await params;
-  const db = createAdminSupabaseClient();
+  const access = await authorizePortalAccess(req, slug);
+  if (!access.ok) {
+    return NextResponse.json({ error: access.error }, { status: access.status, headers: portalNoStoreHeaders() });
+  }
+  const db = access.db;
+  const portal = access.portal;
   const body = await req.json().catch(() => ({})) as { since?: string; until?: string; manual?: boolean };
   const now = new Date();
   const currentMonthSince = format(startOfMonth(now), "yyyy-MM-dd");
@@ -26,26 +31,17 @@ export async function POST(
   // parcela do filtro que intersecta o mês corrente, limitando custo e latência.
   const requestedUntil = body.until ?? today;
   if (requestedUntil < currentMonthSince) {
-    return NextResponse.json({ refreshed: false, accounts: 0, historical: true });
+    return NextResponse.json({ refreshed: false, accounts: 0, historical: true }, { headers: portalNoStoreHeaders() });
   }
   const since = !body.since || body.since < currentMonthSince ? currentMonthSince : body.since;
   const until = requestedUntil > today ? today : requestedUntil;
-
-  const { data: portal } = await db
-    .from("portals")
-    .select("id, user_id, status")
-    .eq("slug", slug)
-    .maybeSingle();
-
-  if (!portal) return NextResponse.json({ error: "Portal não encontrado" }, { status: 404 });
-  if (portal.status === "pausado") return NextResponse.json({ error: "Portal pausado" }, { status: 403 });
 
   const { data: links } = await db
     .from("portal_accounts")
     .select("ad_account_id")
     .eq("portal_id", portal.id);
   const accountIds = (links ?? []).map((link: { ad_account_id: string }) => link.ad_account_id);
-  if (!accountIds.length) return NextResponse.json({ refreshed: false, accounts: 0 });
+  if (!accountIds.length) return NextResponse.json({ refreshed: false, accounts: 0 }, { headers: portalNoStoreHeaders() });
 
   const { data: accounts } = await db
     .from("ad_platform_accounts")
@@ -59,7 +55,7 @@ export async function POST(
     !account.last_sync_at || new Date(account.last_sync_at).getTime() < now.getTime() - refreshIntervalMs,
   );
   if (!eligible.length) {
-    return NextResponse.json({ refreshed: false, accounts: 0, throttled: true });
+    return NextResponse.json({ refreshed: false, accounts: 0, throttled: true }, { headers: portalNoStoreHeaders() });
   }
 
   const { data: tokens } = await db
@@ -113,6 +109,6 @@ export async function POST(
 
   return NextResponse.json(
     { refreshed: refreshedAccounts > 0, accounts: refreshedAccounts, failed_accounts: failedAccounts },
-    { headers: { "Cache-Control": "no-store" } },
+    { headers: portalNoStoreHeaders() },
   );
 }

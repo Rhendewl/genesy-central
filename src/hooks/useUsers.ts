@@ -186,22 +186,14 @@ export function useUsers() {
 
   const updateUser = useCallback(async (id: string, payload: UpdateUserPayload): Promise<{ error: string | null }> => {
     try {
-      const supabase = getSupabaseClient();
-      const { data, error: err } = await supabase
-        .from("user_profiles")
-        .update({
-          full_name:   payload.full_name,
-          role:        payload.role,
-          job_title:   payload.job_title || null,
-          is_active:   payload.is_active,
-          permissions: payload.permissions,
-          crm_pipeline_id: payload.crm_pipeline_id,
-        })
-        .eq("id", id)
-        .select()
-        .single();
-
-      if (err) throw err;
+      const response = await fetch(`/api/users/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const result = await response.json() as { profile?: UserProfile; error?: string };
+      if (!response.ok || !result.profile) throw new Error(result.error ?? "Erro ao atualizar usuário");
+      const data = result.profile;
       setProfiles(prev => prev.map(p => (p.id === id
         ? { ...data, permissions: Array.isArray(data.permissions) ? data.permissions : [] }
         : p
@@ -214,15 +206,14 @@ export function useUsers() {
 
   const toggleActive = useCallback(async (id: string, current: boolean): Promise<{ error: string | null }> => {
     try {
-      const supabase = getSupabaseClient();
-      const { data, error: err } = await supabase
-        .from("user_profiles")
-        .update({ is_active: !current })
-        .eq("id", id)
-        .select()
-        .single();
-
-      if (err) throw err;
+      const response = await fetch(`/api/users/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ is_active: !current }),
+      });
+      const result = await response.json() as { profile?: UserProfile; error?: string };
+      if (!response.ok || !result.profile) throw new Error(result.error ?? "Erro ao alterar status");
+      const data = result.profile;
       setProfiles(prev => prev.map(p => (p.id === id
         ? { ...data, permissions: Array.isArray(data.permissions) ? data.permissions : [] }
         : p
@@ -235,9 +226,9 @@ export function useUsers() {
 
   const deleteUser = useCallback(async (id: string): Promise<{ error: string | null }> => {
     try {
-      const supabase = getSupabaseClient();
-      const { error: err } = await supabase.from("user_profiles").delete().eq("id", id);
-      if (err) throw err;
+      const response = await fetch(`/api/users/${id}`, { method: "DELETE" });
+      const result = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(result.error ?? "Erro ao remover usuário");
       setProfiles(prev => prev.filter(p => p.id !== id));
       return { error: null };
     } catch (e: unknown) {

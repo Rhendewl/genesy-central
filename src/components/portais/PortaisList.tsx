@@ -4,7 +4,7 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Globe, Plus, Copy, Pencil, Pause, Play, Trash2, Check,
-  ExternalLink, Clock, Layers,
+  ExternalLink, Clock, Layers, Loader2, ShieldCheck, ShieldOff,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -43,31 +43,87 @@ function StatusBadge({ status }: { status: "ativo" | "pausado" }) {
   );
 }
 
-function CopyButton({ slug }: { slug: string }) {
+function SecureLinkActions({ portal }: { portal: Portal }) {
   const [copied, setCopied] = useState(false);
+  const [loading, setLoading] = useState<"copy" | "open" | "revoke" | null>(null);
+
+  const issueLink = async () => {
+    const response = await fetch(`/api/portais/${portal.id}/access`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ expires_in_days: 30 }),
+    });
+    const json = await response.json() as { access_url?: string; error?: string };
+    if (!response.ok || !json.access_url) throw new Error(json.error ?? "Não foi possível gerar o link seguro");
+    return json.access_url;
+  };
 
   const handleCopy = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    const url = `${window.location.origin}/portal/${slug}`;
-    await navigator.clipboard.writeText(url);
-    setCopied(true);
-    toast.success("Link copiado!");
-    setTimeout(() => setCopied(false), 2000);
+    setLoading("copy");
+    try {
+      await navigator.clipboard.writeText(await issueLink());
+      setCopied(true);
+      toast.success("Link seguro copiado. Validade: 30 dias.");
+      setTimeout(() => setCopied(false), 2000);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Erro ao gerar link");
+    } finally {
+      setLoading(null);
+    }
+  };
+
+  const handleOpen = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setLoading("open");
+    try {
+      const url = await issueLink();
+      window.open(url, "_blank", "noopener,noreferrer");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Erro ao abrir portal");
+    } finally {
+      setLoading(null);
+    }
+  };
+
+  const handleRevoke = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!confirm(`Revogar todos os links ativos do portal "${portal.name}"?`)) return;
+    setLoading("revoke");
+    try {
+      const response = await fetch(`/api/portais/${portal.id}/access`, { method: "DELETE" });
+      const json = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(json.error ?? "Não foi possível revogar os links");
+      toast.success("Todos os links deste portal foram revogados.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Erro ao revogar links");
+    } finally {
+      setLoading(null);
+    }
   };
 
   return (
-    <button
-      onClick={handleCopy}
-      title="Copiar link"
-      className={cn(
-        "w-7 h-7 rounded-lg flex items-center justify-center transition-all",
-        copied
-          ? "bg-emerald-500/15 text-emerald-400"
-          : "text-[color-mix(in_srgb,var(--text-title)_40%,transparent)] hover:text-[var(--text-title)] hover:bg-[var(--hover)]"
-      )}
-    >
-      {copied ? <Check size={13} strokeWidth={2.5} /> : <Copy size={13} />}
-    </button>
+    <div className="flex items-center gap-1">
+      <button
+        onClick={handleCopy}
+        disabled={Boolean(loading) || portal.status !== "ativo"}
+        title="Gerar e copiar link seguro por 30 dias"
+        className={cn(
+          "w-7 h-7 rounded-lg flex items-center justify-center transition-all disabled:opacity-35",
+          copied
+            ? "bg-emerald-500/15 text-emerald-400"
+            : "text-[color-mix(in_srgb,var(--text-title)_40%,transparent)] hover:text-[var(--text-title)] hover:bg-[var(--hover)]"
+        )}
+      >
+        {loading === "copy" ? <Loader2 size={13} className="animate-spin" /> : copied ? <Check size={13} strokeWidth={2.5} /> : <Copy size={13} />}
+      </button>
+      <button onClick={handleOpen} disabled={Boolean(loading) || portal.status !== "ativo"} title="Abrir com novo link seguro" className="w-7 h-7 rounded-lg flex items-center justify-center text-[color-mix(in_srgb,var(--text-title)_40%,transparent)] hover:text-[#27a3ff] hover:bg-[var(--hover)] transition-all disabled:opacity-35">
+        {loading === "open" ? <Loader2 size={13} className="animate-spin" /> : <ExternalLink size={13} />}
+      </button>
+      <button onClick={handleRevoke} disabled={Boolean(loading)} title="Revogar todos os links" className="w-7 h-7 rounded-lg flex items-center justify-center text-[color-mix(in_srgb,var(--text-title)_40%,transparent)] hover:text-red-400 hover:bg-red-500/[0.07] transition-all disabled:opacity-35">
+        {loading === "revoke" ? <Loader2 size={13} className="animate-spin" /> : <ShieldOff size={13} />}
+      </button>
+    </div>
   );
 }
 
@@ -82,7 +138,6 @@ function PortalRow({ portal, onEdit, onToggleStatus, onDelete }: PortalRowProps)
   const [deleting, setDeleting] = useState(false);
   const [toggling, setToggling] = useState(false);
   const accountCount = portal.portal_accounts?.length ?? 0;
-  const publicUrl = `/portal/${portal.slug}`;
 
   const handleToggle = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -149,26 +204,15 @@ function PortalRow({ portal, onEdit, onToggleStatus, onDelete }: PortalRowProps)
       {/* Link público */}
       <td className="px-5 py-4">
         <div className="flex items-center gap-1.5">
-          <span className="text-[#27a3ff]/60 text-xs font-mono truncate max-w-[140px]">
-            {publicUrl}
-          </span>
-          <a
-            href={publicUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={e => e.stopPropagation()}
-            className="text-[color-mix(in_srgb,var(--text-title)_25%,transparent)] hover:text-[#27a3ff] transition-colors"
-            title="Abrir portal"
-          >
-            <ExternalLink size={12} />
-          </a>
+          <ShieldCheck size={13} className="text-emerald-400" />
+          <span className="text-emerald-400/70 text-xs whitespace-nowrap">Seguro · 30 dias</span>
         </div>
       </td>
 
       {/* Ações */}
       <td className="px-5 py-4">
         <div className="flex items-center gap-1">
-          <CopyButton slug={portal.slug} />
+          <SecureLinkActions portal={portal} />
 
           <button
             onClick={e => { e.stopPropagation(); onEdit(portal); }}
@@ -278,7 +322,7 @@ export function PortaisList() {
               </span>
             )}
           </div>
-          <p className="text-[color-mix(in_srgb,var(--text-title)_40%,transparent)] text-sm">Dashboards públicos de campanhas para clientes</p>
+          <p className="text-[color-mix(in_srgb,var(--text-title)_40%,transparent)] text-sm">Dashboards protegidos por links expirantes e revogáveis</p>
         </div>
         <Button
           onClick={openNew}

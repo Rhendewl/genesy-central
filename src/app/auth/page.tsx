@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
@@ -16,6 +16,12 @@ export default function AuthPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("reason") === "access_disabled") {
+      setError("Seu acesso está desativado ou foi removido. Fale com o administrador.");
+    }
+  }, []);
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
@@ -24,17 +30,31 @@ export default function AuthPage() {
     const supabase = getSupabaseClient();
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      const { data: authData, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
+
+      const { data: profiles, error: profileError } = await supabase
+        .from("user_profiles")
+        .select("is_active")
+        .eq("auth_user_id", authData.user.id);
+
+      const hasProfile = !profileError && (profiles ?? []).length > 0;
+      const hasActiveAccess = hasProfile && (profiles ?? []).some((profile) => profile.is_active);
+      if (!hasActiveAccess) {
+        await supabase.auth.signOut({ scope: "local" });
+        throw new Error(hasProfile ? "ACCESS_DISABLED" : "ACCESS_REMOVED");
+      }
+
       router.push("/");
       router.refresh();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Erro inesperado.";
-      setError(
-        msg === "Invalid login credentials"
-          ? "E-mail ou senha incorretos."
-          : msg
-      );
+      if (msg === "Invalid login credentials") setError("E-mail ou senha incorretos.");
+      else if (msg.toLowerCase().includes("banned") || msg === "ACCESS_DISABLED") {
+        setError("Seu acesso está desativado. Fale com o administrador para reativá-lo.");
+      } else if (msg === "ACCESS_REMOVED") {
+        setError("Seu acesso a esta plataforma foi removido.");
+      } else setError(msg);
     } finally {
       setIsLoading(false);
     }

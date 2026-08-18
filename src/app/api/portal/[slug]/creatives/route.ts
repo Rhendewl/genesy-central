@@ -1,19 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
-import { createAdminSupabaseClient } from "@/lib/supabase-admin";
 import { decryptToken } from "@/lib/crypto";
+import { authorizePortalAccess, portalNoStoreHeaders } from "@/lib/portal-access";
 import { getAdsWithCreatives, getCreativeById, getAdImageUrls, getVideoThumbnail } from "@/lib/meta-api";
 import type { MetaCreativeExtended } from "@/lib/meta-api";
 import { startOfMonth, format } from "date-fns";
 import type { PortalCreative } from "@/types";
-
-function createAnonClient() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { auth: { persistSession: false } }
-  );
-}
 
 // Priority: high-resolution sources first — thumbnail_url is last (compressed, low quality)
 function pickBestAdImage(
@@ -66,7 +57,7 @@ function pickBestAdImage(
   return null;
 }
 
-// GET /api/portal/[slug]/creatives — public endpoint, no auth required
+// GET /api/portal/[slug]/creatives — exige credencial segura do portal
 // Metrics from Supabase (always). Thumbnails: Supabase first, Meta API fallback.
 // Query params: since, until (YYYY-MM-DD)
 export async function GET(
@@ -77,28 +68,12 @@ export async function GET(
     const { slug } = await params;
     const sp = req.nextUrl.searchParams;
 
-    let admin;
-    let db: ReturnType<typeof createAnonClient>;
-    try {
-      admin = createAdminSupabaseClient();
-      db = admin;
-    } catch {
-      db = createAnonClient();
+    const access = await authorizePortalAccess(req, slug);
+    if (!access.ok) {
+      return NextResponse.json({ error: access.error }, { status: access.status, headers: portalNoStoreHeaders() });
     }
-
-    // 1. Portal
-    const { data: rawPortal } = await db
-      .from("portals")
-      .select("id, user_id, status")
-      .eq("slug", slug)
-      .maybeSingle();
-
-    if (!rawPortal || rawPortal.status === "pausado") {
-      return NextResponse.json({ creatives: [] });
-    }
-    if (!admin) {
-      return NextResponse.json({ creatives: [] });
-    }
+    const admin = access.db;
+    const rawPortal = access.portal;
 
     // 2. Date range
     const now = new Date();
@@ -115,7 +90,7 @@ export async function GET(
     const allowedAccountIds = (portalAccounts ?? []).map(
       (pa: { ad_account_id: string }) => pa.ad_account_id
     );
-    if (!allowedAccountIds.length) return NextResponse.json({ creatives: [] });
+    if (!allowedAccountIds.length) return NextResponse.json({ creatives: [] }, { headers: portalNoStoreHeaders() });
 
     // 4. Platform accounts — include account_id for Meta API fallback
     const { data: platformAccounts } = await admin
@@ -124,7 +99,7 @@ export async function GET(
       .eq("user_id", rawPortal.user_id)
       .in("account_id", allowedAccountIds);
 
-    if (!platformAccounts?.length) return NextResponse.json({ creatives: [] });
+    if (!platformAccounts?.length) return NextResponse.json({ creatives: [] }, { headers: portalNoStoreHeaders() });
 
     const platformAccountIds = platformAccounts.map((pa: { id: string }) => pa.id);
 
@@ -134,7 +109,7 @@ export async function GET(
       .select("id, name, status, external_id")
       .in("platform_account_id", platformAccountIds);
 
-    if (!campaignsRaw?.length) return NextResponse.json({ creatives: [] });
+    if (!campaignsRaw?.length) return NextResponse.json({ creatives: [] }, { headers: portalNoStoreHeaders() });
 
     type CampaignRow = { id: string; name: string; status: string; external_id: string | null };
     const campaignMap = new Map<string, CampaignRow>();
@@ -378,11 +353,11 @@ export async function GET(
 
     return NextResponse.json(
       { creatives: top8 },
-      { headers: { "Cache-Control": "no-store, max-age=0" } },
+      { headers: portalNoStoreHeaders() },
     );
 
   } catch (err) {
     console.error("[portal/creatives] unhandled error:", err);
-    return NextResponse.json({ creatives: [] });
+    return NextResponse.json({ creatives: [], error: "Erro interno" }, { status: 500, headers: portalNoStoreHeaders() });
   }
 }

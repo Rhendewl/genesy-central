@@ -58,6 +58,14 @@ export async function PUT(
       .update(updates)
       .eq("id", id);
     if (updErr) return NextResponse.json({ error: updErr.message }, { status: 500 });
+    if (slug !== undefined || status === "pausado") {
+      const { error: revokeError } = await supabase
+        .from("portal_access_tokens")
+        .update({ revoked_at: new Date().toISOString() })
+        .eq("portal_id", id)
+        .is("revoked_at", null);
+      if (revokeError) return NextResponse.json({ error: "Portal atualizado, mas os links antigos não puderam ser revogados" }, { status: 500 });
+    }
   }
 
   // Replace ad accounts if provided
@@ -110,5 +118,13 @@ export async function PATCH(
     .eq("id", id);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (status === "pausado") {
+    const { error: revokeError } = await supabase
+      .from("portal_access_tokens")
+      .update({ revoked_at: new Date().toISOString() })
+      .eq("portal_id", id)
+      .is("revoked_at", null);
+    if (revokeError) return NextResponse.json({ error: "Portal pausado, mas os links não puderam ser revogados" }, { status: 500 });
+  }
   return NextResponse.json({ ok: true });
 }

@@ -45,23 +45,27 @@ CREATE INDEX        IF NOT EXISTS portal_accounts_portal_id_idx ON portal_accoun
 ALTER TABLE portals        ENABLE ROW LEVEL SECURITY;
 ALTER TABLE portal_accounts ENABLE ROW LEVEL SECURITY;
 
--- portals: público pode ler (rota pública usa slug), dono gerencia
+-- portals: somente o dono lê e gerencia; rotas públicas usam service role + credencial própria
 DROP POLICY IF EXISTS "portals_select_all"   ON portals;
+DROP POLICY IF EXISTS "portals_select_owner" ON portals;
 DROP POLICY IF EXISTS "portals_insert_owner" ON portals;
 DROP POLICY IF EXISTS "portals_update_owner" ON portals;
 DROP POLICY IF EXISTS "portals_delete_owner" ON portals;
 
-CREATE POLICY "portals_select_all"   ON portals FOR SELECT USING (true);
+CREATE POLICY "portals_select_owner" ON portals FOR SELECT USING (auth.uid() = user_id);
 CREATE POLICY "portals_insert_owner" ON portals FOR INSERT WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "portals_update_owner" ON portals FOR UPDATE USING (auth.uid() = user_id);
 CREATE POLICY "portals_delete_owner" ON portals FOR DELETE USING (auth.uid() = user_id);
 
--- portal_accounts: público pode ler, dono gerencia via propriedade do portal
+-- portal_accounts: somente o dono lê e gerencia via propriedade do portal
 DROP POLICY IF EXISTS "portal_accounts_select_all"   ON portal_accounts;
+DROP POLICY IF EXISTS "portal_accounts_select_owner" ON portal_accounts;
 DROP POLICY IF EXISTS "portal_accounts_insert_owner" ON portal_accounts;
 DROP POLICY IF EXISTS "portal_accounts_delete_owner" ON portal_accounts;
 
-CREATE POLICY "portal_accounts_select_all" ON portal_accounts FOR SELECT USING (true);
+CREATE POLICY "portal_accounts_select_owner" ON portal_accounts FOR SELECT USING (
+  EXISTS (SELECT 1 FROM portals WHERE portals.id = portal_accounts.portal_id AND portals.user_id = auth.uid())
+);
 
 CREATE POLICY "portal_accounts_insert_owner" ON portal_accounts FOR INSERT
   WITH CHECK (

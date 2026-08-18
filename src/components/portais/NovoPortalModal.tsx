@@ -341,7 +341,7 @@ export function NovoPortalModal({ open, onClose, onSave, editingPortal, onUpdate
                   </div>
                   {slug && (
                     <p className="mt-1.5 text-xs text-[color-mix(in_srgb,var(--text-title)_30%,transparent)]">
-                      Link público: <span className="text-[#27a3ff]/70">/portal/{slug}</span>
+                      O link seguro e expirante será gerado na lista após salvar.
                     </p>
                   )}
                 </div>

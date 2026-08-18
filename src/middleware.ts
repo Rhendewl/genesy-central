@@ -66,22 +66,38 @@ export async function middleware(request: NextRequest) {
     }
   );
 
-  // getSession reads the JWT from cookies without a network call — safe for
-  // middleware where latency budget is tight (Edge Runtime ~1.5 s limit).
+  // getUser valida o JWT no servidor do Supabase. Depois, o perfil ativo é
+  // conferido para impedir que contas desativadas ou removidas continuem
+  // usando uma sessão antiga.
   const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  const user = session?.user ?? null;
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  let hasActiveAccess = false;
+  if (user) {
+    const { data: profiles, error: profileError } = await supabase
+      .from("user_profiles")
+      .select("is_active")
+      .eq("auth_user_id", user.id);
+    hasActiveAccess = !profileError && (profiles ?? []).some((profile) => profile.is_active);
+
+    if (!hasActiveAccess) {
+      // Limpa os cookies no carregamento da página de login. Em uma rota
+      // protegida, o redirecionamento chega aqui logo na requisição seguinte.
+      await supabase.auth.signOut({ scope: "local" });
+    }
+  }
 
   // Not authenticated + trying to access a protected route → redirect to login
-  if (!user && !isPublicRoute) {
+  if ((!user || !hasActiveAccess) && !isPublicRoute) {
     const url = request.nextUrl.clone();
     url.pathname = "/auth";
+    if (user && !hasActiveAccess) url.searchParams.set("reason", "access_disabled");
     return NextResponse.redirect(url);
   }
 
   // Authenticated + trying to access /auth → redirect to dashboard
-  if (user && isAuthRedirectRoute) {
+  if (user && hasActiveAccess && isAuthRedirectRoute) {
     const url = request.nextUrl.clone();
     url.pathname = "/";
     return NextResponse.redirect(url);
