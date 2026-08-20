@@ -4,10 +4,12 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { format, subDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Area, AreaChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { BarChart3, CalendarDays, Eye, FileText, FolderOpen, Loader2, Pencil, Plus, Printer, Target, Trash2, TrendingUp, Users, X } from "lucide-react";
+import { BarChart3, CalendarDays, Download, FolderOpen, Loader2, Pencil, Plus, Search, Target, Trash2, TrendingUp, Users, X } from "lucide-react";
 import { toast } from "sonner";
 import { useAgencyClients } from "@/hooks/useAgencyClients";
 import { KpiReadingGuide } from "@/components/insights/KpiReadingGuide";
+import { Button } from "@/components/ui/button";
+import { ConfirmActionModal } from "@/components/ui/ConfirmActionModal";
 import {
   COMMERCIAL_PRODUCT_LABELS,
   type CommercialAnalysis,
@@ -29,6 +31,8 @@ export function CommercialAnalysisModule() {
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<CommercialAnalysis | null>(null);
   const [viewing, setViewing] = useState<CommercialAnalysis | null>(null);
+  const [deleting, setDeleting] = useState<CommercialAnalysis | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   useEffect(() => { if (!clientId && activeClients[0]) setClientId(activeClients[0].id); }, [activeClients, clientId]);
 
@@ -53,10 +57,12 @@ export function CommercialAnalysisModule() {
   })), [analyses]);
 
   async function remove(item: CommercialAnalysis) {
-    if (!window.confirm("Excluir esta análise comercial?")) return;
+    setDeleteLoading(true);
     const response = await fetch(`/api/clientes/commercial-analyses/${item.id}`, { method: "DELETE" });
-    if (!response.ok) return toast.error("Não foi possível excluir");
+    setDeleteLoading(false);
+    if (!response.ok) { toast.error("Não foi possível excluir"); return; }
     toast.success("Análise excluída");
+    setDeleting(null);
     await load();
   }
 
@@ -69,13 +75,22 @@ export function CommercialAnalysisModule() {
         <div className="max-w-2xl"><p className="text-[10px] font-semibold uppercase tracking-[.18em] text-[var(--primary)]">Prontuário comercial</p><h2 className="mt-1 text-lg font-semibold">Análise semanal dos clientes</h2><p className="mt-1 text-xs leading-5 text-[var(--muted-foreground)]">Registre o funil, gere o diagnóstico e acompanhe se as decisões das reuniões estão melhorando o resultado.</p></div>
         <div className="flex flex-col gap-2 sm:flex-row">
           <select value={clientId} onChange={(event) => setClientId(event.target.value)} className="lc-form-control crm-form-select min-h-10 min-w-[240px] text-sm"><option value="">Selecionar cliente</option>{activeClients.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select>
-          <button disabled={!clientId} onClick={() => { setEditing(null); setFormOpen(true); }} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-[var(--primary)] px-4 text-sm font-semibold text-white disabled:opacity-40"><Plus size={15} /> Nova análise</button>
+          <Button disabled={!clientId} onClick={() => { setEditing(null); setFormOpen(true); }} icon={<Plus />} size="medium" signature>Nova análise</Button>
         </div>
       </div>
     </section>
 
     {!clientId ? <Empty title="Selecione um cliente" text="A pasta comercial será aberta aqui." /> : loading ? <div className="grid min-h-64 place-items-center"><Loader2 className="animate-spin text-[var(--primary)]" /></div> : !latest ? <Empty title={`Pasta de ${client?.name ?? "cliente"}`} text="Nenhuma análise registrada. Crie a primeira reunião comercial para iniciar o histórico." /> : <>
-      <div className="flex items-center gap-2"><FolderOpen size={17} className="text-[var(--primary)]" /><div><h2 className="text-sm font-semibold">Pasta comercial · {client?.name}</h2><p className="text-[10px] text-[var(--muted-foreground)]">{analyses.length} análise{analyses.length === 1 ? "" : "s"} armazenada{analyses.length === 1 ? "" : "s"}</p></div></div>
+      <div className="flex items-center gap-2"><Search size={17} className="text-[var(--primary)]" /><div><h2 className="text-sm font-semibold">Diagnósticos · {client?.name}</h2><p className="text-[10px] text-[var(--muted-foreground)]">{analyses.length} diagnóstico{analyses.length === 1 ? "" : "s"} armazenado{analyses.length === 1 ? "" : "s"}</p></div></div>
+
+      <section className="rounded-2xl border p-5" style={{ background: "var(--glass-bg-soft)" }}>
+        <div className="mb-4"><h2 className="text-sm font-semibold">Galeria de diagnósticos</h2><p className="mt-1 text-xs text-[var(--muted-foreground)]">Abra uma análise para consultar o relatório completo, decisões e próximos passos.</p></div>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+          {analyses.map((item) => <DiagnosisCard key={item.id} analysis={item} onOpen={() => setViewing(item)} onEdit={() => { setEditing(item); setFormOpen(true); }} onDelete={() => setDeleting(item)} />)}
+        </div>
+      </section>
+
+      <div><h2 className="text-sm font-semibold">Visão comercial atual</h2><p className="mt-1 text-xs text-[var(--muted-foreground)]">Indicadores do diagnóstico mais recente, realizado em {format(new Date(`${latest.meeting_date}T12:00:00`), "dd/MM/yyyy")}.</p></div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-6">
         <Kpi label="Saúde comercial" value={`${latest.analysis_snapshot.score}/100`} sub={STATUS[latest.analysis_snapshot.status][0]} icon={<Target size={15} />} />
@@ -92,16 +107,29 @@ export function CommercialAnalysisModule() {
 
       {trend.length > 1 && <section className="rounded-2xl border p-5" style={{ background: "var(--glass-bg-soft)" }}><h2 className="text-sm font-semibold">Evolução comercial</h2><p className="mb-4 text-xs text-[var(--muted-foreground)]">Taxas registradas em cada reunião semanal</p><ResponsiveContainer width="100%" height={290}><AreaChart data={trend}><CartesianGrid stroke="var(--chart-grid)" strokeDasharray="4 6" vertical={false} /><XAxis dataKey="date" tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} /><YAxis domain={[0, 100]} tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} unit="%" /><Tooltip contentStyle={tooltipStyle} /><Legend wrapperStyle={{ fontSize: 11 }} /><Area type="monotone" dataKey="Resposta" stroke="#3b82f6" fill="#3b82f622" strokeWidth={2} /><Area type="monotone" dataKey="Comparecimento" stroke="#8b5cf6" fill="#8b5cf622" strokeWidth={2} /><Area type="monotone" dataKey="Fechamento" stroke="#10b981" fill="#10b98122" strokeWidth={2} /></AreaChart></ResponsiveContainer></section>}
 
-      <section className="rounded-2xl border p-5" style={{ background: "var(--glass-bg-soft)" }}><h2 className="text-sm font-semibold">Histórico da pasta</h2><p className="mb-4 text-xs text-[var(--muted-foreground)]">Análises, decisões e relatórios das reuniões anteriores</p><div className="space-y-2">{analyses.map((item) => <article key={item.id} className="flex flex-col gap-3 rounded-xl border p-4 sm:flex-row sm:items-center"><div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-blue-500/10 text-blue-500"><FileText size={17} /></div><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><p className="text-sm font-semibold">Análise de {format(new Date(`${item.meeting_date}T12:00:00`), "dd 'de' MMMM", { locale: ptBR })}</p><span className={`rounded-full border px-2 py-0.5 text-[9px] font-semibold ${STATUS[item.analysis_snapshot.status][1]}`}>{item.analysis_snapshot.score}/100</span></div><p className="mt-0.5 truncate text-[11px] text-[var(--muted-foreground)]">{COMMERCIAL_PRODUCT_LABELS[item.product_type]}{item.development_name ? ` · ${item.development_name}` : ""} · {item.leads_received} leads · {item.sales_closed} vendas</p></div><div className="flex gap-1"><button onClick={() => setViewing(item)} className="inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-2 text-xs"><Eye size={13} /> Relatório</button><button onClick={() => { setEditing(item); setFormOpen(true); }} className="rounded-lg p-2 hover:bg-[var(--hover)]" title="Editar"><Pencil size={13} /></button><button onClick={() => void remove(item)} className="rounded-lg p-2 text-rose-500 hover:bg-rose-500/10" title="Excluir"><Trash2 size={13} /></button></div></article>)}</div></section>
     </>}
 
     <AnalysisFormModal open={formOpen} clientId={clientId} analysis={editing} onClose={() => setFormOpen(false)} onSaved={load} />
     {viewing && <AnalysisReport analysis={viewing} clientName={client?.name ?? "Cliente"} onClose={() => setViewing(null)} />}
+    <ConfirmActionModal open={Boolean(deleting)} title="Excluir diagnóstico?" description={`O diagnóstico de ${deleting ? format(new Date(`${deleting.meeting_date}T12:00:00`), "dd 'de' MMMM 'de' yyyy", { locale: ptBR }) : ""} será removido permanentemente da pasta comercial deste cliente.`} confirmLabel="Excluir diagnóstico" loading={deleteLoading} onCancel={() => setDeleting(null)} onConfirm={() => deleting ? remove(deleting) : undefined} />
   </div>;
 }
 
 function Kpi({ label, value, sub, icon }: { label: string; value: string | number; sub: string; icon: React.ReactNode }) { return <div className="rounded-2xl border p-4" style={{ background: "var(--glass-bg-soft)" }}><span className="text-[var(--primary)]">{icon}</span><p className="mt-3 text-xl font-semibold">{value}</p><p className="mt-1 text-xs">{label}</p><p className="mt-0.5 text-[10px] text-[var(--muted-foreground)]">{sub}</p></div>; }
 function Empty({ title, text }: { title: string; text: string }) { return <div className="grid min-h-64 place-items-center rounded-2xl border border-dashed p-8 text-center"><div><FolderOpen className="mx-auto text-[var(--muted-foreground)]" /><p className="mt-3 text-sm font-medium">{title}</p><p className="mt-1 text-xs text-[var(--muted-foreground)]">{text}</p></div></div>; }
+
+function DiagnosisCard({ analysis, onOpen, onEdit, onDelete }: { analysis: CommercialAnalysis; onOpen: () => void; onEdit: () => void; onDelete: () => void }) {
+  return <article onClick={onOpen} className="glass-folder-card group relative flex aspect-square cursor-pointer flex-col items-center justify-center overflow-hidden rounded-[20px] border p-3 text-center transition-all hover:-translate-y-1" style={{ "--folder-color": "#6f8493" } as React.CSSProperties}>
+    <div className="glass-folder-glow pointer-events-none absolute inset-0 opacity-70" style={{ "--folder-color": "#6f8493" } as React.CSSProperties} />
+    <div className="relative grid h-16 w-16 place-items-center rounded-full border border-white/20 bg-white/10 shadow-[0_12px_35px_rgba(0,0,0,.22)] backdrop-blur-xl sm:h-20 sm:w-20"><Search size={34} strokeWidth={1.35} className="text-[var(--text-title)] drop-shadow-md sm:size-10" /><span className="pointer-events-none absolute inset-1 rounded-full border border-white/10" /></div>
+    <div className="absolute right-2.5 top-2.5 z-20 flex gap-1 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100">
+      <button type="button" aria-label="Editar diagnóstico" title="Editar" onClick={(event) => { event.stopPropagation(); onEdit(); }} className="grid h-7 w-7 place-items-center rounded-lg border border-[var(--border)] bg-[var(--bg-modal)] text-[var(--muted-foreground)] backdrop-blur-xl hover:text-[var(--text-title)]"><Pencil size={12} /></button>
+      <button type="button" aria-label="Excluir diagnóstico" title="Excluir" onClick={(event) => { event.stopPropagation(); onDelete(); }} className="grid h-7 w-7 place-items-center rounded-lg border border-rose-500/20 bg-[var(--bg-modal)] text-rose-500 backdrop-blur-xl hover:bg-rose-500/10"><Trash2 size={12} /></button>
+    </div>
+    <p className="relative mt-3 w-full truncate text-sm font-semibold text-[var(--text-title)]">{format(new Date(`${analysis.period_start}T12:00:00`), "dd/MM")} a {format(new Date(`${analysis.period_end}T12:00:00`), "dd/MM/yyyy")}</p>
+    <p className="relative mt-0.5 text-[10px] text-[var(--muted-foreground)]">Saúde {analysis.analysis_snapshot.score}/100 · {analysis.sales_closed} venda{analysis.sales_closed === 1 ? "" : "s"}</p>
+  </article>;
+}
 
 const numericFields: Array<[keyof CommercialAnalysisInput, string]> = [
   ["leads_received", "Leads recebidos"], ["leads_contacted", "Leads abordados"], ["leads_responded", "Leads que responderam"], ["leads_no_response", "Leads sem resposta"],
@@ -133,6 +161,22 @@ function Input({ label, value, onChange, type = "text" }: { label: string; value
 function TextArea({ label, value, onChange }: { label: string; value: string | null; onChange: (value: string | null) => void }) { return <label className="mt-3 block"><span className="lc-form-label mb-1.5 block text-xs font-medium">{label}</span><textarea rows={3} value={value ?? ""} onChange={(e) => onChange(e.target.value || null)} className="lc-form-control w-full resize-y rounded-lg px-3 py-2 text-sm" /></label>; }
 function NumericGrid({ fields, data, patch }: { fields: Array<[keyof CommercialAnalysisInput, string]>; data: CommercialAnalysisInput; patch: <K extends keyof CommercialAnalysisInput>(key: K, value: CommercialAnalysisInput[K]) => void }) { return <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{fields.map(([key, label]) => <Input key={key} label={label} type="number" value={String(data[key] ?? 0)} onChange={(value) => patch(key, Number(value))} />)}</div>; }
 
-function AnalysisReport({ analysis, clientName, onClose }: { analysis: CommercialAnalysis; clientName: string; onClose: () => void }) { const m = analysis.analysis_snapshot.metrics; return <div className="lc-modal-backdrop fixed inset-0 z-50 overflow-y-auto p-3 sm:p-6"><div className="lc-modal-panel commercial-report mx-auto max-w-4xl rounded-2xl p-5 text-[var(--text-title)] sm:p-8"><div className="mb-6 flex items-start justify-between gap-3"><div><p className="text-[10px] font-semibold uppercase tracking-[.18em] text-[var(--primary)]">Relatório de análise comercial</p><h1 className="mt-1 text-xl font-semibold text-[var(--text-title)]">{clientName}</h1><p className="mt-1 text-xs text-[var(--muted-foreground)]">Reunião de {format(new Date(`${analysis.meeting_date}T12:00:00`), "dd/MM/yyyy")} · Período {format(new Date(`${analysis.period_start}T12:00:00`), "dd/MM")} a {format(new Date(`${analysis.period_end}T12:00:00`), "dd/MM/yyyy")}</p></div><div className="flex gap-2 print:hidden"><button onClick={() => window.print()} className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border)] px-3 py-2 text-xs text-[var(--text-title)] hover:bg-[var(--hover)]"><Printer size={13} /> Imprimir / PDF</button><button onClick={onClose} className="rounded-lg border border-[var(--border)] p-2 text-[var(--muted-foreground)] hover:bg-[var(--hover)] hover:text-[var(--text-title)]"><X size={14} /></button></div></div><div className="rounded-xl border border-[var(--border)] p-4"><p className="text-sm font-semibold">Diagnóstico: {analysis.analysis_snapshot.score}/100</p><p className="mt-1 text-xs leading-5 text-[var(--muted-foreground)]">{analysis.analysis_snapshot.executiveSummary}</p></div><div className="my-5 grid grid-cols-2 gap-3 sm:grid-cols-4"><ReportMetric label="Leads" value={analysis.leads_received} /><ReportMetric label="Resposta" value={`${m.responseRate}%`} /><ReportMetric label="Comparecimento" value={`${m.attendanceRate}%`} /><ReportMetric label="Conversão em venda" value={`${m.closingRate}%`} /><ReportMetric label="Sem resposta" value={analysis.leads_no_response} /><ReportMetric label="Qualificados" value={analysis.qualified_leads} /><ReportMetric label="Vendas" value={analysis.sales_closed} /><ReportMetric label="Receita" value={money.format(analysis.revenue)} /></div><KpiReadingGuide items={analysis.analysis_snapshot.insights} /><div className="mt-5 grid gap-3 sm:grid-cols-2"><ReportText title="Perfil e empreendimento" text={`${COMMERCIAL_PRODUCT_LABELS[analysis.product_type]}${analysis.development_name ? ` · ${analysis.development_name}` : ""}\n${analysis.lead_profile_notes ?? "Sem observações."}`} /><ReportText title="Pontos positivos" text={analysis.wins} /><ReportText title="Bloqueios" text={analysis.blockers} /><ReportText title="Decisões" text={analysis.decisions} /><ReportText title="Próximas ações" text={analysis.next_actions} /><ReportText title="Motivos de perda" text={analysis.loss_reasons} /></div></div></div>; }
+function AnalysisReport({ analysis, clientName, onClose }: { analysis: CommercialAnalysis; clientName: string; onClose: () => void }) {
+  const m = analysis.analysis_snapshot.metrics;
+  const [downloading, setDownloading] = useState(false);
+  async function downloadPdf() {
+    setDownloading(true);
+    try {
+      const { saveCommercialAnalysisPdf } = await import("@/lib/commercial-analysis-pdf");
+      await saveCommercialAnalysisPdf(analysis, clientName);
+      toast.success("PDF baixado com a identidade da Genesy");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível gerar o PDF");
+    } finally {
+      setDownloading(false);
+    }
+  }
+  return <div className="lc-modal-backdrop fixed inset-0 z-50 overflow-y-auto p-3 sm:p-6"><div className="lc-modal-panel commercial-report mx-auto max-w-4xl rounded-2xl p-5 text-[var(--text-title)] sm:p-8"><div className="mb-6 flex items-start justify-between gap-3"><div><p className="text-[10px] font-semibold uppercase tracking-[.18em] text-[var(--primary)]">Relatório de análise comercial</p><h1 className="mt-1 text-xl font-semibold text-[var(--text-title)]">{clientName}</h1><p className="mt-1 text-xs text-[var(--muted-foreground)]">Reunião de {format(new Date(`${analysis.meeting_date}T12:00:00`), "dd/MM/yyyy")} · Período {format(new Date(`${analysis.period_start}T12:00:00`), "dd/MM")} a {format(new Date(`${analysis.period_end}T12:00:00`), "dd/MM/yyyy")}</p></div><div className="flex gap-2 print:hidden"><Button onClick={() => void downloadPdf()} loading={downloading} loadingLabel="Gerando PDF" icon={<Download />} size="sm">Baixar PDF</Button><button onClick={onClose} className="rounded-lg border border-[var(--border)] p-2 text-[var(--muted-foreground)] hover:bg-[var(--hover)] hover:text-[var(--text-title)]"><X size={14} /></button></div></div><div className="rounded-xl border border-[var(--border)] p-4"><p className="text-sm font-semibold">Diagnóstico: {analysis.analysis_snapshot.score}/100</p><p className="mt-1 text-xs leading-5 text-[var(--muted-foreground)]">{analysis.analysis_snapshot.executiveSummary}</p></div><div className="my-5 grid grid-cols-2 gap-3 sm:grid-cols-4"><ReportMetric label="Leads" value={analysis.leads_received} /><ReportMetric label="Resposta" value={`${m.responseRate}%`} /><ReportMetric label="Comparecimento" value={`${m.attendanceRate}%`} /><ReportMetric label="Conversão em venda" value={`${m.closingRate}%`} /><ReportMetric label="Sem resposta" value={analysis.leads_no_response} /><ReportMetric label="Qualificados" value={analysis.qualified_leads} /><ReportMetric label="Vendas" value={analysis.sales_closed} /><ReportMetric label="Receita" value={money.format(analysis.revenue)} /></div><KpiReadingGuide items={analysis.analysis_snapshot.insights} /><div className="mt-5 grid gap-3 sm:grid-cols-2"><ReportText title="Perfil e empreendimento" text={`${COMMERCIAL_PRODUCT_LABELS[analysis.product_type]}${analysis.development_name ? ` · ${analysis.development_name}` : ""}\n${analysis.lead_profile_notes ?? "Sem observações."}`} /><ReportText title="Pontos positivos" text={analysis.wins} /><ReportText title="Bloqueios" text={analysis.blockers} /><ReportText title="Decisões" text={analysis.decisions} /><ReportText title="Próximas ações" text={analysis.next_actions} /><ReportText title="Motivos de perda" text={analysis.loss_reasons} /></div></div></div>;
+}
 function ReportMetric({ label, value }: { label: string; value: string | number }) { return <div className="rounded-xl bg-[var(--hover)] p-3"><p className="text-lg font-semibold">{value}</p><p className="text-[10px] text-[var(--muted-foreground)]">{label}</p></div>; }
 function ReportText({ title, text }: { title: string; text: string | null }) { return <div className="rounded-xl border p-4"><h3 className="text-xs font-semibold">{title}</h3><p className="mt-2 whitespace-pre-line text-xs leading-5 text-[var(--muted-foreground)]">{text || "Não informado."}</p></div>; }
