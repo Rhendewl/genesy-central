@@ -930,6 +930,47 @@
     color: var(--text-placeholder);
   }
 
+  /* ── Campos de formulário em modais ─────────────────────────────────────
+     Padrão único para garantir contraste real nos temas claro e escuro. */
+  .lc-form-control {
+    width: 100%;
+    background: var(--hover);
+    border: 1px solid var(--border) !important;
+    color: var(--text-title) !important;
+    outline: none;
+    transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .lc-form-control::placeholder {
+    color: var(--text-placeholder) !important;
+    opacity: 1;
+  }
+
+  .lc-form-control:hover {
+    border-color: var(--border-card-hover) !important;
+  }
+
+  .lc-form-control:focus,
+  .lc-form-control:focus-visible {
+    background: color-mix(in srgb, var(--hover) 82%, var(--primary) 18%);
+    border-color: var(--primary) !important;
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 16%, transparent);
+  }
+
+  .lc-form-control:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+  }
+
+  .lc-form-label {
+    color: var(--text-title);
+  }
+
+  .lc-form-control option {
+    background: var(--popover);
+    color: var(--popover-foreground);
+  }
+
   /* Tooltip do dock: vidro translúcido que preserva o contexto e desfoca
      o conteúdo imediatamente atrás do nome do módulo. */
   .dock-tooltip {
