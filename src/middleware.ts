@@ -15,6 +15,7 @@ const PUBLIC_ROUTES = [
   "/auth",
   "/data-deletion",
   "/privacy-policy",
+  "/brand/",
   "/portal/",
   "/api/portal/",
   "/convite/",
@@ -116,6 +117,6 @@ export const config = {
      * - public assets
      * - api/meta/webhook (Meta crawler has no auth cookies — must bypass auth middleware)
      */
-    "/((?!_next/static|_next/image|favicon.ico|api/meta/webhook|api/leads|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|api/meta/webhook|api/leads|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ttf|otf|woff|woff2)$).*)",
   ],
 };
