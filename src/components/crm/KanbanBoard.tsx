@@ -432,7 +432,8 @@ export function KanbanBoard() {
                   allow_edit:         false,
                   legacy_column:      null,
                   is_won:             false,
-                  is_lost:            false,
+                is_lost:            false,
+                metric_type:        null,
                   created_at:         "",
                   updated_at:         "",
                 }}

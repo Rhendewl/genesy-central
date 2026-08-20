@@ -10,13 +10,14 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   DollarSign, Users, TrendingDown, Target,
   Eye, MousePointer2, Megaphone, Radio,
-  Activity, ChevronDown, TrendingUp, AlertTriangle,
+  Activity, ChevronDown, TrendingUp,
   Zap,
 } from "lucide-react";
 import { subDays, format } from "date-fns";
 import { useTrafegoMetrics } from "@/hooks/useTrafegoMetrics";
 import { useTrafegoGeo } from "@/hooks/useTrafegoGeo";
 import { cn } from "@/lib/utils";
+import { KpiReadingGuide, type KpiGuidanceItem } from "@/components/insights/KpiReadingGuide";
 
 // ── Formatters ────────────────────────────────────────────────────────────────
 
@@ -736,22 +737,6 @@ function TopCampanhas({
 
 // ── Insights ──────────────────────────────────────────────────────────────────
 
-type InsightType = "success" | "info" | "warning" | "danger";
-
-interface Insight {
-  type: InsightType;
-  icon: React.ReactNode;
-  title: string;
-  desc: string;
-}
-
-const INSIGHT_STYLES: Record<InsightType, { color: string; bg: string; border: string }> = {
-  success: { color: "#10b981", bg: "rgba(16,185,129,0.08)",  border: "rgba(16,185,129,0.18)" },
-  info:    { color: "#4a8fd4", bg: "rgba(74,143,212,0.08)",  border: "rgba(74,143,212,0.18)" },
-  warning: { color: "#f59e0b", bg: "rgba(245,158,11,0.08)",  border: "rgba(245,158,11,0.18)" },
-  danger:  { color: "#ef4444", bg: "rgba(239,68,68,0.08)",   border: "rgba(239,68,68,0.18)" },
-};
-
 function useInsights(data: {
   leads_diario: { data: string; leads: number }[];
   cpl_diario: { data: string; cpl: number }[];
@@ -759,19 +744,21 @@ function useInsights(data: {
   top_campanhas: { nome: string; leads: number; cpl: number }[];
   ctr_medio: number;
   leads_total: number;
-} | null): Insight[] {
+} | null): KpiGuidanceItem[] {
   return useMemo(() => {
     if (!data) return [];
-    const result: Insight[] = [];
+    const result: KpiGuidanceItem[] = [];
 
     // Best leads day
     const bestLead = [...data.leads_diario].sort((a, b) => b.leads - a.leads)[0];
     if (bestLead?.leads > 0) {
       result.push({
-        type: "success",
-        icon: <TrendingUp size={13} />,
+        id: "best-lead-day",
+        status: "info",
         title: "Melhor dia em leads",
-        desc: `${bestLead.data} gerou ${fmtNum(bestLead.leads)} leads`,
+        signal: `${bestLead.data} gerou ${fmtNum(bestLead.leads)} leads, o maior volume diário do período.`,
+        diagnosis: "Campanhas ativas, orçamento, público, criativos e horários que concentraram a entrega nesse dia.",
+        action: "Compare esse dia com a média e replique os elementos que explicam o pico, sem escalar antes de validar a qualidade dos leads.",
       });
     }
 
@@ -780,10 +767,12 @@ function useInsights(data: {
     const bestCpl = [...cplDays].sort((a, b) => a.cpl - b.cpl)[0];
     if (bestCpl) {
       result.push({
-        type: "success",
-        icon: <DollarSign size={13} />,
+        id: "best-cpl-day",
+        status: "good",
         title: "Menor CPL do período",
-        desc: `${bestCpl.data} — CPL de ${fmtBRL(bestCpl.cpl)}`,
+        signal: `${bestCpl.data} teve CPL de ${fmtBRL(bestCpl.cpl)}, o menor custo diário observado.`,
+        diagnosis: "Campanha, conjunto, criativo e público responsáveis pelos leads mais eficientes desse dia.",
+        action: "Preserve a combinação vencedora e aumente o orçamento gradualmente enquanto CPL e qualidade se mantiverem.",
       });
     }
 
@@ -791,43 +780,51 @@ function useInsights(data: {
     const topCamp = data.top_campanhas[0];
     if (topCamp?.leads > 0) {
       result.push({
-        type: "info",
-        icon: <Megaphone size={13} />,
+        id: "top-campaign",
+        status: "good",
         title: "Campanha destaque",
-        desc: `"${topCamp.nome}" gerou ${fmtNum(topCamp.leads)} leads`,
+        signal: `“${topCamp.nome}” gerou ${fmtNum(topCamp.leads)} leads com CPL de ${topCamp.cpl > 0 ? fmtBRL(topCamp.cpl) : "—"}.`,
+        diagnosis: "Distribuição de verba, criativos, posicionamentos e qualidade dos leads desta campanha no CRM.",
+        action: "Mantenha a campanha se volume e qualidade caminham juntos; use suas mensagens como base para os próximos testes.",
       });
     }
 
     // CTR health
     if (data.ctr_medio > 0) {
-      if (data.ctr_medio < 0.5) {
-        result.push({
-          type: "warning",
-          icon: <Target size={13} />,
-          title: "CTR abaixo do ideal",
-          desc: `CTR médio de ${fmtPct(data.ctr_medio)} — recomendado acima de 1%`,
-        });
-      }
+      result.push({
+        id: "ctr-health",
+        status: data.ctr_medio >= 1 ? "good" : data.ctr_medio >= 0.5 ? "attention" : "critical",
+        title: "Atratividade dos anúncios (CTR)",
+        signal: `CTR médio de ${fmtPct(data.ctr_medio)}; a referência operacional exibida no painel é acima de 1%.`,
+        diagnosis: "Gancho, imagem ou vídeo, promessa, oferta e aderência entre anúncio e público.",
+        action: data.ctr_medio >= 1
+          ? "Continue com os criativos líderes e teste variações para proteger o desempenho."
+          : "Renove primeiro gancho e criativo; depois refine público e oferta se o CTR não reagir.",
+      });
     }
 
     // Zero spend in last 3 days
     const recent3 = data.investimento_diario.slice(-3);
     if (recent3.length === 3 && recent3.every(d => d.valor === 0) && data.investimento_diario.some(d => d.valor > 0)) {
       result.push({
-        type: "danger",
-        icon: <AlertTriangle size={13} />,
+        id: "zero-spend",
+        status: "critical",
         title: "Spend zerado recentemente",
-        desc: `Sem investimento registrado nos últimos 3 dias`,
+        signal: "Não houve investimento registrado nos últimos 3 dias, embora existisse mídia antes.",
+        diagnosis: "Status das campanhas, limite de conta, forma de pagamento, orçamento, reprovações e falha de sincronização.",
+        action: "Confirme agora se a pausa é intencional; se não for, resolva a entrega antes de analisar os demais indicadores.",
       });
     }
 
     // No leads at all
     if (data.leads_total === 0) {
       result.push({
-        type: "warning",
-        icon: <Users size={13} />,
+        id: "no-leads",
+        status: "critical",
         title: "Sem leads no período",
-        desc: "Nenhum lead capturado. Verifique os anúncios ativos.",
+        signal: "Nenhum lead foi capturado no período selecionado.",
+        diagnosis: "Entrega dos anúncios, formulário ou página, rastreamento, oferta e conexão da integração com o CRM.",
+        action: "Teste o caminho completo como usuário e corrija primeiro qualquer quebra de entrega ou captura.",
       });
     }
 
@@ -843,53 +840,26 @@ function InsightsBlock({ data }: { data: Parameters<typeof useInsights>[0] }) {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.5 }}
-      className="lc-card p-6"
     >
-      <div className="flex items-center gap-2 mb-5">
-        <div className="w-7 h-7 rounded-lg flex items-center justify-center"
-          style={{ background: "rgba(74,143,212,0.15)" }}>
-          <Activity size={13} style={{ color: "#4a8fd4" }} />
-        </div>
-        <div>
-          <h3 className="text-base font-semibold text-[var(--text-title)] leading-none">Insights do Período</h3>
-          <p className="text-[11px] mt-0.5" style={{ color: "var(--muted-foreground)" }}>Análise automática dos dados</p>
-        </div>
-      </div>
-
       {insights.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-8 gap-2">
-          <div className="w-10 h-10 rounded-xl flex items-center justify-center"
-            style={{ background: "var(--hover)" }}>
-            <Activity size={18} style={{ color: "var(--icon)" }} />
+        <div className="lc-card p-6">
+          <div className="flex flex-col items-center justify-center py-8 gap-2">
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center"
+              style={{ background: "var(--hover)" }}>
+              <Activity size={18} style={{ color: "var(--icon)" }} />
+            </div>
+            <p className="text-sm" style={{ color: "var(--text-muted)" }}>Sem dados suficientes para insights</p>
+            <p className="text-[11px]" style={{ color: "var(--icon)" }}>
+              Sincronize suas campanhas para gerar análises
+            </p>
           </div>
-          <p className="text-sm" style={{ color: "var(--text-muted)" }}>Sem dados suficientes para insights</p>
-          <p className="text-[11px]" style={{ color: "var(--icon)" }}>
-            Sincronize suas campanhas para gerar análises
-          </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {insights.map((ins, i) => {
-            const s = INSIGHT_STYLES[ins.type];
-            return (
-              <motion.div key={i}
-                initial={{ opacity: 0, scale: 0.97 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: 0.55 + i * 0.06 }}
-                className="rounded-xl p-3.5 flex items-start gap-3"
-                style={{ background: s.bg, border: `1px solid ${s.border}` }}>
-                <div className="w-6 h-6 rounded-lg flex items-center justify-center shrink-0 mt-0.5"
-                  style={{ background: `${s.color}20`, color: s.color }}>
-                  {ins.icon}
-                </div>
-                <div className="min-w-0">
-                  <p className="text-[12px] font-semibold text-[var(--text-title)] leading-tight">{ins.title}</p>
-                  <p className="text-[11px] mt-0.5 leading-snug" style={{ color: "var(--muted-foreground)" }}>{ins.desc}</p>
-                </div>
-              </motion.div>
-            );
-          })}
-        </div>
+        <KpiReadingGuide
+          title="Guia de leitura da mídia paga"
+          description="Use o placar para identificar o sinal, localizar a causa provável e escolher a próxima ação de otimização."
+          items={insights}
+        />
       )}
     </motion.div>
   );

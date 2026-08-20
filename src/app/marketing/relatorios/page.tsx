@@ -25,6 +25,7 @@ import { MarketingEmptyState, MarketingSkeleton } from "@/components/marketing/M
 import { useMarketing } from "@/context/MarketingContext";
 import { marketingStats } from "@/lib/marketing/domain";
 import { CONTENT_STATUS_LABELS, FORMAT_LABELS, PLATFORM_LABELS } from "@/types/marketing";
+import { KpiReadingGuide, type KpiGuidanceItem } from "@/components/insights/KpiReadingGuide";
 
 const CHART_COLORS = ["#27a3ff", "#27f2e6", "#22c55e", "#a78bfa", "#fe7b4a", "#f472b6", "#94a3b8"];
 const axisTick = { fill: "var(--text-body)", fontSize: 11 };
@@ -101,6 +102,38 @@ export default function MarketingReportsPage() {
     });
     return Array.from(map, ([name, value]) => ({ name, value }));
   }, [contents]);
+  const editorialGuidance: KpiGuidanceItem[] = [
+    {
+      id: "completion",
+      status: stats.completionRate >= 80 ? "good" : stats.completionRate >= 60 ? "attention" : "critical",
+      title: "Taxa de conclusão",
+      signal: `${stats.completionRate}% do calendário chegou a agendado ou publicado no período.`,
+      diagnosis: "Capacidade da equipe, clareza dos briefings, aprovações e gargalos entre produção e revisão.",
+      action: stats.completionRate >= 80
+        ? "Mantenha o fluxo atual e documente o que está acelerando as entregas."
+        : "Ataque primeiro a etapa com mais conteúdos parados e defina responsável e prazo para cada pendência.",
+    },
+    {
+      id: "overdue",
+      status: stats.overdue === 0 ? "good" : stats.overdue / Math.max(stats.total, 1) > 0.2 ? "critical" : "attention",
+      title: "Conteúdos atrasados",
+      signal: stats.overdue === 0 ? "Nenhum conteúdo do período está vencido." : `${stats.overdue} de ${stats.total} conteúdos estão fora do prazo.`,
+      diagnosis: "Itens sem responsável, dependências de criação, revisão acumulada e datas irreais no calendário.",
+      action: stats.overdue === 0
+        ? "Continue revisando a agenda com antecedência para proteger a cadência."
+        : "Replaneje ou conclua os atrasados hoje; depois elimine a causa que mais se repete.",
+    },
+    {
+      id: "publishing-cycle",
+      status: published.length === 0 ? "attention" : avgDays <= 3 ? "good" : avgDays <= 7 ? "attention" : "critical",
+      title: "Tempo de criação até publicação",
+      signal: published.length ? `A operação levou, em média, ${avgDays} dia${avgDays === 1 ? "" : "s"} para publicar.` : "Ainda não há publicações concluídas para medir o ciclo.",
+      diagnosis: "Tempo gasto em briefing, produção, revisão, aprovação e agendamento.",
+      action: published.length === 0
+        ? "Conclua os primeiros itens e passe a comparar o tempo por etapa."
+        : avgDays <= 3 ? "Preserve o processo e use esse tempo como referência interna." : "Meça a espera em cada status e reduza a etapa que mais alonga o ciclo.",
+    },
+  ];
 
   return (
     <div className="pb-10">
@@ -130,6 +163,13 @@ export default function MarketingReportsPage() {
               <Metric label="Atrasados" value={stats.overdue} accent="#fe7b4a" />
               <Metric label="Criação → publicação" value={`${avgDays} dias`} accent="#a78bfa" />
             </div>
+
+            <KpiReadingGuide
+              className="mt-5"
+              title="Guia de leitura da operação editorial"
+              description="Os indicadores abaixo separam ritmo saudável, gargalos e a ação operacional mais útil para o período."
+              items={editorialGuidance}
+            />
 
             <div className="mt-5 grid gap-5 lg:grid-cols-2">
               <ChartCard title="Conteúdos por plataforma" description="Onde a operação está concentrando suas publicações">

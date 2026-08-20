@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { LayoutGrid, BarChart2, Settings2, Bell, Zap, FileBarChart } from "lucide-react";
+import { LayoutGrid, BarChart2, Settings2, Bell, Zap, FileBarChart, Target } from "lucide-react";
 import { Header } from "@/components/layout/Header";
 import { KanbanBoard } from "@/components/crm/KanbanBoard";
 import { LeadsAnalytics } from "@/components/crm/LeadsAnalytics";
@@ -10,6 +10,7 @@ import { PipelineAdmin } from "@/components/crm/admin/PipelineAdmin";
 import { CrmNotificacoesTab } from "@/components/crm/notifications/CrmNotificacoesTab";
 import { AutomationsAdmin } from "@/components/crm/automations/AutomationsAdmin";
 import { CrmReports } from "@/components/crm/reports/CrmReports";
+import { CrmGoals } from "@/components/crm/goals/CrmGoals";
 import { cn } from "@/lib/utils";
 import { useCurrentMember } from "@/context/CurrentMemberContext";
 import { isAdministrativeMember } from "@/lib/user-access";
@@ -18,11 +19,12 @@ import { isAdministrativeMember } from "@/lib/user-access";
 // CRM Page — Kanban / Leads / Pipelines
 // ─────────────────────────────────────────────────────────────────────────────
 
-type TabId = "kanban" | "leads" | "relatorios" | "pipelines" | "notificacoes" | "automacoes";
+type TabId = "kanban" | "leads" | "metas" | "relatorios" | "pipelines" | "notificacoes" | "automacoes";
 
 const TABS: { id: TabId; label: string; icon: React.ReactNode }[] = [
   { id: "kanban",        label: "Kanban",       icon: <LayoutGrid size={15} /> },
   { id: "leads",         label: "Leads",        icon: <BarChart2  size={15} /> },
+  { id: "metas",         label: "Metas",        icon: <Target size={15} /> },
   { id: "relatorios",    label: "Relatórios",   icon: <FileBarChart size={15} /> },
   { id: "pipelines",     label: "Pipelines",    icon: <Settings2  size={15} /> },
   { id: "notificacoes",  label: "Notificações", icon: <Bell       size={15} /> },
@@ -32,6 +34,7 @@ const TABS: { id: TabId; label: string; icon: React.ReactNode }[] = [
 const SUBTITLES: Record<TabId, string> = {
   kanban:       "Funil comercial de leads",
   leads:        "Métricas e análise",
+  metas:        "Objetivos comerciais e progresso do funil",
   relatorios:   "Atividades e desempenho comercial por período",
   pipelines:    "Gerenciar pipelines e etapas",
   notificacoes: "Notificações automáticas por etapa",
@@ -133,6 +136,7 @@ export default function CrmPage() {
         >
           {activeTab === "kanban"       && <KanbanBoard />}
           {activeTab === "leads"        && <LeadsAnalytics />}
+          {hasFullCrmAccess && activeTab === "metas" && <CrmGoals />}
           {hasFullCrmAccess && activeTab === "relatorios" && <CrmReports />}
           {hasFullCrmAccess && activeTab === "pipelines"    && <PipelineAdmin />}
           {hasFullCrmAccess && activeTab === "notificacoes" && (

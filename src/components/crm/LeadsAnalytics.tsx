@@ -9,7 +9,7 @@ import { motion } from "framer-motion";
 import {
   Users, TrendingUp, CalendarDays, PhoneCall,
   CalendarCheck, BadgeDollarSign, Search, ChevronDown,
-  Lightbulb, AlertTriangle, TrendingDown, Zap, Trash2, Loader2,
+  TrendingDown, Trash2, Loader2,
 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -22,6 +22,7 @@ import { KANBAN_COLUMNS } from "@/types";
 import { cn } from "@/lib/utils";
 import { useCurrentMember } from "@/context/CurrentMemberContext";
 import { isAdministrativeMember } from "@/lib/user-access";
+import { KpiReadingGuide } from "@/components/insights/KpiReadingGuide";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // LeadsAnalytics
@@ -145,15 +146,6 @@ function ChartTooltip({ active, payload, label }: { active?: boolean; payload?: 
   );
 }
 
-// ── Insight Card ──────────────────────────────────────────────────────────────
-
-const INSIGHT_ICONS: Record<string, React.ReactNode> = {
-  best_source: <Zap size={14} />,
-  no_contact:  <AlertTriangle size={14} />,
-  lead_drop:   <TrendingDown size={14} />,
-  peak_day:    <Lightbulb size={14} />,
-};
-
 // ── Main Component ─────────────────────────────────────────────────────────────
 
 export function LeadsAnalytics() {
@@ -168,11 +160,11 @@ export function LeadsAnalytics() {
       : member?.crm_pipeline_id ? [member.crm_pipeline_id] : [],
     [hasFullCrmAccess, member?.crm_pipeline_id, selectedPipelineIds],
   );
-  const { leads, stageHistory, stages, isLoading, bulkDeleteLeads } = useLeadsAnalyticsData(
+  const { leads, stageHistory, stages, goals, isLoading, bulkDeleteLeads } = useLeadsAnalyticsData(
     effectivePipelineIds,
     accessResolved,
   );
-  const analytics                                       = useLeadsAnalytics(leads, stageHistory, stages);
+  const analytics                                       = useLeadsAnalytics(leads, stageHistory, stages, goals);
 
   const [search,       setSearch]       = useState("");
   const [sourceFilter, setSourceFilter] = useState("all");
@@ -348,6 +340,26 @@ export function LeadsAnalytics() {
           />
         </div>
       </Section>
+
+      {analytics.goalMetrics && (
+        <Section title={`Meta ativa · ${analytics.goalMetrics.goal.name}`}>
+          <div className="mx-4 mb-3 rounded-2xl border p-4 sm:mx-6" style={{ background: "var(--dock-bg)" }}>
+            <div className="mb-2 flex items-center justify-between gap-3 text-xs"><span className="font-medium text-[var(--text-title)]">{analytics.goalMetrics.progressLabel}</span><span className="font-semibold text-[var(--primary)]">{analytics.goalMetrics.progress.toFixed(0)}%</span></div>
+            <div className="h-2 overflow-hidden rounded-full bg-[var(--hover)]"><div className="h-full rounded-full bg-[var(--primary)] transition-all" style={{ width: `${analytics.goalMetrics.progress}%` }} /></div>
+            <p className="mt-2 text-[10px] text-[var(--muted-foreground)]">Calculado pelas entradas nas etapas configuradas entre {format(new Date(`${analytics.goalMetrics.goal.starts_at}T12:00:00`), "dd/MM/yyyy")} e {format(new Date(`${analytics.goalMetrics.goal.ends_at}T12:00:00`), "dd/MM/yyyy")}.</p>
+          </div>
+          <div className="grid grid-cols-2 gap-3 px-4 sm:px-6 lg:grid-cols-4">
+            <MetricCard label="Meta de receita" value={analytics.goalMetrics.goal.revenue_target ? fmtBRL(analytics.goalMetrics.goal.revenue_target) : "—"} icon={<BadgeDollarSign size={14} />} accent="#6366f1" />
+            <MetricCard label="Receita realizada" value={fmtBRL(analytics.goalMetrics.revenue)} sub={`${analytics.goalMetrics.sales} venda${analytics.goalMetrics.sales === 1 ? "" : "s"}`} positive={analytics.goalMetrics.revenue > 0} icon={<BadgeDollarSign size={14} />} accent="#10b981" />
+            <MetricCard label="Ticket médio" value={analytics.goalMetrics.averageTicket ? fmtBRL(analytics.goalMetrics.averageTicket) : "—"} icon={<BadgeDollarSign size={14} />} accent="#8b5cf6" />
+            <MetricCard label="Vendas que faltam" value={analytics.goalMetrics.salesNeeded ?? "—"} sub="Pelo ticket atual ou meta fixa" positive={analytics.goalMetrics.salesNeeded === 0} icon={<TrendingUp size={14} />} accent="#f59e0b" />
+            <MetricCard label="Conversão atual" value={fmtPct(analytics.goalMetrics.conversionRate)} sub="Vendas ÷ comparecimentos" positive={null} icon={<TrendingUp size={14} />} accent="#4a8fd4" />
+            <MetricCard label="Comparecimentos que faltam" value={analytics.goalMetrics.meetingsNeeded ?? "—"} sub={`${analytics.goalMetrics.meetingsHeld} realizados`} positive={analytics.goalMetrics.meetingsNeeded === 0} icon={<CalendarCheck size={14} />} accent="#22c55e" />
+            <MetricCard label="Comparecimento atual" value={fmtPct(analytics.goalMetrics.attendanceRate)} sub="Realizadas ÷ agendadas" positive={null} icon={<CalendarCheck size={14} />} accent="#06b6d4" />
+            <MetricCard label="Agendamentos que faltam" value={analytics.goalMetrics.appointmentsNeeded ?? "—"} sub={`${analytics.goalMetrics.meetingsScheduled} agendados`} positive={analytics.goalMetrics.appointmentsNeeded === 0} icon={<CalendarDays size={14} />} accent="#f97316" />
+          </div>
+        </Section>
+      )}
 
       {/* ── Section 1.5: Qualificação (IQ / IE) ─────────────────────────────── */}
       <Section title="Qualificação (IQ / IE)">
@@ -854,30 +866,20 @@ export function LeadsAnalytics() {
 
       {/* ── Section 4: Auto insights ─────────────────────────────────────────── */}
       {analytics.insights.length > 0 && (
-        <Section title="Insights automáticos">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 px-4 sm:px-6">
-            {analytics.insights.map(insight => (
-              <motion.div
-                key={insight.type}
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="lc-card p-4 flex items-start gap-3"
-                style={{ background: "var(--dock-bg)" }}
-              >
-                <span
-                  className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5"
-                  style={{ background: `${insight.color}18`, color: insight.color }}
-                >
-                  {INSIGHT_ICONS[insight.type] ?? <Lightbulb size={14} />}
-                </span>
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-[var(--text-title)] mb-0.5">{insight.title}</p>
-                  <p className="text-xs text-[var(--text-body)] leading-relaxed">{insight.description}</p>
-                </div>
-              </motion.div>
-            ))}
-          </div>
-        </Section>
+        <div className="px-4 sm:px-6">
+          <KpiReadingGuide
+            title="Guia de leitura do funil"
+            description="Leia o resultado, encontre o ponto provável do problema e transforme o diagnóstico em uma ação comercial."
+            items={analytics.insights.map((insight) => ({
+              id: insight.type,
+              status: insight.status,
+              title: insight.title,
+              signal: insight.description,
+              diagnosis: insight.diagnosis,
+              action: insight.action,
+            }))}
+          />
+        </div>
       )}
     </div>
   );

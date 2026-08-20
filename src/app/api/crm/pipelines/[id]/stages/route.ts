@@ -42,6 +42,7 @@ export async function POST(req: NextRequest, { params }: Params) {
   const configurable = [
     "description", "color", "icon", "order_index",
     "is_active", "allow_free_move", "require_note", "require_attachment", "allow_edit",
+    "is_won", "is_lost", "metric_type",
   ] as const;
 
   const insert: Record<string, unknown> = {
@@ -57,6 +58,8 @@ export async function POST(req: NextRequest, { params }: Params) {
   for (const key of configurable) {
     if (key in body) insert[key] = body[key];
   }
+  if (insert.metric_type === "sale") { insert.is_won = true; insert.is_lost = false; }
+  if (insert.metric_type === "lost") { insert.is_lost = true; insert.is_won = false; }
 
   const { data, error } = await supabase
     .from("crm_stages")

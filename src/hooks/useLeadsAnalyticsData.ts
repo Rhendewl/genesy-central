@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { getSupabaseClient } from "@/lib/supabase";
 import { dedupeCanonicalLeads } from "@/lib/crm/lead-identity";
 import type { Lead } from "@/types";
+import type { CrmGoal, CrmStageMetricType } from "@/types/crm";
 
 // Linha de histórico de movimentação — usada só para as métricas de tempo
 // de IE (tempo até IE 100 / tempo entre faixas de evolução). Espelha
@@ -23,6 +24,7 @@ export interface StageOrderRow {
   pipeline_id: string;
   order_index: number;
   is_active:   boolean;
+  metric_type: CrmStageMetricType | null;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -58,6 +60,7 @@ export function useLeadsAnalyticsData(
   const [leads,        setLeads]        = useState<Lead[]>([]);
   const [stageHistory, setStageHistory] = useState<StageHistoryRow[]>([]);
   const [stages,       setStages]       = useState<StageOrderRow[]>([]);
+  const [goals,        setGoals]        = useState<CrmGoal[]>([]);
   const [isLoading,    setIsLoading]    = useState(true);
   const [error,        setError]        = useState<string | null>(null);
 
@@ -82,6 +85,7 @@ export function useLeadsAnalyticsData(
         setLeads([]);
         setStageHistory([]);
         setStages([]);
+        setGoals([]);
         setIsLoading(false);
       }
       return;
@@ -100,10 +104,11 @@ export function useLeadsAnalyticsData(
     // métricas de tempo do IE (tempo até 100 / tempo entre faixas). Não têm
     // filtro de pipeline: são poucas linhas por lead, mais simples buscar
     // tudo do usuário do que replicar o filtro em duas queries relacionadas.
-    const [{ data, error: err }, { data: historyData }, { data: stagesData }] = await Promise.all([
+    const [{ data, error: err }, { data: historyData }, { data: stagesData }, { data: goalsData }] = await Promise.all([
       query,
       supabase.from("crm_lead_stage_history").select("lead_id, stage_id, pipeline_id, moved_at").order("moved_at", { ascending: true }),
-      supabase.from("crm_stages").select("id, pipeline_id, order_index, is_active"),
+      supabase.from("crm_stages").select("id, pipeline_id, order_index, is_active, metric_type"),
+      supabase.from("crm_goals").select("*").eq("is_active", true).order("starts_at", { ascending: false }),
     ]);
 
     if (!mountedRef.current || requestId !== requestIdRef.current) return;
@@ -124,6 +129,8 @@ export function useLeadsAnalyticsData(
     setLeads(ids === null || ids.length > 1 ? dedupeCanonicalLeads(normalized) : normalized);
     setStageHistory((historyData as StageHistoryRow[]) ?? []);
     setStages((stagesData as StageOrderRow[]) ?? []);
+    const allGoals = (goalsData as CrmGoal[]) ?? [];
+    setGoals(ids === null ? allGoals : allGoals.filter((goal) => goal.pipeline_id === null || ids.includes(goal.pipeline_id)));
     setIsLoading(false);
   }, [supabase, enabled, pipelineKey]);
 
@@ -152,5 +159,5 @@ export function useLeadsAnalyticsData(
     return { error: null };
   }, [supabase]);
 
-  return { leads, stageHistory, stages, isLoading, error, refetch: fetchLeads, bulkDeleteLeads };
+  return { leads, stageHistory, stages, goals, isLoading, error, refetch: fetchLeads, bulkDeleteLeads };
 }

@@ -33,6 +33,13 @@ export interface CrmPipelineWithStages extends CrmPipeline {
 
 // ── Stages ────────────────────────────────────────────────────────────────────
 
+export type CrmStageMetricType =
+  | "qualified_lead"
+  | "meeting_scheduled"
+  | "meeting_held"
+  | "sale"
+  | "lost";
+
 export interface CrmStage {
   id:                 string;
   pipeline_id:        string;
@@ -52,6 +59,8 @@ export interface CrmStage {
   is_won:             boolean;
   /** Marca esta etapa como "venda perdida" — dispara lead.deal.lost ao entrar. */
   is_lost:            boolean;
+  /** Significado da etapa nos indicadores, independente do nome personalizado. */
+  metric_type:        CrmStageMetricType | null;
   created_at:         string;
   updated_at:         string;
 }
@@ -78,7 +87,31 @@ export type UpdateCrmStage = Partial<{
   allow_edit:         boolean;
   is_won:             boolean;
   is_lost:            boolean;
+  metric_type:        CrmStageMetricType | null;
 }>;
+
+// ── Commercial goals ─────────────────────────────────────────────────────────
+
+export interface CrmGoal {
+  id: string;
+  user_id: string;
+  pipeline_id: string | null;
+  name: string;
+  starts_at: string;
+  ends_at: string;
+  revenue_target: number | null;
+  sales_target: number | null;
+  held_meetings_target: number | null;
+  scheduled_meetings_target: number | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export type CrmGoalInput = Pick<CrmGoal,
+  "pipeline_id" | "name" | "starts_at" | "ends_at" | "revenue_target" |
+  "sales_target" | "held_meetings_target" | "scheduled_meetings_target" | "is_active"
+>;
 
 // ── Stage Conversions ─────────────────────────────────────────────────────────
 

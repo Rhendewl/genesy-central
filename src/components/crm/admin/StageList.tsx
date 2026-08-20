@@ -22,6 +22,14 @@ import { GripVertical, Pencil, Plus, AlertCircle, Trash2, Loader2 } from "lucide
 import type { CrmStage, UpdateCrmStage } from "@/types/crm";
 import { StageFormModal } from "./StageFormModal";
 
+const METRIC_LABELS: Record<string, string> = {
+  qualified_lead: "lead qualificado",
+  meeting_scheduled: "reunião agendada",
+  meeting_held: "comparecimento",
+  sale: "venda",
+  lost: "perda",
+};
+
 // ── Resultado de uma tentativa de exclusão de etapa ───────────────────────────
 export interface DeleteStageResult {
   ok:          boolean;
@@ -161,8 +169,11 @@ function SortableStageRow({
         >
           {stage.name}
         </p>
-        {(stage.require_note || stage.require_attachment) && (
+        {(stage.require_note || stage.require_attachment || stage.metric_type) && (
           <div className="flex items-center gap-2 mt-0.5">
+            {stage.metric_type && (
+              <span className="rounded-full bg-blue-500/10 px-1.5 py-0.5 text-[9px] font-medium text-blue-600 dark:text-blue-300">contabiliza {METRIC_LABELS[stage.metric_type]}</span>
+            )}
             {stage.require_note && (
               <span className="text-[10px]" style={{ color: "var(--muted-foreground)" }}>exige nota</span>
             )}

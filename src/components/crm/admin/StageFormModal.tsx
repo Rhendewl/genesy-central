@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { X, Loader2 } from "lucide-react";
-import type { CrmStage, UpdateCrmStage } from "@/types/crm";
+import type { CrmStage, CrmStageMetricType, UpdateCrmStage } from "@/types/crm";
 
 // ── Color palette ──────────────────────────────────────────────────────────────
 
@@ -67,6 +67,7 @@ export function StageFormModal({ open, stage, onClose, onSave }: Props) {
   const [allowEdit,          setAllowEdit]          = useState(true);
   const [isWon,              setIsWon]              = useState(false);
   const [isLost,             setIsLost]             = useState(false);
+  const [metricType,         setMetricType]         = useState<CrmStageMetricType | "">("");
   const [saving,             setSaving]             = useState(false);
 
   useEffect(() => {
@@ -81,6 +82,7 @@ export function StageFormModal({ open, stage, onClose, onSave }: Props) {
     setAllowEdit(stage?.allow_edit ?? true);
     setIsWon(stage?.is_won ?? false);
     setIsLost(stage?.is_lost ?? false);
+    setMetricType(stage?.metric_type ?? "");
   }, [open, stage]);
 
   if (!open) return null;
@@ -101,6 +103,7 @@ export function StageFormModal({ open, stage, onClose, onSave }: Props) {
         allow_edit:         allowEdit,
         is_won:             isWon,
         is_lost:            isLost,
+        metric_type:        metricType || null,
       });
       if (ok) onClose();
     } finally {
@@ -247,6 +250,40 @@ export function StageFormModal({ open, stage, onClose, onSave }: Props) {
             {/* Venda ganha/perdida — usado pelo Workflow Engine (Automações) */}
             <div>
               <p className="text-xs font-semibold mb-1" style={{ color: "var(--muted-foreground)" }}>
+                MÉTRICAS DO CRM
+              </p>
+              <div className="rounded-xl p-4" style={{ border: "1px solid var(--border)" }}>
+                <label className="block text-xs font-medium mb-1.5" style={{ color: "var(--text-title)" }}>
+                  O que esta etapa contabiliza?
+                </label>
+                <select
+                  value={metricType}
+                  onChange={(event) => {
+                    const value = event.target.value as CrmStageMetricType | "";
+                    setMetricType(value);
+                    if (value === "sale") { setIsWon(true); setIsLost(false); }
+                    else if (value === "lost") { setIsLost(true); setIsWon(false); }
+                    else { setIsWon(false); setIsLost(false); }
+                  }}
+                  className="w-full rounded-lg px-3 py-2 text-sm outline-none"
+                  style={{ background: "var(--hover)", border: "1px solid var(--border)", color: "var(--text-title)" }}
+                >
+                  <option value="">Nenhuma métrica</option>
+                  <option value="qualified_lead">Lead qualificado</option>
+                  <option value="meeting_scheduled">Reunião agendada</option>
+                  <option value="meeting_held">Comparecimento / reunião realizada</option>
+                  <option value="sale">Venda realizada</option>
+                  <option value="lost">Venda perdida</option>
+                </select>
+                <p className="mt-2 text-[11px] leading-4" style={{ color: "var(--muted-foreground)" }}>
+                  A métrica é contada quando o lead entra nesta etapa. O nome da etapa pode continuar personalizado.
+                </p>
+              </div>
+            </div>
+
+            {/* Venda ganha/perdida — usado pelo Workflow Engine (Automações) */}
+            <div>
+              <p className="text-xs font-semibold mb-1" style={{ color: "var(--muted-foreground)" }}>
                 AUTOMAÇÕES
               </p>
               <div className="rounded-xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
@@ -255,13 +292,13 @@ export function StageFormModal({ open, stage, onClose, onSave }: Props) {
                     label="Marcar como Venda Ganha"
                     description="Leads que entrarem aqui disparam o gatilho “lead ganhou venda”"
                     checked={isWon}
-                    onChange={v => { setIsWon(v); if (v) setIsLost(false); }}
+                    onChange={v => { setIsWon(v); if (v) { setIsLost(false); setMetricType("sale"); } else if (metricType === "sale") setMetricType(""); }}
                   />
                   <ToggleRow
                     label="Marcar como Venda Perdida"
                     description="Leads que entrarem aqui disparam o gatilho “lead perdeu venda”"
                     checked={isLost}
-                    onChange={v => { setIsLost(v); if (v) setIsWon(false); }}
+                    onChange={v => { setIsLost(v); if (v) { setIsWon(false); setMetricType("lost"); } else if (metricType === "lost") setMetricType(""); }}
                   />
                 </div>
               </div>

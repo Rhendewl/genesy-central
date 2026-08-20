@@ -7,6 +7,7 @@ import type { Lead } from "@/types";
 import { KANBAN_COLUMNS } from "@/types";
 import { LeadScoreEngine } from "@/lib/crm/lead-score-engine";
 import type { StageHistoryRow, StageOrderRow } from "./useLeadsAnalyticsData";
+import type { CrmGoal, CrmStageMetricType } from "@/types/crm";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // useLeadsAnalytics
@@ -47,6 +48,9 @@ export interface LeadsInsight {
   type: string;
   title: string;
   description: string;
+  status: "good" | "attention" | "critical" | "info";
+  diagnosis: string;
+  action: string;
   color: string;
 }
 
@@ -84,6 +88,7 @@ export interface LeadsAnalyticsData {
   stageFunnel: FunnelStage[];
   insights: LeadsInsight[];
   totalLeads: number;
+  goalMetrics: CrmGoalMetrics | null;
 
   // ── IQ (Inteligência de Qualificação) ──────────────────────────────────────
   avgIq:          number | null;
@@ -99,6 +104,24 @@ export interface LeadsAnalyticsData {
   ieBuckets:  ScoreBucketPoint[];
   avgTimeToIe100Hours:          number | null;
   avgTimeBetweenIeBracketsHours: number | null;
+}
+
+export interface CrmGoalMetrics {
+  goal: CrmGoal;
+  revenue: number;
+  revenueProgress: number;
+  progress: number;
+  progressLabel: string;
+  averageTicket: number;
+  sales: number;
+  salesNeeded: number | null;
+  qualifiedLeads: number;
+  meetingsHeld: number;
+  meetingsNeeded: number | null;
+  meetingsScheduled: number;
+  appointmentsNeeded: number | null;
+  conversionRate: number;
+  attendanceRate: number;
 }
 
 const SOURCE_LABELS: Record<string, string> = {
@@ -145,6 +168,7 @@ export function useLeadsAnalytics(
   leads: Lead[],
   stageHistory: StageHistoryRow[] = [],
   stages:       StageOrderRow[]   = [],
+  goals:        CrmGoal[]         = [],
 ): LeadsAnalyticsData {
   return useMemo(() => {
     const now = new Date();
@@ -241,9 +265,112 @@ export function useLeadsAnalytics(
     const maxCount = Math.max(...stageFunnel.map(s => s.count), 1);
     stageFunnel.forEach(s => { s.pct = Math.round((s.count / maxCount) * 100); });
 
+    // ── Goal metrics based on actual stage movements ─────────────────────────
+    const stageById = new Map(stages.map((stage) => [stage.id, stage]));
+    const todayKey = format(now, "yyyy-MM-dd");
+    const pipelineIdsInView = Array.from(new Set(leads.map((lead) => lead.pipeline_id).filter((id): id is string => Boolean(id))));
+    const preferredPipelineId = pipelineIdsInView.length === 1 ? pipelineIdsInView[0] : null;
+    const activeGoal = goals
+      .filter((goal) => goal.is_active && goal.starts_at <= todayKey && goal.ends_at >= todayKey)
+      .sort((a, b) => {
+        const aPreferred = a.pipeline_id === preferredPipelineId ? 1 : a.pipeline_id === null ? 0 : -1;
+        const bPreferred = b.pipeline_id === preferredPipelineId ? 1 : b.pipeline_id === null ? 0 : -1;
+        return bPreferred - aPreferred || b.starts_at.localeCompare(a.starts_at);
+      })[0] ?? null;
+    let goalMetrics: CrmGoalMetrics | null = null;
+
+    if (activeGoal) {
+      const leadIds = new Set(leads.map((lead) => lead.id));
+      const movements = stageHistory.filter((row) => {
+        const day = row.moved_at.slice(0, 10);
+        return leadIds.has(row.lead_id) && day >= activeGoal.starts_at && day <= activeGoal.ends_at;
+      });
+      const idsFor = (metric: CrmStageMetricType) => new Set(
+        movements.filter((row) => stageById.get(row.stage_id)?.metric_type === metric).map((row) => row.lead_id),
+      );
+      const qualifiedIds = idsFor("qualified_lead");
+      const scheduledIds = idsFor("meeting_scheduled");
+      const heldIds = idsFor("meeting_held");
+      const saleIds = idsFor("sale");
+      const revenue = leads.filter((lead) => saleIds.has(lead.id)).reduce((sum, lead) => sum + Number(lead.deal_value || 0), 0);
+      const sales = saleIds.size;
+      const averageTicket = sales > 0 ? revenue / sales : 0;
+      const conversionRate = heldIds.size > 0 ? (sales / heldIds.size) * 100 : 0;
+      const attendanceRate = scheduledIds.size > 0 ? (heldIds.size / scheduledIds.size) * 100 : 0;
+      const remainingRevenue = Math.max(0, Number(activeGoal.revenue_target || 0) - revenue);
+      const salesNeeded = activeGoal.sales_target !== null
+        ? Math.max(0, activeGoal.sales_target - sales)
+        : activeGoal.revenue_target !== null && averageTicket > 0 ? Math.ceil(remainingRevenue / averageTicket) : null;
+      const meetingsNeeded = activeGoal.held_meetings_target !== null
+        ? Math.max(0, activeGoal.held_meetings_target - heldIds.size)
+        : salesNeeded !== null && conversionRate > 0 ? Math.ceil(salesNeeded / (conversionRate / 100)) : null;
+      const appointmentsNeeded = activeGoal.scheduled_meetings_target !== null
+        ? Math.max(0, activeGoal.scheduled_meetings_target - scheduledIds.size)
+        : meetingsNeeded !== null && attendanceRate > 0 ? Math.ceil(meetingsNeeded / (attendanceRate / 100)) : null;
+      const primaryProgress = activeGoal.revenue_target
+        ? { value: (revenue / activeGoal.revenue_target) * 100, label: "Progresso da receita" }
+        : activeGoal.sales_target
+          ? { value: (sales / activeGoal.sales_target) * 100, label: "Progresso de vendas" }
+          : activeGoal.held_meetings_target
+            ? { value: (heldIds.size / activeGoal.held_meetings_target) * 100, label: "Progresso de comparecimentos" }
+            : { value: (scheduledIds.size / Math.max(1, activeGoal.scheduled_meetings_target ?? 1)) * 100, label: "Progresso de agendamentos" };
+      goalMetrics = {
+        goal: activeGoal,
+        revenue,
+        revenueProgress: activeGoal.revenue_target ? Math.min(100, (revenue / activeGoal.revenue_target) * 100) : 0,
+        progress: Math.min(100, primaryProgress.value),
+        progressLabel: primaryProgress.label,
+        averageTicket,
+        sales,
+        salesNeeded,
+        qualifiedLeads: qualifiedIds.size,
+        meetingsHeld: heldIds.size,
+        meetingsNeeded,
+        meetingsScheduled: scheduledIds.size,
+        appointmentsNeeded,
+        conversionRate,
+        attendanceRate,
+      };
+    }
+
     // ── Insights ──────────────────────────────────────────────────────────────
 
     const insights: LeadsInsight[] = [];
+
+    if (goalMetrics) {
+      const achieved = goalMetrics.progress >= 100;
+      insights.push({
+        type: "goal_progress",
+        title: achieved ? `Meta alcançada: ${goalMetrics.goal.name}` : `Progresso da meta: ${goalMetrics.goal.name}`,
+        description: `${goalMetrics.progress.toFixed(0)}% do objetivo principal já foi realizado no período`,
+        status: achieved ? "good" : "info",
+        diagnosis: "Movimentações nas etapas marcadas como agendamento, comparecimento e venda dentro do período da meta.",
+        action: achieved ? "Registre o aprendizado e defina a próxima meta." : "Use as quantidades restantes abaixo para orientar a cadência comercial diária.",
+        color: achieved ? "#10b981" : "#3b82f6",
+      });
+      if (goalMetrics.meetingsScheduled > 0) {
+        insights.push({
+          type: "goal_attendance",
+          title: `Comparecimento: ${goalMetrics.attendanceRate.toFixed(1)}%`,
+          description: `${goalMetrics.meetingsHeld} de ${goalMetrics.meetingsScheduled} reuniões agendadas tiveram comparecimento`,
+          status: goalMetrics.attendanceRate >= 80 ? "good" : goalMetrics.attendanceRate >= 60 ? "attention" : "critical",
+          diagnosis: "Confirmação, lembretes, tempo entre agendamento e reunião e valor percebido antes do encontro.",
+          action: goalMetrics.attendanceRate >= 80 ? "Mantenha a cadência de confirmação e replique o processo." : "Revise os no-shows e adote confirmação ativa e lembretes antes da reunião.",
+          color: goalMetrics.attendanceRate >= 80 ? "#10b981" : "#f59e0b",
+        });
+      }
+      if (goalMetrics.meetingsHeld > 0) {
+        insights.push({
+          type: "goal_conversion",
+          title: `Conversão de reuniões em vendas: ${goalMetrics.conversionRate.toFixed(1)}%`,
+          description: `${goalMetrics.sales} venda${goalMetrics.sales === 1 ? "" : "s"} a partir de ${goalMetrics.meetingsHeld} comparecimento${goalMetrics.meetingsHeld === 1 ? "" : "s"}`,
+          status: goalMetrics.sales > 0 ? "good" : "attention",
+          diagnosis: "Qualificação antes da reunião, diagnóstico, condução, oferta, preço, objeções e follow-up.",
+          action: goalMetrics.sales > 0 ? "Analise as reuniões ganhas e padronize os comportamentos que mais se repetem." : "Revise as reuniões realizadas e identifique a objeção ou quebra mais frequente antes de aumentar o volume.",
+          color: goalMetrics.sales > 0 ? "#10b981" : "#f59e0b",
+        });
+      }
+    }
 
     // Best converting source
     const withConversion = conversionBySource.filter(c => c.total >= 3 && c.rate > 0);
@@ -253,6 +380,9 @@ export function useLeadsAnalytics(
         type:        "best_source",
         title:       `Melhor fonte: ${best.label}`,
         description: `Taxa de conversão de ${best.rate}% — ${best.vendas} venda${best.vendas > 1 ? "s" : ""} de ${best.total} leads`,
+        status:      "good",
+        diagnosis:   "Origem, campanha, anúncio e aderência do público que trouxe esses leads.",
+        action:      "Mantenha a fonte ativa e replique a mensagem vencedora, acompanhando se a taxa se sustenta com mais volume.",
         color:       "#10b981",
       });
     }
@@ -267,6 +397,9 @@ export function useLeadsAnalytics(
         type:        "no_contact",
         title:       `${noContact.length} lead${noContact.length > 1 ? "s" : ""} sem contato há +48h`,
         description: "Parados em Novo Lead ou Abordados — risco de esfriamento",
+        status:      "critical",
+        diagnosis:   "Fila de atendimento, distribuição por responsável e tempo até a primeira abordagem.",
+        action:      "Priorize esses leads agora e defina um SLA de primeiro contato com alertas antes de 48 horas.",
         color:       "#f59e0b",
       });
     }
@@ -288,10 +421,23 @@ export function useLeadsAnalytics(
 
     if (drops.length > 0) {
       const biggest = drops.reduce((a, b) => b.drop > a.drop ? b : a);
+      const dropIndex = KANBAN_COLUMNS.findIndex((stage) => stage.label === biggest.from);
+      const diagnoses = [
+        "Velocidade da primeira abordagem, canal usado e qualidade dos dados de contato.",
+        "Mensagem inicial, proposta de valor, oferta e qualificação do público.",
+        "Cadência de follow-up, objeções recorrentes e clareza do próximo passo.",
+        "Qualificação, fricção do formulário e chamada para agendar a reunião.",
+        "Compromisso, confirmação, lembretes e valor percebido antes da reunião.",
+        "Diagnóstico, condução da reunião, oferta, preço e negociação.",
+        "Recuperação de no-show, nova tentativa de agenda e follow-up comercial.",
+      ];
       insights.push({
         type:        "lead_drop",
         title:       `Maior queda: ${biggest.from} → ${biggest.to}`,
         description: `${biggest.drop} lead${biggest.drop > 1 ? "s" : ""} não avançaram nessa transição`,
+        status:      "attention",
+        diagnosis:   diagnoses[dropIndex] ?? "Processo, responsável e motivo de perda nesta transição.",
+        action:      "Revise uma amostra dos leads parados, identifique o motivo dominante e teste uma melhoria específica nesta etapa.",
         color:       "#f43f5e",
       });
     }
@@ -306,6 +452,9 @@ export function useLeadsAnalytics(
         type:        "peak_day",
         title:       `Pico de entrada: ${DAY_NAMES[peakIdx]}`,
         description: `${dayCounts[peakIdx]} leads entraram às ${DAY_NAMES[peakIdx].toLowerCase()}s no total`,
+        status:      "info",
+        diagnosis:   "Campanhas, conteúdos e canais que concentram entradas nesse dia.",
+        action:      "Garanta capacidade de atendimento no pico e programe campanhas e conteúdos fortes pouco antes dele.",
         color:       "#6366f1",
       });
     }
@@ -379,8 +528,6 @@ export function useLeadsAnalytics(
       if (!stagesByPipeline.has(s.pipeline_id)) stagesByPipeline.set(s.pipeline_id, []);
       stagesByPipeline.get(s.pipeline_id)!.push(s);
     });
-    const stageById = new Map(stages.map(s => [s.id, s]));
-
     const historyByLead = new Map<string, StageHistoryRow[]>();
     stageHistory.forEach(h => {
       if (!historyByLead.has(h.lead_id)) historyByLead.set(h.lead_id, []);
@@ -427,6 +574,7 @@ export function useLeadsAnalytics(
       stageFunnel,
       insights,
       totalLeads: total,
+      goalMetrics,
       avgIq,
       avgIqByPipeline,
       avgIqBySource,
@@ -439,5 +587,5 @@ export function useLeadsAnalytics(
       avgTimeToIe100Hours,
       avgTimeBetweenIeBracketsHours,
     };
-  }, [leads, stageHistory, stages]);
+  }, [leads, stageHistory, stages, goals]);
 }

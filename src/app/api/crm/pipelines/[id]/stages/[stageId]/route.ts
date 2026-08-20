@@ -29,13 +29,17 @@ export async function PUT(req: NextRequest, { params }: Params) {
   const allowed = [
     "name", "description", "color", "icon", "order_index",
     "is_active", "allow_free_move", "require_note", "require_attachment", "allow_edit",
-    "is_won", "is_lost",
+    "is_won", "is_lost", "metric_type",
   ] as const;
   const update: Record<string, unknown> = {};
   for (const key of allowed) {
     if (key in body) update[key] = body[key];
   }
   if (typeof update.name === "string") update.name = (update.name as string).trim();
+  if (update.metric_type === "sale") { update.is_won = true; update.is_lost = false; }
+  if (update.metric_type === "lost") { update.is_lost = true; update.is_won = false; }
+  if (update.is_won === true && !("metric_type" in update)) update.metric_type = "sale";
+  if (update.is_lost === true && !("metric_type" in update)) update.metric_type = "lost";
 
   const { data, error } = await supabase
     .from("crm_stages")

@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { useInstagramMarketing } from "@/hooks/useInstagramMarketing";
 import { instagramReport } from "@/lib/marketing/instagram-report";
 import type { MarketingInstagramMedia } from "@/types/marketing";
+import { KpiReadingGuide, type KpiGuidanceItem } from "@/components/insights/KpiReadingGuide";
 
 const formatter = new Intl.NumberFormat("pt-BR", { notation: "compact", maximumFractionDigits: 1 });
 const axisTick = { fill: "var(--text-body)", fontSize: 11 };
@@ -56,6 +57,55 @@ export function InstagramReports({ start, end, compareStart, compareEnd }: { sta
   const followerPeriodLabel = followerAnalysis.gain > 0
     ? `+${formatter.format(followerAnalysis.gain)} no período`
     : followerAnalysis.gain < 0 ? `${formatter.format(followerAnalysis.gain)} no período` : "Sem variação líquida no período";
+  const periodDays = Math.max(1, Math.round((new Date(`${end}T12:00:00`).getTime() - new Date(`${start}T12:00:00`).getTime()) / 86_400_000) + 1);
+  const expectedPosts = Math.max(1, Math.round((17 * periodDays) / 30));
+  const reachChange = previousReport.totals.reach > 0
+    ? ((report.totals.reach - previousReport.totals.reach) / previousReport.totals.reach) * 100
+    : null;
+  const instagramGuidance: KpiGuidanceItem[] = [
+    {
+      id: "engagement",
+      status: engagementPerPost >= 1.02 ? "good" : engagementPerPost >= 0.6 ? "attention" : "critical",
+      title: "Engajamento por post",
+      signal: `${engagementPerPost.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}% no período, frente à referência de 1,02%.`,
+      diagnosis: "Qualidade do gancho, relevância do tema, formato, salvamentos e compartilhamentos dos melhores posts.",
+      action: engagementPerPost >= 1.02
+        ? "Repita temas e formatos dos conteúdos líderes sem abandonar testes de novas abordagens."
+        : "Compare os três melhores e os três piores posts e teste um novo gancho ou formato por vez.",
+    },
+    {
+      id: "reach",
+      status: reachChange === null ? "info" : reachChange >= 0 ? "good" : reachChange > -15 ? "attention" : "critical",
+      title: "Alcance versus período anterior",
+      signal: reachChange === null
+        ? "Ainda não há base anterior suficiente para comparar o alcance."
+        : `${reachChange >= 0 ? "+" : ""}${reachChange.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% de variação no alcance.`,
+      diagnosis: "Frequência, distribuição por formato e alcance individual das publicações do período.",
+      action: reachChange === null
+        ? "Use este período como linha de base e mantenha a cadência para formar comparação."
+        : reachChange >= 0 ? "Mantenha a cadência e identifique quais formatos puxaram o crescimento." : "Localize quando a queda começou e compare frequência, formatos e temas com o período anterior.",
+    },
+    {
+      id: "followers",
+      status: followerAnalysis.rate >= 0.5 ? "good" : followerAnalysis.rate >= 0 ? "attention" : "critical",
+      title: "Crescimento de seguidores",
+      signal: `${followerAnalysis.rate.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}% de crescimento líquido no período; referência mensal de 0,5%.`,
+      diagnosis: "Conversão de alcance em visita ao perfil, clareza da bio e conteúdos que atraem pessoas novas.",
+      action: followerAnalysis.rate >= 0.5
+        ? "Continue promovendo os conteúdos que mais geram descoberta e visitas ao perfil."
+        : "Reforce a promessa da bio e inclua chamadas claras para seguir nos conteúdos de maior alcance.",
+    },
+    {
+      id: "cadence",
+      status: instagram.media.length >= expectedPosts ? "good" : instagram.media.length >= expectedPosts * 0.7 ? "attention" : "critical",
+      title: "Cadência de publicação",
+      signal: `${instagram.media.length} conteúdo${instagram.media.length === 1 ? "" : "s"} publicado${instagram.media.length === 1 ? "" : "s"}; referência proporcional de cerca de ${expectedPosts} para ${periodDays} dias.`,
+      diagnosis: "Calendário editorial, capacidade de produção e consistência entre os dias da semana.",
+      action: instagram.media.length >= expectedPosts
+        ? "Sustente o ritmo e priorize qualidade para não transformar volume em queda de engajamento."
+        : "Feche as lacunas do calendário com formatos replicáveis e um ritmo que a equipe consiga sustentar.",
+    },
+  ];
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -176,6 +226,13 @@ export function InstagramReports({ start, end, compareStart, compareEnd }: { sta
         <Insight label="Média por conteúdo" value={formatter.format(report.averageInteractions)} hint="Interações por publicação" />
         <Insight label="Conversão do perfil" value={`${report.profileConversionRate.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}%`} hint="Visitas ao perfil ÷ alcance" />
       </div>
+
+      <KpiReadingGuide
+        className="mt-5"
+        title="Guia de leitura do Instagram"
+        description="Cruza evolução, benchmarks e cadência para mostrar o que está saudável, onde investigar e o que fazer em seguida."
+        items={instagramGuidance}
+      />
 
       {instagram.metricsSource === "content_fallback" && (
         <div className="mt-3 flex gap-2 rounded-xl border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-xs text-amber-600 dark:text-amber-300">
