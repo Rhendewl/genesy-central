@@ -2,6 +2,7 @@ import jsPDF from "jspdf";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { COMMERCIAL_PRODUCT_LABELS, type CommercialAnalysis } from "@/types/commercial-analysis";
+import { formatCommercialAnalysisTitle } from "@/lib/clientes/commercial-analysis-format";
 
 type RGB = [number, number, number];
 const BLACK: RGB = [16, 18, 20];
@@ -98,7 +99,7 @@ export async function saveCommercialAnalysisPdf(analysis: CommercialAnalysis, cl
   pdf.text(`Gerado em ${format(new Date(), "dd/MM/yyyy 'às' HH:mm")}`, pageWidth - margin, y + 5, { align: "right" });
   y += 18;
   setText(BLACK, 20, "bold");
-  pdf.text("Diagnóstico comercial", margin, y);
+  pdf.text(formatCommercialAnalysisTitle(analysis.meeting_date), margin, y);
   y += 7;
   setText(BLACK, 11, "bold");
   pdf.text(clientName, margin, y);

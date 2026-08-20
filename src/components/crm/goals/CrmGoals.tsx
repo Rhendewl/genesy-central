@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { addDays, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { CalendarDays, Loader2, Pencil, Plus, Target, Trash2, X } from "lucide-react";
@@ -157,10 +158,10 @@ function GoalModal({ open, goal, pipelines, onClose, onSaved }: { open: boolean;
     await onSaved();
   }
 
-  return <div className="lc-modal-backdrop fixed inset-0 z-50 flex items-center justify-center p-4" onClick={(event) => { if (event.target === event.currentTarget) onClose(); }}>
-    <form onSubmit={submit} className="lc-modal-panel max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl text-[var(--text-title)]">
-      <div className="flex items-center justify-between border-b border-[var(--border)] px-5 py-4"><div><h2 className="text-sm font-semibold text-[var(--text-title)]">{goal ? "Editar meta" : "Nova meta"}</h2><p className="text-[11px] text-[var(--muted-foreground)]">Preencha a receita e, se quiser, fixe também metas de volume.</p></div><button type="button" onClick={onClose} className="rounded-lg p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--hover)] hover:text-[var(--text-title)]"><X size={15} /></button></div>
-      <div className="space-y-4 p-5">
+  return createPortal(<div className="lc-modal-backdrop fixed inset-0 z-50 flex items-center justify-center p-4" onClick={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+    <form onSubmit={submit} className="lc-modal-panel flex h-[calc(100dvh-2rem)] w-full max-w-lg flex-col overflow-hidden rounded-2xl text-[var(--text-title)] sm:h-[min(90dvh,800px)]">
+      <div className="shrink-0 flex items-center justify-between border-b border-[var(--border)] px-5 py-4"><div><h2 className="text-sm font-semibold text-[var(--text-title)]">{goal ? "Editar meta" : "Nova meta"}</h2><p className="text-[11px] text-[var(--muted-foreground)]">Preencha a receita e, se quiser, fixe também metas de volume.</p></div><button type="button" onClick={onClose} className="rounded-lg p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--hover)] hover:text-[var(--text-title)]"><X size={15} /></button></div>
+      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain p-5">
         <Field label="Nome"><input required value={name} onChange={(e) => setName(e.target.value)} className="lc-form-control rounded-lg px-3 py-2 text-sm" /></Field>
         <Field label="Pipeline"><select value={pipelineId} onChange={(e) => setPipelineId(e.target.value)} className="lc-form-control crm-form-select rounded-lg px-3 py-2 text-sm"><option value="">Todas as pipelines</option>{pipelines.map((pipeline) => <option key={pipeline.id} value={pipeline.id}>{pipeline.name}</option>)}</select></Field>
         <div className="grid grid-cols-2 gap-3"><Field label="Início"><input required type="date" value={startsAt} onChange={(e) => setStartsAt(e.target.value)} className="lc-form-control rounded-lg px-3 py-2 text-sm" /></Field><Field label="Fim"><input required type="date" min={startsAt} value={endsAt} onChange={(e) => setEndsAt(e.target.value)} className="lc-form-control rounded-lg px-3 py-2 text-sm" /></Field></div>
@@ -175,9 +176,9 @@ function GoalModal({ open, goal, pipelines, onClose, onSaved }: { open: boolean;
         </div>
         <div className="flex gap-2 rounded-xl border border-blue-500/20 bg-blue-500/10 p-3 text-[11px] leading-4 text-blue-700 dark:text-blue-300"><CalendarDays size={14} className="mt-0.5 shrink-0" /><span>O cálculo usa as referências ideais do funil: <strong>{CRM_GOAL_BENCHMARKS.closingRate}%</strong> de conversão de reuniões em vendas e <strong>{CRM_GOAL_BENCHMARKS.attendanceRate}%</strong> de comparecimento.{salesSample > 0 ? ` O ticket sugerido considera ${salesSample} venda${salesSample === 1 ? "" : "s"} do histórico selecionado.` : " Ajuste o ticket previsto para este objetivo."}</span></div>
       </div>
-      <div className="flex justify-end gap-2 border-t border-[var(--border)] px-5 py-4"><Button type="button" variant="outline" size="sm" onClick={onClose}>Cancelar</Button><Button type="submit" size="sm" disabled={saving || !name.trim() || !calculated} loading={saving}>Salvar meta</Button></div>
+      <div className="shrink-0 flex justify-end gap-2 border-t border-[var(--border)] px-5 py-4"><Button type="button" variant="outline" size="sm" onClick={onClose}>Cancelar</Button><Button type="submit" size="sm" disabled={saving || !name.trim() || !calculated} loading={saving}>Salvar meta</Button></div>
     </form>
-  </div>;
+  </div>, document.body);
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) { return <label className="block"><span className="lc-form-label mb-1.5 block text-xs font-medium">{label}</span>{children}</label>; }
