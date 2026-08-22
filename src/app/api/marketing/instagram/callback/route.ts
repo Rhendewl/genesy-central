@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { encryptToken, verifyState } from "@/lib/crypto";
-import { exchangeInstagramCode, exchangeInstagramLongLivedToken, getInstagramProfile } from "@/lib/instagram-api";
+import {
+  exchangeInstagramCode, exchangeInstagramLongLivedToken, getInstagramProfile,
+  INSTAGRAM_AUTOMATION_SCOPES, INSTAGRAM_AUTOMATION_WEBHOOK_FIELDS, subscribeInstagramWebhooks,
+} from "@/lib/instagram-api";
 import { getMarketingServerContext } from "@/lib/marketing/server";
 
 export const dynamic = "force-dynamic";
@@ -48,6 +51,16 @@ export async function GET(req: NextRequest) {
     const instagramUserId = String(profile.user_id ?? profile.id ?? short.user_id ?? "");
     if (!instagramUserId || !profile.username) throw new Error("Perfil profissional do Instagram não encontrado");
     const now = new Date().toISOString();
+    let webhookSubscribed = false;
+    let webhookError: string | null = null;
+    try {
+      const subscription = await subscribeInstagramWebhooks(instagramUserId, accessToken);
+      webhookSubscribed = subscription.success === true;
+      if (!webhookSubscribed) webhookError = "A Meta não confirmou a assinatura dos webhooks";
+    } catch (error) {
+      webhookError = error instanceof Error ? error.message.slice(0, 500) : "Falha ao assinar webhooks";
+      console.warn("[instagram/callback] webhook subscription unavailable", error);
+    }
     const { error } = await supabase.from("marketing_instagram_connections").upsert({
       organization_id: context.organizationId,
       connected_by: context.user.id,
@@ -59,6 +72,10 @@ export async function GET(req: NextRequest) {
       media_count: profile.media_count ?? 0,
       encrypted_access_token: encryptToken(accessToken),
       token_expires_at: expiresAt,
+      requested_scopes: [...INSTAGRAM_AUTOMATION_SCOPES],
+      webhook_subscribed: webhookSubscribed,
+      webhook_fields: webhookSubscribed ? [...INSTAGRAM_AUTOMATION_WEBHOOK_FIELDS] : [],
+      webhook_error: webhookError,
       status: "connected",
       sync_error: null,
       updated_at: now,

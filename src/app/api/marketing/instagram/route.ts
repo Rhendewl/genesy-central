@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
     const [connections, media, previousMedia, insights] = await Promise.all([
       supabase
         .from("marketing_instagram_connections")
-        .select("id,instagram_user_id,username,display_name,profile_picture_url,followers_count,media_count,status,last_sync_at,sync_error,token_expires_at,created_at,encrypted_access_token")
+        .select("id,instagram_user_id,username,display_name,profile_picture_url,followers_count,media_count,status,last_sync_at,sync_error,token_expires_at,created_at,encrypted_access_token,requested_scopes,webhook_subscribed,webhook_fields,webhook_error")
         .eq("organization_id", context.organizationId)
         .order("created_at"),
       (() => {
