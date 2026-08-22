@@ -7,6 +7,7 @@ import { ptBR } from "date-fns/locale/pt-BR";
 import type { Lead } from "@/types";
 import { cn } from "@/lib/utils";
 import { useTags } from "@/hooks/useTags";
+import { useLeadOrigins } from "@/hooks/useLeadOrigins";
 import { LeadScoreEngine } from "@/lib/crm/lead-score-engine";
 import { semanticChipStyle } from "@/lib/semantic-chip";
 
@@ -33,6 +34,8 @@ interface LeadCardProps {
 
 export function LeadCard({ lead, isDragOverlay = false, onEdit }: LeadCardProps) {
   const { tags: allTags } = useTags();
+  const { origins } = useLeadOrigins();
+  const origin = origins.find(item => item.id === lead.origin_id) ?? origins.find(item => item.slug === lead.source);
 
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: lead.id,
@@ -66,17 +69,17 @@ export function LeadCard({ lead, isDragOverlay = false, onEdit }: LeadCardProps)
         touchAction: isDragOverlay ? "none" : "pan-x pan-y",
       }}
     >
-      {/* Header: nome + badge Meta */}
+      {/* Header: nome + origem */}
       <div className="flex items-start justify-between gap-2">
         <p className="text-sm font-semibold leading-snug" style={{ color: "var(--text-card-primary)" }}>
           {lead.name}
         </p>
-        {lead.source === "meta_lead_ads" && (
+        {(origin || lead.source) && (
           <span
             className="shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-bold leading-none uppercase tracking-wide"
-            style={{ background: "rgba(24,119,242,0.15)", color: "#4a8fd4", border: "1px solid rgba(74,143,212,0.25)" }}
+            style={origin ? semanticChipStyle(origin.color) : { background: "var(--hover)", color: "var(--text-card-subtle)", border: "1px solid var(--border)" }}
           >
-            Meta
+            {origin?.name ?? lead.source.replaceAll("_", " ")}
           </span>
         )}
       </div>

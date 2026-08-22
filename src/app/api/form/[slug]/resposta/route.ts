@@ -209,6 +209,7 @@ export async function POST(req: NextRequest, { params }: Params) {
 
 interface CrmSettings {
   source?:         string;
+  origin_id?:      string | null;
   pipeline_id?:    string | null;
   stage_id?:       string | null;
   kanban_column?:  string;        // read-only: backward compat with legacy configs
@@ -329,6 +330,8 @@ async function createCrmLead(
           contact:    leadPhone ?? leadEmail ?? "",
           email:      leadEmail ?? null,
           tags:       settings.tag_ids ?? [],
+          origin_id:  settings.origin_id ?? null,
+          source:     settings.source ?? "formulario_genesy",
           deal_value: settings.value_mode === "fixed" ? (settings.fixed_value ?? 0) : dealValue,
           integration_notes: notesWithBookings,
           iq_score:   iqScore,
@@ -358,6 +361,7 @@ async function createCrmLead(
       contact:     leadPhone ?? leadEmail ?? "",
       email:       leadEmail ?? null,
       source:      settings.source ?? "formulario_genesy",
+      origin_id:   settings.origin_id ?? null,
       form_id:     formId,
       form_name:   formName,
       // Coluna estruturada, fonte de verdade a partir de agora — o texto em

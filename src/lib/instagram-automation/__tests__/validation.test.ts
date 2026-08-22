@@ -19,4 +19,16 @@ describe("Instagram automation input", () => {
       steps: [{ type: "message", text: "Olá", delayMinutes: 0 }], crmEnabled: true,
     })).toThrow("Selecione a pipeline");
   });
+
+  it("preserves configurable CRM defaults", () => {
+    const input = sanitizeInstagramAutomationInput({
+      connectionId: "connection", name: "CRM", triggerType: "message", matchType: "any",
+      steps: [{ type: "message", text: "Olá", delayMinutes: 0 }], crmEnabled: true,
+      crmPipelineId: "pipeline", crmStageId: "stage", crmOriginId: "origin",
+      crmAssignedTo: "profile", crmDealValue: 250000,
+    });
+    expect(input).toMatchObject({
+      crmOriginId: "origin", crmAssignedTo: "profile", crmDealValue: 250000,
+    });
+  });
 });

@@ -5,7 +5,7 @@ import type { Lead } from "@/types";
 function lead(id: string, canonicalLeadId: string, isCopy: boolean): Lead {
   return {
     id, canonical_lead_id: canonicalLeadId, is_pipeline_copy: isCopy, copied_from_lead_id: isCopy ? canonicalLeadId : null,
-    user_id: "owner", name: id, contact: "", email: null, source: "manual", page_id: null,
+    user_id: "owner", name: id, contact: "", email: null, source: "manual", origin_id: null, page_id: null,
     leadgen_id: null, campaign_name: null, ad_name: null, form_id: null, form_name: null,
     is_duplicate: false, kanban_column: "abordados", pipeline_id: "pipeline", stage_id: "stage",
     assigned_to: null, tags: [], notes: null, integration_notes: null, deal_value: 0,

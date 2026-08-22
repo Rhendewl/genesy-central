@@ -17,6 +17,7 @@ export interface CreateLeadParams {
   contact:       string;
   email:         string | null;
   source:        string;
+  origin_id?:    string | null;
   form_id?:      string | null;
   form_name?:    string | null;
   assigned_to?:  string | null;
@@ -77,6 +78,7 @@ export class LeadRepository {
         contact:       params.contact,
         email:         params.email,
         source:        params.source,
+        origin_id:     params.origin_id     ?? null,
         form_id:       params.form_id       ?? null,
         form_name:     params.form_name     ?? null,
         assigned_to:   params.assigned_to   ?? null,

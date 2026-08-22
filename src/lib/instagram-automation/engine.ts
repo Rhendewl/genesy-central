@@ -11,6 +11,7 @@ type AutomationRow = {
   id: string; organization_id: string; connection_id: string; trigger_type: InstagramAutomationTrigger;
   match_type: InstagramAutomationMatch; keywords: string[]; public_reply_text: string | null;
   steps: InstagramAutomationStep[]; crm_enabled: boolean; crm_pipeline_id: string | null; crm_stage_id: string | null;
+  crm_origin_id: string | null; crm_assigned_to: string | null; crm_deal_value: number;
 };
 
 function addMinutes(base: string, minutes: number) {
@@ -101,7 +102,11 @@ async function scheduleRun(db: Db, automation: AutomationRow, eventId: string, e
   if (automation.crm_enabled && automation.crm_stage_id) {
     jobs.push({
       organization_id: automation.organization_id, run_id: run.id, step_index: stepIndex++,
-      action_type: "crm", payload: { stageId: automation.crm_stage_id }, scheduled_for: addMinutes(baseTime, cumulativeDelay),
+      action_type: "crm", scheduled_for: addMinutes(baseTime, cumulativeDelay),
+      payload: {
+        stageId: automation.crm_stage_id, originId: automation.crm_origin_id,
+        assignedTo: automation.crm_assigned_to, dealValue: Number(automation.crm_deal_value ?? 0),
+      },
     });
   }
   if (jobs.length) {
@@ -133,7 +138,7 @@ export async function ingestInstagramWebhook(db: Db, payload: unknown) {
     accepted += 1;
     const contactId = await upsertContact(db, connection, event);
     const { data: automations, error } = await db.from("marketing_instagram_automations")
-      .select("id,organization_id,connection_id,trigger_type,match_type,keywords,public_reply_text,steps,crm_enabled,crm_pipeline_id,crm_stage_id")
+      .select("id,organization_id,connection_id,trigger_type,match_type,keywords,public_reply_text,steps,crm_enabled,crm_pipeline_id,crm_stage_id,crm_origin_id,crm_assigned_to,crm_deal_value")
       .eq("connection_id", connection.id)
       .eq("trigger_type", event.eventType)
       .eq("status", "active");
@@ -169,18 +174,23 @@ async function refreshRunStatus(db: Db, runId: string) {
   await db.from("marketing_instagram_automation_runs").update({ status, completed_at: new Date().toISOString() }).eq("id", runId);
 }
 
-async function createCrmLead(db: Db, run: Record<string, any>, event: Record<string, any>, contact: Record<string, any> | null, stageId: string) {
+async function createCrmLead(db: Db, run: Record<string, any>, event: Record<string, any>, contact: Record<string, any> | null, config: { stageId: string; originId: string | null; assignedTo: string | null; dealValue: number }) {
   if (contact?.crm_lead_id) return contact.crm_lead_id as string;
   const username = event.sender_username as string | null;
   const scopedId = event.sender_scoped_id as string | null;
+  const { data: origin } = config.originId ? await db.from("crm_lead_origins")
+    .select("id,slug").eq("id", config.originId).eq("user_id", run.organization_id).maybeSingle() : { data: null };
   const service = new LeadService(db);
   const result = await service.createLead({
     user_id: run.organization_id as string,
-    stageId,
+    stageId: config.stageId,
     name: username ? `@${username}` : "Lead do Instagram",
     contact: username ? `instagram:@${username}` : `instagram:${scopedId ?? "desconhecido"}`,
     email: null,
-    source: "instagram_automation",
+    source: origin?.slug ?? "instagram_automation",
+    origin_id: origin?.id ?? null,
+    assigned_to: config.assignedTo,
+    deal_value: Math.max(0, Number(config.dealValue) || 0),
     form_name: "Automação do Instagram",
     notes: event.text ? `Interação recebida: ${String(event.text).slice(0, 1000)}` : null,
     integration_notes: `Instagram scoped ID: ${scopedId ?? "não informado"}`,
@@ -224,7 +234,12 @@ export async function processInstagramAutomationJob(db: Db, jobId: string) {
     if (connection.status !== "connected") throw Object.assign(new Error("A conexão do Instagram não está ativa"), { permanent: true });
     const text = String(job.payload.text ?? "").trim();
     if (job.action_type === "crm") {
-      await createCrmLead(db, run, event, contact, String(job.payload.stageId ?? automation.crm_stage_id));
+      await createCrmLead(db, run, event, contact, {
+        stageId: String(job.payload.stageId ?? automation.crm_stage_id),
+        originId: job.payload.originId ? String(job.payload.originId) : automation.crm_origin_id,
+        assignedTo: job.payload.assignedTo ? String(job.payload.assignedTo) : automation.crm_assigned_to,
+        dealValue: Number(job.payload.dealValue ?? automation.crm_deal_value ?? 0),
+      });
     } else {
       const accessToken = decryptToken(connection.encrypted_access_token);
       if (job.action_type === "public_reply") {

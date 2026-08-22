@@ -38,6 +38,13 @@ O arquivo `supabase/migrations/20260756_marketing_module.sql` contém somente o 
 - Métricas por automação: gatilhos, ações concluídas, execuções concluídas e falhas/parciais.
 - Assinatura `X-Hub-Signature-256` obrigatória no novo webhook quando o app secret está configurado.
 
+### Dados da oportunidade no CRM
+
+Cada automação pode configurar origem, responsável e valor inicial do negócio,
+além da pipeline e etapa. As origens são compartilhadas com leads manuais e
+formulários. O vínculo estruturado fica em `leads.origin_id`; o slug continua
+espelhado em `leads.source` para preservar relatórios, CAPI e exportações.
+
 ## Dependências externas obrigatórias
 
 O código não consegue concluir sozinho os itens abaixo; eles pertencem ao painel e ao processo de aprovação da Meta:
@@ -56,6 +63,7 @@ O código não consegue concluir sozinho os itens abaixo; eles pertencem ao pain
 6. Confirmar no Instagram profissional que apps conectados podem acessar mensagens.
 7. Aplicar as migrations `20260822_instagram_automations.sql` e `20260822_instagram_automations_cron.sql`.
 8. Confirmar que o Vault contém `webhook_delivery_cron_secret` com o mesmo valor de `CRON_SECRET`. Se `pg_cron`/`pg_net` não estiverem disponíveis, chamar `/api/cron/instagram-automations` a cada minuto por um scheduler externo.
+9. Aplicar `20260822050000_crm_lead_origins.sql` antes de usar os novos padrões de CRM.
 
 ## Variáveis necessárias
 

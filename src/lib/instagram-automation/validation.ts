@@ -19,6 +19,9 @@ export function sanitizeInstagramAutomationInput(body: Partial<InstagramAutomati
     crmEnabled: body.crmEnabled === true,
     crmPipelineId: body.crmPipelineId || null,
     crmStageId: body.crmStageId || null,
+    crmOriginId: body.crmOriginId || null,
+    crmAssignedTo: body.crmAssignedTo || null,
+    crmDealValue: Math.max(0, Number(body.crmDealValue ?? 0) || 0),
   };
   if (!input.connectionId || !input.name) throw Object.assign(new Error("Conta e nome são obrigatórios"), { status: 400 });
   if (input.matchType !== "any" && !input.keywords.length) throw Object.assign(new Error("Informe ao menos uma palavra ou frase"), { status: 400 });
@@ -28,5 +31,6 @@ export function sanitizeInstagramAutomationInput(body: Partial<InstagramAutomati
   if (input.crmEnabled && (!input.crmPipelineId || !input.crmStageId)) {
     throw Object.assign(new Error("Selecione a pipeline e a etapa do CRM"), { status: 400 });
   }
+  if ((input.crmDealValue ?? 0) > 999_999_999_999) throw Object.assign(new Error("Valor do negócio inválido"), { status: 400 });
   return input;
 }
