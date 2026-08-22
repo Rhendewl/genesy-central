@@ -22,6 +22,19 @@ export interface Tag {
 
 export type NewTag = Pick<Tag, "name" | "color">;
 
+export interface LeadOrigin {
+  id: string;
+  user_id: string;
+  name: string;
+  slug: string;
+  color: string;
+  is_default: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export type NewLeadOrigin = Pick<LeadOrigin, "name" | "color">;
+
 // ── CRM / Leads ───────────────────────────────────────────────────────────────
 
 export type KanbanColumn =
@@ -58,7 +71,8 @@ export interface Lead {
   name: string;
   contact: string;
   email: string | null;
-  source: string;                // 'manual' | 'meta_lead_ads'
+  source: string;                // slug espelhado da origem; preserva compatibilidade
+  origin_id: string | null;
   page_id: string | null;
   leadgen_id: string | null;
   campaign_name: string | null;
@@ -94,8 +108,9 @@ export type NewLead = Pick<Lead, "name" | "contact" | "kanban_column" | "tags" |
   assigned_to?: string | null;
   ie_score?: number | null;
   integration_notes?: string | null;
+  origin_id?: string | null;
 };
-export type UpdateLead = Partial<Pick<Lead, "name" | "contact" | "kanban_column" | "tags" | "notes" | "integration_notes" | "deal_value" | "entered_at" | "assigned_to" | "iq_score">>;
+export type UpdateLead = Partial<Pick<Lead, "name" | "contact" | "kanban_column" | "tags" | "notes" | "integration_notes" | "deal_value" | "entered_at" | "assigned_to" | "iq_score" | "origin_id" | "source">>;
 
 export interface LeadMovement {
   id: string;

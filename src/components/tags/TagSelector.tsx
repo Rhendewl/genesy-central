@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Loader2, Plus, Tag as TagIcon, Trash2 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Check, ChevronDown, Loader2, Plus, Tag as TagIcon, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { useTags } from "@/hooks/useTags";
 import { cn } from "@/lib/utils";
@@ -22,6 +22,18 @@ export function TagSelector({ value, onChange, disabled = false, className, help
   const [color, setColor] = useState("#4a8fd4");
   const [creating, setCreating] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const root = useRef<HTMLDivElement>(null);
+  const selectedTags = tags.filter(tag => value.includes(tag.id));
+  const filteredTags = tags.filter(tag => tag.name.toLocaleLowerCase("pt-BR").includes(search.trim().toLocaleLowerCase("pt-BR")));
+
+  useEffect(() => {
+    if (!open) return;
+    const close = (event: MouseEvent) => { if (root.current && !root.current.contains(event.target as Node)) setOpen(false); };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [open]);
 
   function toggle(tagId: string) {
     if (disabled) return;
@@ -53,7 +65,7 @@ export function TagSelector({ value, onChange, disabled = false, className, help
   }
 
   return (
-    <div className={cn("space-y-2", className)}>
+    <div ref={root} className={cn("relative space-y-2", className)}>
       <div className="flex items-center justify-between gap-3">
         <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
           <TagIcon size={11} /> Etiquetas
@@ -61,67 +73,30 @@ export function TagSelector({ value, onChange, disabled = false, className, help
         {!disabled && (
           <button
             type="button"
-            onClick={() => setCreatorOpen((current) => !current)}
+            onClick={() => setOpen((current) => !current)}
             className="flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-medium text-[var(--accent-blue)] transition-colors hover:bg-[var(--hover)]"
           >
-            <Plus size={12} /> Nova etiqueta
+            <Plus size={12} /> Adicionar etiqueta <ChevronDown size={11} />
           </button>
         )}
       </div>
 
-      {creatorOpen && !disabled && (
-        <div className="rounded-xl border border-[var(--glass-border)] bg-[var(--glass-bg-soft)] p-3">
-          <div className="grid grid-cols-[2.25rem_minmax(0,1fr)] items-center gap-2 sm:grid-cols-[2.25rem_minmax(0,1fr)_auto]">
-            <label
-              className="relative flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-lg"
-              style={{ background: color, boxShadow: `0 0 0 1px ${color}55` }}
-              title="Escolher cor"
-            >
-              <TagIcon size={14} color="#fff" />
-              <input type="color" value={color} onChange={(event) => setColor(event.target.value)} className="absolute inset-0 cursor-pointer opacity-0" aria-label="Cor da etiqueta" />
-            </label>
-            <input
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-              onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); void create(); } }}
-              maxLength={60}
-              placeholder="Ex.: Social media"
-              className="h-9 min-w-0 flex-1 rounded-lg border border-[var(--border)] bg-[var(--input)] px-2.5 text-sm text-[var(--text-title)] outline-none"
-              autoFocus
-            />
-            <button type="button" onClick={() => void create()} disabled={creating || !name.trim()} className="lc-btn col-span-2 flex h-9 items-center justify-center gap-1.5 px-3 text-xs disabled:opacity-50 sm:col-span-1">
-              {creating ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />} Criar
-            </button>
-          </div>
-          <p className="mt-2 text-[10px] text-[var(--muted-foreground)]">Clique no bloco colorido para escolher a cor.</p>
-        </div>
-      )}
-
-      {tags.length > 0 ? (
+      {selectedTags.length > 0 ? (
         <div className="flex flex-wrap gap-1.5">
-          {tags.map((tag) => {
-            const active = value.includes(tag.id);
-            return (
-              <span
-                key={tag.id}
-                className={cn("inline-flex overflow-hidden rounded-full border", active && "lc-semantic-chip")}
-                style={active ? semanticChipStyle(tag.color) : { background: "var(--hover)", borderColor: "var(--glass-border)" }}
-              >
-                <button type="button" onClick={() => toggle(tag.id)} disabled={disabled} className="px-2.5 py-1 text-[11px] font-medium disabled:cursor-default" style={{ color: active ? "inherit" : "var(--muted-foreground)" }}>
-                  {tag.name}
-                </button>
-                {!disabled && (
-                  <button type="button" onClick={() => void remove(tag.id, tag.name)} disabled={deletingId === tag.id} className="flex items-center border-l px-1.5 opacity-60 transition-opacity hover:opacity-100" style={{ borderColor: active ? "currentColor" : "var(--glass-border)", color: active ? "inherit" : "var(--muted-foreground)" }} aria-label={`Apagar etiqueta ${tag.name}`}>
-                    {deletingId === tag.id ? <Loader2 size={10} className="animate-spin" /> : <Trash2 size={10} />}
-                  </button>
-                )}
-              </span>
-            );
-          })}
+          {selectedTags.map(tag => <span key={tag.id} className="lc-semantic-chip inline-flex items-center overflow-hidden rounded-full border" style={semanticChipStyle(tag.color)}><span className="px-2.5 py-1 text-[11px] font-medium">{tag.name}</span>{!disabled && <button type="button" onClick={() => toggle(tag.id)} className="border-l px-1.5 opacity-60 hover:opacity-100" style={{ borderColor: "currentColor" }} aria-label={`Remover etiqueta ${tag.name}`}><X size={10} /></button>}</span>)}
         </div>
       ) : (
-        <p className="text-xs text-[var(--muted-foreground)]">Nenhuma etiqueta criada ainda.</p>
+        <p className="text-xs text-[var(--muted-foreground)]">Nenhuma etiqueta adicionada.</p>
       )}
+
+      {open && !disabled && <div className="lc-modal-panel mt-1.5 max-h-80 overflow-y-auto rounded-xl p-2 shadow-xl">
+        <input value={search} onChange={event => setSearch(event.target.value)} placeholder="Buscar etiqueta…" className="mb-2 h-9 w-full rounded-lg border bg-[var(--input)] px-2.5 text-sm outline-none" autoFocus />
+        <div className="space-y-0.5">{filteredTags.map(tag => {
+          const active = value.includes(tag.id);
+          return <div key={tag.id} className="flex items-center rounded-lg hover:bg-[var(--hover)]"><button type="button" onClick={() => toggle(tag.id)} className="flex min-w-0 flex-1 items-center gap-2 px-2.5 py-2 text-left text-sm"><span className="h-2.5 w-2.5 rounded-full" style={{ background: tag.color }} /><span className="truncate">{tag.name}</span>{active && <Check size={13} className="ml-auto" />}</button><button type="button" onClick={() => void remove(tag.id, tag.name)} disabled={deletingId === tag.id} className="p-2 text-[var(--muted-foreground)] hover:text-red-400" aria-label={`Apagar etiqueta ${tag.name}`}>{deletingId === tag.id ? <Loader2 size={11} className="animate-spin" /> : <Trash2 size={11} />}</button></div>;
+        })}</div>
+        <div className="mt-2 border-t pt-2" style={{ borderColor: "var(--border)" }}>{!creatorOpen ? <button type="button" onClick={() => setCreatorOpen(true)} className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-sm text-[var(--primary)] hover:bg-[var(--hover)]"><Plus size={13} /> Criar nova etiqueta</button> : <div className="space-y-2"><div className="flex gap-2"><label className="relative flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-lg" style={{ background: color }}><TagIcon size={14} color="#fff" /><input type="color" value={color} onChange={event => setColor(event.target.value)} className="absolute inset-0 opacity-0" aria-label="Cor da etiqueta" /></label><input value={name} onChange={event => setName(event.target.value)} onKeyDown={event => { if (event.key === "Enter") { event.preventDefault(); void create(); } }} maxLength={60} placeholder="Nome da etiqueta" className="h-9 min-w-0 flex-1 rounded-lg border bg-[var(--input)] px-2.5 text-sm outline-none" /></div><button type="button" onClick={() => void create()} disabled={creating || !name.trim()} className="lc-btn flex h-9 w-full items-center justify-center gap-1.5 text-xs disabled:opacity-50">{creating ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />} Criar e adicionar</button></div>}</div>
+      </div>}
       {helperText && <p className="text-[10px] text-[var(--muted-foreground)]">{helperText}</p>}
     </div>
   );

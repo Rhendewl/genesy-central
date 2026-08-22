@@ -57,7 +57,7 @@ const SOURCE_LABELS: Record<string, string> = {
   external_webhook: "Webhook",
 };
 function srcLabel(s: string): string {
-  return SOURCE_LABELS[s] ?? s;
+  return SOURCE_LABELS[s] ?? s.replaceAll("_", " ").replace(/(^|\s)\S/g, letter => letter.toUpperCase());
 }
 
 const STAGE_LABEL = Object.fromEntries(KANBAN_COLUMNS.map(c => [c.id, c.label]));

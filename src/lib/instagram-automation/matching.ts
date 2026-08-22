@@ -1,4 +1,5 @@
 import type { InstagramAutomationMatch } from "./types";
+import { INSTAGRAM_MAX_SEQUENCE_MESSAGES } from "./policy";
 
 export function normalizeInstagramText(value: string) {
   return value
@@ -30,16 +31,18 @@ export function validateInstagramSequence(input: {
   if (!Array.isArray(input.steps) || input.steps.length === 0) {
     return "Adicione ao menos uma mensagem à sequência";
   }
-  if (input.steps.length > 10) return "A sequência pode ter no máximo 10 mensagens";
+  if (input.steps.length > INSTAGRAM_MAX_SEQUENCE_MESSAGES) return `A sequência pode ter no máximo ${INSTAGRAM_MAX_SEQUENCE_MESSAGES} mensagens`;
   if (input.triggerType === "comment" && input.steps.length > 1) {
     return "Comentários permitem uma única resposta privada; a sequência continua somente após uma resposta no Direct";
   }
   let cumulativeDelay = 0;
-  for (const step of input.steps) {
+  for (let index = 0; index < input.steps.length; index += 1) {
+    const step = input.steps[index];
     const text = typeof step.text === "string" ? step.text.trim() : "";
     const delay = Number(step.delayMinutes ?? 0);
     if (!text || text.length > 1000) return "Cada mensagem deve ter entre 1 e 1.000 caracteres";
     if (!Number.isFinite(delay) || delay < 0 || delay > 1380) return "O intervalo deve ficar entre 0 e 1.380 minutos";
+    if (index > 0 && delay < 1) return "Aguarde ao menos 1 minuto entre mensagens consecutivas";
     cumulativeDelay += delay;
   }
   if (input.triggerType !== "comment" && cumulativeDelay > 1380) {

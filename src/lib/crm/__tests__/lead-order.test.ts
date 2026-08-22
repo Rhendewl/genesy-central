@@ -10,6 +10,7 @@ function lead(id: string, updatedAt: string, createdAt = updatedAt): Lead {
     contact: "",
     email: null,
     source: "manual",
+    origin_id: null,
     page_id: null,
     leadgen_id: null,
     campaign_name: null,

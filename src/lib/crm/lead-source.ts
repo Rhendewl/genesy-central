@@ -28,6 +28,13 @@ export const LeadSource = {
   META_LEAD_ADS:     "meta_lead_ads",
   MANUAL:            "manual",
   EXTERNAL_WEBHOOK:  "external_webhook",
+  INSTAGRAM_AUTOMATION: "instagram_automation",
+  YOUTUBE:           "youtube",
+  WHATSAPP:          "whatsapp",
+  SITE:              "site",
+  INDICACAO:         "indicacao",
+  EMAIL_MARKETING:   "email_marketing",
+  EVENTO:            "evento",
 } as const;
 
 export type LeadSourceValue = typeof LeadSource[keyof typeof LeadSource];
@@ -37,6 +44,13 @@ const ACTION_SOURCE_MAP: Partial<Record<string, ActionSource>> = {
   [LeadSource.META_LEAD_ADS]:     "website",
   [LeadSource.MANUAL]:            "system_generated",
   [LeadSource.EXTERNAL_WEBHOOK]:  "other",
+  [LeadSource.INSTAGRAM_AUTOMATION]: "chat",
+  [LeadSource.YOUTUBE]:           "website",
+  [LeadSource.WHATSAPP]:          "chat",
+  [LeadSource.SITE]:              "website",
+  [LeadSource.INDICACAO]:         "other",
+  [LeadSource.EMAIL_MARKETING]:   "email",
+  [LeadSource.EVENTO]:            "other",
 };
 
 /** Derives the platform-agnostic ActionSource from a lead's origin string. */

@@ -13,6 +13,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { MoneyInput } from "@/components/ui/MoneyInput";
 import { ProgressBar } from "@/components/workspace/ProgressBar";
 import { TagSelector } from "@/components/tags/TagSelector";
+import { LeadOriginSelector } from "@/components/crm/LeadOriginSelector";
+import { useLeadOrigins } from "@/hooks/useLeadOrigins";
 import { useUsers } from "@/hooks/useUsers";
 import type { KanbanColumn, Lead, NewLead, UpdateLead } from "@/types";
 import { KANBAN_COLUMNS } from "@/types";
@@ -64,6 +66,7 @@ function emptyForm() {
     contact:     "",
     stage_id:    null as string | null,
     assigned_to: null as string | null,
+    origin_id:    null as string | null,
     tags:        [] as string[],
     notes:       "",
     entered_at:  TODAY,
@@ -82,6 +85,7 @@ export function LeadModal({
   onTransfer,
 }: LeadModalProps) {
   const { profiles } = useUsers();
+  const { origins } = useLeadOrigins();
   const activeProfiles = profiles.filter((p) => p.auth_user_id && p.is_active);
   const firstInputRef = useRef<HTMLInputElement>(null);
 
@@ -128,6 +132,7 @@ export function LeadModal({
           contact:     lead.contact,
           stage_id:    lead.stage_id ?? null,
           assigned_to: lead.assigned_to ?? null,
+          origin_id:    lead.origin_id ?? origins.find(origin => origin.slug === lead.source)?.id ?? null,
           tags:        lead.tags as string[],
           notes:       lead.notes ?? "",
           entered_at:  lead.entered_at,
@@ -142,6 +147,14 @@ export function LeadModal({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, lead?.id]);
+
+  useEffect(() => {
+    if (!isOpen || form.origin_id || origins.length === 0) return;
+    const fallback = lead
+      ? origins.find(origin => origin.slug === lead.source)
+      : origins.find(origin => origin.is_default) ?? origins.find(origin => origin.slug === "manual");
+    if (fallback) setForm(current => ({ ...current, origin_id: fallback.id }));
+  }, [form.origin_id, isOpen, lead, origins]);
 
   // ── Escape para fechar ─────────────────────────────────────────────────────
 
@@ -239,6 +252,8 @@ export function LeadModal({
         deal_value:  dealValue,
         entered_at:  form.entered_at,
         assigned_to: form.assigned_to,
+        origin_id:    form.origin_id,
+        source:       origins.find(origin => origin.id === form.origin_id)?.slug ?? lead.source,
       };
       const result = await onUpdate(lead.id, updatePayload);
       setIsSubmitting(false);
@@ -269,6 +284,7 @@ export function LeadModal({
         deal_value:    dealValue,
         entered_at:    form.entered_at,
         ie_score:      ieScore,
+        origin_id:     form.origin_id,
       };
       const result = await onCreate(createPayload);
       setIsSubmitting(false);
@@ -557,6 +573,11 @@ export function LeadModal({
                       </p>
                     </div>
                   )}
+
+                  <div className="space-y-1.5">
+                    <Label className="text-[11px] font-medium text-[var(--muted-foreground)]">Origem</Label>
+                    <LeadOriginSelector value={form.origin_id} onChange={(originId) => setForm(current => ({ ...current, origin_id: originId }))} />
+                  </div>
 
                   {/* Responsável */}
                   <div className="space-y-1.5">

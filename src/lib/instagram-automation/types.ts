@@ -19,6 +19,9 @@ export interface InstagramAutomationInput {
   crmEnabled: boolean;
   crmPipelineId?: string | null;
   crmStageId?: string | null;
+  crmOriginId?: string | null;
+  crmAssignedTo?: string | null;
+  crmDealValue?: number;
 }
 
 export interface NormalizedInstagramEvent {

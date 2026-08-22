@@ -12,6 +12,7 @@ interface CreateLeadBody {
   integration_notes?: string | null;
   deal_value?: number;
   entered_at?: string;
+  origin_id?: string | null;
 }
 
 export async function POST(req: NextRequest) {
@@ -45,13 +46,29 @@ export async function POST(req: NextRequest) {
   const profile = activeProfiles.find(profile => profile.owner_id !== user.id) ?? activeProfiles[0];
   const ownerId = profile?.owner_id ?? user.id;
 
+  let originId: string | null = null;
+  let source = "manual";
+  if (body.origin_id) {
+    const { data: origin } = await supabase.from("crm_lead_origins")
+      .select("id,slug").eq("id", body.origin_id).eq("user_id", ownerId).maybeSingle();
+    if (!origin) return NextResponse.json({ error: "Origem não encontrada" }, { status: 400 });
+    originId = origin.id;
+    source = origin.slug;
+  } else {
+    const { data: manualOrigin } = await supabase.from("crm_lead_origins")
+      .select("id,slug").eq("user_id", ownerId).eq("slug", "manual").maybeSingle();
+    originId = manualOrigin?.id ?? null;
+    source = manualOrigin?.slug ?? "manual";
+  }
+
   const result = await new LeadService(supabase).createLead({
     user_id: ownerId,
     stageId: body.stage_id,
     name,
     contact,
     email: null,
-    source: "manual",
+    source,
+    origin_id: originId,
     assigned_to: body.assigned_to ?? null,
     tags: Array.isArray(body.tags) ? body.tags : [],
     notes: body.notes?.trim() || null,

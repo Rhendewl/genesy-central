@@ -14,12 +14,15 @@ import { useTags } from "@/hooks/useTags";
 import { useUsers } from "@/hooks/useUsers";
 import type { FormStep, Form } from "@/types";
 import { semanticChipStyle } from "@/lib/semantic-chip";
+import { LeadOriginSelector } from "@/components/crm/LeadOriginSelector";
+import { useLeadOrigins } from "@/hooks/useLeadOrigins";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 interface CrmConfig {
   enabled:        boolean;
   source:         string;
+  origin_id:      string | null;
   pipeline_id:    string | null;
   stage_id:       string | null;
   capture_step_id: string | null;
@@ -34,6 +37,7 @@ interface CrmConfig {
 const DEFAULT_CONFIG: CrmConfig = {
   enabled:        true,
   source:         "formulario_genesy",
+  origin_id:      null,
   pipeline_id:    null,
   stage_id:       null,
   capture_step_id: null,
@@ -44,19 +48,6 @@ const DEFAULT_CONFIG: CrmConfig = {
   fixed_value:    0,
   value_field_id: null,
 };
-
-// ── CRM Sources ───────────────────────────────────────────────────────────────
-
-const CRM_SOURCES: { id: string; label: string; isDefault?: boolean }[] = [
-  { id: "formulario_genesy", label: "Formulário Genesy", isDefault: true },
-  { id: "manual",            label: "Manual"                             },
-  { id: "meta_lead_ads",     label: "Meta Lead Ads"                      },
-  { id: "whatsapp",          label: "WhatsApp"                           },
-  { id: "site",              label: "Site"                               },
-  { id: "indicacao",         label: "Indicação"                          },
-  { id: "email_marketing",   label: "E-mail Marketing"                   },
-  { id: "evento",            label: "Evento"                             },
-];
 
 const VALUE_STEP_TYPES = new Set<string>(["number", "rating"]);
 
@@ -298,6 +289,7 @@ export default function FormularioCrmPage() {
   const { pipelines, isLoading: pipelinesLoading } = usePipelines();
   const { tags, isLoading: tagsLoading } = useTags();
   const { profiles, isLoading: usersLoading } = useUsers();
+  const { origins, isLoading: originsLoading } = useLeadOrigins();
 
   const activePipelines = pipelines.filter(p => p.is_active);
 
@@ -326,6 +318,7 @@ export default function FormularioCrmPage() {
       const loaded: CrmConfig = {
         enabled:        crm.enabled         ?? true,
         source:         s.source            ?? DEFAULT_CONFIG.source,
+        origin_id:      s.origin_id         ?? null,
         pipeline_id:    s.pipeline_id       ?? null,
         stage_id:       s.stage_id          ?? null,
         capture_step_id: s.capture_step_id   ?? null,
@@ -341,6 +334,22 @@ export default function FormularioCrmPage() {
       setSaved(loaded);
     }
   }, [integrations, intLoading]);
+
+  useEffect(() => {
+    if (!origins.length) return;
+    setConfig(current => {
+      if (current.origin_id) return current;
+      const match = origins.find(origin => origin.slug === current.source)
+        ?? origins.find(origin => origin.slug === "formulario_genesy");
+      return match ? { ...current, origin_id: match.id, source: match.slug } : current;
+    });
+    setSaved(current => {
+      if (current.origin_id) return current;
+      const match = origins.find(origin => origin.slug === current.source)
+        ?? origins.find(origin => origin.slug === "formulario_genesy");
+      return match ? { ...current, origin_id: match.id, source: match.slug } : current;
+    });
+  }, [origins]);
 
   // ── Compatible value steps ─────────────────────────────────────────────────
 
@@ -364,6 +373,7 @@ export default function FormularioCrmPage() {
     try {
       const settings: Record<string, unknown> = {
         source:         config.source,
+        origin_id:      config.origin_id,
         pipeline_id:    config.pipeline_id,
         stage_id:       config.stage_id,
         capture_step_id: config.capture_step_id,
@@ -402,7 +412,7 @@ export default function FormularioCrmPage() {
 
   // ── Summary labels ─────────────────────────────────────────────────────────
 
-  const sourceName = CRM_SOURCES.find(s => s.id === config.source)?.label ?? config.source;
+  const sourceName = origins.find(origin => origin.id === config.origin_id)?.name ?? config.source;
   const selectedPipeline = activePipelines.find(p => p.id === config.pipeline_id);
   const selectedStage    = selectedPipeline?.crm_stages.find(s => s.id === config.stage_id);
   const pipelineName     = selectedPipeline?.name ?? "—";
@@ -421,7 +431,7 @@ export default function FormularioCrmPage() {
 
         <ConfigSubNav />
 
-        {(isLoading || tagsLoading || usersLoading || pipelinesLoading) && (
+        {(isLoading || tagsLoading || usersLoading || pipelinesLoading || originsLoading) && (
           <div className="flex items-center gap-2 py-8" style={{ color: "var(--muted-foreground)" }}>
             <Loader2 size={15} className="animate-spin" />
             <span className="text-sm">Carregando…</span>
@@ -458,16 +468,10 @@ export default function FormularioCrmPage() {
             {/* ── 2. Origem ────────────────────────────────────────────────── */}
             <SectionCard title="Origem de Destino" description="Define a origem do lead no CRM." icon={AlertCircle}>
               <FieldRow label="Origem no CRM">
-                <SelectField<string>
-                  value={config.source}
-                  onChange={v => patch("source", v)}
-                >
-                  {CRM_SOURCES.map(s => (
-                    <option key={s.id} value={s.id} style={{ background: "var(--popover)" }}>
-                      {s.label}{s.isDefault ? " (Padrão)" : ""}
-                    </option>
-                  ))}
-                </SelectField>
+                <LeadOriginSelector value={config.origin_id} onChange={(originId, origin) => {
+                  patch("origin_id", originId);
+                  if (origin) patch("source", origin.slug);
+                }} placeholder="Selecionar ou criar origem" />
               </FieldRow>
             </SectionCard>
 
