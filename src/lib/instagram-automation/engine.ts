@@ -3,6 +3,13 @@ import { decryptToken } from "@/lib/crypto";
 import { replyToInstagramComment, sendInstagramMessage } from "@/lib/instagram-api";
 import { LeadService } from "@/lib/crm/lead-service";
 import { matchesInstagramKeywords } from "./matching";
+import {
+  INSTAGRAM_AUTOMATION_DAILY_LIMIT,
+  INSTAGRAM_AUTOMATION_HOURLY_LIMIT,
+  INSTAGRAM_CONTACT_DAILY_LIMIT,
+  isInstagramActionWithinWindow,
+  isInstagramOptOut,
+} from "./policy";
 import { parseInstagramWebhook } from "./webhook";
 import type { InstagramAutomationMatch, InstagramAutomationStep, InstagramAutomationTrigger, NormalizedInstagramEvent } from "./types";
 
@@ -47,6 +54,7 @@ async function persistEvent(db: Db, connection: { id: string; organization_id: s
 
 async function upsertContact(db: Db, connection: { id: string; organization_id: string }, event: NormalizedInstagramEvent) {
   if (!event.senderScopedId) return null;
+  const optedOut = isInstagramOptOut(event.text);
   const { data, error } = await db.from("marketing_instagram_contacts").upsert({
     organization_id: connection.organization_id,
     connection_id: connection.id,
@@ -56,7 +64,7 @@ async function upsertContact(db: Db, connection: { id: string; organization_id: 
     updated_at: new Date().toISOString(),
   }, { onConflict: "connection_id,instagram_scoped_id" }).select("id").single();
   if (error) throw new Error(error.message);
-  return data.id as string;
+  return { id: data.id as string, optedOut };
 }
 
 async function scheduleRun(db: Db, automation: AutomationRow, eventId: string, event: NormalizedInstagramEvent, contactId: string | null) {
@@ -89,7 +97,12 @@ async function scheduleRun(db: Db, automation: AutomationRow, eventId: string, e
       action_type: "public_reply", payload: { text: automation.public_reply_text.trim() }, scheduled_for: baseTime,
     });
   }
-  const steps = automation.steps ?? [];
+  // Runtime enforcement protects automations saved before the stricter input
+  // validation: a comment can originate only one private reply and cannot
+  // bootstrap a follow-up sequence until the person answers in Direct.
+  const steps = event.eventType === "comment"
+    ? (automation.steps ?? []).slice(0, 1)
+    : (automation.steps ?? []).slice(0, 5);
   for (let index = 0; index < steps.length; index += 1) {
     const step = steps[index];
     cumulativeDelay += Math.max(0, Number(step.delayMinutes) || 0);
@@ -136,19 +149,31 @@ export async function ingestInstagramWebhook(db: Db, payload: unknown) {
       if (persisted.status !== "received") continue;
     }
     accepted += 1;
-    const contactId = await upsertContact(db, connection, event);
+    const contact = await upsertContact(db, connection, event);
+    const contactId = contact?.id ?? null;
+    if (contact?.optedOut) {
+      const ignored = await db.from("marketing_instagram_automation_events").update({ status: "ignored" }).eq("id", persisted.id);
+      if (ignored.error) throw new Error(ignored.error.message);
+      continue;
+    }
     const { data: automations, error } = await db.from("marketing_instagram_automations")
       .select("id,organization_id,connection_id,trigger_type,match_type,keywords,public_reply_text,steps,crm_enabled,crm_pipeline_id,crm_stage_id,crm_origin_id,crm_assigned_to,crm_deal_value")
       .eq("connection_id", connection.id)
       .eq("trigger_type", event.eventType)
-      .eq("status", "active");
+      .eq("status", "active")
+      .order("created_at", { ascending: true });
     if (error) throw new Error(error.message);
     let eventMatched = false;
     for (const automation of (automations ?? []) as AutomationRow[]) {
+      if (event.eventType === "comment" && automation.match_type === "any") continue;
       if (!matchesInstagramKeywords(event.text, automation.keywords ?? [], automation.match_type)) continue;
       if (await scheduleRun(db, automation, persisted.id, event, contactId)) {
         matched += 1;
         eventMatched = true;
+        // A single inbound interaction must never fan out into competing
+        // automations. For comments this also enforces Meta's one-private-reply
+        // limit across the whole connected account, not only inside one flow.
+        break;
       }
     }
     const finalized = await db.from("marketing_instagram_automation_events")
@@ -163,6 +188,46 @@ type JobRow = {
   id: string; run_id: string; step_index: number; action_type: "public_reply" | "private_reply" | "dm" | "crm";
   payload: Record<string, unknown>; attempts: number; max_attempts: number;
 };
+
+async function skipJob(db: Db, job: JobRow, reason: string) {
+  await db.from("marketing_instagram_automation_jobs").update({
+    status: "skipped", locked_at: null, last_error: reason.slice(0, 1000), updated_at: new Date().toISOString(),
+  }).eq("id", job.id).eq("status", "processing");
+  await refreshRunStatus(db, job.run_id);
+  return "skipped" as const;
+}
+
+async function outboundLimitReason(db: Db, automationId: string, contactId: string | null) {
+  const now = Date.now();
+  const sinceDay = new Date(now - 24 * 60 * 60_000).toISOString();
+  const sinceHour = new Date(now - 60 * 60_000).toISOString();
+  const { data: recentRuns } = await db.from("marketing_instagram_automation_runs")
+    .select("id,created_at,contact_id").eq("automation_id", automationId).gte("created_at", sinceDay);
+  const runRows = recentRuns ?? [];
+  const runIds = runRows.map(row => row.id as string);
+  if (!runIds.length) return null;
+  const { data: sent } = await db.from("marketing_instagram_automation_jobs")
+    .select("run_id,completed_at").in("run_id", runIds).eq("status", "completed")
+    .in("action_type", ["public_reply", "private_reply", "dm"]);
+  const sentRows = sent ?? [];
+  const hourly = sentRows.filter(row => row.completed_at && row.completed_at >= sinceHour).length;
+  if (hourly >= INSTAGRAM_AUTOMATION_HOURLY_LIMIT) return "Limite preventivo de mensagens por hora atingido";
+  if (sentRows.length >= INSTAGRAM_AUTOMATION_DAILY_LIMIT) return "Limite preventivo de mensagens por dia atingido";
+  if (contactId) {
+    const contactRunIds = new Set(runRows.filter(row => row.contact_id === contactId).map(row => row.id));
+    const contactTotal = sentRows.filter(row => contactRunIds.has(row.run_id)).length;
+    if (contactTotal >= INSTAGRAM_CONTACT_DAILY_LIMIT) return "Limite preventivo diário para este contato atingido";
+  }
+  return null;
+}
+
+async function contactHasOptedOut(db: Db, connectionId: string, senderScopedId: string | null) {
+  if (!senderScopedId) return false;
+  const { data } = await db.from("marketing_instagram_automation_events")
+    .select("text").eq("connection_id", connectionId).eq("sender_scoped_id", senderScopedId)
+    .order("occurred_at", { ascending: false });
+  return (data ?? []).some(row => isInstagramOptOut(String(row.text ?? "")));
+}
 
 async function refreshRunStatus(db: Db, runId: string) {
   const { data: jobs } = await db.from("marketing_instagram_automation_jobs").select("status").eq("run_id", runId);
@@ -210,11 +275,16 @@ export async function processInstagramAutomationJob(db: Db, jobId: string) {
     .in("status", ["pending", "processing", "retry"])
     .limit(1);
   if (previous?.length) return "skipped" as const;
+  const { data: blockedPrevious } = await db.from("marketing_instagram_automation_jobs").select("status")
+    .eq("run_id", current.run_id).lt("step_index", current.step_index)
+    .in("status", ["dead_letter", "skipped"])
+    .limit(1);
   const { data: claimed } = await db.from("marketing_instagram_automation_jobs")
     .update({ status: "processing", locked_at: now, attempts: current.attempts + 1, updated_at: now })
     .eq("id", jobId).in("status", ["pending", "retry"]).lte("scheduled_for", now).select("*").maybeSingle();
   if (!claimed) return "skipped" as const;
   const job = claimed as JobRow;
+  if (blockedPrevious?.length) return await skipJob(db, job, "Etapa anterior não foi entregue; sequência interrompida");
   await db.from("marketing_instagram_automation_runs").update({ status: "running", started_at: now }).eq("id", job.run_id).eq("status", "queued");
 
   const { data: run } = await db.from("marketing_instagram_automation_runs").select("*").eq("id", job.run_id).single();
@@ -232,6 +302,10 @@ export async function processInstagramAutomationJob(db: Db, jobId: string) {
   try {
     if (!connection) throw Object.assign(new Error("Conexão do Instagram não encontrada"), { permanent: true });
     if (connection.status !== "connected") throw Object.assign(new Error("A conexão do Instagram não está ativa"), { permanent: true });
+    if (automation.status !== "active") return await skipJob(db, job, "Automação pausada ou desativada");
+    if (await contactHasOptedOut(db, automation.connection_id, event.sender_scoped_id)) {
+      return await skipJob(db, job, "Contato cancelou o recebimento de mensagens automáticas");
+    }
     const text = String(job.payload.text ?? "").trim();
     if (job.action_type === "crm") {
       await createCrmLead(db, run, event, contact, {
@@ -241,6 +315,11 @@ export async function processInstagramAutomationJob(db: Db, jobId: string) {
         dealValue: Number(job.payload.dealValue ?? automation.crm_deal_value ?? 0),
       });
     } else {
+      if (!isInstagramActionWithinWindow(event.event_type, event.occurred_at)) {
+        return await skipJob(db, job, "Janela de mensagens permitida pela Meta encerrada");
+      }
+      const limitReason = await outboundLimitReason(db, automation.id, run.contact_id ?? null);
+      if (limitReason) return await skipJob(db, job, limitReason);
       const accessToken = decryptToken(connection.encrypted_access_token);
       if (job.action_type === "public_reply") {
         if (!event.comment_id) throw Object.assign(new Error("Comentário sem ID para resposta pública"), { permanent: true });
@@ -266,10 +345,17 @@ export async function processInstagramAutomationJob(db: Db, jobId: string) {
     return "completed" as const;
   }
 
-  const typed = error as Error & { status?: number; permanent?: boolean };
-  const retryable = !typed.permanent && (typed.status === undefined || typed.status === 408 || typed.status === 429 || typed.status >= 500);
+  const typed = error as Error & { status?: number; code?: number; permanent?: boolean };
+  const policyOrAuthError = [10, 190, 200, 368].includes(Number(typed.code));
+  if (policyOrAuthError || (typed.status === 429 && job.attempts >= 2)) {
+    await db.from("marketing_instagram_automations").update({ status: "paused", updated_at: new Date().toISOString() }).eq("id", automation.id);
+  }
+  const circuitOpen = policyOrAuthError || (typed.status === 429 && job.attempts >= 2);
+  const retryable = !typed.permanent && !circuitOpen
+    && (typed.status === undefined || typed.status === 408 || typed.status === 429 || typed.status >= 500);
   if (retryable && job.attempts < job.max_attempts) {
-    const delayMs = Math.min(15 * 60_000, 30_000 * 2 ** Math.max(0, job.attempts - 1));
+    const baseDelay = typed.status === 429 ? 15 * 60_000 : Math.min(15 * 60_000, 30_000 * 2 ** Math.max(0, job.attempts - 1));
+    const delayMs = baseDelay + Math.floor(Math.random() * Math.min(30_000, baseDelay * 0.2));
     await db.from("marketing_instagram_automation_jobs").update({
       status: "retry", locked_at: null, scheduled_for: new Date(Date.now() + delayMs).toISOString(),
       last_error: typed.message.slice(0, 1000), updated_at: new Date().toISOString(),
@@ -286,9 +372,13 @@ export async function processInstagramAutomationJob(db: Db, jobId: string) {
 export async function runDueInstagramAutomationJobs(db: Db, limit = 20) {
   const staleAt = new Date(Date.now() - 5 * 60_000).toISOString();
   await db.from("marketing_instagram_automation_jobs").update({
+    status: "dead_letter", locked_at: null,
+    last_error: "Resultado do envio incerto; não reenviado para evitar mensagem duplicada", updated_at: new Date().toISOString(),
+  }).eq("status", "processing").in("action_type", ["public_reply", "private_reply", "dm"]).lt("locked_at", staleAt);
+  await db.from("marketing_instagram_automation_jobs").update({
     status: "retry", locked_at: null, scheduled_for: new Date().toISOString(),
     last_error: "Lock expirado; ação reagendada", updated_at: new Date().toISOString(),
-  }).eq("status", "processing").lt("locked_at", staleAt);
+  }).eq("status", "processing").eq("action_type", "crm").lt("locked_at", staleAt);
   const { data: due } = await db.from("marketing_instagram_automation_jobs").select("id")
     .in("status", ["pending", "retry"]).lte("scheduled_for", new Date().toISOString())
     .order("scheduled_for").limit(Math.min(100, Math.max(1, limit)));

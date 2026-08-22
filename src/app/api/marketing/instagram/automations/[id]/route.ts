@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { apiError, getMarketingServerContext } from "@/lib/marketing/server";
-import { sanitizeInstagramAutomationInput } from "@/lib/instagram-automation/validation";
+import { assertInstagramConnectionReady, sanitizeInstagramAutomationInput } from "@/lib/instagram-automation/validation";
 import { validateInstagramCrmReferences } from "@/lib/instagram-automation/crm-config";
 
 async function contextForEdit() {
@@ -15,9 +15,10 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   try {
     const { supabase, context } = await contextForEdit();
     const input = sanitizeInstagramAutomationInput(await req.json().catch(() => ({})));
-    const { data: connection } = await supabase.from("marketing_instagram_connections").select("id")
+    const { data: connection } = await supabase.from("marketing_instagram_connections").select("id,status,webhook_subscribed,webhook_fields,requested_scopes")
       .eq("id", input.connectionId).eq("organization_id", context.organizationId).maybeSingle();
     if (!connection) throw Object.assign(new Error("Conta do Instagram não encontrada"), { status: 404 });
+    assertInstagramConnectionReady(input, connection);
     await validateInstagramCrmReferences(supabase, context.organizationId, input);
     const { data, error } = await supabase.from("marketing_instagram_automations").update({
       connection_id: input.connectionId, name: input.name, status: input.status,
