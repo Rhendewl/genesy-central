@@ -3,7 +3,7 @@
 import type { ComponentType, SVGProps } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BadgeDollarSign, CalendarDays, LayoutDashboard } from "lucide-react";
+import { BadgeDollarSign, Bot, CalendarDays, LayoutDashboard } from "lucide-react";
 import { InstagramGlyph } from "@/components/marketing/InstagramReports";
 import { cn } from "@/lib/utils";
 
@@ -26,6 +26,7 @@ type NavIcon = ComponentType<{ size?: string | number; className?: string }>;
 const ITEMS: Array<{ href: string; label: string; icon: NavIcon; exact?: boolean }> = [
   { href: "/marketing", label: "Visão Geral", icon: LayoutDashboard, exact: true },
   { href: "/marketing/relatorios", label: "Instagram", icon: InstagramGlyph },
+  { href: "/marketing/automacoes", label: "Automações", icon: Bot },
   { href: "/marketing/calendario", label: "Calendário Editorial", icon: CalendarDays },
   { href: "/marketing/trafego", label: "Tráfego Pago", icon: MetaGlyph },
   { href: "/marketing/vgv", label: "VGV", icon: BadgeDollarSign },

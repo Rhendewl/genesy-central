@@ -1,4 +1,5 @@
 const INSTAGRAM_GRAPH = "https://graph.instagram.com";
+const INSTAGRAM_GRAPH_VERSION = process.env.INSTAGRAM_GRAPH_VERSION ?? "v24.0";
 
 export interface InstagramProfile {
   id?: string;
@@ -95,6 +96,67 @@ async function instagramGet<T>(pathOrUrl: string, accessToken: string): Promise<
   const json = await response.json().catch(() => ({})) as T & { error?: { message?: string } };
   if (!response.ok) throw new Error(json.error?.message ?? `Instagram API ${response.status}`);
   return json;
+}
+
+async function instagramPost<T>(path: string, accessToken: string, body?: unknown): Promise<T> {
+  const url = new URL(path, INSTAGRAM_GRAPH);
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      ...(body === undefined ? {} : { "Content-Type": "application/json" }),
+    },
+    body: body === undefined ? undefined : JSON.stringify(body),
+    cache: "no-store",
+  });
+  const json = await response.json().catch(() => ({})) as T & { error?: { message?: string; code?: number } };
+  if (!response.ok) {
+    const error = new Error(json.error?.message ?? `Instagram API ${response.status}`) as Error & { status?: number; code?: number };
+    error.status = response.status;
+    error.code = json.error?.code;
+    throw error;
+  }
+  return json;
+}
+
+export const INSTAGRAM_AUTOMATION_SCOPES = [
+  "instagram_business_basic",
+  "instagram_business_manage_insights",
+  "instagram_business_manage_comments",
+  "instagram_business_manage_messages",
+] as const;
+
+export const INSTAGRAM_AUTOMATION_WEBHOOK_FIELDS = [
+  "comments", "messages", "messaging_postbacks", "messaging_seen",
+] as const;
+
+export function subscribeInstagramWebhooks(userId: string, accessToken: string) {
+  return instagramPost<{ success: boolean }>(
+    `/${INSTAGRAM_GRAPH_VERSION}/${userId}/subscribed_apps`,
+    accessToken,
+    { subscribed_fields: INSTAGRAM_AUTOMATION_WEBHOOK_FIELDS },
+  );
+}
+
+export function replyToInstagramComment(commentId: string, message: string, accessToken: string) {
+  return instagramPost<{ id: string }>(
+    `/${INSTAGRAM_GRAPH_VERSION}/${commentId}/replies`,
+    accessToken,
+    { message },
+  );
+}
+
+export function sendInstagramMessage(
+  userId: string,
+  recipient: { id: string } | { comment_id: string },
+  message: string,
+  accessToken: string,
+) {
+  return instagramPost<{ recipient_id?: string; message_id: string }>(
+    `/${INSTAGRAM_GRAPH_VERSION}/${userId}/messages`,
+    accessToken,
+    { recipient, message: { text: message } },
+  );
 }
 
 export async function exchangeInstagramCode(code: string, redirectUri: string) {

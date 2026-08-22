@@ -258,6 +258,12 @@ NEXT_PUBLIC_META_APP_ID=
 META_APP_ID=
 META_APP_SECRET=
 META_VERIFY_TOKEN=
+
+# Instagram orgânico e automações
+INSTAGRAM_APP_ID=                 # fallback: META_APP_ID
+INSTAGRAM_APP_SECRET=             # fallback: META_APP_SECRET
+INSTAGRAM_VERIFY_TOKEN=           # fallback: META_VERIFY_TOKEN
+INSTAGRAM_GRAPH_VERSION=v24.0
 TOKEN_ENCRYPTION_KEY=
 
 # Workflow Engine (cron)

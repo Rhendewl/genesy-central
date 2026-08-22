@@ -38,7 +38,8 @@ export interface MarketingComment { id: string; content_id: string; body: string
 export interface MarketingInstagramConnection {
   id: string; instagram_user_id: string; username: string; display_name: string | null; profile_picture_url: string | null;
   followers_count: number; media_count: number; status: "connected" | "error" | "disconnected"; last_sync_at: string | null;
-  sync_error: string | null; token_expires_at: string | null; created_at: string;
+  sync_error: string | null; token_expires_at: string | null; created_at: string; requested_scopes?: string[];
+  webhook_subscribed?: boolean; webhook_fields?: string[]; webhook_error?: string | null;
 }
 export interface MarketingInstagramMedia {
   id: string; connection_id: string; marketing_content_id: string | null; instagram_media_id: string; media_type: string;

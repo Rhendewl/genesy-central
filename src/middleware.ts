@@ -26,6 +26,7 @@ const PUBLIC_ROUTES = [
   "/agendar/",
   "/api/agendar/",
   "/api/google-calendar/callback",
+  "/api/marketing/instagram/webhook",
   "/api/cron/",
   "/api/conversas/webhook/",
 ];
@@ -115,8 +116,8 @@ export const config = {
      * - _next/image (image optimization)
      * - favicon.ico
      * - public assets
-     * - api/meta/webhook (Meta crawler has no auth cookies — must bypass auth middleware)
+     * - Meta/Instagram webhooks (Meta crawler has no auth cookies — must bypass auth middleware)
      */
-    "/((?!_next/static|_next/image|favicon.ico|api/meta/webhook|api/leads|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ttf|otf|woff|woff2)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|api/meta/webhook|api/marketing/instagram/webhook|api/leads|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ttf|otf|woff|woff2)$).*)",
   ],
 };

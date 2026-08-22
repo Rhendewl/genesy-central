@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { signState } from "@/lib/crypto";
 import { apiError, getMarketingServerContext } from "@/lib/marketing/server";
+import { INSTAGRAM_AUTOMATION_SCOPES } from "@/lib/instagram-api";
 
 export const dynamic = "force-dynamic";
 
@@ -24,7 +25,7 @@ export async function GET(req: NextRequest) {
     oauth.searchParams.set("client_id", clientId);
     oauth.searchParams.set("redirect_uri", redirectUri);
     oauth.searchParams.set("response_type", "code");
-    oauth.searchParams.set("scope", "instagram_business_basic,instagram_business_manage_insights");
+    oauth.searchParams.set("scope", INSTAGRAM_AUTOMATION_SCOPES.join(","));
     oauth.searchParams.set("enable_fb_login", "0");
     oauth.searchParams.set("force_authentication", "1");
     oauth.searchParams.set("state", state);
