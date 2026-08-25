@@ -1599,3 +1599,20 @@
 .rich-welcome-desc u              { text-decoration: underline; }
 
 /* Alinhamento por parágrafo vem via inline style do TipTap — não sobrescrever */
+
+/* Editor do Gerador de Posts */
+.post-rich-text .tiptap {
+  min-height: 1em;
+  outline: none;
+  white-space: pre-wrap;
+}
+.post-rich-text p {
+  margin: 0;
+}
+.post-rich-text mark {
+  color: inherit;
+}
+.post-rich-text .tiptap p + p,
+.post-rich-text > p + p {
+  margin-top: 0.3em;
+}

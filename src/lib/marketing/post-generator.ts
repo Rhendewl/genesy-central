@@ -1,4 +1,4 @@
-import html2canvas from "html2canvas";
+import { toBlob } from "html-to-image";
 
 export type PostFormat = "story" | "portrait";
 export type PostTemplate = "tweet" | "stories";
@@ -10,18 +10,17 @@ export const POST_FORMATS: Record<PostFormat, { label: string; width: number; he
 
 export async function postElementToPng(element: HTMLElement, width: number, height: number) {
   await document.fonts.ready;
-  const canvas = await html2canvas(element, {
-    backgroundColor: null,
+  const blob = await toBlob(element, {
     width,
     height,
-    scale: 1,
-    useCORS: true,
-    allowTaint: false,
-    logging: false,
-    windowWidth: width,
-    windowHeight: height,
+    canvasWidth: width,
+    canvasHeight: height,
+    pixelRatio: 1,
+    cacheBust: true,
+    skipAutoScale: true,
   });
-  return await new Promise<Blob>((resolve, reject) => canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error("Falha ao gerar o PNG.")), "image/png"));
+  if (!blob) throw new Error("Falha ao gerar o PNG.");
+  return blob;
 }
 
 export function downloadBlob(blob: Blob, filename: string) {
