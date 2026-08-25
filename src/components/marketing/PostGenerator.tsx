@@ -51,7 +51,7 @@ function makeSlide(template: PostTemplate, index = 0): Slide {
     id: uid(),
     background: template === "tweet" ? "#ffffff" : "#0a0a0a",
     foreground: template === "tweet" ? "#0f1419" : "#ffffff",
-    content: template === "stories" ? content.normalize("NFD") : content,
+    content,
     media: [],
     backgroundImage: "",
     imageDarkness: 42,
@@ -133,15 +133,6 @@ function PostEditor({ template, onBack }: { template: PostTemplate; onBack: () =
       Color,
       TextAlign.configure({ types: ["paragraph"] }),
     ],
-    editorProps: template === "stories" ? {
-      handleTextInput: (view, from, to, text) => {
-        const normalized = text.normalize("NFD");
-        if (normalized === text) return false;
-        view.dispatch(view.state.tr.insertText(normalized, from, to));
-        return true;
-      },
-      transformPastedText: (text) => text.normalize("NFD"),
-    } : undefined,
     content: firstSlide.content,
     onUpdate: ({ editor: currentEditor }) => {
       const id = activeIdRef.current;
@@ -152,7 +143,7 @@ function PostEditor({ template, onBack }: { template: PostTemplate; onBack: () =
   useEffect(() => {
     if (!editor) return;
     const next = slides.find((slide) => slide.id === activeId);
-    if (next && editor.getHTML() !== next.content) editor.commands.setContent(template === "stories" ? next.content.normalize("NFD") : next.content, { emitUpdate: false });
+    if (next && editor.getHTML() !== next.content) editor.commands.setContent(next.content, { emitUpdate: false });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeId, editor]);
 
