@@ -16,7 +16,7 @@ import {
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
-  createZip, downloadBlob, POST_FORMATS, postElementToPng,
+  chooseDownloadDirectory, createZip, POST_FORMATS, postElementToPng, saveBlob,
   type PostFormat, type PostTemplate,
 } from "@/lib/marketing/post-generator";
 import { cn } from "@/lib/utils";
@@ -347,16 +347,20 @@ function PostEditor({ template, onBack }: { template: PostTemplate; onBack: () =
   async function exportOne() {
     const element = exportRefs.current.get(activeId);
     if (!element) return;
+    const directory = await chooseDownloadDirectory();
+    if (directory === null) return toast.message("Download cancelado.");
     setExporting("one");
     try {
       const blob = await postElementToPng(element, dimensions.width, dimensions.height);
-      downloadBlob(blob, `slide-${String(activeIndex + 1).padStart(2, "0")}-de-${String(slides.length).padStart(2, "0")}.png`);
+      await saveBlob(blob, `slide-${String(activeIndex + 1).padStart(2, "0")}-de-${String(slides.length).padStart(2, "0")}.png`, directory);
       toast.success("Slide exportado em alta qualidade.");
     } catch (error) { toast.error(error instanceof Error ? error.message : "Falha ao exportar o slide."); }
     finally { setExporting(null); }
   }
 
   async function exportAll() {
+    const directory = await chooseDownloadDirectory();
+    if (directory === null) return toast.message("Download cancelado.");
     setExporting("all");
     try {
       const files: Array<{ name: string; data: Uint8Array }> = [];
@@ -366,7 +370,7 @@ function PostEditor({ template, onBack }: { template: PostTemplate; onBack: () =
         const blob = await postElementToPng(element, dimensions.width, dimensions.height);
         files.push({ name: `${String(index + 1).padStart(2, "0")}-de-${String(slides.length).padStart(2, "0")}.png`, data: new Uint8Array(await blob.arrayBuffer()) });
       }
-      downloadBlob(createZip(files), `posts-${template}-${dimensions.width}x${dimensions.height}.zip`);
+      await saveBlob(createZip(files), `posts-${template}-${dimensions.width}x${dimensions.height}.zip`, directory);
       toast.success(`${files.length} slides exportados e numerados.`);
     } catch (error) { toast.error(error instanceof Error ? error.message : "Falha ao exportar os slides."); }
     finally { setExporting(null); }

@@ -2,6 +2,7 @@ import { toBlob } from "html-to-image";
 
 export type PostFormat = "story" | "portrait";
 export type PostTemplate = "tweet" | "stories";
+export type DownloadDirectory = { getFileHandle(name: string, options: { create: boolean }): Promise<{ createWritable(): Promise<{ write(data: Blob): Promise<void>; close(): Promise<void> }> }> };
 
 export const POST_FORMATS: Record<PostFormat, { label: string; width: number; height: number }> = {
   story: { label: "1080 × 1920", width: 1080, height: 1920 },
@@ -43,6 +44,26 @@ export function downloadBlob(blob: Blob, filename: string) {
   anchor.download = filename;
   anchor.click();
   window.setTimeout(() => URL.revokeObjectURL(anchor.href), 1000);
+}
+
+export async function chooseDownloadDirectory(): Promise<DownloadDirectory | null | undefined> {
+  const desktop = window.matchMedia("(pointer: fine)").matches && window.innerWidth >= 768;
+  const picker = (window as Window & { showDirectoryPicker?: (options?: { mode?: "readwrite" }) => Promise<DownloadDirectory> }).showDirectoryPicker;
+  if (!desktop || !picker) return undefined;
+  try {
+    return await picker.call(window, { mode: "readwrite" });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") return null;
+    throw error;
+  }
+}
+
+export async function saveBlob(blob: Blob, filename: string, directory?: DownloadDirectory) {
+  if (!directory) return downloadBlob(blob, filename);
+  const file = await directory.getFileHandle(filename, { create: true });
+  const writable = await file.createWritable();
+  await writable.write(blob);
+  await writable.close();
 }
 
 const CRC_TABLE = (() => {
