@@ -1605,6 +1605,10 @@
   min-height: 1em;
   outline: none;
   white-space: pre-wrap;
+  color: inherit;
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
 }
 .post-rich-text p {
   margin: 0;
