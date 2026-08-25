@@ -8,15 +8,29 @@ export const POST_FORMATS: Record<PostFormat, { label: string; width: number; he
   portrait: { label: "1080 × 1350", width: 1080, height: 1350 },
 };
 
+async function waitForExportImages(element: HTMLElement) {
+  const images = Array.from(element.querySelectorAll("img"));
+  await Promise.all(images.map(async (image) => {
+    if (!image.complete) await new Promise<void>((resolve) => {
+      image.addEventListener("load", () => resolve(), { once: true });
+      image.addEventListener("error", () => resolve(), { once: true });
+    });
+    if (!image.naturalWidth || !image.naturalHeight) throw new Error("Uma das imagens ainda não está pronta. Tente exportar novamente.");
+    if (image.decode) await image.decode().catch(() => undefined);
+  }));
+  await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+}
+
 export async function postElementToPng(element: HTMLElement, width: number, height: number) {
   await document.fonts.ready;
+  await waitForExportImages(element);
   const blob = await toBlob(element, {
     width,
     height,
     canvasWidth: width,
     canvasHeight: height,
     pixelRatio: 1,
-    cacheBust: true,
+    cacheBust: false,
     skipAutoScale: true,
   });
   if (!blob) throw new Error("Falha ao gerar o PNG.");

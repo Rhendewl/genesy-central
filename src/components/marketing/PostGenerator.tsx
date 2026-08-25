@@ -26,7 +26,10 @@ type Slide = {
   background: string;
   foreground: string;
   content: string;
+  textBlocks: TextBlock[];
+  layout: string[];
   media: string[];
+  mediaCrops: MediaCrop[];
   backgroundImage: string;
   imageDarkness: number;
   fontSize: number;
@@ -37,6 +40,8 @@ type Slide = {
   mediaPosition: "top" | "bottom";
 };
 
+type MediaCrop = { x: number; y: number; zoom: number };
+type TextBlock = { id: string; content: string; fontSize: number; textWidth: number };
 type TweetProfile = { avatar: string; name: string; handle: string; verified: boolean };
 type PersistedPostProject = { version: 1; format: PostFormat; slides: Slide[]; activeId: string; tweetProfile: TweetProfile; updatedAt: number };
 
@@ -48,6 +53,8 @@ const DEFAULT_PROFILE: TweetProfile = {
 };
 
 function uid() { return Math.random().toString(36).slice(2, 10); }
+function defaultMediaCrop(): MediaCrop { return { x: 50, y: 50, zoom: 1 }; }
+function makeTextBlock(template: PostTemplate, content: string): TextBlock { return { id: uid(), content, fontSize: template === "tweet" ? 45 : 70, textWidth: template === "tweet" ? 76 : 84 }; }
 
 let postProjectDatabase: Promise<IDBDatabase> | null = null;
 
@@ -94,12 +101,16 @@ function makeSlide(template: PostTemplate, index = 0): Slide {
   const content = template === "tweet"
     ? "<p>Escreva aqui uma ideia forte, simples e impossível de ignorar.</p>"
     : `<p>${index === 0 ? "Uma boa história começa com uma frase que prende." : "Continue a narrativa com clareza e ritmo."}</p>`;
+  const textBlock = makeTextBlock(template, content);
   return {
     id: uid(),
     background: template === "tweet" ? "#ffffff" : "#000000",
     foreground: template === "tweet" ? "#0f1419" : "#ffffff",
     content,
+    textBlocks: [textBlock],
+    layout: [textBlock.id, "media"],
     media: [],
+    mediaCrops: [],
     backgroundImage: "",
     imageDarkness: 42,
     fontSize: template === "tweet" ? 45 : 70,
@@ -167,14 +178,18 @@ function PostEditor({ template, onBack }: { template: PostTemplate; onBack: () =
   const [format, setFormat] = useState<PostFormat>("story");
   const [slides, setSlides] = useState<Slide[]>([firstSlide]);
   const [activeId, setActiveId] = useState(firstSlide.id);
+  const [activeTextBlockId, setActiveTextBlockId] = useState(firstSlide.textBlocks[0].id);
   const [tweetProfile, setTweetProfile] = useState<TweetProfile>(DEFAULT_PROFILE);
   const [storageReady, setStorageReady] = useState(false);
   const [exporting, setExporting] = useState<"one" | "all" | null>(null);
   const exportRefs = useRef(new Map<string, HTMLDivElement>());
   const activeIdRef = useRef(activeId);
+  const activeTextBlockIdRef = useRef(activeTextBlockId);
   activeIdRef.current = activeId;
+  activeTextBlockIdRef.current = activeTextBlockId;
   const activeIndex = Math.max(0, slides.findIndex((slide) => slide.id === activeId));
   const active = slides[activeIndex];
+  const activeTextBlock = active.textBlocks.find((block) => block.id === activeTextBlockId) || active.textBlocks[0];
   const dimensions = POST_FORMATS[format];
 
   const editor = useEditor({
@@ -187,10 +202,11 @@ function PostEditor({ template, onBack }: { template: PostTemplate; onBack: () =
       Color,
       TextAlign.configure({ types: ["paragraph"] }),
     ],
-    content: firstSlide.content,
+    content: firstSlide.textBlocks[0].content,
     onUpdate: ({ editor: currentEditor }) => {
       const id = activeIdRef.current;
-      setSlides((current) => current.map((slide) => slide.id === id ? { ...slide, content: currentEditor.getHTML() } : slide));
+      const blockId = activeTextBlockIdRef.current;
+      setSlides((current) => current.map((slide) => slide.id === id ? { ...slide, textBlocks: slide.textBlocks.map((block) => block.id === blockId ? { ...block, content: currentEditor.getHTML() } : block) } : slide));
     },
   });
 
@@ -198,10 +214,23 @@ function PostEditor({ template, onBack }: { template: PostTemplate; onBack: () =
     let mounted = true;
     void loadPostProject(template).then((project) => {
       if (!mounted || !project?.slides?.length) return;
-      const restoredSlides = project.slides.map((slide, index) => ({ ...makeSlide(template, index), ...slide, id: slide.id || uid(), media: Array.isArray(slide.media) ? slide.media.slice(0, 2) : [] }));
+      const restoredSlides = project.slides.map((slide, index) => {
+        const base = makeSlide(template, index);
+        const media = Array.isArray(slide.media) ? slide.media.slice(0, 2) : [];
+        const mediaCrops = media.map((_, mediaIndex) => ({ ...defaultMediaCrop(), ...(Array.isArray(slide.mediaCrops) ? slide.mediaCrops[mediaIndex] : undefined) }));
+        const textBlocks = Array.isArray(slide.textBlocks) && slide.textBlocks.length
+          ? slide.textBlocks.map((block) => ({ ...makeTextBlock(template, block.content || "<p>Novo texto</p>"), ...block, id: block.id || uid() }))
+          : [{ ...makeTextBlock(template, slide.content || base.content), fontSize: slide.fontSize || base.fontSize, textWidth: slide.textWidth || base.textWidth }];
+        const validKeys = new Set(["media", ...textBlocks.map((block) => block.id)]);
+        const savedLayout = Array.isArray(slide.layout) ? slide.layout.filter((key) => validKeys.has(key)) : [];
+        const fallbackLayout = slide.mediaPosition === "top" ? ["media", ...textBlocks.map((block) => block.id)] : [...textBlocks.map((block) => block.id), "media"];
+        const layout = [...savedLayout, ...fallbackLayout.filter((key) => !savedLayout.includes(key))];
+        return { ...base, ...slide, id: slide.id || uid(), media, mediaCrops, textBlocks, layout };
+      });
       const restoredActiveId = restoredSlides.some((slide) => slide.id === project.activeId) ? project.activeId : restoredSlides[0].id;
       setSlides(restoredSlides);
       setActiveId(restoredActiveId);
+      setActiveTextBlockId(restoredSlides.find((slide) => slide.id === restoredActiveId)?.textBlocks[0].id || restoredSlides[0].textBlocks[0].id);
       setFormat(project.format === "portrait" ? "portrait" : "story");
       setTweetProfile({ ...DEFAULT_PROFILE, ...project.tweetProfile });
     }).catch((error) => console.error("Não foi possível restaurar o Gerador de Posts.", error)).finally(() => {
@@ -218,11 +247,49 @@ function PostEditor({ template, onBack }: { template: PostTemplate; onBack: () =
   useEffect(() => {
     if (!editor) return;
     const next = slides.find((slide) => slide.id === activeId);
-    if (next && editor.getHTML() !== next.content) editor.commands.setContent(next.content, { emitUpdate: false });
+    const block = next?.textBlocks.find((item) => item.id === activeTextBlockId) || next?.textBlocks[0];
+    if (block && editor.getHTML() !== block.content) editor.commands.setContent(block.content, { emitUpdate: false });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeId, editor]);
+  }, [activeId, activeTextBlockId, editor]);
+
+  useEffect(() => {
+    if (!active.textBlocks.some((block) => block.id === activeTextBlockId)) setActiveTextBlockId(active.textBlocks[0].id);
+  }, [active, activeTextBlockId]);
 
   const update = (patch: Partial<Slide>) => setSlides((current) => current.map((slide) => slide.id === activeId ? { ...slide, ...patch } : slide));
+  const updateTextBlock = (patch: Partial<TextBlock>) => update({ textBlocks: active.textBlocks.map((block) => block.id === activeTextBlockId ? { ...block, ...patch } : block) });
+
+  const addTextBlock = () => {
+    const block = makeTextBlock(template, "<p>Novo texto</p>");
+    const activeLayoutIndex = active.layout.indexOf(activeTextBlockId);
+    const layout = [...active.layout];
+    layout.splice(activeLayoutIndex >= 0 ? activeLayoutIndex + 1 : layout.length, 0, block.id);
+    update({ textBlocks: [...active.textBlocks, block], layout });
+    setActiveTextBlockId(block.id);
+  };
+
+  const removeTextBlock = () => {
+    if (active.textBlocks.length === 1) return toast.error("O slide precisa ter pelo menos uma caixa de texto.");
+    const index = active.textBlocks.findIndex((block) => block.id === activeTextBlockId);
+    const textBlocks = active.textBlocks.filter((block) => block.id !== activeTextBlockId);
+    update({ textBlocks, layout: active.layout.filter((key) => key !== activeTextBlockId) });
+    setActiveTextBlockId(textBlocks[Math.min(Math.max(index, 0), textBlocks.length - 1)].id);
+  };
+
+  const reorderLayout = (sourceId: string, targetId: string, after: boolean) => {
+    if (sourceId === targetId) return;
+    const layout = active.layout.filter((key) => key !== sourceId);
+    const targetIndex = layout.indexOf(targetId);
+    layout.splice(targetIndex < 0 ? layout.length : targetIndex + (after ? 1 : 0), 0, sourceId);
+    update({ layout, textPlacement: "above" });
+  };
+
+  const placeActiveText = (placement: "above" | "below") => {
+    const layout = active.layout.filter((key) => key !== activeTextBlockId);
+    const mediaIndex = layout.indexOf("media");
+    layout.splice(mediaIndex < 0 ? layout.length : mediaIndex + (placement === "below" ? 1 : 0), 0, activeTextBlockId);
+    update({ layout, mediaPosition: placement === "above" ? "bottom" : "top", textPlacement: placement });
+  };
 
   const addSlide = () => {
     const next = {
@@ -232,15 +299,19 @@ function PostEditor({ template, onBack }: { template: PostTemplate; onBack: () =
     };
     setSlides((current) => [...current, next]);
     setActiveId(next.id);
+    setActiveTextBlockId(next.textBlocks[0].id);
   };
 
   const duplicateSlide = (id: string) => {
     const sourceIndex = slides.findIndex((slide) => slide.id === id);
     if (sourceIndex < 0) return;
     const source = slides[sourceIndex];
-    const next = { ...source, id: uid(), media: [...source.media] };
+    const idMap = new Map(source.textBlocks.map((block) => [block.id, uid()]));
+    const textBlocks = source.textBlocks.map((block) => ({ ...block, id: idMap.get(block.id)! }));
+    const next = { ...source, id: uid(), media: [...source.media], mediaCrops: source.mediaCrops.map((crop) => ({ ...crop })), textBlocks, layout: source.layout.map((key) => idMap.get(key) || key) };
     setSlides((current) => [...current.slice(0, sourceIndex + 1), next, ...current.slice(sourceIndex + 1)]);
     setActiveId(next.id);
+    setActiveTextBlockId(textBlocks[0].id);
   };
   const duplicate = () => duplicateSlide(activeId);
 
@@ -320,12 +391,12 @@ function PostEditor({ template, onBack }: { template: PostTemplate; onBack: () =
           <div className="mb-4 flex items-center justify-between"><div><p className="text-xs font-semibold text-[var(--text-title)]">Pré-visualização</p><p className="text-[10px] text-[var(--muted-foreground)]">Selecione um trecho para formatar. O alinhamento vale para o parágrafo.</p></div><span className="rounded-full border px-2.5 py-1 text-[10px] text-[var(--muted-foreground)]">Slide {activeIndex + 1} de {slides.length}</span></div>
           <TextToolbar editor={editor} defaultColor={active.foreground} />
           <ScaledCanvas width={dimensions.width} height={dimensions.height} format={format} profile={tweetProfile}>
-            <PostCanvas slide={active} profile={tweetProfile} template={template} width={dimensions.width} height={dimensions.height} editable editor={editor} onTextMove={(textX, textY) => update({ textX, textY, textPlacement: "free" })} />
+            <PostCanvas slide={active} profile={tweetProfile} template={template} width={dimensions.width} height={dimensions.height} editable editor={editor} activeTextBlockId={activeTextBlockId} onSelectTextBlock={setActiveTextBlockId} onReorderText={reorderLayout} />
           </ScaledCanvas>
           <div className="mx-auto mt-4 flex max-w-xl items-center justify-center gap-1.5"><Button variant="outline" size="sm" onClick={() => move(-1)} disabled={activeIndex === 0} aria-label="Mover slide para cima"><ArrowUp /></Button><Button variant="outline" size="sm" onClick={() => move(1)} disabled={activeIndex === slides.length - 1} aria-label="Mover slide para baixo"><ArrowDown /></Button><Button variant="outline" size="sm" onClick={duplicate} icon={<Copy />}>Duplicar</Button><Button variant="danger" size="sm" onClick={remove} icon={<Trash2 />}>Excluir</Button></div>
         </main>
 
-        <PropertiesPanel template={template} format={format} setFormat={setFormat} slide={active} update={update} profile={tweetProfile} setProfile={setTweetProfile} />
+        <PropertiesPanel template={template} format={format} setFormat={setFormat} slide={active} update={update} activeTextBlock={activeTextBlock} selectTextBlock={setActiveTextBlockId} updateTextBlock={updateTextBlock} addTextBlock={addTextBlock} removeTextBlock={removeTextBlock} placeText={placeActiveText} profile={tweetProfile} setProfile={setTweetProfile} />
       </div>
 
       <div aria-hidden className="pointer-events-none fixed left-[-12000px] top-0">
@@ -405,27 +476,25 @@ function ScaledCanvas({ width, height, format, profile, children }: { width: num
   </div>;
 }
 
-function PostCanvas({ slide, profile, template, width, height, editable = false, editor, refCallback, onTextMove }: { slide: Slide; profile: TweetProfile; template: PostTemplate; width: number; height: number; editable?: boolean; editor?: Editor | null; refCallback?: (node: HTMLDivElement | null) => void; onTextMove?: (x: number, y: number) => void }) {
+function PostCanvas({ slide, profile, template, width, height, editable = false, editor, refCallback, activeTextBlockId, onSelectTextBlock, onReorderText }: { slide: Slide; profile: TweetProfile; template: PostTemplate; width: number; height: number; editable?: boolean; editor?: Editor | null; refCallback?: (node: HTMLDivElement | null) => void; activeTextBlockId?: string; onSelectTextBlock?: (id: string) => void; onReorderText?: (sourceId: string, targetId: string, after: boolean) => void }) {
   const safeLeft = template === "tweet" ? 12 : 8;
   const safeWidth = 100 - safeLeft * 2;
-  const automatic = slide.textPlacement !== "free";
-  const text = <PositionedText slide={slide} editor={editor} editable={editable} onMove={onTextMove} story={template === "stories"} flow={automatic} safeLeft={safeLeft} safeWidth={safeWidth} />;
-  const media = slide.media.length ? <HorizontalMedia media={slide.media} /> : null;
+  const [draggedTextId, setDraggedTextId] = useState<string | null>(null);
+  const [dropTargetId, setDropTargetId] = useState<string | null>(null);
+  const media = slide.media.length ? <HorizontalMedia media={slide.media} crops={slide.mediaCrops} /> : null;
   const profileBlock = template === "tweet" ? <TweetProfileBlock profile={profile} foreground={slide.foreground} /> : null;
-  const orderedContent = <>
-    {profileBlock}
-    {slide.mediaPosition === "top" && media}
-    {text}
-    {slide.mediaPosition === "bottom" && media}
-  </>;
+  const textMap = new Map(slide.textBlocks.map((block) => [block.id, block]));
+  const layout = [...slide.layout, ...slide.textBlocks.map((block) => block.id).filter((id) => !slide.layout.includes(id)), ...(slide.layout.includes("media") ? [] : ["media"] )];
+  const layoutItems = layout.map((key) => {
+    const block = textMap.get(key);
+    const child = key === "media" ? media : block ? <TextBlockItem block={block} editor={editor} editable={editable} active={activeTextBlockId === block.id} foreground={slide.foreground} story={template === "stories"} safeWidth={safeWidth} onSelect={() => onSelectTextBlock?.(block.id)} onDragStart={(event) => { event.dataTransfer.effectAllowed = "move"; event.dataTransfer.setData("text/plain", block.id); setDraggedTextId(block.id); }} onDragEnd={() => { setDraggedTextId(null); setDropTargetId(null); }} /> : null;
+    if (!child) return null;
+    return <div key={key} className={cn("relative w-full transition", dropTargetId === key && draggedTextId !== key && "rounded-[28px] ring-[8px] ring-[#27a3ff]/35")} onDragOver={editable ? (event) => { event.preventDefault(); event.dataTransfer.dropEffect = "move"; setDropTargetId(key); } : undefined} onDragLeave={editable ? () => setDropTargetId((current) => current === key ? null : current) : undefined} onDrop={editable ? (event) => { event.preventDefault(); const sourceId = draggedTextId || event.dataTransfer.getData("text/plain"); if (sourceId && sourceId !== key) { const rect = event.currentTarget.getBoundingClientRect(); onReorderText?.(sourceId, key, event.clientY >= rect.top + rect.height / 2); } setDraggedTextId(null); setDropTargetId(null); } : undefined}>{child}</div>;
+  });
 
   return <div ref={refCallback} data-post-canvas={template} className="relative overflow-hidden" style={{ width, height, background: slide.background, color: slide.foreground, fontFamily: template === "tweet" ? "Arial, Helvetica, sans-serif" : "Advercase, Georgia, serif", fontWeight: 400 }}>
     {template === "stories" && slide.backgroundImage && <><img src={slide.backgroundImage} alt="Fundo do slide" className="absolute inset-0 h-full w-full object-cover" /><span className="absolute inset-0 bg-black" style={{ opacity: slide.imageDarkness / 100 }} /></>}
-    {automatic ? <BalancedContent safeLeft={safeLeft} safeWidth={safeWidth} gap={template === "tweet" ? (media ? 44 : 38) : (media ? 52 : 0)}>{orderedContent}</BalancedContent> : <>
-      {profileBlock && <div className="absolute" style={{ left: `${safeLeft}%`, top: `${safeLeft}%`, width: `${safeWidth}%` }}>{profileBlock}</div>}
-      {media && <div className="absolute" style={{ left: `${safeLeft}%`, top: slide.mediaPosition === "top" ? "24%" : "58%", width: `${safeWidth}%` }}>{media}</div>}
-      {text}
-    </>}
+    <BalancedContent safeLeft={safeLeft} safeWidth={safeWidth} gap={template === "tweet" ? 44 : 52}>{profileBlock}{layoutItems}</BalancedContent>
   </div>;
 }
 
@@ -437,7 +506,7 @@ function BalancedContent({ safeLeft, safeWidth, gap, children }: { safeLeft: num
     const hostNode = host.current;
     const contentNode = content.current;
     if (!hostNode || !contentNode) return;
-    const fit = () => setFitScale(Math.min(1, hostNode.clientHeight / Math.max(contentNode.scrollHeight, 1)));
+    const fit = () => setFitScale(Math.min(1, hostNode.clientHeight / Math.max(contentNode.offsetHeight, 1)));
     fit();
     const observer = new ResizeObserver(fit);
     observer.observe(hostNode);
@@ -448,45 +517,41 @@ function BalancedContent({ safeLeft, safeWidth, gap, children }: { safeLeft: num
 }
 
 function TweetProfileBlock({ profile, foreground }: { profile: TweetProfile; foreground: string }) {
-  return <div className="flex items-center gap-[24px]"><Avatar src={profile.avatar} size={122} /><div><p className="flex items-center gap-[12px] text-[45px] font-bold leading-none">{profile.name}{profile.verified && <span className="grid h-[34px] w-[34px] place-items-center rounded-full bg-[#1d9bf0] text-[20px] text-white">✓</span>}</p><p className="mt-[14px] text-[34px]" style={{ color: foreground, opacity: .62 }}>{profile.handle}</p></div></div>;
+  return <div className="flex items-center gap-[24px]"><Avatar src={profile.avatar} size={122} /><div><p className="flex items-center gap-[12px] text-[45px] font-bold leading-none">{profile.name}{profile.verified && <img src="/brand/verified-badge.png" alt="Perfil verificado" className="h-[38px] w-[38px] shrink-0 object-contain" />}</p><p className="mt-[14px] text-[34px]" style={{ color: foreground, opacity: .62 }}>{profile.handle}</p></div></div>;
 }
 
-function PositionedText({ slide, editor, editable, onMove, story = false, flow, safeLeft, safeWidth }: { slide: Slide; editor?: Editor | null; editable: boolean; onMove?: (x: number, y: number) => void; story?: boolean; flow: boolean; safeLeft: number; safeWidth: number }) {
-  const drag = useRef<{ pointerId: number; startX: number; startY: number; textX: number; textY: number; canvasRect: DOMRect; textHeight: number } | null>(null);
-  const flowWidth = Math.min(slide.textWidth, safeWidth) / safeWidth * 100;
-  return <div className={cn(flow ? "relative self-center" : "absolute", editable && "z-10")} style={{ ...(flow ? { width: `${flowWidth}%` } : { left: `${slide.textX}%`, top: `${slide.textY}%`, width: `${Math.min(slide.textWidth, safeWidth)}%` }), color: slide.foreground, fontSize: slide.fontSize, fontWeight: 400, lineHeight: story ? .94 : 1.18, overflowWrap: "anywhere" }}>
-    {editable && <button type="button" aria-label="Arrastar texto" title="Arraste para posicionar o texto" className="absolute -bottom-16 left-1/2 grid h-12 w-12 -translate-x-1/2 touch-none place-items-center rounded-full bg-[#27a3ff] text-white shadow-xl" onPointerDown={(event) => { const canvas = event.currentTarget.closest<HTMLElement>("[data-post-canvas]"); const textNode = event.currentTarget.parentElement; if (!canvas || !textNode) return; event.currentTarget.setPointerCapture(event.pointerId); const canvasRect = canvas.getBoundingClientRect(); const textRect = textNode.getBoundingClientRect(); drag.current = { pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, textX: flow ? safeLeft + (safeWidth - Math.min(slide.textWidth, safeWidth)) / 2 : slide.textX, textY: flow ? (textRect.top - canvasRect.top) / canvasRect.height * 100 : slide.textY, canvasRect, textHeight: textRect.height / canvasRect.height * 100 }; }} onPointerMove={(event) => { const current = drag.current; if (!current || current.pointerId !== event.pointerId) return; const textWidth = Math.min(slide.textWidth, safeWidth); const nextX = Math.max(safeLeft, Math.min(safeLeft + safeWidth - textWidth, current.textX + (event.clientX - current.startX) / current.canvasRect.width * 100)); const nextY = Math.max(safeLeft, Math.min(100 - safeLeft - current.textHeight, current.textY + (event.clientY - current.startY) / current.canvasRect.height * 100)); onMove?.(Number(nextX.toFixed(2)), Number(nextY.toFixed(2))); }} onPointerUp={(event) => { if (drag.current?.pointerId === event.pointerId) drag.current = null; }} onPointerCancel={() => { drag.current = null; }}><Move size={24} /></button>}
-    <PostText slide={slide} editor={editor} editable={editable} className={cn("w-full", story && "tracking-[-.03em]")} />
+function TextBlockItem({ block, editor, editable, active, foreground, story, safeWidth, onSelect, onDragStart, onDragEnd }: { block: TextBlock; editor?: Editor | null; editable: boolean; active: boolean; foreground: string; story: boolean; safeWidth: number; onSelect: () => void; onDragStart: (event: React.DragEvent<HTMLButtonElement>) => void; onDragEnd: () => void }) {
+  const width = Math.min(block.textWidth, safeWidth) / safeWidth * 100;
+  return <div onClick={editable ? onSelect : undefined} className={cn("relative mx-auto", editable && "cursor-text", active && "z-10")} style={{ width: `${width}%`, color: foreground, fontSize: block.fontSize, fontWeight: 400, lineHeight: story ? .94 : 1.18, overflowWrap: "anywhere" }}>
+    {editable && active && <button type="button" draggable aria-label="Mover caixa de texto" title="Arraste para reorganizar esta caixa" className="absolute -bottom-14 left-1/2 grid h-12 w-12 -translate-x-1/2 cursor-grab place-items-center rounded-full bg-[#27a3ff] text-white shadow-xl active:cursor-grabbing" onDragStart={onDragStart} onDragEnd={onDragEnd}><Move size={24} /></button>}
+    <PostText block={block} editor={active ? editor : undefined} editable={editable && active} className={cn("w-full", story && "tracking-[-.03em]", editable && !active && "rounded-lg ring-[5px] ring-transparent hover:ring-[#27a3ff]/20", active && "rounded-lg ring-[5px] ring-[#27a3ff]/25")} />
   </div>;
 }
 
-function PostText({ slide, editor, editable, className }: { slide: Slide; editor?: Editor | null; editable: boolean; className: string }) {
+function PostText({ block, editor, editable, className }: { block: TextBlock; editor?: Editor | null; editable: boolean; className: string }) {
   if (editable && editor) return <EditorContent editor={editor} className={cn("post-rich-text rounded-lg outline-none ring-[5px] ring-transparent transition focus-within:ring-[#27a3ff]/35", className)} />;
-  return <div className={cn("post-rich-text", className)} dangerouslySetInnerHTML={{ __html: slide.content }} />;
+  return <div className={cn("post-rich-text", className)} dangerouslySetInnerHTML={{ __html: block.content }} />;
 }
 
-function HorizontalMedia({ media, className }: { media: string[]; className?: string }) {
+function HorizontalMedia({ media, crops, className }: { media: string[]; crops: MediaCrop[]; className?: string }) {
   if (!media.length) return null;
-  return <div className={cn("grid aspect-[16/9] overflow-hidden rounded-[36px] border border-black/10", className)} style={{ gridTemplateColumns: `repeat(${media.length},minmax(0,1fr))` }}>{media.map((image, index) => <img key={`${image.slice(-20)}-${index}`} src={image} alt="Mídia do post" className="h-full w-full object-cover" style={{ borderLeft: index ? "3px solid rgba(255,255,255,.8)" : undefined }} />)}</div>;
+  return <div className={cn("grid aspect-[16/9] overflow-hidden rounded-[36px] border border-black/10", className)} style={{ gridTemplateColumns: `repeat(${media.length},minmax(0,1fr))` }}>{media.map((image, index) => { const crop = { ...defaultMediaCrop(), ...crops[index] }; return <div key={`${image.slice(-20)}-${index}`} className="h-full min-w-0 overflow-hidden" style={{ borderLeft: index ? "3px solid rgba(255,255,255,.8)" : undefined }}><img src={image} alt="Mídia do post" className="h-full w-full object-cover" style={{ objectPosition: `${crop.x}% ${crop.y}%`, transform: `scale(${crop.zoom})`, transformOrigin: `${crop.x}% ${crop.y}%` }} /></div>; })}</div>;
 }
 
 function Avatar({ src, size }: { src: string; size: number }) {
   return src ? <img src={src} alt="Foto do perfil" className="shrink-0 rounded-full object-cover" style={{ width: size, height: size }} /> : <span className="grid shrink-0 place-items-center rounded-full bg-[#20252a] text-white" style={{ width: size, height: size }}><UserRound size={size * .42} /></span>;
 }
 
-function PropertiesPanel({ template, format, setFormat, slide, update, profile, setProfile }: { template: PostTemplate; format: PostFormat; setFormat: (format: PostFormat) => void; slide: Slide; update: (patch: Partial<Slide>) => void; profile: TweetProfile; setProfile: React.Dispatch<React.SetStateAction<TweetProfile>> }) {
+function PropertiesPanel({ template, format, setFormat, slide, update, activeTextBlock, selectTextBlock, updateTextBlock, addTextBlock, removeTextBlock, placeText, profile, setProfile }: { template: PostTemplate; format: PostFormat; setFormat: (format: PostFormat) => void; slide: Slide; update: (patch: Partial<Slide>) => void; activeTextBlock: TextBlock; selectTextBlock: (id: string) => void; updateTextBlock: (patch: Partial<TextBlock>) => void; addTextBlock: () => void; removeTextBlock: () => void; placeText: (placement: "above" | "below") => void; profile: TweetProfile; setProfile: React.Dispatch<React.SetStateAction<TweetProfile>> }) {
   const addFile = (file: File | undefined, callback: (url: string) => void) => { if (!file) return; if (!file.type.startsWith("image/")) return toast.error("Selecione um arquivo de imagem."); const reader = new FileReader(); reader.onload = () => callback(String(reader.result)); reader.readAsDataURL(file); };
   const updateProfile = (patch: Partial<TweetProfile>) => setProfile((current) => ({ ...current, ...patch }));
   const updateBackground = (background: string) => update({ background, foreground: contrastColor(background) });
-  const placeText = (placement: "above" | "below") => update({
-    textPlacement: placement,
-    mediaPosition: placement === "above" ? "bottom" : "top",
-    textX: template === "tweet" ? 12 : 8,
-    textY: template === "tweet" ? 31 : 12,
-  });
+  const textLayoutIndex = slide.layout.indexOf(activeTextBlock.id);
+  const mediaLayoutIndex = slide.layout.indexOf("media");
+  const textPlacement = textLayoutIndex < mediaLayoutIndex ? "above" : "below";
   return <aside className="p-4 lg:p-5"><div className="space-y-6"><PanelSection title="Documento"><div className="grid grid-cols-2 gap-2">{(Object.entries(POST_FORMATS) as Array<[PostFormat, { label: string; width: number; height: number }]>).map(([value, item]) => <button key={value} onClick={() => setFormat(value)} className={cn("rounded-xl border p-3 text-left transition", format === value ? "border-[var(--accent-blue)] bg-[var(--hover)]" : "border-[var(--glass-border)]")}><span className="block text-xs font-semibold text-[var(--text-title)]">{item.label}</span><span className="text-[9px] text-[var(--muted-foreground)]">{value === "story" ? "Story" : "Feed 4:5"}</span>{format === value && <Check size={13} className="float-right -mt-5 text-[var(--accent-blue)]" />}</button>)}</div></PanelSection>
 
-      <PanelSection title="Texto"><Field label={`Tamanho · ${slide.fontSize}px`}><input aria-label="Tamanho do texto" type="range" min={template === "tweet" ? 28 : 36} max={template === "tweet" ? 128 : 190} step="1" value={slide.fontSize} onChange={(event) => update({ fontSize: Number(event.target.value) })} className="w-full accent-[#27a3ff]" /></Field><Field label={`Largura do bloco · ${slide.textWidth}%`}><input aria-label="Largura do texto" type="range" min="40" max={template === "tweet" ? 76 : 84} step="2" value={Math.min(slide.textWidth, template === "tweet" ? 76 : 84)} onChange={(event) => { const textWidth = Number(event.target.value); const safeLeft = template === "tweet" ? 12 : 8; const safeWidth = 100 - safeLeft * 2; update({ textWidth, textX: Math.max(safeLeft, Math.min(slide.textX, safeLeft + safeWidth - textWidth)) }); }} className="w-full accent-[#27a3ff]" /></Field><div className="grid grid-cols-2 gap-2"><button onClick={() => placeText("above")} className={cn("rounded-xl border px-3 py-2 text-xs", slide.textPlacement === "above" && "border-[var(--accent-blue)] bg-[var(--hover)]")}>Texto acima</button><button onClick={() => placeText("below")} className={cn("rounded-xl border px-3 py-2 text-xs", slide.textPlacement === "below" && "border-[var(--accent-blue)] bg-[var(--hover)]")}>Texto abaixo</button></div><p className="text-[10px] leading-relaxed text-[var(--muted-foreground)]"><Move size={11} className="mr-1 inline" />O conteúdo é enquadrado automaticamente. Ao arrastar, o texto respeita as mesmas margens da imagem.</p></PanelSection>
+      <PanelSection title="Caixas de texto"><div className="flex flex-wrap gap-1.5">{slide.textBlocks.map((block, index) => <button key={block.id} type="button" onClick={() => selectTextBlock(block.id)} className={cn("rounded-lg border px-2.5 py-1.5 text-[10px]", activeTextBlock.id === block.id ? "border-[var(--accent-blue)] bg-[var(--hover)] text-[var(--text-title)]" : "border-[var(--glass-border)] text-[var(--muted-foreground)]")}>Texto {index + 1}</button>)}</div><div className="grid grid-cols-2 gap-2"><Button variant="outline" size="sm" onClick={addTextBlock} icon={<Plus />}>Novo texto</Button><Button variant="danger" size="sm" onClick={removeTextBlock} disabled={slide.textBlocks.length === 1} icon={<Trash2 />}>Remover</Button></div><Field label={`Tamanho · ${activeTextBlock.fontSize}px`}><input aria-label="Tamanho do texto" type="range" min={template === "tweet" ? 28 : 36} max={template === "tweet" ? 128 : 190} step="1" value={activeTextBlock.fontSize} onChange={(event) => updateTextBlock({ fontSize: Number(event.target.value) })} className="w-full accent-[#27a3ff]" /></Field><Field label={`Largura do bloco · ${activeTextBlock.textWidth}%`}><input aria-label="Largura do texto" type="range" min="40" max={template === "tweet" ? 76 : 84} step="2" value={Math.min(activeTextBlock.textWidth, template === "tweet" ? 76 : 84)} onChange={(event) => updateTextBlock({ textWidth: Number(event.target.value) })} className="w-full accent-[#27a3ff]" /></Field><div className="grid grid-cols-2 gap-2"><button onClick={() => placeText("above")} className={cn("rounded-xl border px-3 py-2 text-xs", textPlacement === "above" && "border-[var(--accent-blue)] bg-[var(--hover)]")}>Acima da imagem</button><button onClick={() => placeText("below")} className={cn("rounded-xl border px-3 py-2 text-xs", textPlacement === "below" && "border-[var(--accent-blue)] bg-[var(--hover)]")}>Abaixo da imagem</button></div><p className="text-[10px] leading-relaxed text-[var(--muted-foreground)]"><Move size={11} className="mr-1 inline" />Selecione uma caixa e arraste o controle azul. Ela se encaixa na sequência sem alterar margens ou distâncias.</p></PanelSection>
 
       {template === "tweet" ? <>
         <PanelSection title="Perfil · aplicado a todos os slides"><UploadField label="Foto do usuário" value={profile.avatar} onFile={(file) => addFile(file, (avatar) => updateProfile({ avatar }))} onRemove={() => updateProfile({ avatar: "" })} /><Field label="Nome"><input value={profile.name} onChange={(event) => updateProfile({ name: event.target.value })} className="editor-input" /></Field><Field label="Arroba"><div className="relative"><AtSign size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)]" /><input value={profile.handle.replace(/^@/, "")} onChange={(event) => updateProfile({ handle: `@${event.target.value.replace(/^@/, "")}` })} className="editor-input pl-8" /></div></Field><label className="flex items-center justify-between text-xs"><span>Selo de verificação</span><input type="checkbox" checked={profile.verified} onChange={(event) => updateProfile({ verified: event.target.checked })} className="accent-[#27a3ff]" /></label></PanelSection>
@@ -501,7 +566,15 @@ function PropertiesPanel({ template, format, setFormat, slide, update, profile, 
 }
 
 function MediaPanel({ slide, update, addFile, title }: { slide: Slide; update: (patch: Partial<Slide>) => void; addFile: (file: File | undefined, callback: (url: string) => void) => void; title: string }) {
-  return <PanelSection title={title}><p className="mb-3 text-[10px] leading-relaxed text-[var(--muted-foreground)]">O quadro é sempre horizontal. Adicione uma imagem ou duas divididas lado a lado.</p><div className="grid grid-cols-2 gap-2">{[0, 1].map((index) => <UploadTile key={index} value={slide.media[index]} label={`Imagem ${index + 1}`} onFile={(file) => addFile(file, (url) => { const media = [...slide.media]; media[index] = url; update({ media: media.filter(Boolean).slice(0, 2) }); })} onRemove={() => update({ media: slide.media.filter((_, mediaIndex) => mediaIndex !== index) })} />)}</div></PanelSection>;
+  const setMediaFile = (index: number, url: string) => {
+    const media = [...slide.media];
+    const mediaCrops = [...slide.mediaCrops];
+    media[index] = url;
+    mediaCrops[index] = defaultMediaCrop();
+    const pairs = media.map((image, mediaIndex) => ({ image, crop: mediaCrops[mediaIndex] || defaultMediaCrop() })).filter((item) => Boolean(item.image)).slice(0, 2);
+    update({ media: pairs.map((item) => item.image), mediaCrops: pairs.map((item) => item.crop) });
+  };
+  return <PanelSection title={title}><p className="mb-3 text-[10px] leading-relaxed text-[var(--muted-foreground)]">O quadro é sempre horizontal. Adicione uma imagem ou duas lado a lado e ajuste o enquadramento individualmente.</p><div className="grid grid-cols-2 gap-2">{[0, 1].map((index) => <UploadTile key={index} value={slide.media[index]} crop={{ ...defaultMediaCrop(), ...slide.mediaCrops[index] }} label={`Imagem ${index + 1}`} onCropChange={(crop) => { const mediaCrops = [...slide.mediaCrops]; mediaCrops[index] = crop; update({ mediaCrops }); }} onFile={(file) => addFile(file, (url) => setMediaFile(index, url))} onRemove={() => update({ media: slide.media.filter((_, mediaIndex) => mediaIndex !== index), mediaCrops: slide.mediaCrops.filter((_, mediaIndex) => mediaIndex !== index) })} />)}</div></PanelSection>;
 }
 
 function PanelSection({ title, children }: { title: string; children: React.ReactNode }) { return <section className="border-b pb-5 last:border-0" style={{ borderColor: "var(--border)" }}><h2 className="mb-3 text-[10px] font-semibold uppercase tracking-[.14em] text-[var(--muted-foreground)]">{title}</h2><div className="space-y-3">{children}</div></section>; }
@@ -510,4 +583,6 @@ function ColorRow({ label, value, onChange }: { label: string; value: string; on
 
 function UploadField({ label, value, onFile, onRemove, square = false }: { label: string; value: string; onFile: (file?: File) => void; onRemove: () => void; square?: boolean }) { return <div className="flex items-center gap-3"><span className={cn("grid h-11 w-11 shrink-0 place-items-center overflow-hidden border bg-[var(--hover)]", square ? "rounded-lg" : "rounded-full")}>{value ? <img src={value} alt="Arquivo selecionado" className="h-full w-full object-cover" /> : <UserRound size={17} />}</span><label className="flex-1 cursor-pointer rounded-lg border px-3 py-2 text-center text-[10px] hover:bg-[var(--hover)]"><Upload size={12} className="mr-1 inline" />{value ? "Trocar" : label}<input type="file" accept="image/*" className="sr-only" onChange={(event) => onFile(event.target.files?.[0])} /></label>{value && <button onClick={onRemove} className="text-[var(--muted-foreground)] hover:text-red-500" aria-label="Remover imagem"><X size={15} /></button>}</div>; }
 
-function UploadTile({ label, value, onFile, onRemove }: { label: string; value?: string; onFile: (file?: File) => void; onRemove: () => void }) { return <div className="relative aspect-video overflow-hidden rounded-xl border bg-[var(--hover)]" style={{ borderColor: "var(--glass-border)" }}>{value ? <><img src={value} alt={label} className="h-full w-full object-cover" /><button onClick={onRemove} aria-label={`Remover ${label}`} className="absolute right-1.5 top-1.5 grid h-6 w-6 place-items-center rounded-full bg-black/70 text-white"><X size={12} /></button></> : <label className="grid h-full cursor-pointer place-items-center text-center text-[10px] text-[var(--muted-foreground)]"><span><ImagePlus size={18} className="mx-auto mb-1" />{label}</span><input type="file" accept="image/*" className="sr-only" onChange={(event) => onFile(event.target.files?.[0])} /></label>}</div>; }
+function UploadTile({ label, value, crop, onFile, onRemove, onCropChange }: { label: string; value?: string; crop: MediaCrop; onFile: (file?: File) => void; onRemove: () => void; onCropChange: (crop: MediaCrop) => void }) { return <div className="min-w-0 space-y-2"><div className="relative aspect-video overflow-hidden rounded-xl border bg-[var(--hover)]" style={{ borderColor: "var(--glass-border)" }}>{value ? <><img src={value} alt={label} className="h-full w-full object-cover" style={{ objectPosition: `${crop.x}% ${crop.y}%`, transform: `scale(${crop.zoom})`, transformOrigin: `${crop.x}% ${crop.y}%` }} /><button onClick={onRemove} aria-label={`Remover ${label}`} className="absolute right-1.5 top-1.5 grid h-6 w-6 place-items-center rounded-full bg-black/70 text-white"><X size={12} /></button></> : <label className="grid h-full cursor-pointer place-items-center text-center text-[10px] text-[var(--muted-foreground)]"><span><ImagePlus size={18} className="mx-auto mb-1" />{label}</span><input type="file" accept="image/*" className="sr-only" onChange={(event) => onFile(event.target.files?.[0])} /></label>}</div>{value && <div className="space-y-1.5 rounded-lg border p-2" style={{ borderColor: "var(--glass-border)" }}><CropSlider label="Horizontal" value={crop.x} min={0} max={100} onChange={(x) => onCropChange({ ...crop, x })} /><CropSlider label="Vertical" value={crop.y} min={0} max={100} onChange={(y) => onCropChange({ ...crop, y })} /><CropSlider label="Zoom" value={crop.zoom} min={1} max={2.5} step={0.05} onChange={(zoom) => onCropChange({ ...crop, zoom })} /></div>}</div>; }
+
+function CropSlider({ label, value, min, max, step = 1, onChange }: { label: string; value: number; min: number; max: number; step?: number; onChange: (value: number) => void }) { return <label className="block"><span className="mb-0.5 flex justify-between text-[8px] text-[var(--muted-foreground)]"><span>{label}</span><span>{label === "Zoom" ? `${value.toFixed(2)}×` : `${Math.round(value)}%`}</span></span><input type="range" aria-label={`${label} da imagem`} min={min} max={max} step={step} value={value} onChange={(event) => onChange(Number(event.target.value))} className="block w-full accent-[#27a3ff]" /></label>; }
