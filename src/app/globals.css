@@ -1616,6 +1616,9 @@
 .post-rich-text mark {
   color: inherit;
 }
+.post-rich-text strong {
+  font-weight: 700;
+}
 .post-rich-text .tiptap p + p,
 .post-rich-text > p + p {
   margin-top: 0.3em;
