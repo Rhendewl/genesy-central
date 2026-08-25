@@ -4,6 +4,37 @@
 @tailwind components;
 @tailwind utilities;
 
+@font-face {
+  font-family: "Advercase";
+  src: url("/brand/advercase/Advercase.otf") format("opentype");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Advercase";
+  src: url("/brand/advercase/Advercase-Bold.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+}
+
+@layer components {
+  .editor-tool {
+    @apply grid h-8 min-w-8 place-items-center rounded-lg px-2 text-[var(--muted-foreground)] transition hover:bg-[var(--hover)] hover:text-[var(--text-title)];
+  }
+
+  .editor-tool > svg {
+    @apply h-3.5 w-3.5;
+  }
+
+  .editor-input {
+    @apply h-9 w-full rounded-xl border bg-[var(--input)] px-3 text-xs text-[var(--text-title)] outline-none transition placeholder:text-[var(--text-placeholder)] focus:border-[var(--accent-blue)];
+    border-color: var(--glass-border);
+  }
+}
+
 @layer base {
   /* ── Lancaster Premium Dark Theme ── */
   :root,
