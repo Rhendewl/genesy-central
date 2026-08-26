@@ -10,6 +10,11 @@ const uuidList = (value: unknown, max = 30) => Array.isArray(value)
   ? Array.from(new Set(value.map(optionalUuid).filter((id): id is string => !!id))).slice(0, max)
   : [];
 
+export function marketingWorkspaceTaskTitle(title: string) {
+  const cleanTitle = title.trim();
+  return /^post\s*\|/i.test(cleanTitle) ? cleanTitle : `Post | ${cleanTitle}`;
+}
+
 export function parseMarketingContentInput(value: unknown): MarketingContentInput {
   if (!value || typeof value !== "object") throw new Error("Corpo inválido");
   const body = value as Record<string, unknown>;

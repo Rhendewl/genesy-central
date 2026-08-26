@@ -14,9 +14,11 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
 type View = "month" | "week" | "list";
+type PublicationSnapshot = Pick<MarketingContent, "status" | "published_at" | "manual_publication">;
 export default function MarketingCalendarPage() {
   const params = useSearchParams(); const marketing = useMarketing(); const [view,setView] = useState<View>("month"); const [cursor,setCursor] = useState(() => { const raw = params.get("date"); return raw ? new Date(`${raw}T12:00:00`) : new Date(); }); const [status,setStatus] = useState(params.get("status") ?? ""); const [platform,setPlatform] = useState(""); const [formatFilter,setFormat] = useState(""); const [assignee,setAssignee] = useState(""); const [selected,setSelected] = useState<MarketingContent | null>(null); const [createDate,setCreateDate] = useState<Date | null>(null); const [open,setOpen] = useState(false); const [publishingIds,setPublishingIds] = useState<Set<string>>(() => new Set());
   const openedContentId = useRef<string | null>(null);
+  const publicationSnapshots = useRef(new Map<string, PublicationSnapshot>());
   useEffect(() => { const contentId = params.get("content"); if (!contentId || marketing.isLoading || openedContentId.current === contentId) return; const content = marketing.contents.find((item) => item.id === contentId); if (content) { openedContentId.current = contentId; setSelected(content); setCreateDate(null); setOpen(true); } }, [marketing.contents, marketing.isLoading, params]);
   const rangeStart = view === "week" ? startOfWeek(cursor,{weekStartsOn:0}) : startOfMonth(cursor); const rangeEnd = view === "week" ? endOfWeek(cursor,{weekStartsOn:0}) : endOfMonth(cursor);
   const filtered = useMemo(() => marketing.contents.filter((item) => { if (!item.scheduled_at) return view === "list"; const date = new Date(item.scheduled_at); if (view !== "list" && (date < rangeStart || date > rangeEnd)) return false; if (status === "overdue" && !(date < new Date() && !["published","cancelled"].includes(item.status))) return false; if (status && status !== "overdue" && item.status !== status) return false; if (platform && item.platform !== platform) return false; if (formatFilter && item.format !== formatFilter) return false; if (assignee && item.primary_assignee_id !== assignee) return false; return true; }).sort((a,b) => (a.scheduled_at ?? "z").localeCompare(b.scheduled_at ?? "z")), [assignee, formatFilter, marketing.contents, platform, rangeEnd, rangeStart, status, view]);
@@ -24,17 +26,33 @@ export default function MarketingCalendarPage() {
   const navigate = (direction:number) => setCursor((date) => view === "week" ? addWeeks(date,direction) : addMonths(date,direction));
   const openCreate = (date = new Date()) => { setSelected(null); setCreateDate(date); setOpen(true); }; const openEdit = (item: MarketingContent) => { setSelected(item); setCreateDate(null); setOpen(true); };
   async function dropOn(day: Date, id: string) { const item = marketing.contents.find((value) => value.id === id); if (!item?.scheduled_at || !item.can_edit) return; const original = new Date(item.scheduled_at); const target = new Date(day); target.setHours(original.getHours(),original.getMinutes(),0,0); await marketing.updateContent(id,{ ...item, scheduled_at: target.toISOString() }); }
+  async function restorePublication(item: MarketingContent, snapshot: PublicationSnapshot, message = "Publicação desmarcada") {
+    setPublishingIds((current) => new Set(current).add(item.id));
+    const restored = await marketing.updateContent(item.id, { ...item, ...snapshot }, { showSuccessToast: false });
+    setPublishingIds((current) => { const next = new Set(current); next.delete(item.id); return next; });
+    if (!restored) return false;
+    publicationSnapshots.current.delete(item.id);
+    toast.success(message, { description: `Status restaurado para ${CONTENT_STATUS_LABELS[snapshot.status]}.` });
+    return true;
+  }
   async function quickPublish(item: MarketingContent) {
-    if (!item.can_edit || item.status === "published" || publishingIds.has(item.id)) return;
+    if (!item.can_edit || publishingIds.has(item.id)) return;
+    if (item.status === "published") {
+      const snapshot = publicationSnapshots.current.get(item.id) ?? { status: "approved", published_at: null, manual_publication: false };
+      await restorePublication(item, snapshot);
+      return;
+    }
+    const snapshot: PublicationSnapshot = { status: item.status, published_at: item.published_at, manual_publication: item.manual_publication };
+    publicationSnapshots.current.set(item.id, snapshot);
     setPublishingIds((current) => new Set(current).add(item.id));
     const published = await marketing.updateContent(item.id, { ...item, status: "published", published_at: new Date().toISOString(), manual_publication: true }, { showSuccessToast: false });
     setPublishingIds((current) => { const next = new Set(current); next.delete(item.id); return next; });
-    if (!published) return;
+    if (!published) { publicationSnapshots.current.delete(item.id); return; }
     toast.success("Conteúdo marcado como publicado", {
       duration: 5000,
       action: {
         label: "Desfazer",
-        onClick: () => void marketing.updateContent(item.id, { ...item, status: item.status, published_at: item.published_at, manual_publication: item.manual_publication }, { showSuccessToast: false }).then((undone) => { if (undone) toast.success("Publicação desfeita"); }),
+        onClick: () => void restorePublication(item, snapshot, "Publicação desfeita"),
       },
     });
   }
@@ -65,9 +83,9 @@ function CalendarContentCard({ item, onOpen, onQuickPublish, isPublishing }: { i
   return <div draggable={item.can_edit && !isPublishing} onDragStart={(event) => event.dataTransfer.setData("text/marketing-content", item.id)} className="group/content relative min-w-0 overflow-hidden rounded-lg border" style={{ background: isPublished ? "color-mix(in srgb, #22c55e 10%, var(--hover))" : "var(--hover)", borderColor: isPublished ? "color-mix(in srgb, #22c55e 55%, var(--glass-border))" : "var(--glass-border)" }}>
     <button type="button" onClick={() => onOpen(item)} className="w-full min-w-0 p-1.5 text-left" aria-label={`Abrir conteúdo: ${item.title}`}>
       <p className="truncate pr-7 text-[10px] font-medium sm:text-[11px]">{item.title}</p>
-      <div className="mt-1 flex min-w-0 items-center justify-between gap-1"><span className="truncate text-[9px] text-[var(--muted-foreground)]">{item.scheduled_at && format(new Date(item.scheduled_at), "HH:mm")}</span><span className="hidden sm:inline-flex"><ContentStatusBadge status={item.status} /></span></div>
+      <div className="mt-1 flex min-w-0 items-center"><ContentStatusBadge status={item.status} compact /></div>
     </button>
-    {isPublished ? <span className="pointer-events-none absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-md bg-emerald-500 text-white shadow-sm" title="Publicado" aria-label="Publicado"><Check size={14} strokeWidth={3}/></span> : item.can_edit ? <button type="button" draggable={false} disabled={isPublishing} onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.stopPropagation(); onQuickPublish(item); }} className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-md border border-emerald-500/40 bg-[var(--bg-modal)] text-emerald-500 opacity-100 shadow-sm transition hover:bg-emerald-500 hover:text-white focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 disabled:cursor-wait md:opacity-0 md:group-focus-within/content:opacity-100 md:group-hover/content:opacity-100" title="Marcar como publicado" aria-label={`Marcar ${item.title} como publicado`}>{isPublishing ? <Loader2 size={13} className="animate-spin"/> : <Check size={14} strokeWidth={2.5}/>}</button> : null}
+    {item.can_edit ? <button type="button" draggable={false} disabled={isPublishing} aria-busy={isPublishing} onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.stopPropagation(); onQuickPublish(item); }} className={cn("absolute right-1 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-sm border shadow-sm transition after:absolute after:-inset-3 after:content-[''] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 disabled:cursor-wait", isPublished ? "border-emerald-500 bg-emerald-500 text-white hover:bg-emerald-600" : "lc-quick-publish border-emerald-500/40 bg-[var(--bg-modal)] text-emerald-500 hover:bg-emerald-500 hover:text-white")} title={isPublished ? "Desmarcar como publicado" : "Marcar como publicado"} aria-label={isPublishing ? `Atualizando ${item.title}` : isPublished ? `Desmarcar ${item.title} como publicado` : `Marcar ${item.title} como publicado`}>{isPublishing ? <Loader2 size={10} className="animate-spin"/> : <Check size={11} strokeWidth={isPublished ? 3 : 2.5}/>}</button> : isPublished ? <span role="status" className="pointer-events-none absolute right-1 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-sm bg-emerald-500 text-white shadow-sm" title="Publicado" aria-label="Publicado"><Check size={11} strokeWidth={3}/></span> : null}
   </div>;
 }
 function ListView({items,onOpen}:{items:MarketingContent[];onOpen:(i:MarketingContent)=>void}) { if(!items.length)return <MarketingEmptyState title="Nenhum conteúdo encontrado" description="Ajuste os filtros ou crie um novo conteúdo."/>; return <div className="space-y-2">{items.map((item)=><button key={item.id} onClick={()=>onOpen(item)} className="grid w-full gap-2 rounded-2xl border p-4 text-left sm:grid-cols-[100px_1fr_130px_auto]" style={{background:"var(--glass-bg-soft)",borderColor:"var(--glass-border)"}}><span className="text-xs">{item.scheduled_at?format(new Date(item.scheduled_at),"dd/MM HH:mm"):"Sem data"}</span><div><p className="text-sm font-medium">{item.title}</p><p className="text-[11px] text-[var(--muted-foreground)]">{PLATFORM_LABELS[item.platform]} · {FORMAT_LABELS[item.format]}</p></div><span className="text-xs">{CONTENT_STATUS_LABELS[item.status]}</span><ContentStatusBadge status={item.status}/></button>)}</div>; }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { marketingStats, parseMarketingContentInput, parseMarketingIdeaInput, parseMarketingVgvSaleInput } from "@/lib/marketing/domain";
+import { marketingStats, marketingWorkspaceTaskTitle, parseMarketingContentInput, parseMarketingIdeaInput, parseMarketingVgvSaleInput } from "@/lib/marketing/domain";
 import type { MarketingContent } from "@/types/marketing";
 
 describe("marketing domain validation", () => {
@@ -34,6 +34,11 @@ describe("marketing domain validation", () => {
     });
     expect(input.create_workspace_task).toBe(true);
     expect(input.workspace_tag_ids).toEqual([tagId]);
+  });
+
+  it("identifica tarefas de conteúdo com o prefixo Post sem duplicá-lo", () => {
+    expect(marketingWorkspaceTaskTitle("Lançamento de setembro")).toBe("Post | Lançamento de setembro");
+    expect(marketingWorkspaceTaskTitle("Post | Lançamento de setembro")).toBe("Post | Lançamento de setembro");
   });
 
   it("mantém postagem e entrega como datas independentes", () => {

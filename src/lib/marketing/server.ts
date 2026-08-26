@@ -1,5 +1,6 @@
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 import { getPlatformEventBus } from "@/lib/event-bus/platform";
+import { marketingWorkspaceTaskTitle } from "@/lib/marketing/domain";
 import type { MarketingPriority } from "@/types/marketing";
 
 export interface MarketingServerContext { user: User; profileId: string | null; organizationId: string; isAdmin: boolean; }
@@ -107,7 +108,7 @@ export async function createWorkspaceTaskForMarketing(
     .insert({
       user_id: context.user.id,
       created_by: context.user.id,
-      title: input.title,
+      title: marketingWorkspaceTaskTitle(input.title),
       description: input.description ?? null,
       status: "a_fazer",
       priority: WORKSPACE_PRIORITY[input.priority],
