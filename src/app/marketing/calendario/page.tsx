@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { addDays, addMonths, addWeeks, endOfMonth, endOfWeek, format, isSameDay, isSameMonth, startOfMonth, startOfWeek } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { CalendarDays, Check, ChevronLeft, ChevronRight, FilterX, Loader2, Plus } from "lucide-react";
+import { CalendarDays, Check, ChevronLeft, ChevronRight, FilterX, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { Header } from "@/components/layout/Header";
 import { useMarketing } from "@/context/MarketingContext";
@@ -28,7 +28,7 @@ export default function MarketingCalendarPage() {
   async function dropOn(day: Date, id: string) { const item = marketing.contents.find((value) => value.id === id); if (!item?.scheduled_at || !item.can_edit) return; const original = new Date(item.scheduled_at); const target = new Date(day); target.setHours(original.getHours(),original.getMinutes(),0,0); await marketing.updateContent(id,{ ...item, scheduled_at: target.toISOString() }); }
   async function restorePublication(item: MarketingContent, snapshot: PublicationSnapshot, message = "Publicação desmarcada") {
     setPublishingIds((current) => new Set(current).add(item.id));
-    const restored = await marketing.updateContent(item.id, { ...item, ...snapshot }, { showSuccessToast: false });
+    const restored = await marketing.updatePublication(item.id, snapshot);
     setPublishingIds((current) => { const next = new Set(current); next.delete(item.id); return next; });
     if (!restored) return false;
     publicationSnapshots.current.delete(item.id);
@@ -45,7 +45,7 @@ export default function MarketingCalendarPage() {
     const snapshot: PublicationSnapshot = { status: item.status, published_at: item.published_at, manual_publication: item.manual_publication };
     publicationSnapshots.current.set(item.id, snapshot);
     setPublishingIds((current) => new Set(current).add(item.id));
-    const published = await marketing.updateContent(item.id, { ...item, status: "published", published_at: new Date().toISOString(), manual_publication: true }, { showSuccessToast: false });
+    const published = await marketing.updatePublication(item.id, { status: "published", published_at: new Date().toISOString(), manual_publication: true });
     setPublishingIds((current) => { const next = new Set(current); next.delete(item.id); return next; });
     if (!published) { publicationSnapshots.current.delete(item.id); return; }
     toast.success("Conteúdo marcado como publicado", {
@@ -85,7 +85,7 @@ function CalendarContentCard({ item, onOpen, onQuickPublish, isPublishing }: { i
       <p className="truncate pr-7 text-[10px] font-medium sm:text-[11px]">{item.title}</p>
       <div className="mt-1 flex min-w-0 items-center"><ContentStatusBadge status={item.status} compact /></div>
     </button>
-    {item.can_edit ? <button type="button" draggable={false} disabled={isPublishing} aria-busy={isPublishing} onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.stopPropagation(); onQuickPublish(item); }} className={cn("absolute right-1 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-sm border shadow-sm transition after:absolute after:-inset-3 after:content-[''] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 disabled:cursor-wait", isPublished ? "border-emerald-500 bg-emerald-500 text-white hover:bg-emerald-600" : "lc-quick-publish border-emerald-500/40 bg-[var(--bg-modal)] text-emerald-500 hover:bg-emerald-500 hover:text-white")} title={isPublished ? "Desmarcar como publicado" : "Marcar como publicado"} aria-label={isPublishing ? `Atualizando ${item.title}` : isPublished ? `Desmarcar ${item.title} como publicado` : `Marcar ${item.title} como publicado`}>{isPublishing ? <Loader2 size={10} className="animate-spin"/> : <Check size={11} strokeWidth={isPublished ? 3 : 2.5}/>}</button> : isPublished ? <span role="status" className="pointer-events-none absolute right-1 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-sm bg-emerald-500 text-white shadow-sm" title="Publicado" aria-label="Publicado"><Check size={11} strokeWidth={3}/></span> : null}
+    {item.can_edit ? <button type="button" draggable={false} disabled={isPublishing} aria-busy={isPublishing} onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.stopPropagation(); onQuickPublish(item); }} className={cn("absolute right-1 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-sm border shadow-sm transition after:absolute after:-inset-3 after:content-[''] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 disabled:cursor-wait disabled:opacity-80", isPublished ? "border-emerald-500 bg-emerald-500 text-white hover:bg-emerald-600" : "lc-quick-publish border-emerald-500/40 bg-[var(--bg-modal)] text-emerald-500 hover:bg-emerald-500 hover:text-white")} title={isPublished ? "Desmarcar como publicado" : "Marcar como publicado"} aria-label={isPublished ? `Desmarcar ${item.title} como publicado` : `Marcar ${item.title} como publicado`}><Check size={11} strokeWidth={isPublished ? 3 : 2.5}/></button> : isPublished ? <span role="status" className="pointer-events-none absolute right-1 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-sm bg-emerald-500 text-white shadow-sm" title="Publicado" aria-label="Publicado"><Check size={11} strokeWidth={3}/></span> : null}
   </div>;
 }
 function ListView({items,onOpen}:{items:MarketingContent[];onOpen:(i:MarketingContent)=>void}) { if(!items.length)return <MarketingEmptyState title="Nenhum conteúdo encontrado" description="Ajuste os filtros ou crie um novo conteúdo."/>; return <div className="space-y-2">{items.map((item)=><button key={item.id} onClick={()=>onOpen(item)} className="grid w-full gap-2 rounded-2xl border p-4 text-left sm:grid-cols-[100px_1fr_130px_auto]" style={{background:"var(--glass-bg-soft)",borderColor:"var(--glass-border)"}}><span className="text-xs">{item.scheduled_at?format(new Date(item.scheduled_at),"dd/MM HH:mm"):"Sem data"}</span><div><p className="text-sm font-medium">{item.title}</p><p className="text-[11px] text-[var(--muted-foreground)]">{PLATFORM_LABELS[item.platform]} · {FORMAT_LABELS[item.format]}</p></div><span className="text-xs">{CONTENT_STATUS_LABELS[item.status]}</span><ContentStatusBadge status={item.status}/></button>)}</div>; }

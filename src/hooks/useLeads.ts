@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { RealtimeChannel } from "@supabase/supabase-js";
 import { toast } from "sonner";
 import { getSupabaseClient } from "@/lib/supabase";
 import type {
@@ -13,6 +14,7 @@ import { useCurrentMember } from "@/context/CurrentMemberContext";
 import { isAdministrativeMember } from "@/lib/user-access";
 import { countCanonicalLeads } from "@/lib/crm/lead-identity";
 import { sortLeadsByRecentActivity } from "@/lib/crm/lead-order";
+import { applyLeadStageRealtimeMessage, parseLeadStageRealtimeMessage, type LeadStageRealtimeMessage } from "@/lib/crm/lead-realtime";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // useLeads
@@ -56,6 +58,7 @@ export function useLeads(dateFilter?: DateFilter | null) {
   const mountedRef = useRef(true);
   const latestFetchIdRef = useRef(0);
   const realtimeRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const realtimeChannelRef = useRef<RealtimeChannel | null>(null);
 
   // ── Fetch ──────────────────────────────────────────────────────────────────
 
@@ -106,7 +109,14 @@ export function useLeads(dateFilter?: DateFilter | null) {
     });
 
     const channel = supabase
-      .channel("leads-realtime")
+      .channel(`leads-realtime-${member?.owner_id ?? "self"}`)
+      .on("broadcast", { event: "lead-stage-changed" }, ({ payload }) => {
+        const message = parseLeadStageRealtimeMessage(payload);
+        if (!message) return;
+        latestFetchIdRef.current += 1;
+        setLeads(prev => applyLeadStageRealtimeMessage(prev, message));
+        scheduleRealtimeRefresh();
+      })
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "leads" },
@@ -148,16 +158,25 @@ export function useLeads(dateFilter?: DateFilter | null) {
         }
       )
       .subscribe(status => {
-        if (status === "SUBSCRIBED") scheduleRealtimeRefresh();
+        if (status === "SUBSCRIBED" || status === "CHANNEL_ERROR" || status === "TIMED_OUT") scheduleRealtimeRefresh();
       });
+    realtimeChannelRef.current = channel;
+
+    // Segunda camada de segurança: se o websocket for suspenso ou a tabela
+    // deixar de emitir eventos, a tela visível ainda se reconcilia sozinha.
+    const reconciliationInterval = window.setInterval(() => {
+      if (document.visibilityState === "visible") scheduleRealtimeRefresh();
+    }, 10_000);
 
     return () => {
       mountedRef.current = false;
       latestFetchIdRef.current += 1;
       if (realtimeRefreshTimerRef.current) clearTimeout(realtimeRefreshTimerRef.current);
+      window.clearInterval(reconciliationInterval);
+      if (realtimeChannelRef.current === channel) realtimeChannelRef.current = null;
       supabase.removeChannel(channel);
     };
-  }, [fetchLeads, supabase, memberLoading, isOwner, restrictedPipelineId, scheduleRealtimeRefresh]);
+  }, [fetchLeads, supabase, memberLoading, isOwner, member?.owner_id, restrictedPipelineId, scheduleRealtimeRefresh]);
 
   // Realtime pode ser suspenso pelo sistema operacional quando o PWA fica em
   // segundo plano. Ao voltar, reconciliamos silenciosamente sem recarregar a página.
@@ -315,11 +334,16 @@ export function useLeads(dateFilter?: DateFilter | null) {
 
     // Optimistic update — stage_id muda imediatamente na UI
     const movedAt = new Date().toISOString();
+    const mutationId = typeof crypto.randomUUID === "function" ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
+    const broadcastStage = (message: LeadStageRealtimeMessage) => {
+      void realtimeChannelRef.current?.send({ type: "broadcast", event: "lead-stage-changed", payload: message });
+    };
     setLeads((prev) =>
       prev.map((l) =>
         l.id === id ? { ...l, stage_id: targetStageId, updated_at: movedAt } : l
       )
     );
+    broadcastStage({ leadId: id, stageId: targetStageId, updatedAt: movedAt, mutationId });
 
     try {
       const res = await fetch(`/api/crm/leads/${id}/move`, {
@@ -338,6 +362,7 @@ export function useLeads(dateFilter?: DateFilter | null) {
               : l
           )
         );
+        broadcastStage({ leadId: id, stageId: prevStageId, updatedAt: new Date().toISOString(), mutationId, rollback: true });
         const requireNote = res.status === 422;
         return {
           ok: false,
@@ -356,6 +381,7 @@ export function useLeads(dateFilter?: DateFilter | null) {
             : l
         )
       );
+      broadcastStage({ leadId: id, stageId: prevStageId, updatedAt: new Date().toISOString(), mutationId, rollback: true });
       return {
         ok: false,
         requireNote: false,
