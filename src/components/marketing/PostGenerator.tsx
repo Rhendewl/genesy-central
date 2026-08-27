@@ -10,7 +10,7 @@ import { Color, TextStyle } from "@tiptap/extension-text-style";
 import {
   AlignCenter, AlignLeft, AlignRight, ArrowDown, ArrowLeft, ArrowUp, AtSign,
   Bold, Bookmark, Check, ChevronRight, Copy, Download, GripVertical, Heart, Highlighter, ImagePlus,
-  Layers3, MessageCircle, MoreHorizontal, Move, Moon, Plus, Send, Sun, Trash2,
+  Layers3, MessageCircle, MoreHorizontal, Move, Moon, Palette, Plus, Send, Sun, Trash2,
   Underline, Upload, UserRound, X,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -54,6 +54,12 @@ type TweetProfile = { avatar: string; name: string; handle: string; verified: bo
 type PersistedPostProject = { version: 1; format: PostFormat; slides: Slide[]; activeId: string; tweetProfile: TweetProfile; updatedAt: number };
 
 const ACTIVE_TEMPLATE_KEY = "genesy-post-generator-active-template";
+const QUICK_TEXT_COLORS = [
+  { value: "#ed1b05", label: "Vermelho" },
+  { value: "#ffad1f", label: "Amarelo" },
+  { value: "#3478df", label: "Azul" },
+  { value: "#2ecc3e", label: "Verde" },
+] as const;
 
 const DEFAULT_PROFILE: TweetProfile = {
   avatar: "",
@@ -620,13 +626,21 @@ function TextToolbar({ editor, defaultColor }: { editor: Editor | null; defaultC
   return <div className="mx-auto mb-3 flex min-h-11 max-w-xl flex-wrap items-center gap-1 rounded-xl border p-1.5 shadow-lg" style={{ background: "var(--bg-modal)", borderColor: hasSelection ? "var(--accent-blue)" : "var(--glass-border)" }}>
     <button onClick={() => editor.chain().focus().toggleBold().run()} disabled={!hasSelection} className={tool(editor.isActive("bold"))} title="Negrito"><Bold /></button>
     <button onClick={() => editor.chain().focus().toggleUnderline().run()} disabled={!hasSelection} className={tool(editor.isActive("underline"))} title="Sublinhar"><Underline /></button>
-    <ColorTool title="Cor do texto" disabled={!hasSelection} value={editor.getAttributes("textStyle").color || defaultColor} onChange={(color) => editor.chain().focus().setColor(color).run()} />
+    <TextColorTool disabled={!hasSelection} value={editor.getAttributes("textStyle").color || defaultColor} onChange={(color) => editor.chain().focus().setColor(color).run()} />
     <ColorTool title="Marca-texto" disabled={!hasSelection} value={editor.getAttributes("highlight").color || "#ffdf2b"} icon={<Highlighter />} onChange={(color) => editor.chain().focus().setHighlight({ color }).run()} />
     <span className="mx-1 h-6 w-px bg-[var(--border)]" />
     <button onClick={() => editor.chain().focus().setTextAlign("left").run()} className={tool(editor.isActive({ textAlign: "left" }))} title="Alinhar à esquerda"><AlignLeft /></button>
     <button onClick={() => editor.chain().focus().setTextAlign("center").run()} className={tool(editor.isActive({ textAlign: "center" }))} title="Centralizar"><AlignCenter /></button>
     <button onClick={() => editor.chain().focus().setTextAlign("right").run()} className={tool(editor.isActive({ textAlign: "right" }))} title="Alinhar à direita"><AlignRight /></button>
     <span className="ml-auto pr-2 text-[9px] text-[var(--muted-foreground)]">{hasSelection ? "Formatação do trecho selecionado" : "Selecione um trecho para formatar"}</span>
+  </div>;
+}
+
+function TextColorTool({ value, disabled, onChange }: { value: string; disabled: boolean; onChange: (value: string) => void }) {
+  const selected = value.toLowerCase();
+  return <div role="group" aria-label="Cor do texto" className={cn("flex items-center gap-1 rounded-lg px-1", disabled && "pointer-events-none opacity-40")}>
+    {QUICK_TEXT_COLORS.map((color) => <button key={color.value} type="button" disabled={disabled} title={color.label} aria-label={`Aplicar cor ${color.label}`} aria-pressed={selected === color.value} onClick={() => onChange(color.value)} className={cn("h-6 w-6 rounded-full border border-white/20 shadow-sm transition hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-blue)]", selected === color.value && "ring-2 ring-white ring-offset-1 ring-offset-[var(--bg-modal)]")} style={{ background: color.value }} />)}
+    <label className="editor-tool relative cursor-pointer" title="Mais cores" aria-label="Abrir seletor de cores personalizado"><Palette /><input aria-label="Cor personalizada do texto" type="color" value={value} disabled={disabled} className="absolute inset-0 cursor-pointer opacity-0" onChange={(event) => onChange(event.target.value)} /></label>
   </div>;
 }
 
