@@ -55,10 +55,10 @@ type PersistedPostProject = { version: 1; format: PostFormat; slides: Slide[]; a
 
 const ACTIVE_TEMPLATE_KEY = "genesy-post-generator-active-template";
 const QUICK_TEXT_COLORS = [
-  { value: "#ed1b05", label: "Vermelho" },
-  { value: "#ffad1f", label: "Amarelo" },
-  { value: "#3478df", label: "Azul" },
-  { value: "#2ecc3e", label: "Verde" },
+  { value: "#dd1c00", label: "Vermelho" },
+  { value: "#f8ad1b", label: "Amarelo" },
+  { value: "#007ae6", label: "Azul" },
+  { value: "#07d140", label: "Verde" },
 ] as const;
 
 const DEFAULT_PROFILE: TweetProfile = {
