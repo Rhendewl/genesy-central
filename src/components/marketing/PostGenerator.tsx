@@ -50,7 +50,7 @@ type Slide = {
 
 type MediaCrop = { x: number; y: number; zoom: number };
 type TextBlock = { id: string; content: string; fontSize: number; textWidth: number; lineHeight: number };
-type TweetProfile = { avatar: string; name: string; handle: string; verified: boolean };
+type TweetProfile = { avatar: string; avatarCrop: MediaCrop; name: string; handle: string; verified: boolean };
 type PersistedPostProject = { version: 1; format: PostFormat; slides: Slide[]; activeId: string; tweetProfile: TweetProfile; updatedAt: number };
 
 const ACTIVE_TEMPLATE_KEY = "genesy-post-generator-active-template";
@@ -63,6 +63,7 @@ const QUICK_TEXT_COLORS = [
 
 const DEFAULT_PROFILE: TweetProfile = {
   avatar: "",
+  avatarCrop: { x: 50, y: 50, zoom: 1 },
   name: "Genesy Company",
   handle: "@genesycompany",
   verified: true,
@@ -164,7 +165,11 @@ function normalizePostProject(template: PostTemplate, project: PersistedPostProj
     activeId,
     activeTextBlockId: slides.find((slide) => slide.id === activeId)?.textBlocks[0].id || slides[0].textBlocks[0].id,
     format: project.format === "portrait" ? "portrait" as const : "story" as const,
-    tweetProfile: { ...DEFAULT_PROFILE, ...project.tweetProfile },
+    tweetProfile: {
+      ...DEFAULT_PROFILE,
+      ...project.tweetProfile,
+      avatarCrop: { ...defaultMediaCrop(), ...project.tweetProfile?.avatarCrop },
+    },
   };
 }
 
@@ -724,10 +729,10 @@ function ScaledCanvas({ width, height, format, profile, children }: { width: num
   const canvasHeight = height * scale;
   return <div ref={host} className="mx-auto w-full max-w-3xl">
     <div className="mx-auto overflow-hidden border border-black/10 bg-white text-[#0f1419] shadow-2xl dark:border-white/15 dark:bg-[#090909] dark:text-white" style={{ width: canvasWidth, borderRadius: format === "story" ? 28 : 16 }}>
-      {format === "portrait" && <div className="flex h-[58px] items-center gap-2.5 px-3"><Avatar src={profile.avatar} size={32} /><div className="min-w-0 flex-1"><p className="truncate text-[11px] font-semibold">{profile.handle.replace(/^@/, "") || "seu_perfil"}</p><p className="text-[9px] opacity-55">Publicação</p></div><MoreHorizontal size={17} /></div>}
+      {format === "portrait" && <div className="flex h-[58px] items-center gap-2.5 px-3"><Avatar src={profile.avatar} crop={profile.avatarCrop} size={32} /><div className="min-w-0 flex-1"><p className="truncate text-[11px] font-semibold">{profile.handle.replace(/^@/, "") || "seu_perfil"}</p><p className="text-[9px] opacity-55">Publicação</p></div><MoreHorizontal size={17} /></div>}
       <div className="relative overflow-hidden" style={{ width: canvasWidth, height: canvasHeight }}>
         <div style={{ width, height, transform: `scale(${scale})`, transformOrigin: "top left" }}>{children}</div>
-        {format === "story" && <div className="pointer-events-none absolute inset-0 flex flex-col justify-between p-3 text-white [text-shadow:0_1px_4px_rgba(0,0,0,.65)]"><div><div className="mb-2 flex gap-1">{[0, 1, 2, 3].map((item) => <span key={item} className="h-[2px] flex-1 rounded-full bg-white/75" />)}</div><div className="flex items-center gap-2"><Avatar src={profile.avatar} size={28} /><span className="text-[10px] font-semibold">Seu story</span><span className="text-[9px] opacity-70">agora</span><MoreHorizontal className="ml-auto" size={16} /></div></div><div className="mx-auto mb-1 flex h-9 w-[82%] items-center rounded-full border border-white/65 px-3 text-[10px]">Enviar mensagem…<Heart className="ml-auto" size={16} /><Send className="ml-2" size={15} /></div></div>}
+        {format === "story" && <div className="pointer-events-none absolute inset-0 flex flex-col justify-between p-3 text-white [text-shadow:0_1px_4px_rgba(0,0,0,.65)]"><div><div className="mb-2 flex gap-1">{[0, 1, 2, 3].map((item) => <span key={item} className="h-[2px] flex-1 rounded-full bg-white/75" />)}</div><div className="flex items-center gap-2"><Avatar src={profile.avatar} crop={profile.avatarCrop} size={28} /><span className="text-[10px] font-semibold">Seu story</span><span className="text-[9px] opacity-70">agora</span><MoreHorizontal className="ml-auto" size={16} /></div></div><div className="mx-auto mb-1 flex h-9 w-[82%] items-center rounded-full border border-white/65 px-3 text-[10px]">Enviar mensagem…<Heart className="ml-auto" size={16} /><Send className="ml-2" size={15} /></div></div>}
       </div>
       {format === "portrait" && <div className="px-3 py-2.5"><div className="flex items-center gap-3"><Heart size={20} /><MessageCircle size={19} /><Send size={19} /><Bookmark className="ml-auto" size={19} /></div><p className="mt-2 text-[9px] font-semibold">Prévia do post no feed</p><p className="mt-1 text-[9px] opacity-55">Veja como o enquadramento será percebido no Instagram.</p></div>}
     </div>
@@ -779,7 +784,7 @@ function BalancedContent({ safeLeft, safeWidth, gap, children }: { safeLeft: num
 }
 
 function TweetProfileBlock({ profile, foreground }: { profile: TweetProfile; foreground: string }) {
-  return <div className="flex items-center gap-[24px]"><Avatar src={profile.avatar} size={122} /><div><p className="flex items-center gap-[12px] text-[45px] font-bold leading-none">{profile.name}{profile.verified && <img src="/brand/verified-badge.png" alt="Perfil verificado" className="h-[38px] w-[38px] shrink-0 object-contain" />}</p><p className="mt-[14px] text-[34px]" style={{ color: foreground, opacity: .62 }}>{profile.handle}</p></div></div>;
+  return <div className="flex items-center gap-[24px]"><Avatar src={profile.avatar} crop={profile.avatarCrop} size={122} /><div><p className="flex items-center gap-[12px] text-[45px] font-bold leading-none">{profile.name}{profile.verified && <img src="/brand/verified-badge.png" alt="Perfil verificado" className="h-[38px] w-[38px] shrink-0 object-contain" />}</p><p className="mt-[14px] text-[34px]" style={{ color: foreground, opacity: .62 }}>{profile.handle}</p></div></div>;
 }
 
 function TextBlockItem({ block, editor, editable, active, foreground, story, safeWidth, onSelect, onDragStart, onDragEnd }: { block: TextBlock; editor?: Editor | null; editable: boolean; active: boolean; foreground: string; story: boolean; safeWidth: number; onSelect: () => void; onDragStart: (event: React.DragEvent<HTMLButtonElement>) => void; onDragEnd: () => void }) {
@@ -800,8 +805,8 @@ function HorizontalMedia({ media, crops, className }: { media: string[]; crops: 
   return <div className={cn("grid aspect-[16/9] overflow-hidden rounded-[36px] border border-black/10", className)} style={{ gridTemplateColumns: `repeat(${media.length},minmax(0,1fr))` }}>{media.map((image, index) => { const crop = { ...defaultMediaCrop(), ...crops[index] }; return <div key={`${image.slice(-20)}-${index}`} className="h-full min-w-0 overflow-hidden" style={{ borderLeft: index ? "3px solid rgba(255,255,255,.8)" : undefined }}><img src={image} alt="Mídia do post" className="h-full w-full object-cover" style={{ objectPosition: `${crop.x}% ${crop.y}%`, transform: `scale(${crop.zoom})`, transformOrigin: `${crop.x}% ${crop.y}%` }} /></div>; })}</div>;
 }
 
-function Avatar({ src, size }: { src: string; size: number }) {
-  return src ? <img src={src} alt="Foto do perfil" className="shrink-0 rounded-full object-cover" style={{ width: size, height: size }} /> : <span className="grid shrink-0 place-items-center rounded-full bg-[#20252a] text-white" style={{ width: size, height: size }}><UserRound size={size * .42} /></span>;
+function Avatar({ src, size, crop = defaultMediaCrop() }: { src: string; size: number; crop?: MediaCrop }) {
+  return src ? <span className="block shrink-0 overflow-hidden rounded-full" style={{ width: size, height: size }}><img src={src} alt="Foto do perfil" className="h-full w-full object-cover" style={{ objectPosition: `${crop.x}% ${crop.y}%`, transform: `scale(${crop.zoom})`, transformOrigin: `${crop.x}% ${crop.y}%` }} /></span> : <span className="grid shrink-0 place-items-center rounded-full bg-[#20252a] text-white" style={{ width: size, height: size }}><UserRound size={size * .42} /></span>;
 }
 
 function PropertiesPanel({ template, format, setFormat, slide, update, activeTextBlock, selectTextBlock, updateTextBlock, addTextBlock, removeTextBlock, placeText, profile, setProfile }: { template: PostTemplate; format: PostFormat; setFormat: (format: PostFormat) => void; slide: Slide; update: (patch: Partial<Slide>) => void; activeTextBlock: TextBlock; selectTextBlock: (id: string) => void; updateTextBlock: (patch: Partial<TextBlock>) => void; addTextBlock: () => void; removeTextBlock: () => void; placeText: (placement: "above" | "below") => void; profile: TweetProfile; setProfile: React.Dispatch<React.SetStateAction<TweetProfile>> }) {
@@ -829,7 +834,18 @@ function PropertiesPanel({ template, format, setFormat, slide, update, activeTex
       </PanelSection>
 
       {template === "tweet" ? <>
-        <PanelSection title="Perfil · aplicado a todos os slides"><UploadField label="Foto do usuário" value={profile.avatar} onFile={(file) => addFile(file, (avatar) => updateProfile({ avatar }))} onRemove={() => updateProfile({ avatar: "" })} /><Field label="Nome"><input value={profile.name} onChange={(event) => updateProfile({ name: event.target.value })} className="editor-input" /></Field><Field label="Arroba"><div className="relative"><AtSign size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)]" /><input value={profile.handle.replace(/^@/, "")} onChange={(event) => updateProfile({ handle: `@${event.target.value.replace(/^@/, "")}` })} className="editor-input pl-8" /></div></Field><label className="flex items-center justify-between text-xs"><span>Selo de verificação</span><input type="checkbox" checked={profile.verified} onChange={(event) => updateProfile({ verified: event.target.checked })} className="accent-[#27a3ff]" /></label></PanelSection>
+        <PanelSection title="Perfil · aplicado a todos os slides">
+          <AvatarUploadField
+            value={profile.avatar}
+            crop={profile.avatarCrop}
+            onFile={(file) => addFile(file, (avatar) => updateProfile({ avatar, avatarCrop: defaultMediaCrop() }))}
+            onRemove={() => updateProfile({ avatar: "", avatarCrop: defaultMediaCrop() })}
+            onCropChange={(avatarCrop) => updateProfile({ avatarCrop })}
+          />
+          <Field label="Nome"><input value={profile.name} onChange={(event) => updateProfile({ name: event.target.value })} className="editor-input" /></Field>
+          <Field label="Arroba"><div className="relative"><AtSign size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)]" /><input value={profile.handle.replace(/^@/, "")} onChange={(event) => updateProfile({ handle: `@${event.target.value.replace(/^@/, "")}` })} className="editor-input pl-8" /></div></Field>
+          <label className="flex items-center justify-between text-xs"><span>Selo de verificação</span><input type="checkbox" checked={profile.verified} onChange={(event) => updateProfile({ verified: event.target.checked })} className="accent-[#27a3ff]" /></label>
+        </PanelSection>
         <PanelSection title="Aparência"><div className="grid grid-cols-2 gap-2"><button onClick={() => updateBackground("#ffffff")} className={cn("rounded-xl border p-3 text-left", slide.background === "#ffffff" && "border-[#27a3ff]")}><Sun size={15} /><span className="mt-2 block text-xs">Claro</span></button><button onClick={() => updateBackground("#000000")} className={cn("rounded-xl border p-3 text-left", slide.background === "#000000" && "border-[#27a3ff]")}><Moon size={15} /><span className="mt-2 block text-xs">Escuro absoluto</span></button></div></PanelSection>
         <MediaPanel slide={slide} update={update} addFile={addFile} title="Imagem do post" />
       </> : <>
@@ -857,6 +873,24 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 function BackgroundColorRow({ value, onChange }: { value: string; onChange: (value: string) => void }) {
   const normalizedValue = value.toLowerCase();
   return <div className="flex items-center justify-between rounded-xl border px-3 py-2" style={{ borderColor: "var(--glass-border)" }}><span className="text-xs">Fundo</span><div className="flex items-center gap-2">{[{ value: "#000000", label: "Preto puro" }, { value: "#ffffff", label: "Branco puro" }].map((color) => <button key={color.value} type="button" onClick={() => onChange(color.value)} aria-label={`Usar fundo ${color.label.toLowerCase()}`} title={color.label} className={cn("h-8 w-8 rounded-full border transition hover:scale-105", normalizedValue === color.value ? "ring-2 ring-[#27a3ff] ring-offset-2 ring-offset-[var(--background)]" : "border-[var(--glass-border)]")} style={{ backgroundColor: color.value }} />)}<label className="relative grid h-8 w-8 cursor-pointer place-items-center rounded-full border text-[var(--muted-foreground)] transition hover:bg-[var(--hover)] hover:text-[var(--text-title)]" style={{ borderColor: "var(--glass-border)" }} title="Escolher cor personalizada"><Palette size={15} /><input aria-label="Escolher cor de fundo personalizada" type="color" value={value} onChange={(event) => onChange(event.target.value)} className="absolute inset-0 cursor-pointer opacity-0" /></label></div></div>;
+}
+
+function AvatarUploadField({ value, crop, onFile, onRemove, onCropChange }: { value: string; crop: MediaCrop; onFile: (file?: File) => void; onRemove: () => void; onCropChange: (crop: MediaCrop) => void }) {
+  return <div className="space-y-3">
+    <div className="flex items-center gap-3">
+      <span className="rounded-full border" style={{ borderColor: "var(--glass-border)" }}><Avatar src={value} crop={crop} size={76} /></span>
+      <div className="grid min-w-0 flex-1 grid-cols-2 gap-2">
+        <label className="cursor-pointer rounded-xl border px-3 py-2 text-center text-[10px] hover:bg-[var(--hover)]" style={{ borderColor: "var(--glass-border)" }}><Upload size={12} className="mr-1 inline" />{value ? "Trocar foto" : "Enviar foto"}<input type="file" accept="image/*" className="sr-only" onChange={(event) => onFile(event.target.files?.[0])} /></label>
+        <button type="button" onClick={onRemove} disabled={!value} className="rounded-xl border px-3 py-2 text-[10px] text-[var(--muted-foreground)] transition hover:bg-red-500/10 hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-40" style={{ borderColor: "var(--glass-border)" }}><Trash2 size={12} className="mr-1 inline" />Remover</button>
+      </div>
+    </div>
+    {value && <div className="space-y-2 rounded-xl border p-3" style={{ borderColor: "var(--glass-border)", background: "var(--hover)" }}>
+      <div className="flex items-center justify-between"><span className="text-[10px] font-medium text-[var(--text-title)]">Enquadramento da foto</span><button type="button" onClick={() => onCropChange(defaultMediaCrop())} className="text-[9px] text-[var(--accent-blue)] hover:underline">Centralizar</button></div>
+      <CropSlider label="Horizontal" value={crop.x} min={0} max={100} onChange={(x) => onCropChange({ ...crop, x })} />
+      <CropSlider label="Vertical" value={crop.y} min={0} max={100} onChange={(y) => onCropChange({ ...crop, y })} />
+      <CropSlider label="Zoom" value={crop.zoom} min={1} max={4} step={0.05} onChange={(zoom) => onCropChange({ ...crop, zoom })} />
+    </div>}
+  </div>;
 }
 
 function UploadField({ label, value, onFile, onRemove, square = false }: { label: string; value: string; onFile: (file?: File) => void; onRemove: () => void; square?: boolean }) { return <div className="flex items-center gap-3"><span className={cn("grid h-11 w-11 shrink-0 place-items-center overflow-hidden border bg-[var(--hover)]", square ? "rounded-lg" : "rounded-full")}>{value ? <img src={value} alt="Arquivo selecionado" className="h-full w-full object-cover" /> : <UserRound size={17} />}</span><label className="flex-1 cursor-pointer rounded-lg border px-3 py-2 text-center text-[10px] hover:bg-[var(--hover)]"><Upload size={12} className="mr-1 inline" />{value ? "Trocar" : label}<input type="file" accept="image/*" className="sr-only" onChange={(event) => onFile(event.target.files?.[0])} /></label>{value && <button onClick={onRemove} className="text-[var(--muted-foreground)] hover:text-red-500" aria-label="Remover imagem"><X size={15} /></button>}</div>; }
