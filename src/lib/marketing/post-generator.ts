@@ -2,7 +2,6 @@ import { toBlob } from "html-to-image";
 
 export type PostFormat = "story" | "portrait";
 export type PostTemplate = "tweet" | "stories";
-export type DownloadDirectory = { getFileHandle(name: string, options: { create: boolean }): Promise<{ createWritable(): Promise<{ write(data: Blob): Promise<void>; close(): Promise<void> }> }> };
 
 export const POST_FORMATS: Record<PostFormat, { label: string; width: number; height: number }> = {
   story: { label: "1080 × 1920", width: 1080, height: 1920 },
@@ -42,28 +41,33 @@ export function downloadBlob(blob: Blob, filename: string) {
   const anchor = document.createElement("a");
   anchor.href = URL.createObjectURL(blob);
   anchor.download = filename;
+  anchor.style.display = "none";
+  document.body.appendChild(anchor);
   anchor.click();
-  window.setTimeout(() => URL.revokeObjectURL(anchor.href), 1000);
+  anchor.remove();
+  window.setTimeout(() => URL.revokeObjectURL(anchor.href), 30_000);
 }
 
-export async function chooseDownloadDirectory(): Promise<DownloadDirectory | null | undefined> {
-  const desktop = window.matchMedia("(pointer: fine)").matches && window.innerWidth >= 768;
-  const picker = (window as Window & { showDirectoryPicker?: (options?: { mode?: "readwrite" }) => Promise<DownloadDirectory> }).showDirectoryPicker;
-  if (!desktop || !picker) return undefined;
-  try {
-    return await picker.call(window, { mode: "readwrite" });
-  } catch (error) {
-    if (error instanceof DOMException && error.name === "AbortError") return null;
-    throw error;
-  }
+export function sanitizeDownloadName(value: string, fallback = "posts") {
+  const withoutExtension = value.trim().replace(/\.zip$/i, "");
+  const safe = withoutExtension
+    .replace(/[<>:"/\\|?*\u0000-\u001f]/g, "-")
+    .replace(/\s+/g, " ")
+    .replace(/[. ]+$/g, "")
+    .slice(0, 100);
+  return safe || fallback;
 }
 
-export async function saveBlob(blob: Blob, filename: string, directory?: DownloadDirectory) {
-  if (!directory) return downloadBlob(blob, filename);
-  const file = await directory.getFileHandle(filename, { create: true });
-  const writable = await file.createWritable();
-  await writable.write(blob);
-  await writable.close();
+export function numberedSlideFilename(index: number) {
+  return `${index + 1}.png`;
+}
+
+export function defaultPostLineHeight(template: PostTemplate) {
+  return template === "stories" ? 115 : 1.18;
+}
+
+export async function saveBlob(blob: Blob, filename: string) {
+  downloadBlob(blob, filename);
 }
 
 const CRC_TABLE = (() => {

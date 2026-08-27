@@ -1,6 +1,7 @@
 "use client";
 
 import { Fragment, useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { usePathname } from "next/navigation";
 import { getSupabaseClient } from "@/lib/supabase";
 import { useGlobalStore } from "@/store";
 import { canRemountAppForRecovery } from "@/lib/app-lifecycle-recovery";
@@ -15,6 +16,7 @@ const RECOVERY_THROTTLE_MS = 5_000;
  * realtime são abertas novamente.
  */
 export function AppLifecycleRecovery({ children }: { children: ReactNode }) {
+  const pathname = usePathname();
   const [generation, setGeneration] = useState(0);
   const hiddenAtRef = useRef<number | null>(
     typeof document !== "undefined" && document.visibilityState === "hidden"
@@ -46,13 +48,13 @@ export function AppLifecycleRecovery({ children }: { children: ReactNode }) {
       // a seleção atual. A sessão já foi validada acima; apenas adiamos a
       // reconstrução visual, que só é necessária quando a interface travou.
       const state = useGlobalStore.getState();
-      if (!canRemountAppForRecovery(state.modalCount, state.statePreservationCount)) return;
+      if (!canRemountAppForRecovery(state.modalCount, state.statePreservationCount, pathname)) return;
 
       setGeneration(current => current + 1);
     } finally {
       recoveringRef.current = false;
     }
-  }, []);
+  }, [pathname]);
 
   useEffect(() => {
     const onVisibilityChange = () => {

@@ -16,7 +16,7 @@ import {
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
-  chooseDownloadDirectory, createZip, POST_FORMATS, postElementToPng, saveBlob,
+  createZip, defaultPostLineHeight, numberedSlideFilename, POST_FORMATS, postElementToPng, sanitizeDownloadName, saveBlob,
   type PostFormat, type PostTemplate,
 } from "@/lib/marketing/post-generator";
 import {
@@ -70,7 +70,7 @@ const DEFAULT_PROFILE: TweetProfile = {
 
 function uid() { return Math.random().toString(36).slice(2, 10); }
 function defaultMediaCrop(): MediaCrop { return { x: 50, y: 50, zoom: 1 }; }
-function makeTextBlock(template: PostTemplate, content: string): TextBlock { return { id: uid(), content, fontSize: template === "tweet" ? 45 : 70, textWidth: template === "tweet" ? 76 : 84, lineHeight: template === "tweet" ? 1.18 : 1.05 }; }
+function makeTextBlock(template: PostTemplate, content: string): TextBlock { return { id: uid(), content, fontSize: template === "tweet" ? 45 : 70, textWidth: template === "tweet" ? 76 : 84, lineHeight: defaultPostLineHeight(template) }; }
 
 let postProjectDatabase: Promise<IDBDatabase> | null = null;
 
@@ -144,7 +144,14 @@ function normalizePostProject(template: PostTemplate, project: PersistedPostProj
     const media = Array.isArray(slide.media) ? slide.media.slice(0, 2) : [];
     const mediaCrops = media.map((_, mediaIndex) => ({ ...defaultMediaCrop(), ...(Array.isArray(slide.mediaCrops) ? slide.mediaCrops[mediaIndex] : undefined) }));
     const textBlocks = Array.isArray(slide.textBlocks) && slide.textBlocks.length
-      ? slide.textBlocks.map((block) => ({ ...makeTextBlock(template, block.content || "<p>Novo texto</p>"), ...block, id: block.id || uid() }))
+      ? slide.textBlocks.map((block) => ({
+          ...makeTextBlock(template, block.content || "<p>Novo texto</p>"),
+          ...block,
+          id: block.id || uid(),
+          lineHeight: !Number.isFinite(block.lineHeight) || (template === "stories" && block.lineHeight < 10)
+            ? defaultPostLineHeight(template)
+            : block.lineHeight,
+        }))
       : [{ ...makeTextBlock(template, slide.content || base.content), fontSize: slide.fontSize || base.fontSize, textWidth: slide.textWidth || base.textWidth }];
     const validKeys = new Set(["media", ...textBlocks.map((block) => block.id)]);
     const savedLayout = Array.isArray(slide.layout) ? slide.layout.filter((key) => validKeys.has(key)) : [];
@@ -245,6 +252,9 @@ function PostEditor({ template, onBack }: { template: PostTemplate; onBack: () =
   const [storageReady, setStorageReady] = useState(false);
   const [syncState, setSyncState] = useState<"saving" | "synced" | "offline">("saving");
   const [exporting, setExporting] = useState<"one" | "all" | null>(null);
+  const defaultExportName = template === "tweet" ? "posts-tweet" : "stories-plus";
+  const [exportName, setExportName] = useState(defaultExportName);
+  const [exportDialogOpen, setExportDialogOpen] = useState(false);
   const exportRefs = useRef(new Map<string, HTMLDivElement>());
   const activeIdRef = useRef(activeId);
   const activeTextBlockIdRef = useRef(activeTextBlockId);
@@ -521,20 +531,17 @@ function PostEditor({ template, onBack }: { template: PostTemplate; onBack: () =
   async function exportOne() {
     const element = exportRefs.current.get(activeId);
     if (!element) return;
-    const directory = await chooseDownloadDirectory();
-    if (directory === null) return toast.message("Download cancelado.");
     setExporting("one");
     try {
       const blob = await postElementToPng(element, dimensions.width, dimensions.height);
-      await saveBlob(blob, `slide-${String(activeIndex + 1).padStart(2, "0")}-de-${String(slides.length).padStart(2, "0")}.png`, directory);
+      await saveBlob(blob, numberedSlideFilename(activeIndex));
       toast.success("Slide exportado em alta qualidade.");
     } catch (error) { toast.error(error instanceof Error ? error.message : "Falha ao exportar o slide."); }
     finally { setExporting(null); }
   }
 
-  async function exportAll() {
-    const directory = await chooseDownloadDirectory();
-    if (directory === null) return toast.message("Download cancelado.");
+  async function exportAll(requestedName: string) {
+    const filename = `${sanitizeDownloadName(requestedName, defaultExportName)}.zip`;
     setExporting("all");
     try {
       const files: Array<{ name: string; data: Uint8Array }> = [];
@@ -542,10 +549,10 @@ function PostEditor({ template, onBack }: { template: PostTemplate; onBack: () =
         const element = exportRefs.current.get(slides[index].id);
         if (!element) continue;
         const blob = await postElementToPng(element, dimensions.width, dimensions.height);
-        files.push({ name: `${String(index + 1).padStart(2, "0")}-de-${String(slides.length).padStart(2, "0")}.png`, data: new Uint8Array(await blob.arrayBuffer()) });
+        files.push({ name: numberedSlideFilename(index), data: new Uint8Array(await blob.arrayBuffer()) });
       }
-      await saveBlob(createZip(files), `posts-${template}-${dimensions.width}x${dimensions.height}.zip`, directory);
-      toast.success(`${files.length} slides exportados e numerados.`);
+      await saveBlob(createZip(files), filename);
+      toast.success(`${filename} enviado para os downloads do navegador.`);
     } catch (error) { toast.error(error instanceof Error ? error.message : "Falha ao exportar os slides."); }
     finally { setExporting(null); }
   }
@@ -571,7 +578,7 @@ function PostEditor({ template, onBack }: { template: PostTemplate; onBack: () =
           {(Object.entries(POST_FORMATS) as Array<[PostFormat, typeof dimensions]>).map(([value, item]) => <button key={value} onClick={() => setFormat(value)} className={cn("rounded-lg px-3 py-1.5 text-[11px] font-medium transition", format === value ? "bg-[var(--segment-active-bg)] text-[var(--text-title)]" : "text-[var(--muted-foreground)] hover:text-[var(--text-title)]")}>{item.label}</button>)}
         </div>
         <Button variant="outline" onClick={() => void exportOne()} loading={exporting === "one"} icon={<Download />}>Slide atual</Button>
-        <Button onClick={() => void exportAll()} loading={exporting === "all"} icon={<Layers3 />} signature>Baixar todos</Button>
+        <Button onClick={() => setExportDialogOpen(true)} loading={exporting === "all"} icon={<Layers3 />} signature>Baixar todos</Button>
       </div>
 
       <div className="grid flex-1 lg:grid-cols-[230px_minmax(0,1fr)_300px]">
@@ -592,6 +599,60 @@ function PostEditor({ template, onBack }: { template: PostTemplate; onBack: () =
       <div aria-hidden className="pointer-events-none fixed left-[-12000px] top-0">
         {slides.map((slide) => <PostCanvas key={slide.id} slide={slide} profile={tweetProfile} template={template} width={dimensions.width} height={dimensions.height} refCallback={(node) => { if (node) exportRefs.current.set(slide.id, node); else exportRefs.current.delete(slide.id); }} />)}
       </div>
+
+      {exportDialogOpen && (
+        <ExportNameDialog
+          value={exportName}
+          onChange={setExportName}
+          onClose={() => setExportDialogOpen(false)}
+          onConfirm={() => {
+            setExportDialogOpen(false);
+            void exportAll(exportName);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function ExportNameDialog({ value, onChange, onClose, onConfirm }: {
+  value: string;
+  onChange: (value: string) => void;
+  onClose: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center p-4" role="dialog" aria-modal="true" aria-labelledby="export-name-title">
+      <button type="button" className="absolute inset-0 bg-black/65 backdrop-blur-sm" onClick={onClose} aria-label="Cancelar exportação" />
+      <form
+        className="lc-modal-panel relative z-10 w-full max-w-md rounded-2xl border p-5 shadow-2xl"
+        onSubmit={(event) => { event.preventDefault(); onConfirm(); }}
+      >
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2 id="export-name-title" className="text-base font-semibold text-[var(--text-title)]">Nomear arquivo</h2>
+            <p className="mt-1 text-xs leading-relaxed text-[var(--muted-foreground)]">O arquivo será baixado como ZIP. Dentro dele, os slides serão numerados como 1.png, 2.png, 3.png e assim por diante.</p>
+          </div>
+          <button type="button" onClick={onClose} className="rounded-lg p-1.5 text-[var(--muted-foreground)] hover:bg-[var(--hover)] hover:text-[var(--text-title)]" aria-label="Fechar"><X size={16} /></button>
+        </div>
+        <label className="mt-5 block text-xs font-medium text-[var(--text-title)]" htmlFor="post-export-name">Nome do arquivo</label>
+        <div className="mt-2 flex items-center rounded-xl border px-3" style={{ background: "var(--hover)", borderColor: "var(--border)" }}>
+          <input
+            id="post-export-name"
+            autoFocus
+            value={value}
+            onChange={(event) => onChange(event.target.value)}
+            className="min-w-0 flex-1 bg-transparent py-2.5 text-sm text-[var(--text-title)] outline-none"
+            placeholder="Ex.: campanha-agosto"
+            maxLength={100}
+          />
+          <span className="text-xs text-[var(--muted-foreground)]">.zip</span>
+        </div>
+        <div className="mt-5 flex justify-end gap-2">
+          <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>
+          <Button type="submit" icon={<Download />}>Baixar slides</Button>
+        </div>
+      </form>
     </div>
   );
 }
@@ -720,7 +781,7 @@ function TweetProfileBlock({ profile, foreground }: { profile: TweetProfile; for
 
 function TextBlockItem({ block, editor, editable, active, foreground, story, safeWidth, onSelect, onDragStart, onDragEnd }: { block: TextBlock; editor?: Editor | null; editable: boolean; active: boolean; foreground: string; story: boolean; safeWidth: number; onSelect: () => void; onDragStart: (event: React.DragEvent<HTMLButtonElement>) => void; onDragEnd: () => void }) {
   const width = Math.min(block.textWidth, safeWidth) / safeWidth * 100;
-  return <div onClick={editable ? onSelect : undefined} className={cn("relative mx-auto", editable && "cursor-text", active && "z-10")} style={{ width: `${width}%`, color: foreground, fontSize: block.fontSize, fontWeight: 400, lineHeight: block.lineHeight, overflowWrap: "anywhere" }}>
+  return <div onClick={editable ? onSelect : undefined} className={cn("relative mx-auto", editable && "cursor-text", active && "z-10")} style={{ width: `${width}%`, color: foreground, fontSize: block.fontSize, fontWeight: 400, lineHeight: story ? `${block.lineHeight}px` : block.lineHeight, overflowWrap: "anywhere" }}>
     {editable && active && <button type="button" draggable aria-label="Mover caixa de texto" title="Arraste para reorganizar esta caixa" className="absolute -bottom-14 left-1/2 grid h-12 w-12 -translate-x-1/2 cursor-grab place-items-center rounded-full bg-[#27a3ff] text-white shadow-xl active:cursor-grabbing" onDragStart={onDragStart} onDragEnd={onDragEnd}><Move size={24} /></button>}
     <PostText block={block} editor={active ? editor : undefined} editable={editable && active} className={cn("w-full", story && "tracking-[-.03em]", editable && !active && "rounded-lg ring-[5px] ring-transparent hover:ring-[#27a3ff]/20", active && "rounded-lg ring-[5px] ring-[#27a3ff]/25")} />
   </div>;
@@ -749,14 +810,14 @@ function PropertiesPanel({ template, format, setFormat, slide, update, activeTex
   const textPlacement = textLayoutIndex < mediaLayoutIndex ? "above" : "below";
   return <aside className="p-4 lg:p-5"><div className="space-y-6"><PanelSection title="Documento"><div className="grid grid-cols-2 gap-2">{(Object.entries(POST_FORMATS) as Array<[PostFormat, { label: string; width: number; height: number }]>).map(([value, item]) => <button key={value} onClick={() => setFormat(value)} className={cn("rounded-xl border p-3 text-left transition", format === value ? "border-[var(--accent-blue)] bg-[var(--hover)]" : "border-[var(--glass-border)]")}><span className="block text-xs font-semibold text-[var(--text-title)]">{item.label}</span><span className="text-[9px] text-[var(--muted-foreground)]">{value === "story" ? "Story" : "Feed 4:5"}</span>{format === value && <Check size={13} className="float-right -mt-5 text-[var(--accent-blue)]" />}</button>)}</div></PanelSection>
 
-      <PanelSection title="Caixas de texto"><div className="flex flex-wrap gap-1.5">{slide.textBlocks.map((block, index) => <button key={block.id} type="button" onClick={() => selectTextBlock(block.id)} className={cn("rounded-lg border px-2.5 py-1.5 text-[10px]", activeTextBlock.id === block.id ? "border-[var(--accent-blue)] bg-[var(--hover)] text-[var(--text-title)]" : "border-[var(--glass-border)] text-[var(--muted-foreground)]")}>Texto {index + 1}</button>)}</div><div className="grid grid-cols-2 gap-2"><Button variant="outline" size="sm" onClick={addTextBlock} icon={<Plus />}>Novo texto</Button><Button variant="danger" size="sm" onClick={removeTextBlock} disabled={slide.textBlocks.length === 1} icon={<Trash2 />}>Remover</Button></div><Field label={`Tamanho · ${activeTextBlock.fontSize}px`}><input aria-label="Tamanho do texto" type="range" min={template === "tweet" ? 28 : 36} max={template === "tweet" ? 128 : 190} step="1" value={activeTextBlock.fontSize} onChange={(event) => updateTextBlock({ fontSize: Number(event.target.value) })} className="w-full accent-[#27a3ff]" /></Field><Field label={`Espaçamento entre linhas · ${Math.round(activeTextBlock.lineHeight * 100)}%`}><input aria-label="Espaçamento entre linhas" type="range" min="0.75" max="1.8" step="0.05" value={activeTextBlock.lineHeight} onChange={(event) => updateTextBlock({ lineHeight: Number(event.target.value) })} className="w-full accent-[#27a3ff]" /></Field><Field label={`Largura do bloco · ${activeTextBlock.textWidth}%`}><input aria-label="Largura do texto" type="range" min="40" max={template === "tweet" ? 76 : 84} step="2" value={Math.min(activeTextBlock.textWidth, template === "tweet" ? 76 : 84)} onChange={(event) => updateTextBlock({ textWidth: Number(event.target.value) })} className="w-full accent-[#27a3ff]" /></Field><div className="grid grid-cols-2 gap-2"><button onClick={() => placeText("above")} className={cn("rounded-xl border px-3 py-2 text-xs", textPlacement === "above" && "border-[var(--accent-blue)] bg-[var(--hover)]")}>Acima da imagem</button><button onClick={() => placeText("below")} className={cn("rounded-xl border px-3 py-2 text-xs", textPlacement === "below" && "border-[var(--accent-blue)] bg-[var(--hover)]")}>Abaixo da imagem</button></div><p className="text-[10px] leading-relaxed text-[var(--muted-foreground)]"><Move size={11} className="mr-1 inline" />Selecione uma caixa e arraste o controle azul. Ela se encaixa na sequência sem alterar margens ou distâncias.</p></PanelSection>
+      <PanelSection title="Caixas de texto"><div className="flex flex-wrap gap-1.5">{slide.textBlocks.map((block, index) => <button key={block.id} type="button" onClick={() => selectTextBlock(block.id)} className={cn("rounded-lg border px-2.5 py-1.5 text-[10px]", activeTextBlock.id === block.id ? "border-[var(--accent-blue)] bg-[var(--hover)] text-[var(--text-title)]" : "border-[var(--glass-border)] text-[var(--muted-foreground)]")}>Texto {index + 1}</button>)}</div><div className="grid grid-cols-2 gap-2"><Button variant="outline" size="sm" className="h-9 rounded-xl" onClick={addTextBlock} icon={<Plus />}>Novo texto</Button><Button variant="danger" size="sm" className="h-9 rounded-xl" onClick={removeTextBlock} disabled={slide.textBlocks.length === 1} icon={<Trash2 />}>Remover</Button></div><Field label={`Tamanho · ${activeTextBlock.fontSize}px`}><input aria-label="Tamanho do texto" type="range" min={template === "tweet" ? 28 : 36} max={template === "tweet" ? 128 : 190} step="1" value={activeTextBlock.fontSize} onChange={(event) => updateTextBlock({ fontSize: Number(event.target.value) })} className="w-full accent-[#27a3ff]" /></Field><Field label={`Espaçamento entre linhas · ${template === "stories" ? `${Math.round(activeTextBlock.lineHeight)}px` : `${Math.round(activeTextBlock.lineHeight * 100)}%`}`}><input aria-label="Espaçamento entre linhas" type="range" min={template === "stories" ? 60 : 0.75} max={template === "stories" ? 180 : 1.8} step={template === "stories" ? 5 : 0.05} value={activeTextBlock.lineHeight} onChange={(event) => updateTextBlock({ lineHeight: Number(event.target.value) })} className="w-full accent-[#27a3ff]" /></Field><Field label={`Largura do bloco · ${activeTextBlock.textWidth}%`}><input aria-label="Largura do texto" type="range" min="40" max={template === "tweet" ? 76 : 84} step="2" value={Math.min(activeTextBlock.textWidth, template === "tweet" ? 76 : 84)} onChange={(event) => updateTextBlock({ textWidth: Number(event.target.value) })} className="w-full accent-[#27a3ff]" /></Field><div className="grid grid-cols-2 gap-2"><button onClick={() => placeText("above")} className={cn("rounded-xl border px-3 py-2 text-xs", textPlacement === "above" && "border-[var(--accent-blue)] bg-[var(--hover)]")}>Acima da imagem</button><button onClick={() => placeText("below")} className={cn("rounded-xl border px-3 py-2 text-xs", textPlacement === "below" && "border-[var(--accent-blue)] bg-[var(--hover)]")}>Abaixo da imagem</button></div><p className="text-[10px] leading-relaxed text-[var(--muted-foreground)]"><Move size={11} className="mr-1 inline" />Selecione uma caixa e arraste o controle azul. Ela se encaixa na sequência sem alterar margens ou distâncias.</p></PanelSection>
 
       {template === "tweet" ? <>
         <PanelSection title="Perfil · aplicado a todos os slides"><UploadField label="Foto do usuário" value={profile.avatar} onFile={(file) => addFile(file, (avatar) => updateProfile({ avatar }))} onRemove={() => updateProfile({ avatar: "" })} /><Field label="Nome"><input value={profile.name} onChange={(event) => updateProfile({ name: event.target.value })} className="editor-input" /></Field><Field label="Arroba"><div className="relative"><AtSign size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)]" /><input value={profile.handle.replace(/^@/, "")} onChange={(event) => updateProfile({ handle: `@${event.target.value.replace(/^@/, "")}` })} className="editor-input pl-8" /></div></Field><label className="flex items-center justify-between text-xs"><span>Selo de verificação</span><input type="checkbox" checked={profile.verified} onChange={(event) => updateProfile({ verified: event.target.checked })} className="accent-[#27a3ff]" /></label></PanelSection>
         <PanelSection title="Aparência"><div className="grid grid-cols-2 gap-2"><button onClick={() => updateBackground("#ffffff")} className={cn("rounded-xl border p-3 text-left", slide.background === "#ffffff" && "border-[#27a3ff]")}><Sun size={15} /><span className="mt-2 block text-xs">Claro</span></button><button onClick={() => updateBackground("#000000")} className={cn("rounded-xl border p-3 text-left", slide.background === "#000000" && "border-[#27a3ff]")}><Moon size={15} /><span className="mt-2 block text-xs">Escuro absoluto</span></button></div></PanelSection>
         <MediaPanel slide={slide} update={update} addFile={addFile} title="Imagem do post" />
       </> : <>
-        <PanelSection title="Cores"><ColorRow label="Fundo" value={slide.background} onChange={updateBackground} /><div className="flex items-center justify-between rounded-xl border px-3 py-2" style={{ borderColor: "var(--glass-border)" }}><span className="text-xs">Texto automático</span><span className="h-7 w-7 rounded-full border" style={{ background: slide.foreground, borderColor: "var(--glass-border)" }} /></div></PanelSection>
+        <PanelSection title="Cores"><BackgroundColorRow value={slide.background} onChange={updateBackground} /><div className="flex items-center justify-between rounded-xl border px-3 py-2" style={{ borderColor: "var(--glass-border)" }}><span className="text-xs">Texto automático</span><span className="h-7 w-7 rounded-full border" style={{ background: slide.foreground, borderColor: "var(--glass-border)" }} /></div></PanelSection>
         <PanelSection title="Imagem de fundo"><UploadField label="Imagem do slide" value={slide.backgroundImage} square onFile={(file) => addFile(file, (backgroundImage) => update({ backgroundImage }))} onRemove={() => update({ backgroundImage: "" })} />{slide.backgroundImage && <Field label={`Escurecer foto · ${slide.imageDarkness}%`}><input type="range" min="0" max="90" value={slide.imageDarkness} onChange={(event) => update({ imageDarkness: Number(event.target.value) })} className="w-full accent-[#27a3ff]" /></Field>}</PanelSection>
         <MediaPanel slide={slide} update={update} addFile={addFile} title="Imagem complementar" />
       </>}
@@ -777,7 +838,10 @@ function MediaPanel({ slide, update, addFile, title }: { slide: Slide; update: (
 
 function PanelSection({ title, children }: { title: string; children: React.ReactNode }) { return <section className="post-generator-panel-section border-b pb-5 last:border-0" style={{ borderColor: "var(--border)" }}><h2 className="mb-3 text-[10px] font-semibold uppercase tracking-[.14em] text-[var(--muted-foreground)]">{title}</h2><div className="space-y-3">{children}</div></section>; }
 function Field({ label, children }: { label: string; children: React.ReactNode }) { return <label className="block"><span className="mb-1.5 block text-[10px] text-[var(--muted-foreground)]">{label}</span>{children}</label>; }
-function ColorRow({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) { return <label className="flex items-center justify-between rounded-xl border px-3 py-2" style={{ borderColor: "var(--glass-border)" }}><span className="text-xs">{label}</span><span className="flex items-center gap-2 text-[10px] text-[var(--muted-foreground)]">{value}<input type="color" value={value} onChange={(event) => onChange(event.target.value)} className="h-7 w-7 cursor-pointer rounded border-0 bg-transparent p-0" /></span></label>; }
+function BackgroundColorRow({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+  const normalizedValue = value.toLowerCase();
+  return <div className="flex items-center justify-between rounded-xl border px-3 py-2" style={{ borderColor: "var(--glass-border)" }}><span className="text-xs">Fundo</span><div className="flex items-center gap-2">{[{ value: "#000000", label: "Preto puro" }, { value: "#ffffff", label: "Branco puro" }].map((color) => <button key={color.value} type="button" onClick={() => onChange(color.value)} aria-label={`Usar fundo ${color.label.toLowerCase()}`} title={color.label} className={cn("h-8 w-8 rounded-full border transition hover:scale-105", normalizedValue === color.value ? "ring-2 ring-[#27a3ff] ring-offset-2 ring-offset-[var(--background)]" : "border-[var(--glass-border)]")} style={{ backgroundColor: color.value }} />)}<label className="relative grid h-8 w-8 cursor-pointer place-items-center rounded-full border text-[var(--muted-foreground)] transition hover:bg-[var(--hover)] hover:text-[var(--text-title)]" style={{ borderColor: "var(--glass-border)" }} title="Escolher cor personalizada"><Palette size={15} /><input aria-label="Escolher cor de fundo personalizada" type="color" value={value} onChange={(event) => onChange(event.target.value)} className="absolute inset-0 cursor-pointer opacity-0" /></label></div></div>;
+}
 
 function UploadField({ label, value, onFile, onRemove, square = false }: { label: string; value: string; onFile: (file?: File) => void; onRemove: () => void; square?: boolean }) { return <div className="flex items-center gap-3"><span className={cn("grid h-11 w-11 shrink-0 place-items-center overflow-hidden border bg-[var(--hover)]", square ? "rounded-lg" : "rounded-full")}>{value ? <img src={value} alt="Arquivo selecionado" className="h-full w-full object-cover" /> : <UserRound size={17} />}</span><label className="flex-1 cursor-pointer rounded-lg border px-3 py-2 text-center text-[10px] hover:bg-[var(--hover)]"><Upload size={12} className="mr-1 inline" />{value ? "Trocar" : label}<input type="file" accept="image/*" className="sr-only" onChange={(event) => onFile(event.target.files?.[0])} /></label>{value && <button onClick={onRemove} className="text-[var(--muted-foreground)] hover:text-red-500" aria-label="Remover imagem"><X size={15} /></button>}</div>; }
 

@@ -20,4 +20,9 @@ describe("AppLifecycleRecovery", () => {
     expect(canRemountAppForRecovery(1, 1)).toBe(false);
     expect(canRemountAppForRecovery(0, 0)).toBe(true);
   });
+
+  it("nunca remonta o gerador de posts ao voltar para a aba", () => {
+    expect(canRemountAppForRecovery(0, 0, "/marketing/gerador")).toBe(false);
+    expect(canRemountAppForRecovery(0, 0, "/marketing/gerador?template=stories")).toBe(false);
+  });
 });
