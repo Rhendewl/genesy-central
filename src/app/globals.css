@@ -1627,9 +1627,14 @@
 
 /* Editor do Gerador de Posts */
 .post-rich-text .tiptap {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
   min-height: 1em;
   outline: none;
   white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
   color: inherit;
   font-family: inherit;
   font-size: inherit;

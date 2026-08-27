@@ -16,7 +16,7 @@ import {
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
-  createZip, defaultPostLineHeight, numberedSlideFilename, POST_FORMATS, postElementToPng, sanitizeDownloadName, saveBlob,
+  createZip, defaultPostLineHeight, normalizePostLineHeight, normalizePostTextWidth, numberedSlideFilename, POST_FORMATS, postElementToPng, sanitizeDownloadName, saveBlob,
   type PostFormat, type PostTemplate,
 } from "@/lib/marketing/post-generator";
 import {
@@ -148,11 +148,10 @@ function normalizePostProject(template: PostTemplate, project: PersistedPostProj
           ...makeTextBlock(template, block.content || "<p>Novo texto</p>"),
           ...block,
           id: block.id || uid(),
-          lineHeight: !Number.isFinite(block.lineHeight) || (template === "stories" && block.lineHeight < 10)
-            ? defaultPostLineHeight(template)
-            : block.lineHeight,
+          lineHeight: normalizePostLineHeight(template, block.lineHeight),
+          textWidth: normalizePostTextWidth(template, block.textWidth),
         }))
-      : [{ ...makeTextBlock(template, slide.content || base.content), fontSize: slide.fontSize || base.fontSize, textWidth: slide.textWidth || base.textWidth }];
+      : [{ ...makeTextBlock(template, slide.content || base.content), fontSize: slide.fontSize || base.fontSize, textWidth: normalizePostTextWidth(template, slide.textWidth) }];
     const validKeys = new Set(["media", ...textBlocks.map((block) => block.id)]);
     const savedLayout = Array.isArray(slide.layout) ? slide.layout.filter((key) => validKeys.has(key)) : [];
     const fallbackLayout = slide.mediaPosition === "top" ? ["media", ...textBlocks.map((block) => block.id)] : [...textBlocks.map((block) => block.id), "media"];
@@ -748,7 +747,7 @@ function PostCanvas({ slide, profile, template, width, height, editable = false,
     const block = textMap.get(key);
     const child = key === "media" ? media : block ? <TextBlockItem block={block} editor={editor} editable={editable} active={activeTextBlockId === block.id} foreground={slide.foreground} story={template === "stories"} safeWidth={safeWidth} onSelect={() => onSelectTextBlock?.(block.id)} onDragStart={(event) => { event.dataTransfer.effectAllowed = "move"; event.dataTransfer.setData("text/plain", block.id); setDraggedTextId(block.id); }} onDragEnd={() => { setDraggedTextId(null); setDropTargetId(null); }} /> : null;
     if (!child) return null;
-    return <div key={key} className={cn("relative w-full transition", dropTargetId === key && draggedTextId !== key && "rounded-[28px] ring-[8px] ring-[#27a3ff]/35")} onDragOver={editable ? (event) => { event.preventDefault(); event.dataTransfer.dropEffect = "move"; setDropTargetId(key); } : undefined} onDragLeave={editable ? () => setDropTargetId((current) => current === key ? null : current) : undefined} onDrop={editable ? (event) => { event.preventDefault(); const sourceId = draggedTextId || event.dataTransfer.getData("text/plain"); if (sourceId && sourceId !== key) { const rect = event.currentTarget.getBoundingClientRect(); onReorderText?.(sourceId, key, event.clientY >= rect.top + rect.height / 2); } setDraggedTextId(null); setDropTargetId(null); } : undefined}>{child}</div>;
+    return <div key={key} className={cn("relative w-full min-w-0 max-w-full transition", dropTargetId === key && draggedTextId !== key && "rounded-[28px] ring-[8px] ring-[#27a3ff]/35")} onDragOver={editable ? (event) => { event.preventDefault(); event.dataTransfer.dropEffect = "move"; setDropTargetId(key); } : undefined} onDragLeave={editable ? () => setDropTargetId((current) => current === key ? null : current) : undefined} onDrop={editable ? (event) => { event.preventDefault(); const sourceId = draggedTextId || event.dataTransfer.getData("text/plain"); if (sourceId && sourceId !== key) { const rect = event.currentTarget.getBoundingClientRect(); onReorderText?.(sourceId, key, event.clientY >= rect.top + rect.height / 2); } setDraggedTextId(null); setDropTargetId(null); } : undefined}>{child}</div>;
   });
 
   return <div ref={refCallback} data-post-canvas={template} className="relative overflow-hidden" style={{ width, height, background: slide.background, color: slide.foreground, fontFamily: template === "tweet" ? "Arial, Helvetica, sans-serif" : "Advercase, Georgia, serif", fontWeight: 400 }}>
@@ -765,14 +764,18 @@ function BalancedContent({ safeLeft, safeWidth, gap, children }: { safeLeft: num
     const hostNode = host.current;
     const contentNode = content.current;
     if (!hostNode || !contentNode) return;
-    const fit = () => setFitScale(Math.min(1, hostNode.clientHeight / Math.max(contentNode.offsetHeight, 1)));
+    const fit = () => setFitScale(Math.min(
+      1,
+      hostNode.clientHeight / Math.max(contentNode.scrollHeight, 1),
+      hostNode.clientWidth / Math.max(contentNode.scrollWidth, 1),
+    ));
     fit();
     const observer = new ResizeObserver(fit);
     observer.observe(hostNode);
     observer.observe(contentNode);
     return () => observer.disconnect();
   }, []);
-  return <div ref={host} className="absolute grid place-items-center" style={{ left: `${safeLeft}%`, top: "7%", width: `${safeWidth}%`, height: "86%" }}><div ref={content} className="flex w-full flex-col" style={{ gap, transform: `scale(${fitScale})`, transformOrigin: "center center" }}>{children}</div></div>;
+  return <div ref={host} className="absolute grid min-w-0 max-w-full place-items-center overflow-x-clip" style={{ left: `${safeLeft}%`, top: "7%", width: `${safeWidth}%`, height: "86%" }}><div ref={content} className="flex w-full min-w-0 max-w-full flex-col" style={{ gap, transform: `scale(${fitScale})`, transformOrigin: "center center" }}>{children}</div></div>;
 }
 
 function TweetProfileBlock({ profile, foreground }: { profile: TweetProfile; foreground: string }) {
@@ -781,15 +784,15 @@ function TweetProfileBlock({ profile, foreground }: { profile: TweetProfile; for
 
 function TextBlockItem({ block, editor, editable, active, foreground, story, safeWidth, onSelect, onDragStart, onDragEnd }: { block: TextBlock; editor?: Editor | null; editable: boolean; active: boolean; foreground: string; story: boolean; safeWidth: number; onSelect: () => void; onDragStart: (event: React.DragEvent<HTMLButtonElement>) => void; onDragEnd: () => void }) {
   const width = Math.min(block.textWidth, safeWidth) / safeWidth * 100;
-  return <div onClick={editable ? onSelect : undefined} className={cn("relative mx-auto", editable && "cursor-text", active && "z-10")} style={{ width: `${width}%`, color: foreground, fontSize: block.fontSize, fontWeight: 400, lineHeight: story ? `${block.lineHeight}px` : block.lineHeight, overflowWrap: "anywhere" }}>
+  return <div onClick={editable ? onSelect : undefined} className={cn("relative mx-auto min-w-0 max-w-full", editable && "cursor-text", active && "z-10")} style={{ width: `${width}%`, color: foreground, fontSize: block.fontSize, fontWeight: 400, lineHeight: block.lineHeight, overflowWrap: "anywhere", wordBreak: "break-word" }}>
     {editable && active && <button type="button" draggable aria-label="Mover caixa de texto" title="Arraste para reorganizar esta caixa" className="absolute -bottom-14 left-1/2 grid h-12 w-12 -translate-x-1/2 cursor-grab place-items-center rounded-full bg-[#27a3ff] text-white shadow-xl active:cursor-grabbing" onDragStart={onDragStart} onDragEnd={onDragEnd}><Move size={24} /></button>}
     <PostText block={block} editor={active ? editor : undefined} editable={editable && active} className={cn("w-full", story && "tracking-[-.03em]", editable && !active && "rounded-lg ring-[5px] ring-transparent hover:ring-[#27a3ff]/20", active && "rounded-lg ring-[5px] ring-[#27a3ff]/25")} />
   </div>;
 }
 
 function PostText({ block, editor, editable, className }: { block: TextBlock; editor?: Editor | null; editable: boolean; className: string }) {
-  if (editable && editor) return <EditorContent editor={editor} className={cn("post-rich-text rounded-lg outline-none ring-[5px] ring-transparent transition focus-within:ring-[#27a3ff]/35", className)} />;
-  return <div className={cn("post-rich-text", className)} dangerouslySetInnerHTML={{ __html: block.content }} />;
+  if (editable && editor) return <EditorContent editor={editor} className={cn("post-rich-text min-w-0 max-w-full rounded-lg outline-none ring-[5px] ring-transparent transition focus-within:ring-[#27a3ff]/35", className)} />;
+  return <div className={cn("post-rich-text min-w-0 max-w-full", className)} dangerouslySetInnerHTML={{ __html: block.content }} />;
 }
 
 function HorizontalMedia({ media, crops, className }: { media: string[]; crops: MediaCrop[]; className?: string }) {
@@ -810,7 +813,20 @@ function PropertiesPanel({ template, format, setFormat, slide, update, activeTex
   const textPlacement = textLayoutIndex < mediaLayoutIndex ? "above" : "below";
   return <aside className="p-4 lg:p-5"><div className="space-y-6"><PanelSection title="Documento"><div className="grid grid-cols-2 gap-2">{(Object.entries(POST_FORMATS) as Array<[PostFormat, { label: string; width: number; height: number }]>).map(([value, item]) => <button key={value} onClick={() => setFormat(value)} className={cn("rounded-xl border p-3 text-left transition", format === value ? "border-[var(--accent-blue)] bg-[var(--hover)]" : "border-[var(--glass-border)]")}><span className="block text-xs font-semibold text-[var(--text-title)]">{item.label}</span><span className="text-[9px] text-[var(--muted-foreground)]">{value === "story" ? "Story" : "Feed 4:5"}</span>{format === value && <Check size={13} className="float-right -mt-5 text-[var(--accent-blue)]" />}</button>)}</div></PanelSection>
 
-      <PanelSection title="Caixas de texto"><div className="flex flex-wrap gap-1.5">{slide.textBlocks.map((block, index) => <button key={block.id} type="button" onClick={() => selectTextBlock(block.id)} className={cn("rounded-lg border px-2.5 py-1.5 text-[10px]", activeTextBlock.id === block.id ? "border-[var(--accent-blue)] bg-[var(--hover)] text-[var(--text-title)]" : "border-[var(--glass-border)] text-[var(--muted-foreground)]")}>Texto {index + 1}</button>)}</div><div className="grid grid-cols-2 gap-2"><Button variant="outline" size="sm" className="h-9 rounded-xl" onClick={addTextBlock} icon={<Plus />}>Novo texto</Button><Button variant="danger" size="sm" className="h-9 rounded-xl" onClick={removeTextBlock} disabled={slide.textBlocks.length === 1} icon={<Trash2 />}>Remover</Button></div><Field label={`Tamanho · ${activeTextBlock.fontSize}px`}><input aria-label="Tamanho do texto" type="range" min={template === "tweet" ? 28 : 36} max={template === "tweet" ? 128 : 190} step="1" value={activeTextBlock.fontSize} onChange={(event) => updateTextBlock({ fontSize: Number(event.target.value) })} className="w-full accent-[#27a3ff]" /></Field><Field label={`Espaçamento entre linhas · ${template === "stories" ? `${Math.round(activeTextBlock.lineHeight)}px` : `${Math.round(activeTextBlock.lineHeight * 100)}%`}`}><input aria-label="Espaçamento entre linhas" type="range" min={template === "stories" ? 60 : 0.75} max={template === "stories" ? 180 : 1.8} step={template === "stories" ? 5 : 0.05} value={activeTextBlock.lineHeight} onChange={(event) => updateTextBlock({ lineHeight: Number(event.target.value) })} className="w-full accent-[#27a3ff]" /></Field><Field label={`Largura do bloco · ${activeTextBlock.textWidth}%`}><input aria-label="Largura do texto" type="range" min="40" max={template === "tweet" ? 76 : 84} step="2" value={Math.min(activeTextBlock.textWidth, template === "tweet" ? 76 : 84)} onChange={(event) => updateTextBlock({ textWidth: Number(event.target.value) })} className="w-full accent-[#27a3ff]" /></Field><div className="grid grid-cols-2 gap-2"><button onClick={() => placeText("above")} className={cn("rounded-xl border px-3 py-2 text-xs", textPlacement === "above" && "border-[var(--accent-blue)] bg-[var(--hover)]")}>Acima da imagem</button><button onClick={() => placeText("below")} className={cn("rounded-xl border px-3 py-2 text-xs", textPlacement === "below" && "border-[var(--accent-blue)] bg-[var(--hover)]")}>Abaixo da imagem</button></div><p className="text-[10px] leading-relaxed text-[var(--muted-foreground)]"><Move size={11} className="mr-1 inline" />Selecione uma caixa e arraste o controle azul. Ela se encaixa na sequência sem alterar margens ou distâncias.</p></PanelSection>
+      <PanelSection title="Caixas de texto">
+        <div className="flex flex-wrap gap-1.5">
+          {slide.textBlocks.map((block, index) => <button key={block.id} type="button" onClick={() => selectTextBlock(block.id)} className={cn("rounded-lg border px-2.5 py-1.5 text-[10px]", activeTextBlock.id === block.id ? "border-[var(--accent-blue)] bg-[var(--hover)] text-[var(--text-title)]" : "border-[var(--glass-border)] text-[var(--muted-foreground)]")}>Texto {index + 1}</button>)}
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <Button variant="outline" size="sm" className="h-9 rounded-xl" onClick={addTextBlock} icon={<Plus />}>Novo texto</Button>
+          <Button variant="danger" size="sm" className="h-9 rounded-xl" onClick={removeTextBlock} disabled={slide.textBlocks.length === 1} icon={<Trash2 />}>Remover</Button>
+        </div>
+        <Field label={`Tamanho · ${activeTextBlock.fontSize}px`}><input aria-label="Tamanho do texto" type="range" min={template === "tweet" ? 28 : 36} max={template === "tweet" ? 128 : 190} step="1" value={activeTextBlock.fontSize} onChange={(event) => updateTextBlock({ fontSize: Number(event.target.value) })} className="w-full accent-[#27a3ff]" /></Field>
+        <Field label={`Espaçamento entre linhas · ${Math.round(activeTextBlock.lineHeight * 100)}%`}><input aria-label="Espaçamento entre linhas" type="range" min="0.75" max="1.8" step="0.05" value={activeTextBlock.lineHeight} onChange={(event) => updateTextBlock({ lineHeight: Number(event.target.value) })} className="w-full accent-[#27a3ff]" /></Field>
+        <Field label={`Largura do bloco · ${activeTextBlock.textWidth}%`}><input aria-label="Largura do texto" type="range" min="40" max={template === "tweet" ? 76 : 84} step="2" value={Math.min(activeTextBlock.textWidth, template === "tweet" ? 76 : 84)} onChange={(event) => updateTextBlock({ textWidth: Number(event.target.value) })} className="w-full accent-[#27a3ff]" /></Field>
+        <div className="grid grid-cols-2 gap-2"><button onClick={() => placeText("above")} className={cn("rounded-xl border px-3 py-2 text-xs", textPlacement === "above" && "border-[var(--accent-blue)] bg-[var(--hover)]")}>Acima da imagem</button><button onClick={() => placeText("below")} className={cn("rounded-xl border px-3 py-2 text-xs", textPlacement === "below" && "border-[var(--accent-blue)] bg-[var(--hover)]")}>Abaixo da imagem</button></div>
+        <p className="text-[10px] leading-relaxed text-[var(--muted-foreground)]"><Move size={11} className="mr-1 inline" />Selecione uma caixa e arraste o controle azul. Ela se encaixa na sequência sem alterar margens ou distâncias.</p>
+      </PanelSection>
 
       {template === "tweet" ? <>
         <PanelSection title="Perfil · aplicado a todos os slides"><UploadField label="Foto do usuário" value={profile.avatar} onFile={(file) => addFile(file, (avatar) => updateProfile({ avatar }))} onRemove={() => updateProfile({ avatar: "" })} /><Field label="Nome"><input value={profile.name} onChange={(event) => updateProfile({ name: event.target.value })} className="editor-input" /></Field><Field label="Arroba"><div className="relative"><AtSign size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)]" /><input value={profile.handle.replace(/^@/, "")} onChange={(event) => updateProfile({ handle: `@${event.target.value.replace(/^@/, "")}` })} className="editor-input pl-8" /></div></Field><label className="flex items-center justify-between text-xs"><span>Selo de verificação</span><input type="checkbox" checked={profile.verified} onChange={(event) => updateProfile({ verified: event.target.checked })} className="accent-[#27a3ff]" /></label></PanelSection>

@@ -63,7 +63,19 @@ export function numberedSlideFilename(index: number) {
 }
 
 export function defaultPostLineHeight(template: PostTemplate) {
-  return template === "stories" ? 115 : 1.18;
+  return template === "stories" ? 1.15 : 1.18;
+}
+
+export function normalizePostLineHeight(template: PostTemplate, value: number) {
+  if (!Number.isFinite(value)) return defaultPostLineHeight(template);
+  const ratio = template === "stories" && value >= 10 ? value / 100 : value;
+  return Math.min(1.8, Math.max(0.75, ratio));
+}
+
+export function normalizePostTextWidth(template: PostTemplate, value: number) {
+  const maximum = template === "stories" ? 84 : 76;
+  if (!Number.isFinite(value)) return maximum;
+  return Math.min(maximum, Math.max(40, value));
 }
 
 export async function saveBlob(blob: Blob, filename: string) {
