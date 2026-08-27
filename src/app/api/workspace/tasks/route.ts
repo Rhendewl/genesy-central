@@ -161,7 +161,17 @@ export async function POST(req: NextRequest) {
 
     if (error) throw new Error(error.message);
 
-    const assigneeIds = body.assignee_ids ?? [];
+    let assigneeIds = body.assignee_ids;
+    if (assigneeIds === undefined) {
+      const { data: creatorProfile } = await supabase
+        .from("user_profiles")
+        .select("id")
+        .eq("auth_user_id", user.id)
+        .eq("is_active", true)
+        .limit(1)
+        .maybeSingle();
+      assigneeIds = creatorProfile ? [creatorProfile.id] : [];
+    }
     if (assigneeIds.length > 0) {
       const { error: assigneesError } = await supabase
         .from("workspace_task_assignees")

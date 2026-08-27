@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils";
 import type { AdPlatformAccount, MetaAdAccount, MetaSyncLog } from "@/types";
 import { PrimaryButton } from "@/components/ui/PrimaryButton";
 import { useModalOpen } from "@/hooks/useModalOpen";
+import { toast } from "sonner";
 
 // ── Formatters ─────────────────────────────────────────────────────────────────
 
@@ -379,16 +380,18 @@ interface MetaAccountRowProps {
   isSyncing:       boolean;
   isDisconnecting: boolean;
   isDeleting:      boolean;
+  isUpdatingExpense: boolean;
   onSync:          () => void;
   onReconnect:     () => void;
   onDisconnect:    () => void;
   onDelete:        () => void;
+  onToggleExpense: (enabled: boolean) => void;
   index:           number;
 }
 
 function MetaAccountRow({
   account, lastLog, isSyncing, isDisconnecting, isDeleting,
-  onSync, onReconnect, onDisconnect, onDelete, index,
+  isUpdatingExpense, onSync, onReconnect, onDisconnect, onDelete, onToggleExpense, index,
 }: MetaAccountRowProps) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const isConnected    = account.status === "connected";
@@ -470,6 +473,31 @@ function MetaAccountRow({
               Token expirado ou erro. Reconecte a conta.
             </div>
           )}
+
+          <button
+            type="button"
+            role="switch"
+            aria-checked={account.include_in_expenses}
+            aria-label={`Incluir ${account.account_name} como despesa no Financeiro`}
+            disabled={isDisconnected || isUpdatingExpense}
+            onClick={() => onToggleExpense(!account.include_in_expenses)}
+            className="mt-3 flex items-center gap-2.5 text-left disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <span
+              className="relative h-5 w-9 shrink-0 rounded-full transition-colors"
+              style={{ background: account.include_in_expenses ? "#4a8fd4" : "var(--border)" }}
+            >
+              <span
+                className="absolute top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-transform"
+                style={{ transform: account.include_in_expenses ? "translateX(18px)" : "translateX(2px)" }}
+              />
+            </span>
+            <span>
+              <span className="block text-[11px] font-medium text-[var(--text-title)]">Incluir no Financeiro</span>
+              <span className="block text-[10px] text-[var(--text-muted)]">Registrar o investimento desta conta como despesa</span>
+            </span>
+            {isUpdatingExpense && <Loader2 size={11} className="animate-spin text-[#4a8fd4]" />}
+          </button>
         </div>
 
         {/* Actions */}
@@ -546,16 +574,18 @@ interface MetaSectionProps {
   syncing:          Record<string, boolean>;
   disconnecting:    Record<string, boolean>;
   deleting:         Record<string, boolean>;
+  updatingExpenses: Record<string, boolean>;
   onAddAccount:     () => void;
   onSync:           (id: string) => void;
   onReconnect:      () => void;
   onDisconnect:     (id: string) => void;
   onDelete:         (id: string) => void;
+  onToggleExpense:  (id: string, enabled: boolean) => void;
 }
 
 function MetaAdsSection({
-  accounts, syncLogs, syncing, disconnecting, deleting,
-  onAddAccount, onSync, onReconnect, onDisconnect, onDelete,
+  accounts, syncLogs, syncing, disconnecting, deleting, updatingExpenses,
+  onAddAccount, onSync, onReconnect, onDisconnect, onDelete, onToggleExpense,
 }: MetaSectionProps) {
   return (
     <motion.div
@@ -614,10 +644,12 @@ function MetaAdsSection({
                   isSyncing={syncing[acc.id] ?? false}
                   isDisconnecting={disconnecting[acc.id] ?? false}
                   isDeleting={deleting[acc.id] ?? false}
+                  isUpdatingExpense={updatingExpenses[acc.id] ?? false}
                   onSync={() => onSync(acc.id)}
                   onReconnect={onReconnect}
                   onDisconnect={() => onDisconnect(acc.id)}
                   onDelete={() => onDelete(acc.id)}
+                  onToggleExpense={(enabled) => onToggleExpense(acc.id, enabled)}
                   index={i}
                 />
               );
@@ -691,7 +723,7 @@ export function IntegracoesTab() {
 
   const {
     connections, syncLogs, isLoading, syncing, error,
-    initiateOAuth, connectAccount, syncAccount, disconnect, deleteAccount, fetchPendingAccounts,
+    initiateOAuth, connectAccount, syncAccount, disconnect, deleteAccount, setExpenseImport, fetchPendingAccounts,
   } = useMetaIntegrations();
 
   const { assignableClients: clients } = useAgencyClients();
@@ -704,6 +736,7 @@ export function IntegracoesTab() {
   const [showPicker, setShowPicker]         = useState(!!pendingId);
   const [disconnecting, setDisconnecting]   = useState<Record<string, boolean>>({});
   const [deleting, setDeleting]             = useState<Record<string, boolean>>({});
+  const [updatingExpenses, setUpdatingExpenses] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     if (pendingId) setShowPicker(true);
@@ -729,6 +762,19 @@ export function IntegracoesTab() {
     await deleteAccount(id);
     setDeleting(prev => ({ ...prev, [id]: false }));
   }, [deleteAccount]);
+
+  const handleToggleExpense = useCallback(async (id: string, enabled: boolean) => {
+    setUpdatingExpenses(prev => ({ ...prev, [id]: true }));
+    const { error: updateError } = await setExpenseImport(id, enabled);
+    setUpdatingExpenses(prev => ({ ...prev, [id]: false }));
+    if (updateError) {
+      toast.error(updateError);
+      return;
+    }
+    toast.success(enabled
+      ? "Conta incluída nas despesas do Financeiro"
+      : "Conta removida das despesas do Financeiro");
+  }, [setExpenseImport]);
 
   // All connected Meta accounts
   const metaAccounts = connections.filter(c => c.platform === "meta");
@@ -781,11 +827,13 @@ export function IntegracoesTab() {
                   syncing={syncing}
                   disconnecting={disconnecting}
                   deleting={deleting}
+                  updatingExpenses={updatingExpenses}
                   onAddAccount={() => initiateOAuth(defaultClient)}
                   onSync={(id) => syncAccount(id)}
                   onReconnect={() => initiateOAuth(defaultClient)}
                   onDisconnect={handleDisconnect}
                   onDelete={handleDelete}
+                  onToggleExpense={handleToggleExpense}
                 />
               </div>
 

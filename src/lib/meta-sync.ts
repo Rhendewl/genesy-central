@@ -45,6 +45,7 @@ export interface SyncParams {
   platformAccountId: string;
   adAccountId: string;
   clientId: string | null;
+  includeInExpenses: boolean;
   accessToken: string;
   since?: string;   // YYYY-MM-DD, default = start of current month
   until?: string;   // YYYY-MM-DD, default = today
@@ -60,7 +61,7 @@ export interface SyncResult {
 export async function syncMetaAccount(params: SyncParams): Promise<SyncResult> {
   const {
     supabase, userId, platformAccountId,
-    adAccountId, clientId, accessToken,
+    adAccountId, clientId, includeInExpenses, accessToken,
   } = params;
 
   const since = params.since ?? format(startOfMonth(new Date()), "yyyy-MM-dd");
@@ -306,27 +307,29 @@ export async function syncMetaAccount(params: SyncParams): Promise<SyncResult> {
       const date  = `${monthKey}-01`;
       const extRef = `meta::${adAccountId}::${clientId ?? "global"}::${monthKey}`;
 
-      const { error: expErr } = await supabase
-        .from("expenses")
-        .upsert(
-          {
-            user_id:       userId,
-            client_id:     clientId,
-            category:      "trafego_pago",
-            description:   `Meta Ads — investimento ${month.toString().padStart(2, "0")}/${year}`,
-            amount:        totalSpend,
-            date,
-            type:          "variavel",
-            auto_imported: true,
-            notes:         `Importado automaticamente via integração Meta Ads (conta: ${adAccountId})`,
-            external_ref:  extRef,
-          },
-          { onConflict: "user_id,external_ref" }
-        );
+      if (includeInExpenses) {
+        const { error: expErr } = await supabase
+          .from("expenses")
+          .upsert(
+            {
+              user_id:       userId,
+              client_id:     clientId,
+              category:      "trafego_pago",
+              description:   `Meta Ads — investimento ${month.toString().padStart(2, "0")}/${year}`,
+              amount:        totalSpend,
+              date,
+              type:          "variavel",
+              auto_imported: true,
+              notes:         `Importado automaticamente via integração Meta Ads (conta: ${adAccountId})`,
+              external_ref:  extRef,
+            },
+            { onConflict: "user_id,external_ref" }
+          );
 
-      if (expErr) {
-        console.error("[meta-sync] expense upsert error:", expErr.message);
-        warnings.push(`Erro ao sincronizar despesa financeira: ${expErr.message}`);
+        if (expErr) {
+          console.error("[meta-sync] expense upsert error:", expErr.message);
+          warnings.push(`Erro ao sincronizar despesa financeira: ${expErr.message}`);
+        }
       }
 
       const tcRef = `meta::${adAccountId}::${clientId ?? "global"}::${monthKey}::cost`;

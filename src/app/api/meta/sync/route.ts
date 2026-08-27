@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
     // Retrieve platform account + token
     const { data: account, error: accErr } = await supabase
       .from("ad_platform_accounts")
-      .select("id, account_id, client_id, status")
+      .select("id, account_id, client_id, status, include_in_expenses")
       .eq("id", platformAccountId)
       .eq("user_id", user.id)
       .single();
@@ -67,6 +67,7 @@ export async function POST(req: NextRequest) {
       platformAccountId: account.id as string,
       adAccountId:       account.account_id as string,
       clientId:          account.client_id as string | null,
+      includeInExpenses: account.include_in_expenses as boolean,
       accessToken,
       since: since ?? format(startOfMonth(new Date()), "yyyy-MM-dd"),
       until: until ?? format(endOfToday(), "yyyy-MM-dd"),

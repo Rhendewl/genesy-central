@@ -627,6 +627,7 @@ export interface AdPlatformAccount {
   account_name: string;
   account_id: string | null;
   status: PlatformAccountStatus;
+  include_in_expenses: boolean;
   last_sync_at: string | null;
   created_at: string;
   updated_at: string;

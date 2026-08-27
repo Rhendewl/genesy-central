@@ -33,6 +33,7 @@ export interface UseMetaIntegrationsReturn {
   syncAccount:      (platformAccountId: string, since?: string, until?: string) => Promise<{ error: string | null }>;
   disconnect:       (platformAccountId: string) => Promise<{ error: string | null }>;
   deleteAccount:    (platformAccountId: string) => Promise<{ error: string | null }>;
+  setExpenseImport: (platformAccountId: string, enabled: boolean) => Promise<{ error: string | null }>;
   fetchPendingAccounts: (pendingId: string) => Promise<MetaAdAccount[]>;
 }
 
@@ -187,10 +188,30 @@ export function useMetaIntegrations(): UseMetaIntegrationsReturn {
     }
   }, [fetch]);
 
+  const setExpenseImport = useCallback(async (
+    platformAccountId: string,
+    enabled: boolean
+  ): Promise<{ error: string | null }> => {
+    try {
+      const res = await globalThis.fetch("/api/meta/account", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ platformAccountId, includeInExpenses: enabled }),
+      });
+      const json = await res.json() as { error?: string };
+      if (!res.ok) return { error: json.error ?? "Erro ao atualizar integração financeira" };
+      await fetch();
+      if (enabled) return syncAccount(platformAccountId);
+      return { error: null };
+    } catch (e: unknown) {
+      return { error: e instanceof Error ? e.message : "Erro ao atualizar integração financeira" };
+    }
+  }, [fetch, syncAccount]);
+
   return {
     connections, syncLogs, isLoading, syncing, error,
     refetch: fetch,
-    initiateOAuth, connectAccount, syncAccount, disconnect, deleteAccount,
+    initiateOAuth, connectAccount, syncAccount, disconnect, deleteAccount, setExpenseImport,
     fetchPendingAccounts,
   };
 }

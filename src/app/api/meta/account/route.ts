@@ -3,6 +3,57 @@ export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 
+// PATCH /api/meta/account
+// Body: { platformAccountId, includeInExpenses }
+// Escolhe explicitamente quais contas também alimentam o Financeiro.
+export async function PATCH(req: NextRequest) {
+  try {
+    const { platformAccountId, includeInExpenses } = await req.json() as {
+      platformAccountId: string;
+      includeInExpenses: boolean;
+    };
+    if (!platformAccountId || typeof includeInExpenses !== "boolean") {
+      return NextResponse.json({ error: "Dados inválidos" }, { status: 400 });
+    }
+
+    const supabase = await createServerSupabaseClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
+
+    const { data: account, error: findError } = await supabase
+      .from("ad_platform_accounts")
+      .select("id, account_id")
+      .eq("id", platformAccountId)
+      .eq("user_id", user.id)
+      .single();
+    if (findError || !account) {
+      return NextResponse.json({ error: "Conta não encontrada" }, { status: 404 });
+    }
+
+    const { error: updateError } = await supabase
+      .from("ad_platform_accounts")
+      .update({ include_in_expenses: includeInExpenses })
+      .eq("id", platformAccountId)
+      .eq("user_id", user.id);
+    if (updateError) throw updateError;
+
+    if (!includeInExpenses && account.account_id) {
+      const { error: cleanupError } = await supabase
+        .from("expenses")
+        .delete()
+        .eq("user_id", user.id)
+        .eq("auto_imported", true)
+        .like("external_ref", `meta::${account.account_id}::%`);
+      if (cleanupError) throw cleanupError;
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (err) {
+    console.error("[meta/account PATCH]", err);
+    return NextResponse.json({ error: String(err) }, { status: 500 });
+  }
+}
+
 // DELETE /api/meta/account
 // Body: { platformAccountId }
 // Permanently removes a disconnected ad account and all associated integration data.

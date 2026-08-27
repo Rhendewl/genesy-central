@@ -45,7 +45,7 @@ export async function POST(
 
   const { data: accounts } = await db
     .from("ad_platform_accounts")
-    .select("id, account_id, client_id, last_sync_at")
+    .select("id, account_id, client_id, include_in_expenses, last_sync_at")
     .eq("user_id", portal.user_id)
     .in("account_id", accountIds);
 
@@ -73,6 +73,7 @@ export async function POST(
     id: string;
     account_id: string;
     client_id: string | null;
+    include_in_expenses: boolean;
   }) => {
     const token = tokenByAccount.get(account.id);
     if (!token?.encrypted_token) return false;
@@ -96,6 +97,7 @@ export async function POST(
       platformAccountId: account.id,
       adAccountId: account.account_id,
       clientId: account.client_id,
+      includeInExpenses: account.include_in_expenses,
       accessToken: decryptToken(token.encrypted_token),
       since,
       until,

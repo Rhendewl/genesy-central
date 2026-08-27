@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
         status:       "connected",
         last_sync_at: new Date().toISOString(),
       }, { onConflict: "user_id,platform,account_id" })
-      .select("id")
+      .select("id, include_in_expenses")
       .single();
 
     if (accErr) throw accErr;
@@ -76,6 +76,7 @@ export async function POST(req: NextRequest) {
       platformAccountId: account.id,
       adAccountId,
       clientId:          clientId ?? null,
+      includeInExpenses: account.include_in_expenses as boolean,
       accessToken,
       since: format(startOfMonth(new Date()), "yyyy-MM-dd"),
       until: format(endOfToday(), "yyyy-MM-dd"),

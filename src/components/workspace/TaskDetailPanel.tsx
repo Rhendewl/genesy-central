@@ -6,6 +6,7 @@ import { motion } from "framer-motion";
 import { toast } from "sonner";
 import { CheckCircle2, RotateCcw, X, Trash2, Loader2, Lock, Megaphone } from "lucide-react";
 import { useModalOpen } from "@/hooks/useModalOpen";
+import { useCurrentMember } from "@/context/CurrentMemberContext";
 import { useWorkspaceTaskDetail } from "@/hooks/useWorkspaceTaskDetail";
 import { Textarea } from "@/components/ui/textarea";
 import { AssigneePicker } from "./AssigneePicker";
@@ -31,6 +32,7 @@ export function TaskDetailPanel({ taskId, tasksHook, onClose, presentation = "dr
   useModalOpen(true);
   const { getTaskById, updateTask, deleteTask, createTask, canEditTask, canExecuteTask } = tasksHook;
   const taskDetailHook = useWorkspaceTaskDetail(taskId);
+  const { member } = useCurrentMember();
 
   const isCreating = taskId === null;
   const existingTask = taskId ? (getTaskById(taskId) ?? taskDetailHook.detail) : null;
@@ -79,6 +81,10 @@ export function TaskDetailPanel({ taskId, tasksHook, onClose, presentation = "dr
       setNotes(existingTask.notes ?? "");
     }
   }, [existingTask]);
+
+  useEffect(() => {
+    if (isCreating && member?.id) setAssigneeIds((current) => current.length > 0 ? current : [member.id]);
+  }, [isCreating, member?.id]);
 
   function saveField(patch: Partial<{
     title: string; description: string; priority: WorkspaceTaskPriority; assignee_ids: string[];
