@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { EditorContent, useEditor, type Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import UnderlineExtension from "@tiptap/extension-underline";
@@ -19,6 +19,13 @@ import {
   chooseDownloadDirectory, createZip, POST_FORMATS, postElementToPng, saveBlob,
   type PostFormat, type PostTemplate,
 } from "@/lib/marketing/post-generator";
+import {
+  getRemotePostProject,
+  getRemotePostProjectIfChanged,
+  newestPostProject,
+  postProjectHasUserContent,
+  saveRemotePostProject,
+} from "@/lib/marketing/post-project-sync";
 import { cn } from "@/lib/utils";
 
 type Slide = {
@@ -122,6 +129,30 @@ function makeSlide(template: PostTemplate, index = 0): Slide {
   };
 }
 
+function normalizePostProject(template: PostTemplate, project: PersistedPostProject) {
+  const slides = project.slides.map((slide, index) => {
+    const base = makeSlide(template, index);
+    const media = Array.isArray(slide.media) ? slide.media.slice(0, 2) : [];
+    const mediaCrops = media.map((_, mediaIndex) => ({ ...defaultMediaCrop(), ...(Array.isArray(slide.mediaCrops) ? slide.mediaCrops[mediaIndex] : undefined) }));
+    const textBlocks = Array.isArray(slide.textBlocks) && slide.textBlocks.length
+      ? slide.textBlocks.map((block) => ({ ...makeTextBlock(template, block.content || "<p>Novo texto</p>"), ...block, id: block.id || uid() }))
+      : [{ ...makeTextBlock(template, slide.content || base.content), fontSize: slide.fontSize || base.fontSize, textWidth: slide.textWidth || base.textWidth }];
+    const validKeys = new Set(["media", ...textBlocks.map((block) => block.id)]);
+    const savedLayout = Array.isArray(slide.layout) ? slide.layout.filter((key) => validKeys.has(key)) : [];
+    const fallbackLayout = slide.mediaPosition === "top" ? ["media", ...textBlocks.map((block) => block.id)] : [...textBlocks.map((block) => block.id), "media"];
+    const layout = [...savedLayout, ...fallbackLayout.filter((key) => !savedLayout.includes(key))];
+    return { ...base, ...slide, id: slide.id || uid(), media, mediaCrops, textBlocks, layout };
+  });
+  const activeId = slides.some((slide) => slide.id === project.activeId) ? project.activeId : slides[0].id;
+  return {
+    slides,
+    activeId,
+    activeTextBlockId: slides.find((slide) => slide.id === activeId)?.textBlocks[0].id || slides[0].textBlocks[0].id,
+    format: project.format === "portrait" ? "portrait" as const : "story" as const,
+    tweetProfile: { ...DEFAULT_PROFILE, ...project.tweetProfile },
+  };
+}
+
 export function PostGenerator() {
   const [template, setTemplate] = useState<PostTemplate | null>(null);
   if (!template) return <TemplateGallery onChoose={setTemplate} />;
@@ -181,16 +212,35 @@ function PostEditor({ template, onBack }: { template: PostTemplate; onBack: () =
   const [activeTextBlockId, setActiveTextBlockId] = useState(firstSlide.textBlocks[0].id);
   const [tweetProfile, setTweetProfile] = useState<TweetProfile>(DEFAULT_PROFILE);
   const [storageReady, setStorageReady] = useState(false);
+  const [syncState, setSyncState] = useState<"saving" | "synced" | "offline">("saving");
   const [exporting, setExporting] = useState<"one" | "all" | null>(null);
   const exportRefs = useRef(new Map<string, HTMLDivElement>());
   const activeIdRef = useRef(activeId);
   const activeTextBlockIdRef = useRef(activeTextBlockId);
+  const lastProjectUpdatedAtRef = useRef(0);
+  const currentProjectRef = useRef<PersistedPostProject | undefined>(undefined);
+  const storageRevisionRef = useRef<string | null>(null);
+  const applyingRemoteRef = useRef(false);
+  const remoteSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   activeIdRef.current = activeId;
   activeTextBlockIdRef.current = activeTextBlockId;
   const activeIndex = Math.max(0, slides.findIndex((slide) => slide.id === activeId));
   const active = slides[activeIndex];
   const activeTextBlock = active.textBlocks.find((block) => block.id === activeTextBlockId) || active.textBlocks[0];
   const dimensions = POST_FORMATS[format];
+
+  const restoreProject = useCallback((project: PersistedPostProject) => {
+    if (!project.slides?.length) return;
+    const restored = normalizePostProject(template, project);
+    applyingRemoteRef.current = true;
+    lastProjectUpdatedAtRef.current = project.updatedAt;
+    currentProjectRef.current = project;
+    setSlides(restored.slides);
+    setActiveId(restored.activeId);
+    setActiveTextBlockId(restored.activeTextBlockId);
+    setFormat(restored.format);
+    setTweetProfile(restored.tweetProfile);
+  }, [template]);
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -212,37 +262,102 @@ function PostEditor({ template, onBack }: { template: PostTemplate; onBack: () =
 
   useEffect(() => {
     let mounted = true;
-    void loadPostProject(template).then((project) => {
-      if (!mounted || !project?.slides?.length) return;
-      const restoredSlides = project.slides.map((slide, index) => {
-        const base = makeSlide(template, index);
-        const media = Array.isArray(slide.media) ? slide.media.slice(0, 2) : [];
-        const mediaCrops = media.map((_, mediaIndex) => ({ ...defaultMediaCrop(), ...(Array.isArray(slide.mediaCrops) ? slide.mediaCrops[mediaIndex] : undefined) }));
-        const textBlocks = Array.isArray(slide.textBlocks) && slide.textBlocks.length
-          ? slide.textBlocks.map((block) => ({ ...makeTextBlock(template, block.content || "<p>Novo texto</p>"), ...block, id: block.id || uid() }))
-          : [{ ...makeTextBlock(template, slide.content || base.content), fontSize: slide.fontSize || base.fontSize, textWidth: slide.textWidth || base.textWidth }];
-        const validKeys = new Set(["media", ...textBlocks.map((block) => block.id)]);
-        const savedLayout = Array.isArray(slide.layout) ? slide.layout.filter((key) => validKeys.has(key)) : [];
-        const fallbackLayout = slide.mediaPosition === "top" ? ["media", ...textBlocks.map((block) => block.id)] : [...textBlocks.map((block) => block.id), "media"];
-        const layout = [...savedLayout, ...fallbackLayout.filter((key) => !savedLayout.includes(key))];
-        return { ...base, ...slide, id: slide.id || uid(), media, mediaCrops, textBlocks, layout };
-      });
-      const restoredActiveId = restoredSlides.some((slide) => slide.id === project.activeId) ? project.activeId : restoredSlides[0].id;
-      setSlides(restoredSlides);
-      setActiveId(restoredActiveId);
-      setActiveTextBlockId(restoredSlides.find((slide) => slide.id === restoredActiveId)?.textBlocks[0].id || restoredSlides[0].textBlocks[0].id);
-      setFormat(project.format === "portrait" ? "portrait" : "story");
-      setTweetProfile({ ...DEFAULT_PROFILE, ...project.tweetProfile });
-    }).catch((error) => console.error("Não foi possível restaurar o Gerador de Posts.", error)).finally(() => {
-      if (mounted) setStorageReady(true);
+    void Promise.allSettled([
+      loadPostProject(template),
+      getRemotePostProject<PersistedPostProject>(template),
+    ]).then(async ([localResult, remoteResult]) => {
+      if (!mounted) return;
+      const local = localResult.status === "fulfilled" ? localResult.value : undefined;
+      const remote = remoteResult.status === "fulfilled" ? remoteResult.value.project : undefined;
+      if (remoteResult.status === "fulfilled") storageRevisionRef.current = remoteResult.value.storageUpdatedAt;
+      const project = newestPostProject(local, remote);
+      if (project?.slides?.length) {
+        restoreProject(project);
+        await savePostProject(template, project).catch(() => undefined);
+      }
+      if (project && postProjectHasUserContent(project) && (!remote || project !== remote)) {
+        try {
+          storageRevisionRef.current = await saveRemotePostProject(template, project);
+          if (mounted) setSyncState("synced");
+        } catch (error) {
+          console.error("Não foi possível migrar o projeto local para a nuvem.", error);
+          if (mounted) setSyncState("offline");
+        }
+      } else if (remoteResult.status === "fulfilled") {
+        setSyncState("synced");
+      } else {
+        setSyncState("offline");
+      }
+    }).finally(() => {
+      if (mounted) {
+        applyingRemoteRef.current = true;
+        setStorageReady(true);
+      }
     });
     return () => { mounted = false; };
-  }, [template]);
+  }, [restoreProject, template]);
 
   useEffect(() => {
     if (!storageReady) return;
-    void savePostProject(template, { version: 1, format, slides, activeId, tweetProfile, updatedAt: Date.now() }).catch((error) => console.error("Não foi possível salvar o Gerador de Posts.", error));
+    if (applyingRemoteRef.current) {
+      applyingRemoteRef.current = false;
+      return;
+    }
+    const project: PersistedPostProject = { version: 1, format, slides, activeId, tweetProfile, updatedAt: Date.now() };
+    lastProjectUpdatedAtRef.current = project.updatedAt;
+    currentProjectRef.current = project;
+    void savePostProject(template, project).catch((error) => console.error("Não foi possível salvar o Gerador de Posts localmente.", error));
+    setSyncState("saving");
+    if (remoteSaveTimerRef.current) clearTimeout(remoteSaveTimerRef.current);
+    remoteSaveTimerRef.current = setTimeout(() => {
+      void saveRemotePostProject(template, project).then((storageUpdatedAt) => {
+        storageRevisionRef.current = storageUpdatedAt;
+        setSyncState("synced");
+      }).catch((error) => {
+        console.error("Não foi possível sincronizar o Gerador de Posts.", error);
+        setSyncState("offline");
+      });
+    }, 600);
+    return () => {
+      if (remoteSaveTimerRef.current) clearTimeout(remoteSaveTimerRef.current);
+    };
   }, [activeId, format, slides, storageReady, template, tweetProfile]);
+
+  useEffect(() => {
+    if (!storageReady) return;
+    let checking = false;
+    const checkRemote = async () => {
+      if (checking || document.visibilityState === "hidden") return;
+      checking = true;
+      try {
+        const remote = await getRemotePostProjectIfChanged<PersistedPostProject>(template, storageRevisionRef.current);
+        storageRevisionRef.current = remote.storageUpdatedAt;
+        const preferred = remote.project?.slides?.length
+          ? newestPostProject(currentProjectRef.current, remote.project)
+          : currentProjectRef.current;
+        if (remote.changed && remote.project && preferred === remote.project && remote.project !== currentProjectRef.current) {
+          restoreProject(remote.project);
+          await savePostProject(template, remote.project);
+          setSyncState("synced");
+        }
+      } catch (error) {
+        console.error("Não foi possível verificar atualizações do Gerador de Posts.", error);
+        setSyncState((current) => current === "saving" ? current : "offline");
+      } finally {
+        checking = false;
+      }
+    };
+    const interval = window.setInterval(() => void checkRemote(), 5000);
+    const onFocus = () => void checkRemote();
+    const onVisibility = () => { if (document.visibilityState === "visible") void checkRemote(); };
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [restoreProject, storageReady, template]);
 
   useEffect(() => {
     const pasteImage = (event: ClipboardEvent) => {
@@ -403,7 +518,7 @@ function PostEditor({ template, onBack }: { template: PostTemplate; onBack: () =
     <div className="flex min-h-[calc(100dvh-65px)] flex-col">
       <div className="flex flex-wrap items-center gap-2 border-b px-3 py-3 sm:px-5" style={{ borderColor: "var(--border)" }}>
         <Button variant="ghost" size="icon" onClick={onBack} aria-label="Voltar aos modelos"><ArrowLeft /></Button>
-        <div className="mr-auto min-w-0"><h1 className="truncate text-sm font-semibold text-[var(--text-title)]">{template === "tweet" ? "Modelo Tweet" : "Stories Plus"}</h1><p className="text-[10px] text-[var(--muted-foreground)]">{slides.length} {slides.length === 1 ? "slide" : "slides"} · {dimensions.label}</p></div>
+        <div className="mr-auto min-w-0"><h1 className="truncate text-sm font-semibold text-[var(--text-title)]">{template === "tweet" ? "Modelo Tweet" : "Stories Plus"}</h1><p className="text-[10px] text-[var(--muted-foreground)]">{slides.length} {slides.length === 1 ? "slide" : "slides"} · {dimensions.label} · <span aria-live="polite">{syncState === "saving" ? "Salvando…" : syncState === "synced" ? "Sincronizado" : "Salvo neste dispositivo · aguardando conexão"}</span></p></div>
         <div className="hidden items-center gap-1 rounded-xl border p-1 sm:flex" style={{ background: "var(--glass-bg-soft)", borderColor: "var(--glass-border)" }}>
           {(Object.entries(POST_FORMATS) as Array<[PostFormat, typeof dimensions]>).map(([value, item]) => <button key={value} onClick={() => setFormat(value)} className={cn("rounded-lg px-3 py-1.5 text-[11px] font-medium transition", format === value ? "bg-[var(--segment-active-bg)] text-[var(--text-title)]" : "text-[var(--muted-foreground)] hover:text-[var(--text-title)]")}>{item.label}</button>)}
         </div>
