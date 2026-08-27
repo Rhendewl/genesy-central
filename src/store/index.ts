@@ -64,6 +64,12 @@ interface GlobalStore {
   modalCount: number;
   openModal: () => void;
   closeModal: () => void;
+
+  // Telas com estado de edição que não podem ser remontadas ao voltar do
+  // background (ex.: Gerador de Posts com um projeto aberto).
+  statePreservationCount: number;
+  preserveState: () => void;
+  releaseState: () => void;
 }
 
 export const useGlobalStore = create<GlobalStore>((set) => ({
@@ -106,4 +112,8 @@ export const useGlobalStore = create<GlobalStore>((set) => ({
   modalCount: 0,
   openModal: () => set((s) => ({ modalCount: s.modalCount + 1 })),
   closeModal: () => set((s) => ({ modalCount: Math.max(0, s.modalCount - 1) })),
+
+  statePreservationCount: 0,
+  preserveState: () => set((s) => ({ statePreservationCount: s.statePreservationCount + 1 })),
+  releaseState: () => set((s) => ({ statePreservationCount: Math.max(0, s.statePreservationCount - 1) })),
 }));

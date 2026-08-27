@@ -45,7 +45,8 @@ export function AppLifecycleRecovery({ children }: { children: ReactNode }) {
       // card de lead). Remontar a árvore nesse momento apagaria o rascunho e
       // a seleção atual. A sessão já foi validada acima; apenas adiamos a
       // reconstrução visual, que só é necessária quando a interface travou.
-      if (!canRemountAppForRecovery(useGlobalStore.getState().modalCount)) return;
+      const state = useGlobalStore.getState();
+      if (!canRemountAppForRecovery(state.modalCount, state.statePreservationCount)) return;
 
       setGeneration(current => current + 1);
     } finally {

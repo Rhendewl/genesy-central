@@ -27,6 +27,7 @@ import {
   saveRemotePostProject,
 } from "@/lib/marketing/post-project-sync";
 import { cn } from "@/lib/utils";
+import { useGlobalStore } from "@/store";
 
 type Slide = {
   id: string;
@@ -51,6 +52,8 @@ type MediaCrop = { x: number; y: number; zoom: number };
 type TextBlock = { id: string; content: string; fontSize: number; textWidth: number; lineHeight: number };
 type TweetProfile = { avatar: string; name: string; handle: string; verified: boolean };
 type PersistedPostProject = { version: 1; format: PostFormat; slides: Slide[]; activeId: string; tweetProfile: TweetProfile; updatedAt: number };
+
+const ACTIVE_TEMPLATE_KEY = "genesy-post-generator-active-template";
 
 const DEFAULT_PROFILE: TweetProfile = {
   avatar: "",
@@ -155,8 +158,28 @@ function normalizePostProject(template: PostTemplate, project: PersistedPostProj
 
 export function PostGenerator() {
   const [template, setTemplate] = useState<PostTemplate | null>(null);
-  if (!template) return <TemplateGallery onChoose={setTemplate} />;
-  return <PostEditor key={template} template={template} onBack={() => setTemplate(null)} />;
+  const [templateReady, setTemplateReady] = useState(false);
+  useEffect(() => {
+    try {
+      const saved = window.sessionStorage.getItem(ACTIVE_TEMPLATE_KEY);
+      if (saved === "tweet" || saved === "stories") setTemplate(saved);
+    } catch {
+      // Alguns modos privados bloqueiam storage; a sessão segue apenas em memória.
+    } finally {
+      setTemplateReady(true);
+    }
+  }, []);
+  const chooseTemplate = (value: PostTemplate) => {
+    try { window.sessionStorage.setItem(ACTIVE_TEMPLATE_KEY, value); } catch { /* O editor ainda funciona sem persistência de sessão. */ }
+    setTemplate(value);
+  };
+  const closeEditor = () => {
+    try { window.sessionStorage.removeItem(ACTIVE_TEMPLATE_KEY); } catch { /* Storage indisponível. */ }
+    setTemplate(null);
+  };
+  if (!templateReady) return <div className="min-h-[calc(100dvh-65px)]" aria-label="Restaurando gerador de posts" />;
+  if (!template) return <TemplateGallery onChoose={chooseTemplate} />;
+  return <PostEditor key={template} template={template} onBack={closeEditor} />;
 }
 
 function TemplateGallery({ onChoose }: { onChoose: (template: PostTemplate) => void }) {
@@ -205,6 +228,8 @@ function StoriesMiniature() {
 }
 
 function PostEditor({ template, onBack }: { template: PostTemplate; onBack: () => void }) {
+  const preserveState = useGlobalStore((state) => state.preserveState);
+  const releaseState = useGlobalStore((state) => state.releaseState);
   const firstSlide = useMemo(() => makeSlide(template), [template]);
   const [format, setFormat] = useState<PostFormat>("story");
   const [slides, setSlides] = useState<Slide[]>([firstSlide]);
@@ -228,6 +253,11 @@ function PostEditor({ template, onBack }: { template: PostTemplate; onBack: () =
   const active = slides[activeIndex];
   const activeTextBlock = active.textBlocks.find((block) => block.id === activeTextBlockId) || active.textBlocks[0];
   const dimensions = POST_FORMATS[format];
+
+  useEffect(() => {
+    preserveState();
+    return () => releaseState();
+  }, [preserveState, releaseState]);
 
   const restoreProject = useCallback((project: PersistedPostProject) => {
     if (!project.slides?.length) return;
@@ -512,6 +542,18 @@ function PostEditor({ template, onBack }: { template: PostTemplate; onBack: () =
       toast.success(`${files.length} slides exportados e numerados.`);
     } catch (error) { toast.error(error instanceof Error ? error.message : "Falha ao exportar os slides."); }
     finally { setExporting(null); }
+  }
+
+  if (!storageReady) {
+    return (
+      <div className="flex min-h-[calc(100dvh-65px)] flex-col">
+        <div className="flex items-center gap-3 border-b px-3 py-3 sm:px-5" style={{ borderColor: "var(--border)" }}>
+          <Button variant="ghost" size="icon" onClick={onBack} aria-label="Voltar aos modelos"><ArrowLeft /></Button>
+          <div><h1 className="text-sm font-semibold text-[var(--text-title)]">{template === "tweet" ? "Modelo Tweet" : "Stories Plus"}</h1><p className="text-[10px] text-[var(--muted-foreground)]">Restaurando seu projeto…</p></div>
+        </div>
+        <div className="grid flex-1 place-items-center"><div className="h-8 w-8 animate-spin rounded-full border-2 border-[var(--glass-border)] border-t-[var(--accent-blue)]" aria-label="Restaurando projeto" /></div>
+      </div>
+    );
   }
 
   return (

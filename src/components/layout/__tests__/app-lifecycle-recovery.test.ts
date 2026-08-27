@@ -10,4 +10,14 @@ describe("AppLifecycleRecovery", () => {
     expect(canRemountAppForRecovery(1)).toBe(false);
     expect(canRemountAppForRecovery(2)).toBe(false);
   });
+
+  it("preserva a árvore quando um editor registra estado ativo", () => {
+    expect(canRemountAppForRecovery(0, 1)).toBe(false);
+    expect(canRemountAppForRecovery(0, 2)).toBe(false);
+  });
+
+  it("só remonta quando não há modal nem editor ativo", () => {
+    expect(canRemountAppForRecovery(1, 1)).toBe(false);
+    expect(canRemountAppForRecovery(0, 0)).toBe(true);
+  });
 });
