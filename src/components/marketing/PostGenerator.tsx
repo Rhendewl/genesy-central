@@ -10,7 +10,7 @@ import { Color, TextStyle } from "@tiptap/extension-text-style";
 import {
   AlignCenter, AlignLeft, AlignRight, ArrowDown, ArrowLeft, ArrowUp, AtSign,
   Bold, Bookmark, Check, ChevronRight, Copy, Download, GripVertical, Heart, Highlighter, ImagePlus,
-  Layers3, MessageCircle, MoreHorizontal, Move, Moon, Palette, Plus, Send, Sun, Trash2,
+  Italic, Layers3, MessageCircle, MoreHorizontal, Move, Moon, Palette, Plus, Send, Sun, Trash2,
   Underline, Upload, UserRound, X,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -590,7 +590,7 @@ function PostEditor({ template, onBack }: { template: PostTemplate; onBack: () =
 
         <main className="min-w-0 border-b p-4 lg:border-b-0 lg:border-x lg:p-6" style={{ borderColor: "var(--border)" }}>
           <div className="mb-4 flex items-center justify-between"><div><p className="text-xs font-semibold text-[var(--text-title)]">Pré-visualização</p><p className="text-[10px] text-[var(--muted-foreground)]">Selecione um trecho para formatar ou cole uma imagem com Ctrl+V / ⌘V.</p></div><span className="rounded-full border px-2.5 py-1 text-[10px] text-[var(--muted-foreground)]">Slide {activeIndex + 1} de {slides.length}</span></div>
-          <TextToolbar editor={editor} defaultColor={active.foreground} />
+          <TextToolbar editor={editor} defaultColor={active.foreground} allowItalic={template === "stories"} />
           <ScaledCanvas width={dimensions.width} height={dimensions.height} format={format} profile={tweetProfile}>
             <PostCanvas slide={active} profile={tweetProfile} template={template} width={dimensions.width} height={dimensions.height} editable editor={editor} activeTextBlockId={activeTextBlockId} onSelectTextBlock={setActiveTextBlockId} onReorderText={reorderLayout} />
           </ScaledCanvas>
@@ -676,7 +676,7 @@ function SlidesRail({ slides, activeId, template, format, profile, onSelect, onA
   </div>)}</div><Button variant="outline" fullWidth size="sm" onClick={onAdd} icon={<Plus />} className="mt-3">Adicionar slide</Button></aside>;
 }
 
-function TextToolbar({ editor, defaultColor }: { editor: Editor | null; defaultColor: string }) {
+function TextToolbar({ editor, defaultColor, allowItalic }: { editor: Editor | null; defaultColor: string; allowItalic: boolean }) {
   const [, setRevision] = useState(0);
   useEffect(() => {
     if (!editor) return;
@@ -690,6 +690,7 @@ function TextToolbar({ editor, defaultColor }: { editor: Editor | null; defaultC
   const tool = (active: boolean) => cn("editor-tool", active && "bg-[var(--hover)] text-[var(--accent-blue)]");
   return <div className="mx-auto mb-3 flex min-h-11 max-w-xl flex-wrap items-center gap-1 rounded-xl border p-1.5 shadow-lg" style={{ background: "var(--bg-modal)", borderColor: hasSelection ? "var(--accent-blue)" : "var(--glass-border)" }}>
     <button onClick={() => editor.chain().focus().toggleBold().run()} disabled={!hasSelection} className={tool(editor.isActive("bold"))} title="Negrito"><Bold /></button>
+    {allowItalic && <button onClick={() => editor.chain().focus().toggleItalic().run()} disabled={!hasSelection} className={tool(editor.isActive("italic"))} title="Itálico" aria-label="Aplicar itálico ao trecho selecionado"><Italic /></button>}
     <button onClick={() => editor.chain().focus().toggleUnderline().run()} disabled={!hasSelection} className={tool(editor.isActive("underline"))} title="Sublinhar"><Underline /></button>
     <TextColorTool disabled={!hasSelection} value={editor.getAttributes("textStyle").color || defaultColor} onChange={(color) => editor.chain().focus().setColor(color).run()} />
     <ColorTool title="Marca-texto" disabled={!hasSelection} value={editor.getAttributes("highlight").color || "#ffdf2b"} icon={<Highlighter />} onChange={(color) => editor.chain().focus().setHighlight({ color }).run()} />
