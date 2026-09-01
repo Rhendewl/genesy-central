@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { buildWebhookAnswerViews, validateWebhookUrl } from "../webhook-delivery";
+import {
+  buildHumanReadableWebhookPayload,
+  buildWebhookAnswerViews,
+  validateWebhookUrl,
+} from "../webhook-delivery";
 import type { FormStep } from "@/types";
 
 describe("validateWebhookUrl", () => {
@@ -55,6 +59,10 @@ describe("buildWebhookAnswerViews", () => {
       "Qual é o seu nome?": "Ana",
       "Qual cidade você prefere?": "João Pessoa",
     });
+    expect(result.crmAnswers).toEqual({
+      resposta_01_qual_e_o_seu_nome: "Ana",
+      resposta_02_qual_cidade_voce_prefere: "João Pessoa",
+    });
     expect(result.fields[1]).toMatchObject({
       id: "question-id-2",
       question: "Qual cidade você prefere?",
@@ -72,5 +80,87 @@ describe("buildWebhookAnswerViews", () => {
 
     expect(buildWebhookAnswerViews(steps, { one: "Primeira", two: "Segunda" }).answersByQuestion)
       .toEqual({ Observação: "Primeira", "Observação (2)": "Segunda" });
+  });
+
+  it("transforma respostas múltiplas em texto direto para o CRM", () => {
+    const steps: FormStep[] = [{
+      id: "perfil",
+      type: "multiple_choice",
+      title: "Quais imóveis procura?",
+      required: true,
+      choices: [
+        { id: "casa", value: "house", label: "Casa" },
+        { id: "apto", value: "apartment", label: "Apartamento" },
+      ],
+    }];
+
+    expect(buildWebhookAnswerViews(steps, { perfil: ["house", "apartment"] }).crmAnswers)
+      .toEqual({ resposta_01_quais_imoveis_procura: "Casa, Apartamento" });
+  });
+});
+
+describe("buildHumanReadableWebhookPayload", () => {
+  it("coloca formulário, perguntas e respostas antes dos dados técnicos", () => {
+    const payload = buildHumanReadableWebhookPayload({
+      eventId: "event-1",
+      eventType: "form.submission.completed",
+      correlationId: "correlation-1",
+      timestamp: "2026-09-01T15:31:06.294Z",
+      form: { id: "form-1", name: "Live Park", slug: "live-park" },
+      submission: { id: "submission-1", status: "completed" },
+      session: null,
+      crmAnswers: {
+        resposta_01_qual_e_o_seu_nome: "Lancaster Teste",
+        resposta_02_qual_imovel_procura: "Apartamento",
+      },
+    });
+
+    expect(Object.entries(payload).slice(0, 4)).toEqual([
+      ["tipo_evento", "nova_resposta_formulario"],
+      ["formulario_nome", "Live Park"],
+      ["resposta_01_qual_e_o_seu_nome", "Lancaster Teste"],
+      ["resposta_02_qual_imovel_procura", "Apartamento"],
+    ]);
+    expect(payload).toMatchObject({
+      utm_source: "",
+      utm_medium: "",
+      utm_campaign: "",
+      utm_term: "",
+      utm_content: "",
+      fbclid: "",
+      gclid: "",
+      referrer: "",
+      recebido_em: "2026-09-01T15:31:06.294Z",
+    });
+    expect(payload.dados_tecnicos).toMatchObject({
+      id: "event-1",
+      event_type: "form.submission.completed",
+      version: 3,
+    });
+  });
+
+  it("envia valores de exemplo para o CRM descobrir os campos de UTM no teste", () => {
+    const payload = buildHumanReadableWebhookPayload({
+      eventId: "test-1",
+      eventType: "form.webhook.test",
+      correlationId: "test-1",
+      timestamp: "2026-09-01T15:31:06.294Z",
+      form: { id: "form-1", name: "Live Park", slug: "live-park" },
+      submission: { id: "test-submission", status: "completed" },
+      session: null,
+      crmAnswers: {},
+      test: true,
+    });
+
+    expect(payload).toMatchObject({
+      utm_source: "google",
+      utm_medium: "cpc",
+      utm_campaign: "campanha_exemplo",
+      utm_term: "termo_exemplo",
+      utm_content: "anuncio_exemplo",
+      fbclid: "fbclid_exemplo",
+      gclid: "gclid_exemplo",
+      referrer: "https://exemplo.com/origem",
+    });
   });
 });

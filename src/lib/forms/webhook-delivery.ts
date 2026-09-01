@@ -99,9 +99,36 @@ function readableAnswer(step: FormStep, rawValue: unknown): unknown {
   return Array.isArray(rawValue) ? rawValue.map(resolveChoice) : resolveChoice(rawValue);
 }
 
+function crmAnswer(value: unknown): string | number {
+  if (value === null || value === undefined || value === "") return "Não respondido";
+  if (Array.isArray(value)) return value.map(item => crmAnswer(item)).join(", ");
+  if (typeof value === "boolean") return value ? "Sim" : "Não";
+  if (typeof value === "string" || typeof value === "number") return value;
+
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
+
+function webhookFieldSlug(value: string): string {
+  const slug = value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .slice(0, 80)
+    .replace(/_+$/g, "");
+
+  return slug || "pergunta";
+}
+
 export function buildWebhookAnswerViews(steps: FormStep[], answers: Record<string, unknown>) {
   const usedLabels = new Map<string, number>();
   const answersByQuestion: Record<string, unknown> = {};
+  const crmAnswers: Record<string, string | number> = {};
   const fields = steps
     .filter(step => Object.prototype.hasOwnProperty.call(answers, step.id))
     .map((step, index) => {
@@ -112,6 +139,8 @@ export function buildWebhookAnswerViews(steps: FormStep[], answers: Record<strin
       const rawValue = answers[step.id];
       const answer = readableAnswer(step, rawValue);
       answersByQuestion[question] = answer;
+      const position = String(index + 1).padStart(2, "0");
+      crmAnswers[`resposta_${position}_${webhookFieldSlug(question)}`] = crmAnswer(answer);
 
       return {
         id: step.id,
@@ -124,7 +153,56 @@ export function buildWebhookAnswerViews(steps: FormStep[], answers: Record<strin
       };
     });
 
-  return { answersByQuestion, fields };
+  return { answersByQuestion, crmAnswers, fields };
+}
+
+interface HumanReadableWebhookPayloadInput {
+  eventId: string;
+  eventType: string;
+  correlationId: string;
+  timestamp: string;
+  form: { id: string; name: string; slug: string };
+  submission: Record<string, unknown>;
+  session: Record<string, unknown> | null;
+  crmAnswers: Record<string, string | number>;
+  test?: boolean;
+}
+
+/**
+ * Mantém o conteúdo útil no primeiro nível do JSON. CRMs que compactam objetos
+ * aninhados passam a exibir cada pergunta como rótulo e a resposta como valor.
+ */
+export function buildHumanReadableWebhookPayload(input: HumanReadableWebhookPayloadInput) {
+  const utm = asRecord(input.session?.utm);
+  const marketingValue = (value: unknown, testValue: string) => {
+    if (value !== null && value !== undefined && value !== "") return String(value);
+    return input.test ? testValue : "";
+  };
+
+  return {
+    tipo_evento: input.test ? "teste_webhook" : "nova_resposta_formulario",
+    formulario_nome: input.form.name,
+    ...input.crmAnswers,
+    utm_source: marketingValue(utm.source, "google"),
+    utm_medium: marketingValue(utm.medium, "cpc"),
+    utm_campaign: marketingValue(utm.campaign, "campanha_exemplo"),
+    utm_term: marketingValue(utm.term, "termo_exemplo"),
+    utm_content: marketingValue(utm.content, "anuncio_exemplo"),
+    fbclid: marketingValue(input.session?.fbclid, "fbclid_exemplo"),
+    gclid: marketingValue(input.session?.gclid, "gclid_exemplo"),
+    referrer: marketingValue(input.session?.referrer, "https://exemplo.com/origem"),
+    recebido_em: input.timestamp,
+    dados_tecnicos: {
+      id: input.eventId,
+      event_type: input.eventType,
+      correlation_id: input.correlationId,
+      version: 3,
+      test: input.test ?? false,
+      form: input.form,
+      submission: input.submission,
+      session: input.session,
+    },
+  };
 }
 
 function sampleAnswer(step: FormStep): unknown {
@@ -180,15 +258,10 @@ async function buildWebhookPayload(db: AdminClient, job: WebhookJob) {
 
   const answers = asRecord(submission.answers);
   const steps = (form.steps ?? []) as FormStep[];
-  const { answersByQuestion, fields } = buildWebhookAnswerViews(steps, answers);
-  return {
-    id: job.event_id,
-    event_type: job.event_type,
-    correlation_id: job.correlation_id,
-    timestamp: submission.completed_at ?? submission.updated_at ?? new Date().toISOString(),
-    version: 2,
-    form: { id: form.id, name: form.name, slug: form.slug },
-    submission: {
+  const { answersByQuestion, crmAnswers, fields } = buildWebhookAnswerViews(steps, answers);
+  const timestamp = submission.completed_at ?? submission.updated_at ?? new Date().toISOString();
+  const formDetails = { id: form.id, name: form.name, slug: form.slug };
+  const submissionDetails = {
       id: submission.id,
       status: submission.status,
       score: submission.score,
@@ -197,8 +270,8 @@ async function buildWebhookPayload(db: AdminClient, job: WebhookJob) {
       fields,
       created_at: submission.created_at,
       completed_at: submission.completed_at,
-    },
-    session: session ? {
+  };
+  const sessionDetails = session ? {
       id: session.id,
       device: session.device,
       browser: session.browser,
@@ -218,8 +291,18 @@ async function buildWebhookPayload(db: AdminClient, job: WebhookJob) {
       referrer: session.referrer,
       started_at: session.started_at,
       finished_at: session.finished_at,
-    } : null,
-  };
+  } : null;
+
+  return buildHumanReadableWebhookPayload({
+    eventId: job.event_id,
+    eventType: job.event_type,
+    correlationId: job.correlation_id,
+    timestamp,
+    form: formDetails,
+    submission: submissionDetails,
+    session: sessionDetails,
+    crmAnswers,
+  });
 }
 
 /** Garante jobs também para submissões concluídas antes da instalação do trigger. */
@@ -461,24 +544,27 @@ export async function testWebhookIntegration(db: AdminClient, formId: string, in
   const eventId = `test:${crypto.randomUUID()}`;
   const steps = (form.steps ?? []) as FormStep[];
   const answers = sampleAnswers(steps);
-  const { answersByQuestion, fields } = buildWebhookAnswerViews(steps, answers);
-  const payload = {
-    id: eventId,
-    event_type: "form.webhook.test",
-    correlation_id: eventId,
-    timestamp: new Date().toISOString(),
-    version: 2,
-    test: true,
-    form: { id: form.id, name: form.name, slug: form.slug },
-    submission: {
+  const { answersByQuestion, crmAnswers, fields } = buildWebhookAnswerViews(steps, answers);
+  const timestamp = new Date().toISOString();
+  const formDetails = { id: form.id, name: form.name, slug: form.slug };
+  const submissionDetails = {
       id: "test-submission",
       status: "completed",
       answers,
       answers_by_question: answersByQuestion,
       fields,
-    },
-    session: null,
   };
+  const payload = buildHumanReadableWebhookPayload({
+    eventId,
+    eventType: "form.webhook.test",
+    correlationId: eventId,
+    timestamp,
+    form: formDetails,
+    submission: submissionDetails,
+    session: null,
+    crmAnswers,
+    test: true,
+  });
   const body = JSON.stringify(payload);
   const headers: Record<string, string> = {
     "Content-Type": "application/json",

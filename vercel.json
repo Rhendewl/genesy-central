@@ -7,6 +7,10 @@
     {
       "path": "/api/cron/instagram-sync",
       "schedule": "15 3 * * *"
+    },
+    {
+      "path": "/api/cron/portal-balance-alerts",
+      "schedule": "0 * * * *"
     }
   ]
 }
