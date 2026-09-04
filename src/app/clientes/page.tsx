@@ -50,7 +50,7 @@ export default function ClientesPage() {
 
   const subtitle = useMemo(() => {
     const tab = TABS.find(t => t.id === activeTab);
-    if (activeTab === "analise_comercial") return "Registro, diagnóstico e evolução comercial por cliente";
+    if (activeTab === "analise_comercial") return "Coletas, feedback dos corretores e diagnóstico de marketing";
     return `${tab?.label} · ${MONTH_NAMES[month - 1]} ${year}`;
   }, [activeTab, month, year]);
 
