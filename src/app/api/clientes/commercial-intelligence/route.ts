@@ -8,6 +8,7 @@ import {
 } from "@/lib/clientes/commercial-intelligence";
 import type { CommercialCollection, CommercialDevelopment, CommercialResponse } from "@/types/commercial-intelligence";
 import type { FormStep } from "@/types";
+import { buildCommercialAnalysisEmail, getResendClient } from "@/lib/resend";
 
 export const dynamic = "force-dynamic";
 
@@ -30,7 +31,7 @@ export async function GET(request: NextRequest) {
   const [settingsResult, brokersResult, accountsResult, templatesResult, collectionsResult, legacyResult] = await Promise.all([
     supabase.from("commercial_intelligence_settings").select("*").eq("client_id", clientId).maybeSingle(),
     supabase.from("commercial_brokers").select("*").eq("client_id", clientId).order("name"),
-    supabase.from("ad_platform_accounts").select("id,account_name,account_id,status,last_sync_at").eq("client_id", clientId).eq("platform", "meta").order("account_name"),
+    supabase.from("ad_platform_accounts").select("id,account_name,account_id,status,last_sync_at").eq("client_id", clientId).eq("platform", "meta").eq("status", "connected").order("account_name"),
     supabase.from("commercial_templates").select("*").eq("is_active", true).order("week_number"),
     supabase.from("commercial_collections").select("*").eq("client_id", clientId).order("period_end", { ascending: false }).limit(24),
     supabase.from("client_commercial_analyses").select("id,meeting_date,analysis_snapshot").eq("client_id", clientId).order("meeting_date", { ascending: false }),
@@ -129,6 +130,39 @@ export async function POST(request: NextRequest) {
   if (!user) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
   const body = await request.json().catch(() => null) as Record<string, unknown> | null;
   const action = String(body?.action ?? "");
+
+  if (action === "update_public_slug") {
+    const clientId = String(body?.client_id ?? "");
+    const publicSlug = normalizeSlug(String(body?.public_slug ?? ""));
+    if (!clientId || publicSlug.length < 3 || publicSlug.length > 80) return NextResponse.json({ error: "Use um endereço entre 3 e 80 caracteres" }, { status: 400 });
+    const { data, error } = await supabase.from("commercial_intelligence_settings").update({ public_slug: publicSlug }).eq("client_id", clientId).eq("user_id", user.id).select("public_slug").single();
+    if (error?.code === "23505") return NextResponse.json({ error: "Este endereço já está sendo usado por outro cliente" }, { status: 409 });
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+    return NextResponse.json({ public_slug: data.public_slug });
+  }
+
+  if (action === "send_test_email") {
+    const clientId = String(body?.client_id ?? "");
+    const recipient = String(body?.recipient_email ?? "").trim().toLowerCase();
+    if (!clientId || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipient)) return NextResponse.json({ error: "Informe um e-mail válido" }, { status: 400 });
+    const [{ data: settings }, { data: client }, { data: collection }] = await Promise.all([
+      supabase.from("commercial_intelligence_settings").select("public_slug").eq("client_id", clientId).eq("user_id", user.id).maybeSingle(),
+      supabase.from("agency_clients").select("name").eq("id", clientId).maybeSingle(),
+      supabase.from("commercial_collections").select("name").eq("client_id", clientId).eq("status", "published").order("period_end", { ascending: false }).limit(1).maybeSingle(),
+    ]);
+    if (!settings?.public_slug) return NextResponse.json({ error: "Configure o link da imobiliária antes do teste" }, { status: 400 });
+    if (!collection) return NextResponse.json({ error: "Ative uma coleta antes de testar o e-mail" }, { status: 400 });
+    if (!client) return NextResponse.json({ error: "Cliente não encontrado" }, { status: 404 });
+    const analysisLink = `${request.nextUrl.origin}/analise-comercial/${settings.public_slug}`;
+    const { error } = await getResendClient().emails.send({
+      from: process.env.RESEND_FROM_EMAIL ?? "onboarding@resend.dev",
+      to: recipient,
+      subject: `[Teste] Análise Comercial · ${client.name}`,
+      html: buildCommercialAnalysisEmail({ clientName: client.name, collectionName: collection.name, analysisLink, isTest: true }),
+    });
+    if (error) return NextResponse.json({ error: `Resend: ${error.message}` }, { status: 500 });
+    return NextResponse.json({ ok: true, analysis_link: analysisLink });
+  }
 
   if (action === "create_template" || action === "save_template") {
     const name = String(body?.name ?? "").trim();
