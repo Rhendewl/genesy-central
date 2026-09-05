@@ -6,6 +6,7 @@ import { motion } from "framer-motion";
 import { Archive, Check, Clock, Link2, MoreHorizontal } from "lucide-react";
 import { GlassCalendarIcon } from "@/components/ui/GlassCalendarIcon";
 import type { AppointmentCalendar } from "@/types/appointments";
+import { buildPublicUrl } from "@/lib/public-url";
 
 export function CalendarCard({ calendar, onArchive }: { calendar: AppointmentCalendar; onArchive: (id: string) => void }) {
   const router = useRouter();
@@ -15,7 +16,7 @@ export function CalendarCard({ calendar, onArchive }: { calendar: AppointmentCal
 
   function handleCopyLink(event: React.MouseEvent) {
     event.stopPropagation();
-    void navigator.clipboard.writeText(`${window.location.origin}/agendar/${calendar.slug}`).then(() => {
+    void navigator.clipboard.writeText(buildPublicUrl(`/agendar/${calendar.slug}`)).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     });

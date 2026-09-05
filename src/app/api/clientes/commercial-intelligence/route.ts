@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { buildPublicUrl } from "@/lib/public-url";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import {
   buildCommercialDiagnosis,
@@ -183,7 +184,7 @@ export async function POST(request: NextRequest) {
     if (!settings?.public_slug) return NextResponse.json({ error: "Configure o link da imobiliária antes do teste" }, { status: 400 });
     if (!collection) return NextResponse.json({ error: "Ative uma coleta antes de testar o e-mail" }, { status: 400 });
     if (!client) return NextResponse.json({ error: "Cliente não encontrado" }, { status: 404 });
-    const analysisLink = `${request.nextUrl.origin}/analise-comercial/${settings.public_slug}`;
+    const analysisLink = buildPublicUrl(`/analise-comercial/${settings.public_slug}`);
     const { error } = await getResendClient().emails.send({
       from: process.env.RESEND_FROM_EMAIL ?? "onboarding@resend.dev",
       to: recipient,

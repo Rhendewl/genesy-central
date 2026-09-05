@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import type { Form, FormFolder, FormOrigin } from "@/types";
 import { GlassFolderIcon } from "@/components/ui/GlassFolderIcon";
 import { Button } from "@/components/ui/button";
+import { buildPublicUrl } from "@/lib/public-url";
 import {
   readFormListContext,
   withFormListContext,
@@ -65,13 +66,13 @@ function FormCard({
 
   const openPublicForm = (event: React.MouseEvent) => {
     event.stopPropagation();
-    window.open(publicPath, "_blank", "noopener,noreferrer");
+    window.open(buildPublicUrl(publicPath), "_blank", "noopener,noreferrer");
   };
 
   const copyPublicLink = async (event: React.MouseEvent) => {
     event.stopPropagation();
     try {
-      await navigator.clipboard.writeText(`${window.location.origin}${publicPath}`);
+      await navigator.clipboard.writeText(buildPublicUrl(publicPath));
       toast.success("Link do formulário copiado");
     } catch {
       toast.error("Não foi possível copiar o link");

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { generatePortalAccessToken, hashPortalAccessToken } from "@/lib/portal-access";
+import { buildPublicUrl } from "@/lib/public-url";
 
 const DEFAULT_EXPIRY_DAYS = 30;
 const MAX_EXPIRY_DAYS = 90;
@@ -44,8 +45,7 @@ export async function POST(
   });
   if (error) return NextResponse.json({ error: "Não foi possível gerar o link seguro" }, { status: 500 });
 
-  const origin = req.nextUrl.origin;
-  const accessUrl = `${origin}/portal/${encodeURIComponent(portal.slug)}/access?token=${encodeURIComponent(token)}`;
+  const accessUrl = buildPublicUrl(`/portal/${encodeURIComponent(portal.slug)}/access?token=${encodeURIComponent(token)}`);
   return NextResponse.json(
     { access_url: accessUrl, expires_at: expiresAt },
     { headers: { "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" } },

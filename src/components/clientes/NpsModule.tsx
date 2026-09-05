@@ -17,6 +17,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { buildPublicUrl } from "@/lib/public-url";
 import {
   useNps, classifyNps, avgScoreColor, avgScoreLabel,
   type ClientNpsSummary, type NpsInsight,
@@ -219,8 +220,8 @@ function NpsFormModal({ client, otherClients, onClose }: { client: AgencyClient;
     }
   }
 
-  const publicUrl = npsForm && typeof window !== "undefined"
-    ? `${window.location.origin}/form/${npsForm.slug}`
+  const publicUrl = npsForm
+    ? buildPublicUrl(`/form/${npsForm.slug}`)
     : "";
 
   function handleCopy() {
