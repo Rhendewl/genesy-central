@@ -2,23 +2,23 @@
 
 import { useEffect, useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { LayoutGrid, HeartPulse, Star, ChevronLeft, ChevronRight, ClipboardCheck } from "lucide-react";
+import { LayoutGrid, HeartPulse, Star, ChevronLeft, ChevronRight, Building2 } from "lucide-react";
 import { Header } from "@/components/layout/Header";
 import { ClientesRentabilidade } from "@/components/financeiro/ClientesRentabilidade";
 import { SaudeOperacao } from "@/components/financeiro/SaudeOperacao";
 import { NpsModule } from "@/components/clientes/NpsModule";
 import { cn } from "@/lib/utils";
-import { CommercialAnalysisModule } from "@/components/clientes/CommercialAnalysisModule";
+import { ClientAreaModule } from "@/components/clientes/ClientAreaModule";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Clientes Page — Hub completo da carteira
 // ─────────────────────────────────────────────────────────────────────────────
 
-type TabId = "visao_geral" | "analise_comercial" | "saude" | "nps";
+type TabId = "visao_geral" | "area_clientes" | "saude" | "nps";
 
 const TABS: { id: TabId; label: string; icon: React.ReactNode }[] = [
   { id: "visao_geral", label: "Visão Geral", icon: <LayoutGrid size={15} /> },
-  { id: "analise_comercial", label: "Análise Comercial", icon: <ClipboardCheck size={15} /> },
+  { id: "area_clientes", label: "Área de Clientes", icon: <Building2 size={15} /> },
   { id: "saude",       label: "Saúde",       icon: <HeartPulse size={15} /> },
   { id: "nps",         label: "NPS",         icon: <Star size={15} /> },
 ];
@@ -36,7 +36,7 @@ export default function ClientesPage() {
 
   useEffect(() => {
     const requestedTab = new URLSearchParams(window.location.search).get("tab");
-    if (requestedTab === "analise_comercial") setActiveTab("analise_comercial");
+    if (requestedTab === "area_clientes" || requestedTab === "analise_comercial") setActiveTab("area_clientes");
   }, []);
 
   const prevMonth = () => {
@@ -55,7 +55,7 @@ export default function ClientesPage() {
 
   const subtitle = useMemo(() => {
     const tab = TABS.find(t => t.id === activeTab);
-    if (activeTab === "analise_comercial") return "Coletas, feedback dos corretores e diagnóstico de marketing";
+    if (activeTab === "area_clientes") return "VGV, feedback dos corretores e inteligência comercial";
     return `${tab?.label} · ${MONTH_NAMES[month - 1]} ${year}`;
   }, [activeTab, month, year]);
 
@@ -78,7 +78,7 @@ export default function ClientesPage() {
               boxShadow:            "0 4px 24px rgba(0,0,0,0.20)",
             }}
           >
-            {activeTab !== "analise_comercial" && <div className="flex items-center gap-2 px-3 pt-3 pb-2.5">
+            {activeTab !== "area_clientes" && <div className="flex items-center gap-2 px-3 pt-3 pb-2.5">
               <button onClick={prevMonth} className="w-7 h-7 rounded-lg flex items-center justify-center text-[color-mix(in_srgb,var(--text-title)_50%,transparent)] hover:text-[var(--text-title)] active:scale-90 transition-all">
                 <ChevronLeft size={13} />
               </button>
@@ -92,7 +92,7 @@ export default function ClientesPage() {
                 <ChevronRight size={13} />
               </button>
             </div>}
-            {activeTab !== "analise_comercial" && <div className="mx-3 h-px" style={{ background: "var(--border)" }} />}
+            {activeTab !== "area_clientes" && <div className="mx-3 h-px" style={{ background: "var(--border)" }} />}
             <div className="overflow-x-auto scrollbar-none px-2 py-2">
               <div className="flex gap-0.5 min-w-max">
                 {TABS.map(tab => (
@@ -119,7 +119,7 @@ export default function ClientesPage() {
 
         {/* ── Desktop: barra full-width (sem alterações) ─────────── */}
         <div className="hidden md:block pt-2 pb-4">
-          {activeTab !== "analise_comercial" && <div className="flex items-center gap-2 mb-4">
+          {activeTab !== "area_clientes" && <div className="flex items-center gap-2 mb-4">
             <button onClick={prevMonth} className="w-8 h-8 rounded-xl flex items-center justify-center text-[var(--silver)] hover:text-[var(--text-title)] hover:bg-[var(--hover)] transition-all">
               <ChevronLeft size={16} />
             </button>
@@ -169,7 +169,7 @@ export default function ClientesPage() {
           className="pb-8"
         >
           {activeTab === "visao_geral" && <ClientesRentabilidade year={year} month={month} />}
-          {activeTab === "analise_comercial" && <CommercialAnalysisModule />}
+          {activeTab === "area_clientes" && <ClientAreaModule />}
           {activeTab === "saude"       && <SaudeOperacao year={year} month={month} />}
           {activeTab === "nps"         && <NpsModule year={year} month={month} />}
         </motion.div>

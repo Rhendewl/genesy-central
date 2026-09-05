@@ -111,25 +111,52 @@ function titleCase(value: string) {
 export function buildCommercialDiagnosis(developments: CommercialDevelopment[], responses: CommercialResponse[]): CommercialDiagnosis {
   const scored = responses.filter((response) => typeof response.score === "number");
   const average = scored.length ? scored.reduce((sum, item) => sum + Number(item.score), 0) / scored.length : 0;
-  const best = developments.map((development) => {
+  const performance = developments.map((development) => {
     const rows = responses.filter((response) => response.development_name === development.name && response.score !== null);
-    return { ...development, score: rows.length ? rows.reduce((sum, row) => sum + Number(row.score), 0) / rows.length : 0 };
-  }).sort((a, b) => b.score - a.score)[0];
+    const score = rows.length ? rows.reduce((sum, row) => sum + Number(row.score), 0) / rows.length : 0;
+    return {
+      ...development,
+      score,
+      responses: rows.length,
+      cpl: development.leads > 0 ? development.spend / development.leads : null,
+      ctr: development.impressions > 0 ? development.clicks / development.impressions * 100 : null,
+    };
+  }).sort((a, b) => b.score - a.score || b.leads - a.leads);
+  const best = performance[0];
+  const weakest = performance.filter((item) => item.responses > 0).sort((a, b) => a.score - b.score)[0];
+  const efficient = performance.filter((item) => item.cpl !== null).sort((a, b) => Number(a.cpl) - Number(b.cpl))[0];
+  const totalLeads = developments.reduce((sum, item) => sum + item.leads, 0);
+  const totalSpend = developments.reduce((sum, item) => sum + item.spend, 0);
+  const overallCpl = totalLeads > 0 ? totalSpend / totalLeads : null;
+  const coverage = developments.length ? performance.filter((item) => item.responses > 0).length / developments.length * 100 : 0;
   const objectionCounts = new Map<string, number>();
   responses.forEach((response) => { if (response.objection) objectionCounts.set(response.objection, (objectionCounts.get(response.objection) ?? 0) + 1); });
-  const objection = Array.from(objectionCounts.entries()).sort((a, b) => b[1] - a[1])[0]?.[0];
+  const objections = Array.from(objectionCounts.entries()).sort((a, b) => b[1] - a[1]);
+  const objection = objections[0];
+  const confidence = responses.length >= 10 && coverage >= 70 ? "boa" : responses.length >= 5 ? "moderada" : "baixa";
+  const fmtMoney = (value: number) => value.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 2 });
+  const fmt = (value: number) => value.toLocaleString("pt-BR", { maximumFractionDigits: 1 });
 
   return {
     generatedAt: new Date().toISOString(),
     executiveSummary: responses.length
-      ? `A percepção comercial média foi ${average.toFixed(1)}/10 em ${responses.length} resposta${responses.length === 1 ? "" : "s"}. ${best?.score ? `${best.name} lidera a percepção dos corretores com nota ${best.score.toFixed(1)}.` : "A amostra ainda não permite destacar um empreendimento."}`
-      : "A coleta ainda não recebeu respostas suficientes para um diagnóstico comercial.",
-    highlights: best?.score ? [`${best.name} apresenta a melhor percepção comercial (${best.score.toFixed(1)}/10).`] : [],
-    risks: objection ? [`A objeção mais recorrente é: ${objection}.`] : [],
+      ? `A operação registrou ${totalLeads} leads em ${developments.length} empreendimento${developments.length === 1 ? "" : "s"}, com investimento de ${fmtMoney(totalSpend)}${overallCpl !== null ? ` e CPL consolidado de ${fmtMoney(overallCpl)}` : ""}. A percepção comercial foi ${fmt(average)}/10 em ${responses.length} resposta${responses.length === 1 ? "" : "s"}; a confiança desta leitura é ${confidence}, com cobertura de ${fmt(coverage)}% dos empreendimentos.`
+      : `Foram registrados ${totalLeads} leads e ${fmtMoney(totalSpend)} em mídia, mas ainda não há respostas comerciais. Sem a validação dos corretores, não é seguro otimizar orçamento apenas por CPL.`,
+    highlights: [
+      best?.score ? `${best.name} lidera a aderência comercial: nota ${fmt(best.score)}/10, ${best.responses} resposta${best.responses === 1 ? "" : "s"}, ${best.leads} leads${best.cpl !== null ? ` e CPL de ${fmtMoney(best.cpl)}` : ""}.` : null,
+      efficient && efficient.cpl !== null ? `${efficient.name} tem o menor CPL (${fmtMoney(efficient.cpl)}) entre as campanhas com leads; a decisão de escala deve considerar também sua nota comercial de ${fmt(efficient.score)}/10.` : null,
+      totalLeads > 0 && responses.length > 0 ? `Há ${(totalLeads / responses.length).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} leads de mídia para cada resposta recebida; ampliar a adesão melhora a precisão da otimização.` : null,
+    ].filter((item): item is string => Boolean(item)),
+    risks: [
+      objection ? `A objeção “${objection[0]}” apareceu ${objection[1]} vez${objection[1] === 1 ? "" : "es"}; ela deve ser tratada como hipótese prioritária de perda no funil.` : "As objeções ainda não foram registradas de forma consistente, reduzindo a capacidade de corrigir oferta e comunicação.",
+      weakest && best && weakest.name !== best.name && best.score - weakest.score >= 1.5 ? `${weakest.name} está ${fmt(best.score - weakest.score)} pontos abaixo do líder (${fmt(weakest.score)}/10). Evite ampliar verba antes de investigar público, oferta e abordagem comercial.` : null,
+      confidence === "baixa" ? `Amostra insuficiente: ${responses.length} resposta${responses.length === 1 ? "" : "s"} e ${fmt(coverage)}% de cobertura. As conclusões devem orientar testes, não cortes definitivos.` : null,
+    ].filter((item): item is string => Boolean(item)),
     recommendations: [
-      objection ? `Criar comunicação e argumentos comerciais específicos para reduzir a objeção “${objection}”.` : "Estimular a equipe a registrar objeções com exemplos concretos.",
-      best?.score && best.leads > 0 ? `Cruzar a boa percepção de ${best.name} com CPL e volume antes de redistribuir investimento.` : "Aguardar uma amostra maior antes de alterar a distribuição de mídia.",
-      "Revisar semanalmente os relatos comerciais junto com CPL, CTR e volume de leads.",
+      objection ? `Prioridade 1 · Objeção: transforme “${objection[0]}” em um teste de mensagem. Crie uma variação de anúncio, uma resposta-padrão para os corretores e meça, na próxima coleta, queda na recorrência e avanço da nota.` : "Prioridade 1 · Dados comerciais: torne o registro de objeção obrigatório e peça exemplos literais antes de alterar criativos ou segmentação.",
+      best?.score && best.leads > 0 ? `Prioridade 2 · Escala controlada: teste aumento gradual de verba em ${best.name} somente se o CPL (${best.cpl !== null ? fmtMoney(best.cpl) : "ainda sem leitura"}) estiver dentro da meta. Preserve um grupo de controle e compare qualidade, visitas e vendas.` : "Prioridade 2 · Validação: mantenha o orçamento estável até alcançar ao menos 5 respostas e cobertura comercial de 70% dos empreendimentos.",
+      weakest && weakest.score > 0 ? `Prioridade 3 · Recuperação: em ${weakest.name}, revise promessa do anúncio versus produto, segmentação e velocidade do primeiro contato. Meta da próxima rodada: elevar a nota de ${fmt(weakest.score)} para pelo menos ${fmt(Math.min(10, weakest.score + 1.5))}.` : "Prioridade 3 · Instrumentação: acompanhe semanalmente CPL, CTR, tempo de resposta, qualificação, visitas e vendas por empreendimento.",
+      `Regra de decisão: escalar apenas quando houver eficiência de mídia e aderência comercial ao mesmo tempo; CPL baixo com nota inferior a 7 indica volume barato, não necessariamente oportunidade de venda.`,
     ],
   };
 }

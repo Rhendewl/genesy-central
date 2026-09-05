@@ -239,17 +239,22 @@ export async function POST(request: NextRequest) {
     const accountIds = settings.meta_account_ids as string[];
     if (!accountIds.length) return NextResponse.json({ error: "Selecione ao menos uma conta Meta" }, { status: 400 });
 
-    const { data: campaigns } = await supabase.from("campaigns").select("id,name,status,platform_account_id").in("platform_account_id", accountIds);
+    const { data: campaigns } = await supabase.from("campaigns").select("id,name,status,objective,platform_account_id").in("platform_account_id", accountIds);
     const campaignIds = (campaigns ?? []).map((campaign) => campaign.id);
     const { data: metrics } = campaignIds.length
       ? await supabase.from("campaign_metrics").select("campaign_id,spend,leads,impressions,clicks,date").in("campaign_id", campaignIds).gte("date", start).lte("date", end)
       : { data: [] };
-    const delivered = new Set((metrics ?? []).filter((metric) => Number(metric.impressions) > 0 || Number(metric.spend) > 0 || Number(metric.leads) > 0).map((metric) => metric.campaign_id));
+    const leadTotals = new Map<string, number>();
+    (metrics ?? []).forEach((metric) => leadTotals.set(metric.campaign_id, (leadTotals.get(metric.campaign_id) ?? 0) + Number(metric.leads)));
     const groups = new Map<string, CommercialDevelopment>();
-    const campaignsWithDelivery = (campaigns ?? []).filter((campaign) => delivered.has(campaign.id));
-    const sourceCampaigns = campaignsWithDelivery.length
-      ? campaignsWithDelivery
-      : (campaigns ?? []).filter((campaign) => campaign.status === "ativa");
+    const campaignsWithLeads = (campaigns ?? []).filter((campaign) => (leadTotals.get(campaign.id) ?? 0) > 0);
+    const eligibleObjectives = new Set(["leads", "conversoes", "vendas"]);
+    const metricsUnavailable = (metrics ?? []).length === 0;
+    const sourceCampaigns = campaignsWithLeads.length
+      ? campaignsWithLeads
+      : metricsUnavailable
+        ? (campaigns ?? []).filter((campaign) => campaign.status === "ativa" && eligibleObjectives.has(campaign.objective))
+        : [];
     sourceCampaigns.forEach((campaign) => {
       const name = extractDevelopmentName(campaign.name, settings.parser_pattern, settings.parser_group);
       if (!name) return;
@@ -261,7 +266,7 @@ export async function POST(request: NextRequest) {
       groups.set(name, current);
     });
     const developments = Array.from(groups.values()).sort((a, b) => b.leads - a.leads || a.name.localeCompare(b.name));
-    if (!developments.length) return NextResponse.json({ error: "Nenhuma campanha ativa foi encontrada nas contas selecionadas" }, { status: 400 });
+    if (!developments.length) return NextResponse.json({ error: "Nenhuma campanha de captação gerou leads no período selecionado" }, { status: 400 });
 
     let templateDbId: string | null = null;
     let template;
@@ -284,10 +289,10 @@ export async function POST(request: NextRequest) {
       user_id: user.id, client_id: clientId, template_id: templateDbId,
       name: `${template.name} · ${new Date(`${end}T12:00:00`).toLocaleDateString("pt-BR")}`,
       slug, period_start: start, period_end: end, status: "published", developments,
-      meta_snapshot: { accounts: accountIds, questions: template.questions, generated_at: new Date().toISOString(), metrics_pending: campaignsWithDelivery.length === 0 },
+      meta_snapshot: { accounts: accountIds, questions: template.questions, generated_at: new Date().toISOString(), metrics_pending: metricsUnavailable, campaign_filter: "lead_generation_only" },
     }).select().single();
     if (error) return NextResponse.json({ error: error.message }, { status: 400 });
-    return NextResponse.json({ collection, metrics_pending: campaignsWithDelivery.length === 0 }, { status: 201 });
+    return NextResponse.json({ collection, metrics_pending: metricsUnavailable }, { status: 201 });
   }
 
   if (action === "diagnose") {
