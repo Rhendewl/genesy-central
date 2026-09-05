@@ -131,6 +131,25 @@ export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => null) as Record<string, unknown> | null;
   const action = String(body?.action ?? "");
 
+  if (action === "attach_meta_account") {
+    const clientId = String(body?.client_id ?? "");
+    const accountId = String(body?.account_id ?? "");
+    if (!clientId || !accountId) return NextResponse.json({ error: "Cliente e conta Meta são obrigatórios" }, { status: 400 });
+    const [{ data: account }, { data: settings }, { data: client }] = await Promise.all([
+      supabase.from("ad_platform_accounts").select("id").eq("id", accountId).eq("client_id", clientId).eq("platform", "meta").eq("status", "connected").maybeSingle(),
+      supabase.from("commercial_intelligence_settings").select("meta_account_ids").eq("client_id", clientId).maybeSingle(),
+      supabase.from("agency_clients").select("name").eq("id", clientId).maybeSingle(),
+    ]);
+    if (!account) return NextResponse.json({ error: "A conta Meta não foi vinculada a este cliente" }, { status: 400 });
+    if (!client) return NextResponse.json({ error: "Cliente não encontrado" }, { status: 404 });
+    const accountIds = Array.from(new Set([...(settings?.meta_account_ids as string[] ?? []), accountId]));
+    const { error } = settings
+      ? await supabase.from("commercial_intelligence_settings").update({ meta_account_ids: accountIds }).eq("client_id", clientId)
+      : await supabase.from("commercial_intelligence_settings").insert({ user_id: user.id, client_id: clientId, meta_account_ids: accountIds, public_slug: `${normalizeSlug(client.name) || "cliente"}-${clientId.slice(0, 6)}` });
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+    return NextResponse.json({ ok: true, account_id: accountId });
+  }
+
   if (action === "update_public_slug") {
     const clientId = String(body?.client_id ?? "");
     const publicSlug = normalizeSlug(String(body?.public_slug ?? ""));
@@ -220,14 +239,18 @@ export async function POST(request: NextRequest) {
     const accountIds = settings.meta_account_ids as string[];
     if (!accountIds.length) return NextResponse.json({ error: "Selecione ao menos uma conta Meta" }, { status: 400 });
 
-    const { data: campaigns } = await supabase.from("campaigns").select("id,name,platform_account_id").eq("client_id", clientId).in("platform_account_id", accountIds);
+    const { data: campaigns } = await supabase.from("campaigns").select("id,name,status,platform_account_id").in("platform_account_id", accountIds);
     const campaignIds = (campaigns ?? []).map((campaign) => campaign.id);
     const { data: metrics } = campaignIds.length
       ? await supabase.from("campaign_metrics").select("campaign_id,spend,leads,impressions,clicks,date").in("campaign_id", campaignIds).gte("date", start).lte("date", end)
       : { data: [] };
     const delivered = new Set((metrics ?? []).filter((metric) => Number(metric.impressions) > 0 || Number(metric.spend) > 0 || Number(metric.leads) > 0).map((metric) => metric.campaign_id));
     const groups = new Map<string, CommercialDevelopment>();
-    (campaigns ?? []).filter((campaign) => delivered.has(campaign.id)).forEach((campaign) => {
+    const campaignsWithDelivery = (campaigns ?? []).filter((campaign) => delivered.has(campaign.id));
+    const sourceCampaigns = campaignsWithDelivery.length
+      ? campaignsWithDelivery
+      : (campaigns ?? []).filter((campaign) => campaign.status === "ativa");
+    sourceCampaigns.forEach((campaign) => {
       const name = extractDevelopmentName(campaign.name, settings.parser_pattern, settings.parser_group);
       if (!name) return;
       const current = groups.get(name) ?? { name, campaignIds: [], campaignNames: [], spend: 0, leads: 0, impressions: 0, clicks: 0 };
@@ -238,7 +261,7 @@ export async function POST(request: NextRequest) {
       groups.set(name, current);
     });
     const developments = Array.from(groups.values()).sort((a, b) => b.leads - a.leads || a.name.localeCompare(b.name));
-    if (!developments.length) return NextResponse.json({ error: "Nenhuma campanha com entrega foi encontrada no período" }, { status: 400 });
+    if (!developments.length) return NextResponse.json({ error: "Nenhuma campanha ativa foi encontrada nas contas selecionadas" }, { status: 400 });
 
     let templateDbId: string | null = null;
     let template;
@@ -261,10 +284,10 @@ export async function POST(request: NextRequest) {
       user_id: user.id, client_id: clientId, template_id: templateDbId,
       name: `${template.name} · ${new Date(`${end}T12:00:00`).toLocaleDateString("pt-BR")}`,
       slug, period_start: start, period_end: end, status: "published", developments,
-      meta_snapshot: { accounts: accountIds, questions: template.questions, generated_at: new Date().toISOString() },
+      meta_snapshot: { accounts: accountIds, questions: template.questions, generated_at: new Date().toISOString(), metrics_pending: campaignsWithDelivery.length === 0 },
     }).select().single();
     if (error) return NextResponse.json({ error: error.message }, { status: 400 });
-    return NextResponse.json({ collection }, { status: 201 });
+    return NextResponse.json({ collection, metrics_pending: campaignsWithDelivery.length === 0 }, { status: 201 });
   }
 
   if (action === "diagnose") {

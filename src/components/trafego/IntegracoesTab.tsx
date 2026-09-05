@@ -61,7 +61,7 @@ interface AccountPickerProps {
   clients: Array<{ id: string; name: string }>;
 }
 
-function AccountPickerModal({
+export function AccountPickerModal({
   pendingId, defaultClientId, onClose, onConnect, fetchPending, clients,
 }: AccountPickerProps) {
   useModalOpen(true);
@@ -105,7 +105,7 @@ function AccountPickerModal({
   const selectedAcc = accounts.find(a => a.id === selected);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4" style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom, 0px))" }}>
       {/* Backdrop */}
       <div className="lc-modal-backdrop absolute inset-0" onClick={onClose} />
 
@@ -114,9 +114,9 @@ function AccountPickerModal({
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.97, y: 8 }}
         transition={{ duration: 0.2, ease: [0.25, 0.46, 0.45, 0.94] }}
-        className="lc-modal-panel relative z-10 flex w-full flex-col overflow-hidden rounded-t-2xl sm:max-w-lg sm:rounded-2xl"
+        className="lc-modal-panel relative z-10 flex w-full max-w-lg flex-col overflow-hidden rounded-2xl"
         style={{
-          maxHeight: "90dvh",
+          maxHeight: "min(86dvh, 720px)",
         }}
       >
         {/* ── Fixed Header ─────────────────────────────────── */}
@@ -474,30 +474,32 @@ function MetaAccountRow({
             </div>
           )}
 
-          <button
-            type="button"
-            role="switch"
-            aria-checked={account.include_in_expenses}
-            aria-label={`Incluir ${account.account_name} como despesa no Financeiro`}
-            disabled={isDisconnected || isUpdatingExpense}
-            onClick={() => onToggleExpense(!account.include_in_expenses)}
-            className="mt-3 flex items-center gap-2.5 text-left disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <span
-              className="relative h-5 w-9 shrink-0 rounded-full transition-colors"
-              style={{ background: account.include_in_expenses ? "#4a8fd4" : "var(--border)" }}
+          <div className="mt-3 flex items-center gap-2.5">
+            <button
+              type="button"
+              role="switch"
+              aria-checked={account.include_in_expenses}
+              aria-label={`Incluir ${account.account_name} como despesa no Financeiro`}
+              disabled={isDisconnected || isUpdatingExpense}
+              onClick={() => onToggleExpense(!account.include_in_expenses)}
+              className="relative h-5 w-9 shrink-0 rounded-full disabled:cursor-not-allowed disabled:opacity-50"
             >
               <span
-                className="absolute top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-transform"
+                className="absolute top-0.5 h-4 w-4 rounded-full transition-transform"
                 style={{ transform: account.include_in_expenses ? "translateX(18px)" : "translateX(2px)" }}
               />
-            </span>
-            <span>
+            </button>
+            <button
+              type="button"
+              disabled={isDisconnected || isUpdatingExpense}
+              onClick={() => onToggleExpense(!account.include_in_expenses)}
+              className="min-w-0 text-left disabled:cursor-not-allowed disabled:opacity-50"
+            >
               <span className="block text-[11px] font-medium text-[var(--text-title)]">Incluir no Financeiro</span>
               <span className="block text-[10px] text-[var(--text-muted)]">Registrar o investimento desta conta como despesa</span>
-            </span>
+            </button>
             {isUpdatingExpense && <Loader2 size={11} className="animate-spin text-[#4a8fd4]" />}
-          </button>
+          </div>
         </div>
 
         {/* Actions */}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { LayoutGrid, HeartPulse, Star, ChevronLeft, ChevronRight, ClipboardCheck } from "lucide-react";
 import { Header } from "@/components/layout/Header";
@@ -33,6 +33,11 @@ export default function ClientesPage() {
   const [activeTab, setActiveTab] = useState<TabId>("visao_geral");
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
+
+  useEffect(() => {
+    const requestedTab = new URLSearchParams(window.location.search).get("tab");
+    if (requestedTab === "analise_comercial") setActiveTab("analise_comercial");
+  }, []);
 
   const prevMonth = () => {
     if (month === 1) { setMonth(12); setYear(y => y - 1); }
