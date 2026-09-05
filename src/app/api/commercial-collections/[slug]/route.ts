@@ -1,15 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminSupabaseClient } from "@/lib/supabase-admin";
+import { calculateCommercialScore } from "@/lib/clientes/commercial-intelligence";
 import type { FormStep } from "@/types";
 
 type Context = { params: Promise<{ slug: string }> };
 
+async function resolveCollection(supabase: ReturnType<typeof createAdminSupabaseClient>, slug: string) {
+  const fields = "id,user_id,client_id,name,slug,period_start,period_end,status,developments,meta_snapshot,agency_clients(name)";
+  const { data: direct } = await supabase.from("commercial_collections").select(fields).eq("slug", slug).eq("status", "published").maybeSingle();
+  if (direct) return direct;
+  const { data: settings } = await supabase.from("commercial_intelligence_settings").select("client_id").eq("public_slug", slug).eq("is_active", true).maybeSingle();
+  if (!settings) return null;
+  const { data } = await supabase.from("commercial_collections").select(fields).eq("client_id", settings.client_id).eq("status", "published").order("period_end", { ascending: false }).limit(1).maybeSingle();
+  return data;
+}
+
 export async function GET(_request: NextRequest, context: Context) {
   const { slug } = await context.params;
   const supabase = createAdminSupabaseClient();
-  const { data: collection } = await supabase.from("commercial_collections")
-    .select("id,client_id,name,slug,period_start,period_end,status,developments,meta_snapshot,agency_clients(name)")
-    .eq("slug", slug).eq("status", "published").maybeSingle();
+  const collection = await resolveCollection(supabase, slug);
   if (!collection) return NextResponse.json({ error: "Coleta não encontrada ou encerrada" }, { status: 404 });
   const { data: brokers } = await supabase.from("commercial_brokers").select("id,name").eq("client_id", collection.client_id).eq("is_active", true).order("name");
   return NextResponse.json({
@@ -28,7 +37,7 @@ export async function POST(request: NextRequest, context: Context) {
   const body = await request.json().catch(() => null) as { broker_id?: string; development_name?: string; answers?: Record<string, unknown>; respondent_key?: string } | null;
   if (!body?.broker_id || !body.development_name || !body.answers) return NextResponse.json({ error: "Resposta incompleta" }, { status: 400 });
 
-  const { data: collection } = await supabase.from("commercial_collections").select("id,user_id,client_id,status,developments,meta_snapshot").eq("slug", slug).maybeSingle();
+  const collection = await resolveCollection(supabase, slug);
   if (!collection || collection.status !== "published") return NextResponse.json({ error: "Coleta encerrada" }, { status: 410 });
   const developments = collection.developments as Array<{ name: string }>;
   if (!developments.some((item) => item.name === body.development_name)) return NextResponse.json({ error: "Empreendimento inválido" }, { status: 400 });
@@ -36,10 +45,12 @@ export async function POST(request: NextRequest, context: Context) {
   if (!broker) return NextResponse.json({ error: "Corretor inválido" }, { status: 400 });
 
   const questions = ((collection.meta_snapshot as { questions?: FormStep[] })?.questions ?? []);
-  const missing = questions.find((question) => question.required && (body.answers?.[question.id] === undefined || body.answers?.[question.id] === ""));
+  const missing = questions.find((question) => {
+    const answer = body.answers?.[question.id];
+    return question.required && (answer === undefined || answer === "" || (Array.isArray(answer) && answer.length === 0));
+  });
   if (missing) return NextResponse.json({ error: `Responda: ${missing.title}` }, { status: 400 });
-  const ratingValues = questions.filter((question) => question.type === "rating").map((question) => Number(body.answers?.[question.id])).filter(Number.isFinite);
-  const score = ratingValues.length ? ratingValues.reduce((sum, value) => sum + value, 0) / ratingValues.length : null;
+  const score = calculateCommercialScore(questions, body.answers);
   const objectionQuestion = questions.find((question) => /obje[cç][aã]o|barreira|dificuldade|sinal/i.test(`${question.id} ${question.title}`));
   const objectionValue = objectionQuestion ? body.answers[objectionQuestion.id] : null;
   const objection = typeof objectionValue === "string" && objectionValue.trim() ? objectionValue.trim().slice(0, 300) : null;

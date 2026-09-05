@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_CAMPAIGN_PARSER, extractDevelopmentName } from "../commercial-intelligence";
+import { calculateCommercialScore, DEFAULT_CAMPAIGN_PARSER, extractDevelopmentName } from "../commercial-intelligence";
 
 describe("commercial intelligence campaign parser", () => {
   it("extracts the first meaningful bracket", () => {
@@ -16,5 +16,15 @@ describe("commercial intelligence campaign parser", () => {
 
   it("does not throw with an invalid expression", () => {
     expect(extractDevelopmentName("ATLAS - LEADS", "[")).toBe("Atlas");
+  });
+});
+
+describe("commercial scoring", () => {
+  it("combines weighted rating and scored choice fields", () => {
+    const score = calculateCommercialScore([
+      { id: "quality", type: "rating", title: "Qualidade", required: true, maxRating: 10, weight: "critical" },
+      { id: "interest", type: "single_choice", title: "Interesse", required: true, weight: "low", choices: [{ id: "1", label: "Alto", value: "high", score: 5 }] },
+    ], { quality: 8, interest: "high" });
+    expect(score).toBe(8.33);
   });
 });

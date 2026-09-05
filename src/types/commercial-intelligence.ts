@@ -9,6 +9,7 @@ export interface CommercialIntelligenceSettings {
   meta_account_ids: string[];
   parser_pattern: string;
   parser_group: number;
+  public_slug: string | null;
   is_active: boolean;
 }
 

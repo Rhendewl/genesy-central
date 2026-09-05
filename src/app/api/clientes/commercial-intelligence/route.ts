@@ -11,6 +11,10 @@ import type { FormStep } from "@/types";
 
 export const dynamic = "force-dynamic";
 
+function normalizeSlug(value: string) {
+  return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+}
+
 async function authenticated() {
   const supabase = await createServerSupabaseClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -58,7 +62,10 @@ export async function GET(request: NextRequest) {
     brokers,
     accounts: accountsResult.data ?? [],
     templates: [
-      ...DEFAULT_COMMERCIAL_TEMPLATES.map((template) => ({ id: `default-${template.week}`, name: template.name, description: template.description, week_number: template.week, questions: template.questions, is_system: true })),
+      ...DEFAULT_COMMERCIAL_TEMPLATES.map((template) => {
+        const override = (templatesResult.data ?? []).find((item) => item.is_system && item.week_number === template.week);
+        return { id: `default-${template.week}`, name: override?.name ?? template.name, description: override?.description ?? template.description, week_number: template.week, questions: override?.questions ?? template.questions, is_system: true };
+      }),
       ...(templatesResult.data ?? []).filter((template) => !template.is_system),
     ],
     collections: enrichedCollections,
@@ -83,6 +90,11 @@ export async function PUT(request: NextRequest) {
   if (!['weekly', 'biweekly', 'monthly'].includes(body.frequency ?? "")) return NextResponse.json({ error: "Frequência inválida" }, { status: 400 });
   try { new RegExp(body.parser_pattern || DEFAULT_CAMPAIGN_PARSER); } catch { return NextResponse.json({ error: "Expressão do parser inválida" }, { status: 400 }); }
 
+  const { data: existingSettings } = await supabase.from("commercial_intelligence_settings").select("public_slug").eq("client_id", body.client_id).maybeSingle();
+  const { data: client } = await supabase.from("agency_clients").select("name").eq("id", body.client_id).maybeSingle();
+  if (!client) return NextResponse.json({ error: "Cliente não encontrado" }, { status: 404 });
+  const publicSlug = existingSettings?.public_slug || `${normalizeSlug(client.name) || "cliente"}-${body.client_id.slice(0, 6)}`;
+
   const { error: settingsError } = await supabase.from("commercial_intelligence_settings").upsert({
     user_id: user.id,
     client_id: body.client_id,
@@ -90,6 +102,7 @@ export async function PUT(request: NextRequest) {
     meta_account_ids: body.meta_account_ids ?? [],
     parser_pattern: body.parser_pattern || DEFAULT_CAMPAIGN_PARSER,
     parser_group: body.parser_group ?? 1,
+    public_slug: publicSlug,
   }, { onConflict: "user_id,client_id" });
   if (settingsError) return NextResponse.json({ error: settingsError.message }, { status: 400 });
 
@@ -117,13 +130,48 @@ export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => null) as Record<string, unknown> | null;
   const action = String(body?.action ?? "");
 
-  if (action === "create_template") {
+  if (action === "create_template" || action === "save_template") {
     const name = String(body?.name ?? "").trim();
     const questions = Array.isArray(body?.questions) ? body.questions as FormStep[] : [];
     if (!name || !questions.length) return NextResponse.json({ error: "Nome e perguntas são obrigatórios" }, { status: 400 });
-    const { data, error } = await supabase.from("commercial_templates").insert({ user_id: user.id, name, description: String(body?.description ?? "").trim() || null, questions, is_system: false }).select().single();
+    const templateId = String(body?.template_id ?? "");
+    const defaultWeek = templateId.startsWith("default-") ? Number(templateId.split("-")[1]) : null;
+    let query;
+    if (defaultWeek) {
+      const { data: existing } = await supabase.from("commercial_templates").select("id").eq("user_id", user.id).eq("is_system", true).eq("week_number", defaultWeek).maybeSingle();
+      query = existing
+        ? supabase.from("commercial_templates").update({ name, description: String(body?.description ?? "").trim() || null, questions }).eq("id", existing.id).select().single()
+        : supabase.from("commercial_templates").insert({ user_id: user.id, name, description: String(body?.description ?? "").trim() || null, questions, is_system: true, week_number: defaultWeek }).select().single();
+    } else if (templateId) {
+      query = supabase.from("commercial_templates").update({ name, description: String(body?.description ?? "").trim() || null, questions }).eq("id", templateId).eq("is_system", false).select().single();
+    } else {
+      query = supabase.from("commercial_templates").insert({ user_id: user.id, name, description: String(body?.description ?? "").trim() || null, questions, is_system: false }).select().single();
+    }
+    const { data, error } = await query;
     if (error) return NextResponse.json({ error: error.message }, { status: 400 });
     return NextResponse.json({ template: data }, { status: 201 });
+  }
+
+  if (action === "save_broker") {
+    const clientId = String(body?.client_id ?? "");
+    const broker = body?.broker as { id?: string; name?: string; email?: string; phone?: string } | undefined;
+    if (!clientId || !broker?.name?.trim() || !broker.email?.trim()) return NextResponse.json({ error: "Nome e e-mail são obrigatórios" }, { status: 400 });
+    const payload = { user_id: user.id, client_id: clientId, name: broker.name.trim(), email: broker.email.trim().toLowerCase(), phone: broker.phone?.trim() || null, is_active: true };
+    const query = broker.id
+      ? supabase.from("commercial_brokers").update(payload).eq("id", broker.id).select().single()
+      : supabase.from("commercial_brokers").upsert(payload, { onConflict: "client_id,email" }).select().single();
+    const { data, error } = await query;
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+    return NextResponse.json({ broker: data });
+  }
+
+  if (action === "delete_broker") {
+    const brokerId = String(body?.broker_id ?? "");
+    const clientId = String(body?.client_id ?? "");
+    if (!brokerId || !clientId) return NextResponse.json({ error: "Corretor inválido" }, { status: 400 });
+    const { error } = await supabase.from("commercial_brokers").update({ is_active: false }).eq("id", brokerId).eq("client_id", clientId).eq("user_id", user.id);
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+    return NextResponse.json({ ok: true });
   }
 
   if (action === "create_collection") {
@@ -160,7 +208,13 @@ export async function POST(request: NextRequest) {
 
     let templateDbId: string | null = null;
     let template;
-    if (templateId.startsWith("default-")) template = DEFAULT_COMMERCIAL_TEMPLATES.find((item) => item.week === Number(templateId.split("-")[1]));
+    if (templateId.startsWith("default-")) {
+      const week = Number(templateId.split("-")[1]);
+      const base = DEFAULT_COMMERCIAL_TEMPLATES.find((item) => item.week === week);
+      const { data: override } = await supabase.from("commercial_templates").select("id,name,description,questions").eq("user_id", user.id).eq("is_system", true).eq("week_number", week).maybeSingle();
+      template = override ? { ...override, week } : base;
+      templateDbId = override?.id ?? null;
+    }
     else {
       const { data } = await supabase.from("commercial_templates").select("id,name,description,questions").eq("id", templateId).maybeSingle();
       template = data ? { ...data, week: null } : undefined; templateDbId = data?.id ?? null;
@@ -168,6 +222,7 @@ export async function POST(request: NextRequest) {
     if (!template) return NextResponse.json({ error: "Template não encontrado" }, { status: 404 });
 
     const slug = `analise-${end.replaceAll("-", "")}-${crypto.randomUUID().slice(0, 8)}`;
+    await supabase.from("commercial_collections").update({ status: "closed" }).eq("client_id", clientId).eq("status", "published");
     const { data: collection, error } = await supabase.from("commercial_collections").insert({
       user_id: user.id, client_id: clientId, template_id: templateDbId,
       name: `${template.name} · ${new Date(`${end}T12:00:00`).toLocaleDateString("pt-BR")}`,

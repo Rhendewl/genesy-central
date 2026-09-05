@@ -3,6 +3,8 @@ import type { CommercialDevelopment, CommercialDiagnosis, CommercialResponse } f
 
 export const DEFAULT_CAMPAIGN_PARSER = "\\[([^\\]]+)\\]";
 
+const QUESTION_WEIGHTS = { ignore: 0, low: 1, medium: 2, high: 3, critical: 5 } as const;
+
 export const DEFAULT_COMMERCIAL_TEMPLATES: Array<{
   name: string;
   description: string;
@@ -68,6 +70,28 @@ export function extractDevelopmentName(campaignName: string, pattern = DEFAULT_C
   } catch {
     return fallbackDevelopment(campaignName);
   }
+}
+
+export function calculateCommercialScore(questions: FormStep[], answers: Record<string, unknown>): number | null {
+  let weightedScore = 0;
+  let totalWeight = 0;
+  for (const question of questions) {
+    const weight = QUESTION_WEIGHTS[question.weight ?? "medium"];
+    if (!weight) continue;
+    const answer = answers[question.id];
+    let score: number | null = null;
+    if (question.type === "rating") {
+      const value = Number(answer);
+      if (Number.isFinite(value)) score = value / (question.maxRating ?? 5) * 10;
+    } else if (question.type === "single_choice") {
+      const selected = question.choices?.find((choice) => choice.value === answer);
+      if (selected?.score) score = selected.score * 2;
+    }
+    if (score === null) continue;
+    weightedScore += Math.max(0, Math.min(10, score)) * weight;
+    totalWeight += weight;
+  }
+  return totalWeight ? Number((weightedScore / totalWeight).toFixed(2)) : null;
 }
 
 function fallbackDevelopment(name: string): string | null {
