@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildCommercialDiagnosis, calculateCommercialScore, DEFAULT_CAMPAIGN_PARSER, extractDevelopmentName } from "../commercial-intelligence";
+import { buildCommercialDiagnosis, calculateCommercialScore, DEFAULT_CAMPAIGN_PARSER, extractDevelopmentName, filterLeadGenerationDevelopments } from "../commercial-intelligence";
 
 describe("commercial intelligence campaign parser", () => {
   it("extracts the first meaningful bracket", () => {
@@ -44,5 +44,17 @@ describe("commercial high-performance diagnosis", () => {
     expect(diagnosis.risks.join(" ")).toContain("Entrada alta");
     expect(diagnosis.recommendations.join(" ")).toContain("Prioridade 1");
     expect(diagnosis.recommendations.join(" ")).toContain("CPL");
+  });
+});
+
+describe("lead-generation collection filter", () => {
+  it("keeps lead campaigns and removes reach or profile-visit campaigns", () => {
+    const developments = [
+      { name: "Áurea", campaignIds: ["lead"], campaignNames: [], spend: 0, leads: 0, impressions: 0, clicks: 0 },
+      { name: "Vis. Perfil", campaignIds: ["traffic"], campaignNames: [], spend: 100, leads: 0, impressions: 10000, clicks: 200 },
+      { name: "Atlas", campaignIds: ["reach-with-lead"], campaignNames: [], spend: 200, leads: 3, impressions: 15000, clicks: 100 },
+    ];
+    const filtered = filterLeadGenerationDevelopments(developments, new Map([["lead", "leads"], ["traffic", "trafego"], ["reach-with-lead", "alcance"]]));
+    expect(filtered.map((item) => item.name)).toEqual(["Áurea", "Atlas"]);
   });
 });

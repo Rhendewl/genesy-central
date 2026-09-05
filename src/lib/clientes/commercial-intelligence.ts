@@ -2,6 +2,7 @@ import type { FormStep } from "@/types";
 import type { CommercialDevelopment, CommercialDiagnosis, CommercialResponse } from "@/types/commercial-intelligence";
 
 export const DEFAULT_CAMPAIGN_PARSER = "\\[([^\\]]+)\\]";
+const LEAD_GENERATION_OBJECTIVES = new Set(["leads", "conversoes", "vendas"]);
 
 const QUESTION_WEIGHTS = { ignore: 0, low: 1, medium: 2, high: 3, critical: 5 } as const;
 
@@ -59,6 +60,13 @@ export const DEFAULT_COMMERCIAL_TEMPLATES: Array<{
 
 function choice(labels: string[]) {
   return labels.map((label, index) => ({ id: `choice-${index + 1}`, label, value: label }));
+}
+
+export function filterLeadGenerationDevelopments(
+  developments: CommercialDevelopment[],
+  objectivesByCampaignId: Map<string, string>,
+): CommercialDevelopment[] {
+  return developments.filter((development) => development.leads > 0 || development.campaignIds.some((id) => LEAD_GENERATION_OBJECTIVES.has(objectivesByCampaignId.get(id) ?? "")));
 }
 
 export function extractDevelopmentName(campaignName: string, pattern = DEFAULT_CAMPAIGN_PARSER, group = 1): string | null {

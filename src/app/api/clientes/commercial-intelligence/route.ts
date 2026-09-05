@@ -5,6 +5,7 @@ import {
   DEFAULT_CAMPAIGN_PARSER,
   DEFAULT_COMMERCIAL_TEMPLATES,
   extractDevelopmentName,
+  filterLeadGenerationDevelopments,
 } from "@/lib/clientes/commercial-intelligence";
 import type { CommercialCollection, CommercialDevelopment, CommercialResponse } from "@/types/commercial-intelligence";
 import type { FormStep } from "@/types";
@@ -43,13 +44,23 @@ export async function GET(request: NextRequest) {
   if (schemaError) return NextResponse.json({ error: "A migração da nova Análise Comercial ainda não foi aplicada.", migrationRequired: true }, { status: 503 });
 
   const brokers = brokersResult.data ?? [];
-  const collections = (collectionsResult.data ?? []) as CommercialCollection[];
+  const rawCollections = (collectionsResult.data ?? []) as CommercialCollection[];
+  const historicalCampaignIds = Array.from(new Set(rawCollections.flatMap((collection) => collection.developments.flatMap((development) => development.campaignIds))));
+  const { data: historicalCampaigns } = historicalCampaignIds.length
+    ? await supabase.from("campaigns").select("id,objective").in("id", historicalCampaignIds)
+    : { data: [] };
+  const objectivesByCampaignId = new Map((historicalCampaigns ?? []).map((campaign) => [campaign.id, campaign.objective]));
+  const collections = rawCollections.map((collection) => ({
+    ...collection,
+    developments: filterLeadGenerationDevelopments(collection.developments, objectivesByCampaignId),
+  }));
   const collectionIds = collections.map((item) => item.id);
   const { data: responses } = collectionIds.length
     ? await supabase.from("commercial_responses").select("*").in("collection_id", collectionIds).order("completed_at")
     : { data: [] };
 
-  const responseRows = (responses ?? []) as CommercialResponse[];
+  const allowedDevelopments = new Map(collections.map((collection) => [collection.id, new Set(collection.developments.map((development) => development.name))]));
+  const responseRows = ((responses ?? []) as CommercialResponse[]).filter((response) => allowedDevelopments.get(response.collection_id)?.has(response.development_name));
   const responseCount = new Map<string, number>();
   responseRows.forEach((row) => responseCount.set(row.collection_id, (responseCount.get(row.collection_id) ?? 0) + 1));
   const enrichedCollections = collections.map((collection) => ({

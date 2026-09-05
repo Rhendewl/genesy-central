@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminSupabaseClient } from "@/lib/supabase-admin";
-import { calculateCommercialScore } from "@/lib/clientes/commercial-intelligence";
+import { calculateCommercialScore, filterLeadGenerationDevelopments } from "@/lib/clientes/commercial-intelligence";
+import type { CommercialDevelopment } from "@/types/commercial-intelligence";
 import type { FormStep } from "@/types";
 
 type Context = { params: Promise<{ slug: string }> };
@@ -15,16 +16,27 @@ async function resolveCollection(supabase: ReturnType<typeof createAdminSupabase
   return data;
 }
 
+async function getEligibleDevelopments(supabase: ReturnType<typeof createAdminSupabaseClient>, collection: { developments: unknown }) {
+  const developments = collection.developments as CommercialDevelopment[];
+  const campaignIds = Array.from(new Set(developments.flatMap((development) => development.campaignIds)));
+  const { data: campaigns } = campaignIds.length
+    ? await supabase.from("campaigns").select("id,objective").in("id", campaignIds)
+    : { data: [] };
+  return filterLeadGenerationDevelopments(developments, new Map((campaigns ?? []).map((campaign) => [campaign.id, campaign.objective])));
+}
+
 export async function GET(_request: NextRequest, context: Context) {
   const { slug } = await context.params;
   const supabase = createAdminSupabaseClient();
   const collection = await resolveCollection(supabase, slug);
   if (!collection) return NextResponse.json({ error: "Coleta não encontrada ou encerrada" }, { status: 404 });
+  const developments = await getEligibleDevelopments(supabase, collection);
+  if (!developments.length) return NextResponse.json({ error: "Nenhuma campanha de captação com leads está disponível nesta coleta" }, { status: 404 });
   const { data: brokers } = await supabase.from("commercial_brokers").select("id,name").eq("client_id", collection.client_id).eq("is_active", true).order("name");
   return NextResponse.json({
     collection: {
       id: collection.id, name: collection.name, period_start: collection.period_start, period_end: collection.period_end,
-      developments: collection.developments, questions: (collection.meta_snapshot as { questions?: FormStep[] })?.questions ?? [],
+      developments, questions: (collection.meta_snapshot as { questions?: FormStep[] })?.questions ?? [],
       clientName: Array.isArray(collection.agency_clients) ? collection.agency_clients[0]?.name : (collection.agency_clients as { name?: string } | null)?.name,
     },
     brokers: brokers ?? [],
@@ -39,7 +51,7 @@ export async function POST(request: NextRequest, context: Context) {
 
   const collection = await resolveCollection(supabase, slug);
   if (!collection || collection.status !== "published") return NextResponse.json({ error: "Coleta encerrada" }, { status: 410 });
-  const developments = collection.developments as Array<{ name: string }>;
+  const developments = await getEligibleDevelopments(supabase, collection);
   if (!developments.some((item) => item.name === body.development_name)) return NextResponse.json({ error: "Empreendimento inválido" }, { status: 400 });
   const { data: broker } = await supabase.from("commercial_brokers").select("id").eq("id", body.broker_id).eq("client_id", collection.client_id).eq("is_active", true).maybeSingle();
   if (!broker) return NextResponse.json({ error: "Corretor inválido" }, { status: 400 });
