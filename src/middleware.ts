@@ -35,11 +35,22 @@ const PUBLIC_ROUTES = [
 ];
 // Redirect authenticated users away from these (login page only)
 const AUTH_REDIRECT_ROUTES = ["/auth"];
+const PUBLIC_SHARE_ROUTES = ["/portal/", "/form/", "/analise-comercial/", "/coleta/", "/agendar/"];
 
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   const isPublicRoute = PUBLIC_ROUTES.some((r) => pathname.startsWith(r));
   const isAuthRedirectRoute = AUTH_REDIRECT_ROUTES.some((r) => pathname.startsWith(r));
+
+  // Mantém o dashboard como superfície interna. Links públicos antigos seguem
+  // funcionando, mas passam para o domínio de compartilhamento preservando
+  // slug, query string e eventuais tokens de acesso.
+  if (request.nextUrl.hostname === "dash.genesycompany.com" && PUBLIC_SHARE_ROUTES.some((route) => pathname.startsWith(route))) {
+    const publicUrl = request.nextUrl.clone();
+    publicUrl.hostname = "go.genesycompany.com";
+    publicUrl.protocol = "https:";
+    return NextResponse.redirect(publicUrl, 308);
+  }
 
   // Rotas públicas não precisam criar o cliente Supabase nem inspecionar a
   // sessão. Isso reduz o trabalho no edge e permite cache de CDN no HTML dos
