@@ -36,11 +36,30 @@ const PUBLIC_ROUTES = [
 // Redirect authenticated users away from these (login page only)
 const AUTH_REDIRECT_ROUTES = ["/auth"];
 const PUBLIC_SHARE_ROUTES = ["/portal/", "/form/", "/analise-comercial/", "/coleta/", "/agendar/"];
+const PUBLIC_SHARE_API_ROUTES = ["/api/portal/", "/api/form/", "/api/commercial-collections/", "/api/agendar/"];
 
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   const isPublicRoute = PUBLIC_ROUTES.some((r) => pathname.startsWith(r));
   const isAuthRedirectRoute = AUTH_REDIRECT_ROUTES.some((r) => pathname.startsWith(r));
+  const isPublicShareHost = request.nextUrl.hostname === "go.genesycompany.com";
+
+  if (isPublicShareHost) {
+    if (pathname === "/") {
+      const landingUrl = request.nextUrl.clone();
+      landingUrl.pathname = "/acesso-publico";
+      return NextResponse.rewrite(landingUrl);
+    }
+
+    const isAllowedShareRoute = PUBLIC_SHARE_ROUTES.some((route) => pathname.startsWith(route));
+    const isAllowedShareApi = PUBLIC_SHARE_API_ROUTES.some((route) => pathname.startsWith(route));
+    if (!isAllowedShareRoute && !isAllowedShareApi) {
+      const landingUrl = request.nextUrl.clone();
+      landingUrl.pathname = "/";
+      landingUrl.search = "";
+      return NextResponse.redirect(landingUrl, 307);
+    }
+  }
 
   // Mantém o dashboard como superfície interna. Links públicos antigos seguem
   // funcionando, mas passam para o domínio de compartilhamento preservando
