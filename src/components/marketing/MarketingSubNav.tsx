@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { BadgeDollarSign, Bot, CalendarDays, LayoutDashboard, PanelsTopLeft } from "lucide-react";
 import { InstagramGlyph } from "@/components/marketing/InstagramReports";
 import { cn } from "@/lib/utils";
+import { useGlobalStore } from "@/store";
 
 function MetaGlyph({ size = 16, ...props }: SVGProps<SVGSVGElement> & { size?: string | number }) {
   return (
@@ -35,6 +36,8 @@ const ITEMS: Array<{ href: string; label: string; icon: NavIcon; exact?: boolean
 
 export function MarketingSubNav() {
   const pathname = usePathname();
+  const canvasMode = useGlobalStore((state) => state.canvasMode);
+  if (canvasMode) return null;
   return (
     <div className="border-b px-4 pt-3 sm:px-6 sm:pt-4" style={{ borderColor: "var(--border)" }}>
       <div className="-mx-4 overflow-x-auto px-4 [scrollbar-width:none] sm:mx-0 sm:px-0">

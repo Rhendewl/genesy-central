@@ -10,9 +10,10 @@ import { cn } from "@/lib/utils";
 import type { CollectionStatus, UpdateCollection } from "@/types";
 import { PrimaryButton } from "@/components/ui/PrimaryButton";
 import { useModalOpen } from "@/hooks/useModalOpen";
+import { privateFinancialValue } from "@/store/financial-privacy";
 
 const fmt = (v: number) =>
-  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
+  privateFinancialValue(new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v));
 
 const SEVERITY_CONFIG = {
   critical: {

@@ -18,11 +18,12 @@ import { useTrafegoMetrics } from "@/hooks/useTrafegoMetrics";
 import { useTrafegoGeo } from "@/hooks/useTrafegoGeo";
 import { cn } from "@/lib/utils";
 import { KpiReadingGuide, type KpiGuidanceItem } from "@/components/insights/KpiReadingGuide";
+import { privateFinancialValue, useFinancialPrivacyStore } from "@/store/financial-privacy";
 
 // ── Formatters ────────────────────────────────────────────────────────────────
 
 const fmtBRL = (v: number) =>
-  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(v);
+  privateFinancialValue(new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(v));
 const fmtNum = (v: number) =>
   new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 0 }).format(v);
 const fmtPct = (v: number) => `${v.toFixed(2)}%`;
@@ -745,7 +746,9 @@ function useInsights(data: {
   ctr_medio: number;
   leads_total: number;
 } | null): KpiGuidanceItem[] {
+  const valuesHidden = useFinancialPrivacyStore((state) => state.valuesHidden);
   return useMemo(() => {
+    void valuesHidden;
     if (!data) return [];
     const result: KpiGuidanceItem[] = [];
 
@@ -829,7 +832,7 @@ function useInsights(data: {
     }
 
     return result;
-  }, [data]);
+  }, [data, valuesHidden]);
 }
 
 function InsightsBlock({ data }: { data: Parameters<typeof useInsights>[0] }) {

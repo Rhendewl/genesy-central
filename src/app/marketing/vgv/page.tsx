@@ -42,14 +42,18 @@ import { Label } from "@/components/ui/label";
 import { MoneyInput } from "@/components/ui/MoneyInput";
 import { getMarketingVgvPeriodRange, type MarketingVgvPeriodMode } from "@/lib/marketing/vgv-period";
 import type { MarketingVgvSale, MarketingVgvSaleInput } from "@/types/marketing";
+import { FinancialPrivacyButton } from "@/components/ui/FinancialPrivacyButton";
+import { privateFinancialValue, useFinancialPrivacyStore } from "@/store/financial-privacy";
 
-const currency = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
-const compactCurrency = new Intl.NumberFormat("pt-BR", {
+const currencyFormatter = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
+const compactCurrencyFormatter = new Intl.NumberFormat("pt-BR", {
   style: "currency",
   currency: "BRL",
   notation: "compact",
   maximumFractionDigits: 1,
 });
+const currency = { format: (value: number) => privateFinancialValue(currencyFormatter.format(value)) };
+const compactCurrency = { format: (value: number) => privateFinancialValue(compactCurrencyFormatter.format(value)) };
 const tooltipStyle = {
   background: "var(--chart-tooltip-bg)",
   border: "1px solid var(--chart-tooltip-border)",
@@ -75,6 +79,8 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
 }
 
 export default function MarketingVgvPage() {
+  const valuesHidden = useFinancialPrivacyStore((state) => state.valuesHidden);
+  void valuesHidden;
   const [period, setPeriod] = useState(startOfMonth(new Date()));
   const [periodMode, setPeriodMode] = useState<MarketingVgvPeriodMode>("month");
   const [sales, setSales] = useState<MarketingVgvSale[]>([]);
@@ -173,7 +179,7 @@ export default function MarketingVgvPage() {
       <Header
         title="VGV"
         subtitle="Vendas atribuídas ao trabalho de marketing"
-        actions={<Button onClick={() => setDialogOpen(true)} icon={<Plus size={15} />} signature size="medium">Registrar venda</Button>}
+        actions={<div className="flex items-center gap-2"><FinancialPrivacyButton compact /><Button onClick={() => setDialogOpen(true)} icon={<Plus size={15} />} signature size="medium">Registrar venda</Button></div>}
       />
 
       <div className="px-4 sm:px-6">

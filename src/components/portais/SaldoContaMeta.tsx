@@ -11,16 +11,17 @@ import type { PortalAccountBalance } from "@/types";
 import { META_BR_TAX_RATE } from "@/types";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { privateFinancialValue } from "@/store/financial-privacy";
 
 // ── Formatters ────────────────────────────────────────────────────────────────
 
 function fmtCurrency(v: number, currency = "BRL") {
-  return new Intl.NumberFormat("pt-BR", {
+  return privateFinancialValue(new Intl.NumberFormat("pt-BR", {
     style: "currency",
     currency,
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
-  }).format(v);
+  }).format(v));
 }
 
 // ── Account status helpers ────────────────────────────────────────────────────

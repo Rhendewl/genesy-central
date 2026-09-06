@@ -23,6 +23,7 @@ import { cn } from "@/lib/utils";
 import { useCurrentMember } from "@/context/CurrentMemberContext";
 import { isAdministrativeMember } from "@/lib/user-access";
 import { KpiReadingGuide } from "@/components/insights/KpiReadingGuide";
+import { privateFinancialValue } from "@/store/financial-privacy";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // LeadsAnalytics
@@ -32,7 +33,7 @@ import { KpiReadingGuide } from "@/components/insights/KpiReadingGuide";
 // ─────────────────────────────────────────────────────────────────────────────
 
 const fmtBRL = (v: number) =>
-  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(v);
+  privateFinancialValue(new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(v));
 
 const fmtPct = (v: number) => `${v.toFixed(1)}%`;
 

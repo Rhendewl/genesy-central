@@ -10,6 +10,7 @@ import { usePipelines } from "@/hooks/usePipelines";
 import { useUsers } from "@/hooks/useUsers";
 import { CrmReportRangePicker } from "./CrmReportRangePicker";
 import { Button } from "@/components/ui/button";
+import { privateFinancialValue } from "@/store/financial-privacy";
 
 type Preset = "today" | "week" | "month" | "custom";
 
@@ -36,7 +37,7 @@ const EVENT_COLORS: Partial<Record<CrmActivityType, string>> = {
 };
 
 function localDate(date: Date) { return format(date, "yyyy-MM-dd"); }
-function brl(value: number) { return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value); }
+function brl(value: number) { return privateFinancialValue(new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value)); }
 function csvCell(value: unknown) { return `"${String(value ?? "").replaceAll('"', '""')}"`; }
 
 function activityDetails(item: CrmActivity) {

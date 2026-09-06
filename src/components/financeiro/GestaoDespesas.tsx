@@ -20,18 +20,19 @@ import type { Expense, NewExpense, ExpenseCategory, ExpenseType } from "@/types"
 import { MoneyInput } from "@/components/ui/MoneyInput";
 import { PrimaryButton } from "@/components/ui/PrimaryButton";
 import { useModalOpen } from "@/hooks/useModalOpen";
+import { privateFinancialValue, useFinancialPrivacyStore } from "@/store/financial-privacy";
 
 // ── Formatters ────────────────────────────────────────────────────────────────
 
 const fmt = (v: number) =>
-  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
+  privateFinancialValue(new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v));
 
 const fmtK = (v: number) => {
   if (Math.abs(v) >= 1000)
-    return `R$${(v / 1000).toFixed(1)}k`;
-  return new Intl.NumberFormat("pt-BR", {
+    return privateFinancialValue(`R$${(v / 1000).toFixed(1)}k`);
+  return privateFinancialValue(new Intl.NumberFormat("pt-BR", {
     style: "currency", currency: "BRL", maximumFractionDigits: 0,
-  }).format(v);
+  }).format(v));
 };
 
 // ── Config ────────────────────────────────────────────────────────────────────
@@ -226,7 +227,7 @@ function KpiCard({
               : "text-emerald-400 bg-emerald-400/10"
           )}>
             {trend.pct >= 0 ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
-            {Math.abs(trend.pct).toFixed(1)}%
+            {privateFinancialValue(`${Math.abs(trend.pct).toFixed(1)}%`)}
           </span>
         )}
       </div>
@@ -266,6 +267,7 @@ type SortKey = "date_desc" | "date_asc" | "amount_desc" | "amount_asc";
 type ChartView = "day" | "category";
 
 export function GestaoDespesas({ year, month }: Props) {
+  const valuesHidden = useFinancialPrivacyStore(state => state.valuesHidden);
   const monthStart = `${year}-${String(month).padStart(2, "0")}-01`;
   const monthEnd   = format(endOfMonth(new Date(year, month - 1)), "yyyy-MM-dd");
 
@@ -342,14 +344,15 @@ export function GestaoDespesas({ year, month }: Props) {
   // ── Insights ───────────────────────────────────────────────────────────────
 
   const insights = useMemo(() => {
+    void valuesHidden;
     const list: string[] = [];
     if (total > 0 && topCategory) {
       const pct = ((topCategory.total / total) * 100).toFixed(0);
-      list.push(`${topCategory.label} é a maior categoria: ${pct}% do total (${fmt(topCategory.total)})`);
+      list.push(`${topCategory.label} é a maior categoria: ${privateFinancialValue(`${pct}%`)} do total (${fmt(topCategory.total)})`);
     }
     if (variation !== null && Math.abs(variation) > 5) {
       const dir = variation > 0 ? "acima" : "abaixo";
-      list.push(`Despesas ${Math.abs(variation).toFixed(1)}% ${dir} do mês anterior (${fmt(prevTotal)})`);
+      list.push(`Despesas ${privateFinancialValue(`${Math.abs(variation).toFixed(1)}%`)} ${dir} do mês anterior (${fmt(prevTotal)})`);
     }
     if (list.length < 2) {
       const largest = [...expenses].sort((a, b) => b.amount - a.amount)[0];
@@ -358,7 +361,7 @@ export function GestaoDespesas({ year, month }: Props) {
       }
     }
     return list.slice(0, 2);
-  }, [expenses, topCategory, total, variation, prevTotal]);
+  }, [expenses, topCategory, total, variation, prevTotal, valuesHidden]);
 
   // ── Filtered / sorted list ─────────────────────────────────────────────────
 
@@ -479,7 +482,7 @@ export function GestaoDespesas({ year, month }: Props) {
           label="Variação vs Anterior"
           value={
             variation !== null
-              ? `${variation >= 0 ? "+" : ""}${variation.toFixed(1)}%`
+              ? privateFinancialValue(`${variation >= 0 ? "+" : ""}${variation.toFixed(1)}%`)
               : "—"
           }
           sub={prevTotal > 0 ? `Anterior: ${fmt(prevTotal)}` : "Sem dados anteriores"}
@@ -539,7 +542,7 @@ export function GestaoDespesas({ year, month }: Props) {
                           </span>
                         </div>
                         <div className="flex items-center gap-3">
-                          <span className="text-[10px] text-[var(--text-muted)]">{pct.toFixed(1)}%</span>
+                          <span className="text-[10px] text-[var(--text-muted)]">{privateFinancialValue(`${pct.toFixed(1)}%`)}</span>
                           <span className={cn(
                             "text-xs font-semibold tabular-nums transition-colors",
                             isActive ? "text-[var(--text-title)]" : "text-[var(--silver)] group-hover:text-[var(--text-title)]"

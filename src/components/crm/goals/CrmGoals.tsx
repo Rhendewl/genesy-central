@@ -11,8 +11,10 @@ import type { CrmGoal, CrmGoalInput } from "@/types/crm";
 import { Button } from "@/components/ui/button";
 import { ConfirmActionModal } from "@/components/ui/ConfirmActionModal";
 import { calculateGoalTargets, CRM_GOAL_BENCHMARKS } from "@/lib/crm/goal-calculator";
+import { privateFinancialValue } from "@/store/financial-privacy";
 
-const money = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
+const moneyFormatter = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
+const money = { format: (value: number) => privateFinancialValue(moneyFormatter.format(value)) };
 const monthGoalName = () => {
   const month = format(new Date(), "MMMM", { locale: ptBR });
   return `Meta de ${month.charAt(0).toUpperCase()}${month.slice(1)}`;

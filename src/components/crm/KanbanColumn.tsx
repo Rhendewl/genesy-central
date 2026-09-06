@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import type { Lead } from "@/types";
 import type { CrmStage } from "@/types/crm";
 import { LeadCard } from "./LeadCard";
+import { privateFinancialValue } from "@/store/financial-privacy";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // KanbanColumn
@@ -26,7 +27,7 @@ interface KanbanColumnProps {
 
 function fmtBRL(v: number): string {
   if (v === 0) return "—";
-  return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  return privateFinancialValue(v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }));
 }
 
 export function KanbanColumn({ stage, leads, totalValue, onEditLead }: KanbanColumnProps) {

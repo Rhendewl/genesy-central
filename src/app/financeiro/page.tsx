@@ -18,6 +18,8 @@ import { MetasFinanceiras } from "@/components/financeiro/MetasFinanceiras";
 import { AlertasFinanceiros } from "@/components/financeiro/AlertasFinanceiros";
 import { IntegracoesFinanceiras } from "@/components/financeiro/IntegracoesFinanceiras";
 import { cn } from "@/lib/utils";
+import { FinancialPrivacyButton } from "@/components/ui/FinancialPrivacyButton";
+import { useFinancialPrivacyStore } from "@/store/financial-privacy";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Financeiro Page — Dashboard / Receitas / Despesas / Fluxo / Cobranças / Metas / Alertas
@@ -50,6 +52,8 @@ const MONTH_NAMES = [
 ];
 
 export default function FinanceiroPage() {
+  const valuesHidden = useFinancialPrivacyStore((state) => state.valuesHidden);
+  void valuesHidden;
   const now = new Date();
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabId>("dashboard");
@@ -79,7 +83,11 @@ export default function FinanceiroPage() {
   return (
     <ModuleAccessGate module="financeiro">
     <div className="mx-auto max-w-7xl px-4 sm:px-6">
-      <Header title="Financeiro" subtitle={tabSubtitle} />
+      <Header
+        title="Financeiro"
+        subtitle={tabSubtitle}
+        actions={<FinancialPrivacyButton />}
+      />
 
       {/* Period selector + tabs */}
       <div className="sticky top-[calc(env(safe-area-inset-top,0px)+4.5rem)] md:top-0 z-30">

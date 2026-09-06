@@ -9,6 +9,8 @@ import { SaudeOperacao } from "@/components/financeiro/SaudeOperacao";
 import { NpsModule } from "@/components/clientes/NpsModule";
 import { cn } from "@/lib/utils";
 import { CommercialAnalysisModule } from "@/components/clientes/CommercialAnalysisModule";
+import { FinancialPrivacyButton } from "@/components/ui/FinancialPrivacyButton";
+import { useFinancialPrivacyStore } from "@/store/financial-privacy";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Clientes Page — Hub completo da carteira
@@ -29,6 +31,8 @@ const MONTH_NAMES = [
 ];
 
 export default function ClientesPage() {
+  const valuesHidden = useFinancialPrivacyStore((state) => state.valuesHidden);
+  void valuesHidden;
   const now = new Date();
   const [activeTab, setActiveTab] = useState<TabId>("visao_geral");
   const [year, setYear] = useState(now.getFullYear());
@@ -56,7 +60,7 @@ export default function ClientesPage() {
 
   return (
     <div className="mx-auto max-w-7xl px-4 sm:px-6">
-      <Header title="Clientes" subtitle={subtitle} />
+      <Header title="Clientes" subtitle={subtitle} actions={<FinancialPrivacyButton />} />
 
       {/* Sticky nav */}
       <div className="sticky top-[calc(env(safe-area-inset-top,0px)+4.5rem)] md:top-0 z-30">

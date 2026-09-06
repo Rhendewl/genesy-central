@@ -10,9 +10,10 @@ import type { NewFinancialGoal } from "@/types";
 import { MoneyInput } from "@/components/ui/MoneyInput";
 import { PrimaryButton } from "@/components/ui/PrimaryButton";
 import { useModalOpen } from "@/hooks/useModalOpen";
+import { privateFinancialValue } from "@/store/financial-privacy";
 
 const fmt = (v: number) =>
-  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(v);
+  privateFinancialValue(new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(v));
 
 interface ProgressBarProps {
   value: number;
@@ -26,7 +27,7 @@ function ProgressBar({ value, goal, color }: ProgressBarProps) {
   return (
     <div className="space-y-1.5">
       <div className="flex items-center justify-between text-xs">
-        <span style={{ color: statusColor }} className="font-semibold">{pct.toFixed(1)}%</span>
+        <span style={{ color: statusColor }} className="font-semibold">{privateFinancialValue(`${pct.toFixed(1)}%`)}</span>
         <span className="text-[var(--silver)]">{pct >= 100 ? "Meta atingida!" : `Faltam ${fmt(Math.max(0, goal - value))}`}</span>
       </div>
       <div className="h-2 rounded-full overflow-hidden" style={{ background: "var(--border)" }}>
@@ -56,8 +57,8 @@ interface GoalCardProps {
 
 function GoalCard({ title, icon, accent, current, goal, isPercent, isCount, delay = 0 }: GoalCardProps) {
   const fmt2 = (v: number) => {
-    if (isPercent) return `${v.toFixed(1)}%`;
-    if (isCount) return String(Math.round(v));
+    if (isPercent) return privateFinancialValue(`${v.toFixed(1)}%`);
+    if (isCount) return privateFinancialValue(String(Math.round(v)));
     return fmt(v);
   };
 

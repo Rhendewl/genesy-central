@@ -4,9 +4,10 @@ import { motion } from "framer-motion";
 import { ArrowUpRight, Wallet } from "lucide-react";
 import { useFinanceiroDashboard } from "@/hooks/useFinanceiroDashboard";
 import { MetricSubcard } from "./MetricSubcard";
+import { privateFinancialValue } from "@/store/financial-privacy";
 
 function fmtBRL(v: number) {
-  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(v);
+  return privateFinancialValue(new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(v));
 }
 
 interface FinanceiroSummaryCardProps {

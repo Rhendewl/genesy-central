@@ -20,11 +20,13 @@ import type { PortalPublicData, PortalCampaignSummary } from "@/types";
 import { MelhoresCreativos } from "@/components/portais/MelhoresCreativos";
 import { SaldoContaMeta } from "@/components/portais/SaldoContaMeta";
 import { useGlobalStore } from "@/store";
+import { FinancialPrivacyButton } from "@/components/ui/FinancialPrivacyButton";
+import { privateFinancialValue, useFinancialPrivacyStore } from "@/store/financial-privacy";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 const fmtBRL = (v: number) =>
-  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(v);
+  privateFinancialValue(new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(v));
 
 const fmtNum = (v: number) =>
   new Intl.NumberFormat("pt-BR").format(v);
@@ -207,6 +209,8 @@ function ThemeToggleButton() {
 interface Props { slug: string }
 
 export function PortalPublicDashboard({ slug }: Props) {
+  const valuesHidden = useFinancialPrivacyStore((state) => state.valuesHidden);
+  void valuesHidden;
   const theme = useGlobalStore(s => s.theme);
   const [data, setData] = useState<PortalPublicData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -421,6 +425,7 @@ export function PortalPublicDashboard({ slug }: Props) {
           </div>
 
           <div className="flex items-center gap-2">
+            <FinancialPrivacyButton compact className="h-8 min-h-8 sm:h-9 sm:min-h-9" />
             <button
               onClick={() => void refreshFromMeta(true)}
               disabled={syncing}

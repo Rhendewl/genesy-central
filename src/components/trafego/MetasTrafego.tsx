@@ -13,11 +13,12 @@ import type { TrafficMonthlyGoal, NewTrafficMonthlyGoal } from "@/types";
 import { MoneyInput } from "@/components/ui/MoneyInput";
 import { PrimaryButton } from "@/components/ui/PrimaryButton";
 import { useModalOpen } from "@/hooks/useModalOpen";
+import { privateFinancialValue } from "@/store/financial-privacy";
 
 // ── Formatters ────────────────────────────────────────────────────────────────
 
 const fmtBRL = (v: number) =>
-  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(v);
+  privateFinancialValue(new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(v));
 const fmtNum = (v: number) => new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 0 }).format(v);
 const fmtPct = (v: number) => `${v.toFixed(1)}%`;
 

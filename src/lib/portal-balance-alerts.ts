@@ -6,6 +6,7 @@ import type { PortalAccountBalance } from "@/types";
 type Db = SupabaseClient<any, any, any>;
 
 export const PORTAL_LOW_BALANCE_THRESHOLD_BRL = 200;
+export const PORTAL_LOW_BALANCE_REMINDER_INTERVAL_MS = 20 * 60 * 60 * 1000;
 
 interface BalanceAlertState {
   ad_account_id: string;
@@ -37,6 +38,24 @@ export function getBalanceAlertTransition(
   if (isBelowThreshold && wasBelowThreshold !== true) return "alert";
   if (!isBelowThreshold && wasBelowThreshold === true) return "recover";
   return "unchanged";
+}
+
+export function isLowBalanceReminderDue(
+  balance: PortalAccountBalance,
+  wasBelowThreshold: boolean | null,
+  lastAlertedAt: string | null,
+  now = new Date(),
+  threshold = PORTAL_LOW_BALANCE_THRESHOLD_BRL,
+  reminderIntervalMs = PORTAL_LOW_BALANCE_REMINDER_INTERVAL_MS,
+): boolean {
+  if (getBalanceAlertTransition(balance, wasBelowThreshold, threshold) !== "unchanged") {
+    return false;
+  }
+  if (!wasBelowThreshold || balance.balance_net >= threshold || !lastAlertedAt) return false;
+
+  const lastAlertedTime = new Date(lastAlertedAt).getTime();
+  return Number.isFinite(lastAlertedTime)
+    && now.getTime() - lastAlertedTime >= reminderIntervalMs;
 }
 
 function formatBRL(value: number): string {
@@ -135,16 +154,24 @@ export async function processPortalBalanceAlerts(
   );
   const transitions = eligibleBalances.map(balance => {
     const previous = stateByAccount.get(balance.account_id);
+    const transition = getBalanceAlertTransition(balance, previous?.is_below_threshold ?? null, threshold);
     return {
       balance,
       previous,
-      transition: getBalanceAlertTransition(balance, previous?.is_below_threshold ?? null, threshold),
+      transition,
+      shouldAlert: transition === "alert" || isLowBalanceReminderDue(
+        balance,
+        previous?.is_below_threshold ?? null,
+        previous?.last_alerted_at ?? null,
+        new Date(),
+        threshold,
+      ),
     };
   });
-  const crossings = transitions.filter(item => item.transition === "alert");
+  const dueAlerts = transitions.filter(item => item.shouldAlert);
 
   let recipients: RecipientProfile[] = [];
-  if (crossings.length > 0) {
+  if (dueAlerts.length > 0) {
     const { data, error } = await db
       .from("user_profiles")
       .select("id, owner_id, auth_user_id")
@@ -160,14 +187,14 @@ export async function processPortalBalanceAlerts(
   for (const item of transitions) {
     // Sem destinatário ativo, não armamos o estado como já alertado: uma
     // próxima consulta poderá entregar o aviso depois que o acesso for criado.
-    if (item.transition === "alert" && recipients.length === 0) continue;
+    if (item.shouldAlert && recipients.length === 0) continue;
 
     const isBelow = item.balance.balance_net < threshold;
-    const nextSequence = item.transition === "alert"
+    const nextSequence = item.shouldAlert
       ? (item.previous?.alert_sequence ?? 0) + 1
       : item.previous?.alert_sequence ?? 0;
 
-    if (item.transition === "alert" && recipients.length > 0) {
+    if (item.shouldAlert && recipients.length > 0) {
       const eventId = `portal-balance-low:${input.portalId}:${item.balance.account_id}:${nextSequence}`;
       const title = `Saldo de mídia abaixo de ${formatBRL(threshold)}`;
       const body = `${item.balance.account_name}, no portal ${input.portalName}, está com ${formatBRL(item.balance.balance_net)} disponíveis. Faça uma recarga para evitar a interrupção dos anúncios.`;
@@ -184,7 +211,7 @@ export async function processPortalBalanceAlerts(
       last_balance: item.balance.balance_net,
       is_below_threshold: isBelow,
       alert_sequence: nextSequence,
-      ...(item.transition === "alert" ? { last_alerted_at: new Date().toISOString() } : {}),
+      ...(item.shouldAlert ? { last_alerted_at: new Date().toISOString() } : {}),
       updated_at: new Date().toISOString(),
     };
     const { error: upsertError } = await db.from("portal_balance_alert_states").upsert(

@@ -5,15 +5,16 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Users, DollarSign, MousePointer, BarChart2, ImageOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { PortalCreative } from "@/types";
+import { privateFinancialValue } from "@/store/financial-privacy";
 
 // ── Formatters ────────────────────────────────────────────────────────────────
 
 const fmtBRL = (v: number) =>
-  new Intl.NumberFormat("pt-BR", {
+  privateFinancialValue(new Intl.NumberFormat("pt-BR", {
     style: "currency",
     currency: "BRL",
     maximumFractionDigits: 0,
-  }).format(v);
+  }).format(v));
 
 const fmtNum = (v: number) => new Intl.NumberFormat("pt-BR").format(Math.round(v));
 const fmtPct = (v: number) => `${v.toFixed(2)}%`;

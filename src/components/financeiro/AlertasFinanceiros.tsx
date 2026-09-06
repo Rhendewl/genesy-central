@@ -10,9 +10,10 @@ import { useFinanceiroDashboard } from "@/hooks/useFinanceiroDashboard";
 import { useInadimplencia } from "@/hooks/useInadimplencia";
 import { cn } from "@/lib/utils";
 import type { FinancialAlert, AlertSeverity } from "@/types";
+import { privateFinancialValue, useFinancialPrivacyStore } from "@/store/financial-privacy";
 
 const fmt = (v: number) =>
-  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(v);
+  privateFinancialValue(new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(v));
 
 const SEVERITY_CONFIG: Record<AlertSeverity, {
   label: string;
@@ -111,10 +112,12 @@ interface Props {
 }
 
 export function AlertasFinanceiros({ year, month }: Props) {
+  const valuesHidden = useFinancialPrivacyStore(state => state.valuesHidden);
   const { data, clientProfitability } = useFinanceiroDashboard(year, month);
   const { collections, totalInadimplencia } = useInadimplencia();
 
   const alerts = useMemo<FinancialAlert[]>(() => {
+    void valuesHidden;
     if (!data) return [];
     const list: FinancialAlert[] = [];
     let idx = 0;
@@ -125,7 +128,7 @@ export function AlertasFinanceiros({ year, month }: Props) {
         id: `a${idx++}`, type: "caixa_baixo",
         severity: data.caixa_disponivel < data.faturamento * 0.1 ? "critical" : "warning",
         title: "Caixa Disponível Baixo",
-        message: `O caixa representa ${((data.caixa_disponivel / data.faturamento) * 100).toFixed(1)}% do faturamento. Considere revisar as despesas ou antecipar recebimentos.`,
+        message: `O caixa representa ${privateFinancialValue(`${((data.caixa_disponivel / data.faturamento) * 100).toFixed(1)}%`)} do faturamento. Considere revisar as despesas ou antecipar recebimentos.`,
         value: data.caixa_disponivel,
       });
     }
@@ -147,7 +150,7 @@ export function AlertasFinanceiros({ year, month }: Props) {
         id: `a${idx++}`, type: "margem_baixa",
         severity: data.margem_geral < 10 ? "critical" : "warning",
         title: "Margem Operacional Baixa",
-        message: `A margem da operação está em ${data.margem_geral.toFixed(1)}%. O ideal é manter acima de 30% para uma operação saudável.`,
+        message: `A margem da operação está em ${privateFinancialValue(`${data.margem_geral.toFixed(1)}%`)}. O ideal é manter acima de 30% para uma operação saudável.`,
         value: data.margem_geral,
       });
     }
@@ -158,7 +161,7 @@ export function AlertasFinanceiros({ year, month }: Props) {
         id: `a${idx++}`, type: "margem_baixa",
         severity: "critical",
         title: "Operação no Prejuízo",
-        message: `As despesas superam o faturamento. Margem atual: ${data.margem_geral.toFixed(1)}%. Ação imediata necessária.`,
+        message: `As despesas superam o faturamento. Margem atual: ${privateFinancialValue(`${data.margem_geral.toFixed(1)}%`)}. Ação imediata necessária.`,
         value: data.lucro_liquido,
       });
     }
@@ -169,7 +172,7 @@ export function AlertasFinanceiros({ year, month }: Props) {
         id: `a${idx++}`, type: "cobranca_vencida",
         severity: totalInadimplencia > data.mrr * 0.3 ? "critical" : "warning",
         title: "Inadimplência Elevada",
-        message: `${fmt(totalInadimplencia)} em cobrança (${((totalInadimplencia / data.mrr) * 100).toFixed(1)}% do MRR). ${collections.filter(c => c.severity === "critical").length} cliente(s) em situação crítica.`,
+        message: `${fmt(totalInadimplencia)} em cobrança (${privateFinancialValue(`${((totalInadimplencia / data.mrr) * 100).toFixed(1)}%`)} do MRR). ${privateFinancialValue(String(collections.filter(c => c.severity === "critical").length))} cliente(s) em situação crítica.`,
         value: totalInadimplencia,
       });
     }
@@ -195,7 +198,7 @@ export function AlertasFinanceiros({ year, month }: Props) {
         id: `a${idx++}`, type: "margem_baixa",
         severity: "info",
         title: "Margem Baixa por Cliente",
-        message: `${cp.client.name} com margem de ${cp.margem.toFixed(1)}%. Considere revisar o pricing ou os custos vinculados.`,
+        message: `${cp.client.name} com margem de ${privateFinancialValue(`${cp.margem.toFixed(1)}%`)}. Considere revisar o pricing ou os custos vinculados.`,
         client_id: cp.client.id,
         client_name: cp.client.name,
         value: cp.margem,
@@ -209,7 +212,7 @@ export function AlertasFinanceiros({ year, month }: Props) {
         id: `a${idx++}`, type: "custo_alto",
         severity: "info",
         title: "Custo Operacional Elevado",
-        message: `As despesas representam ${((data.total_despesas / data.faturamento) * 100).toFixed(1)}% do faturamento. Analise oportunidades de otimização.`,
+        message: `As despesas representam ${privateFinancialValue(`${((data.total_despesas / data.faturamento) * 100).toFixed(1)}%`)} do faturamento. Analise oportunidades de otimização.`,
         value: data.total_despesas,
       });
     }
@@ -219,7 +222,7 @@ export function AlertasFinanceiros({ year, month }: Props) {
       const order = { critical: 0, warning: 1, info: 2 };
       return order[a.severity] - order[b.severity];
     });
-  }, [data, clientProfitability, totalInadimplencia, collections]);
+  }, [data, clientProfitability, totalInadimplencia, collections, valuesHidden]);
 
   const critical = alerts.filter(a => a.severity === "critical");
   const warning = alerts.filter(a => a.severity === "warning");

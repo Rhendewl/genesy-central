@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { computePortalAccountBalance } from "../portal-account-balances";
-import { getBalanceAlertTransition } from "../portal-balance-alerts";
+import {
+  getBalanceAlertTransition,
+  isLowBalanceReminderDue,
+  PORTAL_LOW_BALANCE_REMINDER_INTERVAL_MS,
+} from "../portal-balance-alerts";
 import type { PortalAccountBalance } from "@/types";
 
 function balance(overrides: Partial<PortalAccountBalance> = {}): PortalAccountBalance {
@@ -38,6 +42,33 @@ describe("getBalanceAlertTransition", () => {
     expect(getBalanceAlertTransition(balance({ account_status: 0 }), false)).toBe("ignore");
     expect(getBalanceAlertTransition(balance({ currency: "USD" }), false)).toBe("ignore");
     expect(getBalanceAlertTransition(balance({ is_prepay: false }), false)).toBe("ignore");
+  });
+});
+
+describe("isLowBalanceReminderDue", () => {
+  const now = new Date("2026-09-06T11:30:00.000Z");
+
+  it("lembra novamente quando o saldo permanece baixo por um dia", () => {
+    expect(isLowBalanceReminderDue(
+      balance({ balance_net: 50 }),
+      true,
+      new Date(now.getTime() - PORTAL_LOW_BALANCE_REMINDER_INTERVAL_MS).toISOString(),
+      now,
+    )).toBe(true);
+  });
+
+  it("não repete o alerta durante o intervalo de proteção", () => {
+    expect(isLowBalanceReminderDue(
+      balance({ balance_net: 50 }),
+      true,
+      new Date(now.getTime() - PORTAL_LOW_BALANCE_REMINDER_INTERVAL_MS + 1).toISOString(),
+      now,
+    )).toBe(false);
+  });
+
+  it("não cria lembrete para conta recuperada ou sem alerta anterior", () => {
+    expect(isLowBalanceReminderDue(balance({ balance_net: 250 }), true, "2026-09-05T11:30:00.000Z", now)).toBe(false);
+    expect(isLowBalanceReminderDue(balance({ balance_net: 50 }), true, null, now)).toBe(false);
   });
 });
 

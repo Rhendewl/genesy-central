@@ -17,15 +17,16 @@ import { subDays, format } from "date-fns";
 import { useFinanceiroDashboard } from "@/hooks/useFinanceiroDashboard";
 import { useMetas } from "@/hooks/useMetas";
 import { cn } from "@/lib/utils";
+import { privateFinancialValue, useFinancialPrivacyStore } from "@/store/financial-privacy";
 
 // ── Formatters ─────────────────────────────────────────────────────────────────
 
 const fmtBRL = (v: number) =>
-  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(v);
+  privateFinancialValue(new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(v));
 const fmtNum = (v: number) =>
-  new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 0 }).format(v);
-const fmtPct = (v: number) => `${v.toFixed(1)}%`;
-const fmtPctSigned = (v: number) => `${v >= 0 ? "+" : ""}${v.toFixed(1)}%`;
+  privateFinancialValue(new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 0 }).format(v));
+const fmtPct = (v: number) => privateFinancialValue(`${v.toFixed(1)}%`);
+const fmtPctSigned = (v: number) => privateFinancialValue(`${v >= 0 ? "+" : ""}${v.toFixed(1)}%`);
 
 // ── Period config ──────────────────────────────────────────────────────────────
 
@@ -83,7 +84,7 @@ function TrendBadge({ change, metricType = "volume" }: { change: number | null; 
     <span className="shrink-0 flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-full cursor-default whitespace-nowrap"
       style={{ color, background: bg }} title={tooltip}>
       {change < 0 ? <TrendingDown size={9} /> : <TrendingUp size={9} />}
-      {Math.abs(change).toFixed(1)}%
+      {privateFinancialValue(`${Math.abs(change).toFixed(1)}%`)}
     </span>
   );
 }
@@ -272,7 +273,7 @@ function HeroChart({ data, period, commissionTotal = 0, onPeriodChange }: {
             <XAxis dataKey="label" tick={{ fill: "var(--text-muted)", fontSize: 10 }} axisLine={false} tickLine={false}
               interval={interval} />
             <YAxis tick={{ fill: "var(--text-muted)", fontSize: 10 }} axisLine={false} tickLine={false} width={52}
-              tickFormatter={v => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)} />
+              tickFormatter={v => privateFinancialValue(v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v))} />
             <Tooltip content={({ active, payload, label }) => (
               <FinTooltip
                 active={active}
@@ -354,7 +355,7 @@ function ProjecaoFinanceira({ data, goal, receitaChange }: {
 
   const trendPositive = receitaChange !== null && receitaChange > 0;
   const trendText = receitaChange !== null
-    ? `${receitaChange >= 0 ? "+" : ""}${receitaChange.toFixed(1)}% vs período anterior`
+    ? `${fmtPctSigned(receitaChange)} vs período anterior`
     : "Sem dados suficientes";
 
   const rows = [
@@ -375,14 +376,14 @@ function ProjecaoFinanceira({ data, goal, receitaChange }: {
     {
       icon: <Target size={13} />,
       label: "Meta do Mês",
-      value: metaPct !== null ? `${metaPct.toFixed(0)}%` : "—",
+      value: metaPct !== null ? privateFinancialValue(`${metaPct.toFixed(0)}%`) : "—",
       sub: goal ? `de ${fmtBRL(goal.revenue_goal)} atingido` : "Meta não definida",
       color: metaPct !== null ? (metaPct >= 80 ? "#10b981" : metaPct >= 50 ? "#f59e0b" : "#ef4444") : "var(--muted-foreground)",
     },
     {
       icon: <Clock size={13} />,
       label: "Runway Estimado",
-      value: runway !== null ? (runway > 24 ? "24m+" : `${runway.toFixed(1)}m`) : "—",
+      value: runway !== null ? privateFinancialValue(runway > 24 ? "24m+" : `${runway.toFixed(1)}m`) : "—",
       sub: runway !== null ? "meses com saldo atual" : "calcular com despesas",
       color: runway !== null ? (runway >= 6 ? "#10b981" : runway >= 3 ? "#f59e0b" : "#ef4444") : "var(--muted-foreground)",
     },
@@ -503,18 +504,20 @@ function InsightsFinanceiros({ data, receitaChange, despesaChange, topCliente }:
   despesaChange: number | null;
   topCliente: { nome: string; receita: number } | null;
 }) {
+  const valuesHidden = useFinancialPrivacyStore(state => state.valuesHidden);
   const insights = useMemo<Insight[]>(() => {
+    void valuesHidden;
     const list: Insight[] = [];
 
     if (receitaChange !== null) {
       list.push(receitaChange >= 0 ? {
         type: "success", icon: <TrendingUp size={13} />,
         title: "Receita cresceu",
-        desc: `+${receitaChange.toFixed(1)}% vs período anterior`,
+        desc: `${fmtPctSigned(receitaChange)} vs período anterior`,
       } : {
         type: "warning", icon: <TrendingDown size={13} />,
         title: "Queda de receita detectada",
-        desc: `${receitaChange.toFixed(1)}% vs período anterior`,
+        desc: `${fmtPctSigned(receitaChange)} vs período anterior`,
       });
     }
 
@@ -522,7 +525,7 @@ function InsightsFinanceiros({ data, receitaChange, despesaChange, topCliente }:
       list.push({
         type: "warning", icon: <AlertCircle size={13} />,
         title: "Despesas subiram",
-        desc: `+${despesaChange.toFixed(1)}% vs período anterior — monitorar`,
+        desc: `${fmtPctSigned(despesaChange)} vs período anterior — monitorar`,
       });
     }
 
@@ -537,7 +540,7 @@ function InsightsFinanceiros({ data, receitaChange, despesaChange, topCliente }:
     if (topCliente && data.faturamento > 0) {
       const pct = (topCliente.receita / data.faturamento) * 100;
       const type: InsightType = pct > 50 ? "warning" : "info";
-      list.push({ type, icon: <Users size={13} />, title: `${topCliente.nome} é o maior cliente`, desc: `Representa ${pct.toFixed(0)}% do faturamento${pct > 50 ? " — alta concentração" : ""}` });
+      list.push({ type, icon: <Users size={13} />, title: `${topCliente.nome} é o maior cliente`, desc: `Representa ${privateFinancialValue(`${pct.toFixed(0)}%`)} do faturamento${pct > 50 ? " — alta concentração" : ""}` });
     }
 
     if (data.inadimplencia > 0) {
@@ -545,7 +548,7 @@ function InsightsFinanceiros({ data, receitaChange, despesaChange, topCliente }:
     }
 
     return list;
-  }, [data, receitaChange, despesaChange, topCliente]);
+  }, [data, receitaChange, despesaChange, topCliente, valuesHidden]);
 
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}

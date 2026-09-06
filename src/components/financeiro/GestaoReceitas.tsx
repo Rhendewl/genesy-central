@@ -22,17 +22,18 @@ import type { Revenue, NewRevenue, RevenueStatus, RevenueType, PaymentMethod } f
 import { MoneyInput } from "@/components/ui/MoneyInput";
 import { PrimaryButton } from "@/components/ui/PrimaryButton";
 import { useModalOpen } from "@/hooks/useModalOpen";
+import { privateFinancialValue, useFinancialPrivacyStore } from "@/store/financial-privacy";
 
 // ── Formatters ────────────────────────────────────────────────────────────────
 
 const fmt = (v: number) =>
-  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
+  privateFinancialValue(new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v));
 
 const fmtK = (v: number) => {
-  if (Math.abs(v) >= 1000) return `R$${(v / 1000).toFixed(1)}k`;
-  return new Intl.NumberFormat("pt-BR", {
+  if (Math.abs(v) >= 1000) return privateFinancialValue(`R$${(v / 1000).toFixed(1)}k`);
+  return privateFinancialValue(new Intl.NumberFormat("pt-BR", {
     style: "currency", currency: "BRL", maximumFractionDigits: 0,
-  }).format(v);
+  }).format(v));
 };
 
 // ── Config ────────────────────────────────────────────────────────────────────
@@ -254,7 +255,7 @@ function KpiCard({
             trendUp ? "text-emerald-400 bg-emerald-400/10" : "text-red-400 bg-red-400/10"
           )}>
             {trendUp ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
-            {Math.abs(trend.pct).toFixed(1)}%
+            {privateFinancialValue(`${Math.abs(trend.pct).toFixed(1)}%`)}
           </span>
         )}
       </div>
@@ -290,6 +291,7 @@ type SortKey = "date_desc" | "date_asc" | "amount_desc" | "amount_asc";
 type ChartView = "day" | "type";
 
 export function GestaoReceitas({ year, month }: Props) {
+  const valuesHidden = useFinancialPrivacyStore(state => state.valuesHidden);
   const monthStart = `${year}-${String(month).padStart(2, "0")}-01`;
   const monthEnd   = format(endOfMonth(new Date(year, month - 1)), "yyyy-MM-dd");
 
@@ -394,20 +396,20 @@ export function GestaoReceitas({ year, month }: Props) {
     const list: string[] = [];
     if (topClients[0] && total > 0) {
       const pct = ((topClients[0].total / total) * 100).toFixed(0);
-      list.push(`${topClients[0].name} gerou ${pct}% da receita (${fmt(topClients[0].total)})`);
+      list.push(`${topClients[0].name} gerou ${privateFinancialValue(`${pct}%`)} da receita (${fmt(topClients[0].total)})`);
       if (Number(pct) > 50)
         list.push(`Alta concentração: mais de 50% da receita em 1 cliente`);
     }
     if (totalAtrasado > 0 && total > 0) {
       const pct = ((totalAtrasado / total) * 100).toFixed(1);
-      list.push(`${pct}% da receita está em atraso (${fmt(totalAtrasado)})`);
+      list.push(`${privateFinancialValue(`${pct}%`)} da receita está em atraso (${fmt(totalAtrasado)})`);
     }
     if (variation !== null && Math.abs(variation) > 5 && list.length < 2) {
       const dir = variation > 0 ? "acima" : "abaixo";
-      list.push(`Receita ${Math.abs(variation).toFixed(1)}% ${dir} do mês anterior`);
+      list.push(`Receita ${privateFinancialValue(`${Math.abs(variation).toFixed(1)}%`)} ${dir} do mês anterior`);
     }
     return list.slice(0, 2);
-  }, [topClients, total, totalAtrasado, variation, prevTotal]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [topClients, total, totalAtrasado, variation, prevTotal, valuesHidden]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Filtered / sorted ─────────────────────────────────────────────────────
 
@@ -542,7 +544,7 @@ export function GestaoReceitas({ year, month }: Props) {
         />
         <KpiCard
           label="Crescimento"
-          value={variation !== null ? `${variation >= 0 ? "+" : ""}${variation.toFixed(1)}%` : "—"}
+          value={variation !== null ? privateFinancialValue(`${variation >= 0 ? "+" : ""}${variation.toFixed(1)}%`) : "—"}
           sub={prevTotal > 0 ? `Anterior: ${fmt(prevTotal)}` : "Sem dados anteriores"}
           icon={variation !== null && variation >= 0 ? <TrendingUp size={16} /> : <TrendingDown size={16} />}
           accent={variation !== null && variation >= 0 ? "#22c55e" : "#ef4444"}
@@ -550,7 +552,7 @@ export function GestaoReceitas({ year, month }: Props) {
         />
         <KpiCard
           label="Taxa de Recebimento"
-          value={`${taxaRecebimento.toFixed(1)}%`}
+          value={privateFinancialValue(`${taxaRecebimento.toFixed(1)}%`)}
           sub={total > 0 ? `${fmt(totalPago)} de ${fmt(total)}` : "Sem receitas"}
           icon={<RefreshCw size={16} />}
           accent={taxaRecebimento >= 80 ? "#22c55e" : taxaRecebimento >= 50 ? "#fbbf24" : "#ef4444"}
@@ -599,7 +601,7 @@ export function GestaoReceitas({ year, month }: Props) {
                             </span>
                           </div>
                           <div className="flex items-center gap-3">
-                            <span className="text-[10px] text-[var(--text-muted)]">{pct.toFixed(1)}%</span>
+                            <span className="text-[10px] text-[var(--text-muted)]">{privateFinancialValue(`${pct.toFixed(1)}%`)}</span>
                             <span className={cn("text-xs font-semibold tabular-nums transition-colors",
                               isActive ? "text-[var(--text-title)]" : "text-[var(--silver)] group-hover:text-[var(--text-title)]")}>
                               {fmt(t.total)}
@@ -705,7 +707,7 @@ export function GestaoReceitas({ year, month }: Props) {
                           <span className="text-xs font-medium text-[var(--text-title)] truncate max-w-[140px]">{c.name}</span>
                         </div>
                         <div className="flex items-center gap-3 shrink-0">
-                          <span className="text-[10px] text-[var(--text-muted)]">{pct.toFixed(1)}%</span>
+                          <span className="text-[10px] text-[var(--text-muted)]">{privateFinancialValue(`${pct.toFixed(1)}%`)}</span>
                           <span className="text-xs font-semibold tabular-nums text-[var(--text-title)]">{fmt(c.total)}</span>
                         </div>
                       </div>
@@ -729,7 +731,7 @@ export function GestaoReceitas({ year, month }: Props) {
                   style={{ background: "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.18)" }}>
                   <span className="text-amber-400 font-medium">Atenção: </span>
                   <span className="text-[var(--silver)]">
-                    {((topClients[0].total / total) * 100).toFixed(0)}% da receita concentrada em 1 cliente
+                    {privateFinancialValue(`${((topClients[0].total / total) * 100).toFixed(0)}%`)} da receita concentrada em 1 cliente
                   </span>
                 </div>
               )}

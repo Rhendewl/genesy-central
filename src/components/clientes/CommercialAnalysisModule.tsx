@@ -17,9 +17,11 @@ import {
   type CommercialAnalysisInput,
   type CommercialProductType,
 } from "@/types/commercial-analysis";
+import { privateFinancialValue } from "@/store/financial-privacy";
 
 const integer = new Intl.NumberFormat("pt-BR");
-const money = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
+const moneyFormatter = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
+const money = { format: (value: number) => privateFinancialValue(moneyFormatter.format(value)) };
 const STATUS = { healthy: ["Saudável", "text-emerald-500 bg-emerald-500/10 border-emerald-500/20"], attention: ["Atenção", "text-amber-500 bg-amber-500/10 border-amber-500/20"], critical: ["Crítico", "text-rose-500 bg-rose-500/10 border-rose-500/20"] } as const;
 
 export function CommercialAnalysisModule() {

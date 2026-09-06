@@ -15,6 +15,7 @@ import { FinanceiroSummaryCard } from "@/components/dashboard-geral/FinanceiroSu
 import { DashboardHeaderActions } from "@/components/dashboard-geral/DashboardHeaderActions";
 import { PerformancePodiumCard } from "@/components/dashboard-geral/PerformancePodiumCard";
 import { dedupeCanonicalLeads } from "@/lib/crm/lead-identity";
+import { useFinancialPrivacyStore } from "@/store/financial-privacy";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Alturas fixas — nenhum card cresce com o conteúdo, tudo com scroll interno.
@@ -30,6 +31,8 @@ const CARD_H_FUNNEL         = 350;
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function DashboardPage() {
+  const valuesHidden = useFinancialPrivacyStore((state) => state.valuesHidden);
+  void valuesHidden;
   const { greeting, name, isLoading: greetingLoading } = useGreeting();
   const { member, isOwner, isLoading: memberLoading } = useCurrentMember();
 

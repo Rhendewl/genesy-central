@@ -10,6 +10,7 @@ import { useTags } from "@/hooks/useTags";
 import { useLeadOrigins } from "@/hooks/useLeadOrigins";
 import { LeadScoreEngine } from "@/lib/crm/lead-score-engine";
 import { semanticChipStyle } from "@/lib/semantic-chip";
+import { privateFinancialValue } from "@/store/financial-privacy";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // LeadCard
@@ -152,7 +153,7 @@ export function LeadCard({ lead, isDragOverlay = false, onEdit }: LeadCardProps)
         </div>
         {(lead.deal_value ?? 0) > 0 && (
           <span>
-            {(lead.deal_value).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+            {privateFinancialValue((lead.deal_value).toLocaleString("pt-BR", { style: "currency", currency: "BRL" }))}
           </span>
         )}
       </div>

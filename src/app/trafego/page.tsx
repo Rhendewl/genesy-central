@@ -16,6 +16,8 @@ import { PortaisList } from "@/components/portais/PortaisList";
 import { AccountSelector } from "@/components/trafego/AccountSelector";
 import { useMetaIntegrations } from "@/hooks/useMetaIntegrations";
 import { cn } from "@/lib/utils";
+import { FinancialPrivacyButton } from "@/components/ui/FinancialPrivacyButton";
+import { useFinancialPrivacyStore } from "@/store/financial-privacy";
 
 type TabId = "dashboard" | "portais" | "integracoes";
 
@@ -33,6 +35,8 @@ const MONTH_NAMES = [
 // ── Inner page (reads searchParams) ───────────────────────────────────────────
 
 function TrafegoPageInner() {
+  const valuesHidden = useFinancialPrivacyStore((state) => state.valuesHidden);
+  void valuesHidden;
   const searchParams = useSearchParams();
 
   const initialTab: TabId = (() => {
@@ -104,7 +108,7 @@ function TrafegoPageInner() {
 
   return (
     <div className="mx-auto max-w-7xl px-4 sm:px-6">
-      <Header title="Tráfego Pago" subtitle={tabSubtitle} />
+      <Header title="Tráfego Pago" subtitle={tabSubtitle} actions={<FinancialPrivacyButton />} />
 
       <div className="sticky top-[calc(env(safe-area-inset-top,0px)+4.5rem)] md:top-0 z-30">
 

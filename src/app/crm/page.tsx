@@ -14,6 +14,8 @@ import { CrmGoals } from "@/components/crm/goals/CrmGoals";
 import { cn } from "@/lib/utils";
 import { useCurrentMember } from "@/context/CurrentMemberContext";
 import { isAdministrativeMember } from "@/lib/user-access";
+import { FinancialPrivacyButton } from "@/components/ui/FinancialPrivacyButton";
+import { useFinancialPrivacyStore } from "@/store/financial-privacy";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CRM Page — Kanban / Leads / Pipelines
@@ -42,6 +44,8 @@ const SUBTITLES: Record<TabId, string> = {
 };
 
 export default function CrmPage() {
+  const valuesHidden = useFinancialPrivacyStore((state) => state.valuesHidden);
+  void valuesHidden;
   const [activeTab, setActiveTab] = useState<TabId>("kanban");
   const { member, isOwner } = useCurrentMember();
   const hasFullCrmAccess = isAdministrativeMember(member, isOwner === true);
@@ -55,7 +59,7 @@ export default function CrmPage() {
       "mx-auto max-w-[1600px]",
       isKanban && "crm-kanban-page flex flex-col overflow-hidden",
     )}>
-      <Header title="CRM" subtitle={SUBTITLES[activeTab]} />
+      <Header title="CRM" subtitle={SUBTITLES[activeTab]} actions={<FinancialPrivacyButton />} />
 
       {/* Tab bar */}
       <div className="sticky top-[calc(env(safe-area-inset-top,0px)+4.5rem)] z-30 flex-none md:top-0">

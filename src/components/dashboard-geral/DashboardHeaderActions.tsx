@@ -9,6 +9,7 @@ import { ptBR } from "date-fns/locale/pt-BR";
 import { CalendarDays, ClipboardCheck, Bell, CheckCheck, Inbox, Trash2 } from "lucide-react";
 import type { useWorkspaceTasks } from "@/hooks/useWorkspaceTasks";
 import { Button } from "@/components/ui/button";
+import { FinancialPrivacyButton } from "@/components/ui/FinancialPrivacyButton";
 
 function capitalize(s: string) {
   return s.charAt(0).toUpperCase() + s.slice(1);
@@ -483,6 +484,7 @@ export function DashboardHeaderActions({ tasksHook, name, avatarUrl }: Dashboard
   return (
     <>
       <DateBadge />
+      <FinancialPrivacyButton compact />
       <QuickAddTaskButton tasksHook={tasksHook} />
       <NotificationBell />
       <UserAvatarLink name={name} avatarUrl={avatarUrl} />
