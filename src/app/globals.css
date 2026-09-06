@@ -1653,3 +1653,19 @@
 .post-rich-text > p + p {
   margin-top: 0.3em;
 }
+
+/* Área sem escala para digitação e seleção precisa em telas touch. */
+.mobile-post-text-composer {
+  touch-action: manipulation;
+  -webkit-user-select: text;
+  user-select: text;
+}
+.mobile-post-text-composer .tiptap {
+  min-height: 7rem;
+  font-family: var(--font-sans, system-ui), sans-serif;
+  font-size: 16px;
+  line-height: 1.55;
+  caret-color: var(--accent-blue);
+  -webkit-user-select: text;
+  user-select: text;
+}

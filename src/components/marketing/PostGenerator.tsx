@@ -260,6 +260,7 @@ function PostEditor({ template, onBack }: { template: PostTemplate; onBack: () =
   const [exporting, setExporting] = useState<"one" | "all" | "share" | null>(null);
   const [mobilePanel, setMobilePanel] = useState<MobileEditorPanel>(null);
   const [mobileCanvasMaxHeight, setMobileCanvasMaxHeight] = useState(560);
+  const [isMobileEditor, setIsMobileEditor] = useState(false);
   const defaultExportName = template === "tweet" ? "posts-tweet" : "stories-plus";
   const [exportName, setExportName] = useState(defaultExportName);
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
@@ -287,6 +288,7 @@ function PostEditor({ template, onBack }: { template: PostTemplate; onBack: () =
     const query = window.matchMedia("(max-width: 1023px)");
     const updateMobileMode = () => {
       setCanvasMode(query.matches);
+      setIsMobileEditor(query.matches);
       setMobileCanvasMaxHeight(Math.max(360, window.innerHeight - 260));
     };
     updateMobileMode();
@@ -633,7 +635,7 @@ function PostEditor({ template, onBack }: { template: PostTemplate; onBack: () =
           <div className="mb-4 flex items-center justify-between"><div><p className="text-xs font-semibold text-[var(--text-title)]">Pré-visualização</p><p className="text-[10px] text-[var(--muted-foreground)]">Selecione um trecho para formatar ou cole uma imagem com Ctrl+V / ⌘V.</p></div><span className="rounded-full border px-2.5 py-1 text-[10px] text-[var(--muted-foreground)]">Slide {activeIndex + 1} de {slides.length}</span></div>
           <TextToolbar editor={editor} defaultColor={active.foreground} allowItalic={template === "stories"} />
           <ScaledCanvas width={dimensions.width} height={dimensions.height} format={format} profile={tweetProfile}>
-            <PostCanvas slide={active} profile={tweetProfile} template={template} width={dimensions.width} height={dimensions.height} editable editor={editor} activeTextBlockId={activeTextBlockId} onSelectTextBlock={setActiveTextBlockId} onReorderText={reorderLayout} />
+            <PostCanvas slide={active} profile={tweetProfile} template={template} width={dimensions.width} height={dimensions.height} editable={!isMobileEditor} editor={isMobileEditor ? undefined : editor} activeTextBlockId={activeTextBlockId} onSelectTextBlock={setActiveTextBlockId} onReorderText={reorderLayout} />
           </ScaledCanvas>
           <div className="mx-auto mt-4 flex max-w-xl items-center justify-center gap-1.5"><Button variant="outline" size="sm" onClick={() => move(-1)} disabled={activeIndex === 0} aria-label="Mover slide para cima"><ArrowUp /></Button><Button variant="outline" size="sm" onClick={() => move(1)} disabled={activeIndex === slides.length - 1} aria-label="Mover slide para baixo"><ArrowDown /></Button><Button variant="outline" size="sm" onClick={duplicate} icon={<Copy />}>Duplicar</Button><Button variant="danger" size="sm" onClick={remove} icon={<Trash2 />}>Excluir</Button></div>
         </main>
@@ -660,9 +662,11 @@ function PostEditor({ template, onBack }: { template: PostTemplate; onBack: () =
               width={dimensions.width}
               height={dimensions.height}
               editable
-              editor={editor}
               activeTextBlockId={activeTextBlockId}
-              onSelectTextBlock={setActiveTextBlockId}
+              onSelectTextBlock={(id) => {
+                setActiveTextBlockId(id);
+                setMobilePanel("text");
+              }}
               onReorderText={reorderLayout}
             />
           </ScaledCanvas>
@@ -680,12 +684,17 @@ function PostEditor({ template, onBack }: { template: PostTemplate; onBack: () =
 
         <MobileEditorDock active={mobilePanel} onChange={setMobilePanel} />
 
-        {mobilePanel && (
+        {isMobileEditor && mobilePanel && (
           <MobilePanelSheet
             title={mobilePanel === "text" ? "Texto" : mobilePanel === "image" ? "Imagens" : mobilePanel === "background" ? "Aparência" : mobilePanel === "slide" ? "Slide" : "Exportar"}
             onClose={() => setMobilePanel(null)}
           >
-            {mobilePanel === "text" && <TextToolbar editor={editor} defaultColor={active.foreground} allowItalic={template === "stories"} compact />}
+            {mobilePanel === "text" && (
+              <>
+                <TextToolbar editor={editor} defaultColor={active.foreground} allowItalic={template === "stories"} compact />
+                <MobileTextComposer editor={editor} />
+              </>
+            )}
             {mobilePanel === "export" ? (
               <div className="grid gap-2 p-4">
                 <Button fullWidth onClick={() => void shareOne()} loading={exporting === "share"} icon={<Share2 />}>Compartilhar slide atual</Button>
@@ -882,6 +891,30 @@ function SlidesRail({ slides, activeId, template, format, profile, onSelect, onA
     <button type="button" onClick={() => onSelect(slide.id)} className="flex min-w-0 flex-1 items-center gap-2 rounded-lg p-1 text-left" aria-label={`Selecionar slide ${index + 1}`} aria-current={isActive ? "true" : undefined}><GripVertical size={14} className={cn("shrink-0 transition-colors", isActive ? "text-[var(--accent-blue)]" : "text-[var(--muted-foreground)]")} /><span className={cn("w-5 shrink-0 text-[10px] transition-colors", isActive ? "font-semibold text-[var(--accent-blue)]" : "text-[var(--muted-foreground)]")}>{String(index + 1).padStart(2, "0")}</span><span className={cn("relative h-12 w-9 shrink-0 overflow-hidden rounded border bg-black transition-shadow", isActive ? "border-[#49b4ff] ring-2 ring-[#27a3ff]/20" : "border-[var(--glass-border)]")}><span className="absolute origin-top-left" style={{ transform: `scale(${scale})`, left, top, width: dimensions.width, height: dimensions.height }}><PostCanvas slide={slide} profile={profile} template={template} width={dimensions.width} height={dimensions.height} /></span></span><span className={cn("min-w-0 flex-1 truncate text-xs text-[var(--text-title)] transition", isActive && "font-semibold")}>{index === 0 ? "Capa" : `Slide ${index + 1}`}</span></button>
     <div className="flex shrink-0 flex-col gap-1"><button type="button" draggable={false} onClick={() => onDuplicate(slide.id)} className="grid h-7 w-7 place-items-center rounded-md text-[var(--muted-foreground)] transition hover:bg-[var(--glass-bg-soft)] hover:text-[var(--text-title)]" aria-label={`Duplicar slide ${index + 1}`} title="Duplicar slide"><Copy size={13} /></button><button type="button" draggable={false} onClick={() => onRemove(slide.id)} disabled={slides.length === 1} className="grid h-7 w-7 place-items-center rounded-md text-[var(--muted-foreground)] transition hover:bg-red-500/10 hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-30" aria-label={`Excluir slide ${index + 1}`} title={slides.length === 1 ? "O projeto precisa ter pelo menos um slide" : "Excluir slide"}><Trash2 size={13} /></button></div>
   </div>;})}</div><Button variant="outline" fullWidth size="sm" onClick={onAdd} icon={<Plus />} className="mt-3">Adicionar slide</Button></aside>;
+}
+
+function MobileTextComposer({ editor }: { editor: Editor | null }) {
+  const editorHost = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      editorHost.current?.querySelector<HTMLElement>(".tiptap")?.focus({ preventScroll: true });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [editor]);
+
+  if (!editor) return null;
+
+  return (
+    <div className="border-b p-4" style={{ borderColor: "var(--border)" }}>
+      <p className="mb-2 text-[11px] leading-relaxed text-[var(--muted-foreground)]">
+        Edite abaixo. Para formatar somente uma parte, toque e segure para selecionar o trecho.
+      </p>
+      <div ref={editorHost} className="mobile-post-text-composer rounded-2xl border bg-[var(--input)] p-3 text-[var(--text-title)] focus-within:border-[var(--accent-blue)] focus-within:ring-2 focus-within:ring-[#27a3ff]/15" style={{ borderColor: "var(--glass-border)" }}>
+        <EditorContent editor={editor} className="post-rich-text" />
+      </div>
+    </div>
+  );
 }
 
 function TextToolbar({ editor, defaultColor, allowItalic, compact = false }: { editor: Editor | null; defaultColor: string; allowItalic: boolean; compact?: boolean }) {
