@@ -53,6 +53,7 @@ type TextBlock = { id: string; content: string; fontSize: number; textWidth: num
 type TweetProfile = { avatar: string; avatarCrop: MediaCrop; name: string; handle: string; verified: boolean };
 type PersistedPostProject = { version: 1; format: PostFormat; slides: Slide[]; activeId: string; tweetProfile: TweetProfile; updatedAt: number };
 type MobileEditorPanel = "text" | "image" | "background" | "slide" | "export" | null;
+type MobileTextTool = "format" | "color" | "fontSize" | "lineHeight" | "textWidth" | null;
 
 const ACTIVE_TEMPLATE_KEY = "genesy-post-generator-active-template";
 const QUICK_TEXT_COLORS = [
@@ -259,6 +260,7 @@ function PostEditor({ template, onBack }: { template: PostTemplate; onBack: () =
   const [syncState, setSyncState] = useState<"saving" | "synced" | "offline">("saving");
   const [exporting, setExporting] = useState<"one" | "all" | "share" | null>(null);
   const [mobilePanel, setMobilePanel] = useState<MobileEditorPanel>(null);
+  const [mobileTextTool, setMobileTextTool] = useState<MobileTextTool>(null);
   const [mobileCanvasMaxHeight, setMobileCanvasMaxHeight] = useState(560);
   const [isMobileEditor, setIsMobileEditor] = useState(false);
   const defaultExportName = template === "tweet" ? "posts-tweet" : "stories-plus";
@@ -665,6 +667,7 @@ function PostEditor({ template, onBack }: { template: PostTemplate; onBack: () =
               activeTextBlockId={activeTextBlockId}
               onSelectTextBlock={(id) => {
                 setActiveTextBlockId(id);
+                setMobileTextTool(null);
                 setMobilePanel("text");
               }}
               onReorderText={reorderLayout}
@@ -682,16 +685,22 @@ function PostEditor({ template, onBack }: { template: PostTemplate; onBack: () =
           onAdd={addSlide}
         />
 
-        <MobileEditorDock active={mobilePanel} onChange={setMobilePanel} />
+        <MobileEditorDock active={mobilePanel} onChange={(panel) => {
+          setMobileTextTool(null);
+          setMobilePanel(panel);
+        }} />
 
-        {isMobileEditor && mobilePanel && (
+        {isMobileEditor && mobilePanel && !(mobilePanel === "text" && mobileTextTool) && (
           <MobilePanelSheet
             title={mobilePanel === "text" ? "Texto" : mobilePanel === "image" ? "Imagens" : mobilePanel === "background" ? "Aparência" : mobilePanel === "slide" ? "Slide" : "Exportar"}
-            onClose={() => setMobilePanel(null)}
+            onClose={() => {
+              setMobileTextTool(null);
+              setMobilePanel(null);
+            }}
           >
             {mobilePanel === "text" && (
               <>
-                <TextToolbar editor={editor} defaultColor={active.foreground} allowItalic={template === "stories"} compact />
+                <TextToolbar editor={editor} defaultColor={active.foreground} allowItalic={template === "stories"} compact onToolUse={setMobileTextTool} />
                 <MobileTextComposer editor={editor} />
               </>
             )}
@@ -718,6 +727,7 @@ function PostEditor({ template, onBack }: { template: PostTemplate; onBack: () =
                   placeText={placeActiveText}
                   profile={tweetProfile}
                   setProfile={setTweetProfile}
+                  onFocusTextControl={setMobileTextTool}
                 />
                 {mobilePanel === "slide" && (
                   <div className="grid grid-cols-2 gap-2 border-t p-4" style={{ borderColor: "var(--border)" }}>
@@ -730,6 +740,23 @@ function PostEditor({ template, onBack }: { template: PostTemplate; onBack: () =
               </>
             )}
           </MobilePanelSheet>
+        )}
+
+        {isMobileEditor && mobilePanel === "text" && mobileTextTool && (
+          <MobileTextQuickPanel
+            tool={mobileTextTool}
+            editor={editor}
+            defaultColor={active.foreground}
+            allowItalic={template === "stories"}
+            template={template}
+            textBlock={activeTextBlock}
+            updateTextBlock={updateTextBlock}
+            onExpand={() => setMobileTextTool(null)}
+            onClose={() => {
+              setMobileTextTool(null);
+              setMobilePanel(null);
+            }}
+          />
         )}
       </div>
 
@@ -893,6 +920,45 @@ function SlidesRail({ slides, activeId, template, format, profile, onSelect, onA
   </div>;})}</div><Button variant="outline" fullWidth size="sm" onClick={onAdd} icon={<Plus />} className="mt-3">Adicionar slide</Button></aside>;
 }
 
+function MobileTextQuickPanel({ tool, editor, defaultColor, allowItalic, template, textBlock, updateTextBlock, onExpand, onClose }: {
+  tool: Exclude<MobileTextTool, null>;
+  editor: Editor | null;
+  defaultColor: string;
+  allowItalic: boolean;
+  template: PostTemplate;
+  textBlock: TextBlock;
+  updateTextBlock: (patch: Partial<TextBlock>) => void;
+  onExpand: () => void;
+  onClose: () => void;
+}) {
+  const labels: Record<Exclude<MobileTextTool, null>, string> = {
+    format: "Formatação",
+    color: "Cor do trecho",
+    fontSize: `Tamanho · ${textBlock.fontSize}px`,
+    lineHeight: `Espaçamento · ${Math.round(textBlock.lineHeight * 100)}%`,
+    textWidth: `Largura · ${textBlock.textWidth}%`,
+  };
+
+  return (
+    <section className="fixed inset-x-2 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-50 mx-auto max-w-xl overflow-hidden rounded-2xl border shadow-2xl lg:hidden" style={{ background: "var(--bg-modal)", borderColor: "var(--accent-blue)" }} role="dialog" aria-label={labels[tool]}>
+      <div className="flex h-11 items-center gap-2 border-b px-2" style={{ borderColor: "var(--border)" }}>
+        <button type="button" onClick={onExpand} className="grid h-9 w-9 place-items-center rounded-xl text-[var(--accent-blue)] active:bg-[var(--hover)]" aria-label="Voltar à edição completa"><ArrowUp size={16} /></button>
+        <p className="min-w-0 flex-1 truncate text-xs font-semibold text-[var(--text-title)]">{labels[tool]}</p>
+        <button type="button" onClick={onClose} className="grid h-9 w-9 place-items-center rounded-xl text-[var(--muted-foreground)] active:bg-[var(--hover)]" aria-label="Fechar ajuste"><X size={16} /></button>
+      </div>
+      {(tool === "format" || tool === "color") ? (
+        <TextToolbar editor={editor} defaultColor={defaultColor} allowItalic={allowItalic} compact visibleGroup={tool} preserveSelection />
+      ) : (
+        <div className="px-4 py-4">
+          {tool === "fontSize" && <input aria-label="Tamanho do texto" type="range" min={template === "tweet" ? 28 : 36} max={template === "tweet" ? 128 : 190} step="1" value={textBlock.fontSize} onChange={(event) => updateTextBlock({ fontSize: Number(event.target.value) })} className="block h-8 w-full accent-[#27a3ff]" />}
+          {tool === "lineHeight" && <input aria-label="Espaçamento entre linhas" type="range" min="0.75" max="1.8" step="0.05" value={textBlock.lineHeight} onChange={(event) => updateTextBlock({ lineHeight: Number(event.target.value) })} className="block h-8 w-full accent-[#27a3ff]" />}
+          {tool === "textWidth" && <input aria-label="Largura do texto" type="range" min="40" max={template === "tweet" ? 76 : 84} step="2" value={Math.min(textBlock.textWidth, template === "tweet" ? 76 : 84)} onChange={(event) => updateTextBlock({ textWidth: Number(event.target.value) })} className="block h-8 w-full accent-[#27a3ff]" />}
+        </div>
+      )}
+    </section>
+  );
+}
+
 function MobileTextComposer({ editor }: { editor: Editor | null }) {
   const editorHost = useRef<HTMLDivElement>(null);
 
@@ -917,7 +983,7 @@ function MobileTextComposer({ editor }: { editor: Editor | null }) {
   );
 }
 
-function TextToolbar({ editor, defaultColor, allowItalic, compact = false }: { editor: Editor | null; defaultColor: string; allowItalic: boolean; compact?: boolean }) {
+function TextToolbar({ editor, defaultColor, allowItalic, compact = false, visibleGroup, preserveSelection = false, onToolUse }: { editor: Editor | null; defaultColor: string; allowItalic: boolean; compact?: boolean; visibleGroup?: "format" | "color"; preserveSelection?: boolean; onToolUse?: (tool: "format" | "color") => void }) {
   const [, setRevision] = useState(0);
   useEffect(() => {
     if (!editor) return;
@@ -929,16 +995,23 @@ function TextToolbar({ editor, defaultColor, allowItalic, compact = false }: { e
   if (!editor) return <div className={cn("mx-auto h-11 max-w-xl rounded-xl border border-dashed", compact ? "m-3" : "mb-3")} />;
   const hasSelection = editor.state.selection.from !== editor.state.selection.to;
   const tool = (active: boolean) => cn("editor-tool", active && "bg-[var(--hover)] text-[var(--accent-blue)]");
+  const chain = () => preserveSelection ? editor.chain() : editor.chain().focus();
   return <div className={cn("mx-auto flex min-h-11 max-w-xl flex-wrap items-center gap-1 border p-1.5", compact ? "sticky top-0 z-10 border-x-0 border-t-0 px-3 py-2 shadow-sm" : "mb-3 rounded-xl shadow-lg")} style={{ background: "var(--bg-modal)", borderColor: hasSelection ? "var(--accent-blue)" : "var(--glass-border)" }}>
-    <button onClick={() => editor.chain().focus().toggleBold().run()} disabled={!hasSelection} className={tool(editor.isActive("bold"))} title="Negrito"><Bold /></button>
-    {allowItalic && <button onClick={() => editor.chain().focus().toggleItalic().run()} disabled={!hasSelection} className={tool(editor.isActive("italic"))} title="Itálico" aria-label="Aplicar itálico ao trecho selecionado"><Italic /></button>}
-    <button onClick={() => editor.chain().focus().toggleUnderline().run()} disabled={!hasSelection} className={tool(editor.isActive("underline"))} title="Sublinhar"><Underline /></button>
-    <TextColorTool disabled={!hasSelection} value={editor.getAttributes("textStyle").color || defaultColor} onChange={(color) => editor.chain().focus().setColor(color).run()} />
-    <ColorTool title="Marca-texto" disabled={!hasSelection} value={editor.getAttributes("highlight").color || "#ffdf2b"} icon={<Highlighter />} onChange={(color) => editor.chain().focus().setHighlight({ color }).run()} />
-    <span className="mx-1 h-6 w-px bg-[var(--border)]" />
-    <button onClick={() => editor.chain().focus().setTextAlign("left").run()} className={tool(editor.isActive({ textAlign: "left" }))} title="Alinhar à esquerda"><AlignLeft /></button>
-    <button onClick={() => editor.chain().focus().setTextAlign("center").run()} className={tool(editor.isActive({ textAlign: "center" }))} title="Centralizar"><AlignCenter /></button>
-    <button onClick={() => editor.chain().focus().setTextAlign("right").run()} className={tool(editor.isActive({ textAlign: "right" }))} title="Alinhar à direita"><AlignRight /></button>
+    {visibleGroup !== "color" && <>
+      <button onClick={() => { chain().toggleBold().run(); onToolUse?.("format"); }} disabled={!hasSelection} className={tool(editor.isActive("bold"))} title="Negrito"><Bold /></button>
+      {allowItalic && <button onClick={() => { chain().toggleItalic().run(); onToolUse?.("format"); }} disabled={!hasSelection} className={tool(editor.isActive("italic"))} title="Itálico" aria-label="Aplicar itálico ao trecho selecionado"><Italic /></button>}
+      <button onClick={() => { chain().toggleUnderline().run(); onToolUse?.("format"); }} disabled={!hasSelection} className={tool(editor.isActive("underline"))} title="Sublinhar"><Underline /></button>
+    </>}
+    {visibleGroup !== "format" && <>
+      <TextColorTool disabled={!hasSelection} value={editor.getAttributes("textStyle").color || defaultColor} onChange={(color) => { chain().setColor(color).run(); onToolUse?.("color"); }} />
+      <ColorTool title="Marca-texto" disabled={!hasSelection} value={editor.getAttributes("highlight").color || "#ffdf2b"} icon={<Highlighter />} onChange={(color) => { chain().setHighlight({ color }).run(); onToolUse?.("color"); }} />
+    </>}
+    {visibleGroup !== "color" && <>
+      <span className="mx-1 h-6 w-px bg-[var(--border)]" />
+      <button onClick={() => { chain().setTextAlign("left").run(); onToolUse?.("format"); }} className={tool(editor.isActive({ textAlign: "left" }))} title="Alinhar à esquerda"><AlignLeft /></button>
+      <button onClick={() => { chain().setTextAlign("center").run(); onToolUse?.("format"); }} className={tool(editor.isActive({ textAlign: "center" }))} title="Centralizar"><AlignCenter /></button>
+      <button onClick={() => { chain().setTextAlign("right").run(); onToolUse?.("format"); }} className={tool(editor.isActive({ textAlign: "right" }))} title="Alinhar à direita"><AlignRight /></button>
+    </>}
     {!compact && <span className="ml-auto pr-2 text-[9px] text-[var(--muted-foreground)]">{hasSelection ? "Formatação do trecho selecionado" : "Selecione um trecho para formatar"}</span>}
   </div>;
 }
@@ -1051,7 +1124,7 @@ function Avatar({ src, size, crop = defaultMediaCrop() }: { src: string; size: n
   return src ? <span className="block shrink-0 overflow-hidden rounded-full" style={{ width: size, height: size }}><img src={src} alt="Foto do perfil" className="h-full w-full object-cover" style={{ objectPosition: `${crop.x}% ${crop.y}%`, transform: `scale(${crop.zoom})`, transformOrigin: `${crop.x}% ${crop.y}%` }} /></span> : <span className="grid shrink-0 place-items-center rounded-full bg-[#20252a] text-white" style={{ width: size, height: size }}><UserRound size={size * .42} /></span>;
 }
 
-function PropertiesPanel({ section, template, format, setFormat, slide, update, activeTextBlock, selectTextBlock, updateTextBlock, addTextBlock, removeTextBlock, placeText, profile, setProfile }: { section?: Exclude<MobileEditorPanel, "export" | null>; template: PostTemplate; format: PostFormat; setFormat: (format: PostFormat) => void; slide: Slide; update: (patch: Partial<Slide>) => void; activeTextBlock: TextBlock; selectTextBlock: (id: string) => void; updateTextBlock: (patch: Partial<TextBlock>) => void; addTextBlock: () => void; removeTextBlock: () => void; placeText: (placement: "above" | "below") => void; profile: TweetProfile; setProfile: React.Dispatch<React.SetStateAction<TweetProfile>> }) {
+function PropertiesPanel({ section, template, format, setFormat, slide, update, activeTextBlock, selectTextBlock, updateTextBlock, addTextBlock, removeTextBlock, placeText, profile, setProfile, onFocusTextControl }: { section?: Exclude<MobileEditorPanel, "export" | null>; template: PostTemplate; format: PostFormat; setFormat: (format: PostFormat) => void; slide: Slide; update: (patch: Partial<Slide>) => void; activeTextBlock: TextBlock; selectTextBlock: (id: string) => void; updateTextBlock: (patch: Partial<TextBlock>) => void; addTextBlock: () => void; removeTextBlock: () => void; placeText: (placement: "above" | "below") => void; profile: TweetProfile; setProfile: React.Dispatch<React.SetStateAction<TweetProfile>>; onFocusTextControl?: (tool: Exclude<MobileTextTool, null>) => void }) {
   const addFile = (file: File | undefined, callback: (url: string) => void) => { if (!file) return; if (!file.type.startsWith("image/")) return toast.error("Selecione um arquivo de imagem."); const reader = new FileReader(); reader.onload = () => callback(String(reader.result)); reader.readAsDataURL(file); };
   const updateProfile = (patch: Partial<TweetProfile>) => setProfile((current) => ({ ...current, ...patch }));
   const updateBackground = (background: string) => update({ background, foreground: contrastColor(background) });
@@ -1068,9 +1141,19 @@ function PropertiesPanel({ section, template, format, setFormat, slide, update, 
           <Button variant="outline" size="sm" className="h-9 rounded-xl" onClick={addTextBlock} icon={<Plus />}>Novo texto</Button>
           <Button variant="danger" size="sm" className="h-9 rounded-xl" onClick={removeTextBlock} disabled={slide.textBlocks.length === 1} icon={<Trash2 />}>Remover</Button>
         </div>
-        <Field label={`Tamanho · ${activeTextBlock.fontSize}px`}><input aria-label="Tamanho do texto" type="range" min={template === "tweet" ? 28 : 36} max={template === "tweet" ? 128 : 190} step="1" value={activeTextBlock.fontSize} onChange={(event) => updateTextBlock({ fontSize: Number(event.target.value) })} className="w-full accent-[#27a3ff]" /></Field>
-        <Field label={`Espaçamento entre linhas · ${Math.round(activeTextBlock.lineHeight * 100)}%`}><input aria-label="Espaçamento entre linhas" type="range" min="0.75" max="1.8" step="0.05" value={activeTextBlock.lineHeight} onChange={(event) => updateTextBlock({ lineHeight: Number(event.target.value) })} className="w-full accent-[#27a3ff]" /></Field>
-        <Field label={`Largura do bloco · ${activeTextBlock.textWidth}%`}><input aria-label="Largura do texto" type="range" min="40" max={template === "tweet" ? 76 : 84} step="2" value={Math.min(activeTextBlock.textWidth, template === "tweet" ? 76 : 84)} onChange={(event) => updateTextBlock({ textWidth: Number(event.target.value) })} className="w-full accent-[#27a3ff]" /></Field>
+        {section && onFocusTextControl ? (
+          <div className="grid gap-2">
+            <MobileAdjustmentButton label="Tamanho" value={`${activeTextBlock.fontSize}px`} onClick={() => onFocusTextControl("fontSize")} />
+            <MobileAdjustmentButton label="Espaçamento entre linhas" value={`${Math.round(activeTextBlock.lineHeight * 100)}%`} onClick={() => onFocusTextControl("lineHeight")} />
+            <MobileAdjustmentButton label="Largura do bloco" value={`${activeTextBlock.textWidth}%`} onClick={() => onFocusTextControl("textWidth")} />
+          </div>
+        ) : (
+          <>
+            <Field label={`Tamanho · ${activeTextBlock.fontSize}px`}><input aria-label="Tamanho do texto" type="range" min={template === "tweet" ? 28 : 36} max={template === "tweet" ? 128 : 190} step="1" value={activeTextBlock.fontSize} onChange={(event) => updateTextBlock({ fontSize: Number(event.target.value) })} className="w-full accent-[#27a3ff]" /></Field>
+            <Field label={`Espaçamento entre linhas · ${Math.round(activeTextBlock.lineHeight * 100)}%`}><input aria-label="Espaçamento entre linhas" type="range" min="0.75" max="1.8" step="0.05" value={activeTextBlock.lineHeight} onChange={(event) => updateTextBlock({ lineHeight: Number(event.target.value) })} className="w-full accent-[#27a3ff]" /></Field>
+            <Field label={`Largura do bloco · ${activeTextBlock.textWidth}%`}><input aria-label="Largura do texto" type="range" min="40" max={template === "tweet" ? 76 : 84} step="2" value={Math.min(activeTextBlock.textWidth, template === "tweet" ? 76 : 84)} onChange={(event) => updateTextBlock({ textWidth: Number(event.target.value) })} className="w-full accent-[#27a3ff]" /></Field>
+          </>
+        )}
         <div className="grid grid-cols-2 gap-2"><button onClick={() => placeText("above")} className={cn("rounded-xl border px-3 py-2 text-xs", textPlacement === "above" && "border-[var(--accent-blue)] bg-[var(--hover)]")}>Acima da imagem</button><button onClick={() => placeText("below")} className={cn("rounded-xl border px-3 py-2 text-xs", textPlacement === "below" && "border-[var(--accent-blue)] bg-[var(--hover)]")}>Abaixo da imagem</button></div>
         <p className="text-[10px] leading-relaxed text-[var(--muted-foreground)]"><Move size={11} className="mr-1 inline" />{section ? "Use os botões acima para posicionar a caixa em relação à imagem." : "Selecione uma caixa e arraste o controle azul. Ela se encaixa na sequência sem alterar margens ou distâncias."}</p>
       </PanelSection>}
@@ -1112,6 +1195,7 @@ function MediaPanel({ slide, update, addFile, title, mobile = false }: { slide: 
 
 function PanelSection({ title, children }: { title: string; children: React.ReactNode }) { return <section className="post-generator-panel-section border-b pb-5 last:border-0" style={{ borderColor: "var(--border)" }}><h2 className="mb-3 text-[10px] font-semibold uppercase tracking-[.14em] text-[var(--muted-foreground)]">{title}</h2><div className="space-y-3">{children}</div></section>; }
 function Field({ label, children }: { label: string; children: React.ReactNode }) { return <label className="block"><span className="mb-1.5 block text-[10px] text-[var(--muted-foreground)]">{label}</span>{children}</label>; }
+function MobileAdjustmentButton({ label, value, onClick }: { label: string; value: string; onClick: () => void }) { return <button type="button" onClick={onClick} className="flex min-h-11 items-center gap-3 rounded-xl border px-3 text-left active:bg-[var(--hover)]" style={{ borderColor: "var(--glass-border)" }}><span className="min-w-0 flex-1 text-xs text-[var(--text-title)]">{label}</span><span className="text-[10px] font-semibold text-[var(--accent-blue)]">{value}</span><ChevronRight size={14} className="text-[var(--muted-foreground)]" /></button>; }
 function BackgroundColorRow({ value, onChange }: { value: string; onChange: (value: string) => void }) {
   const normalizedValue = value.toLowerCase();
   return <div className="flex items-center justify-between rounded-xl border px-3 py-2" style={{ borderColor: "var(--glass-border)" }}><span className="text-xs">Fundo</span><div className="flex items-center gap-2">{[{ value: "#000000", label: "Preto puro" }, { value: "#ffffff", label: "Branco puro" }].map((color) => <button key={color.value} type="button" onClick={() => onChange(color.value)} aria-label={`Usar fundo ${color.label.toLowerCase()}`} title={color.label} className={cn("h-8 w-8 rounded-full border transition hover:scale-105", normalizedValue === color.value ? "ring-2 ring-[#27a3ff] ring-offset-2 ring-offset-[var(--background)]" : "border-[var(--glass-border)]")} style={{ backgroundColor: color.value }} />)}<label className="relative grid h-8 w-8 cursor-pointer place-items-center rounded-full border text-[var(--muted-foreground)] transition hover:bg-[var(--hover)] hover:text-[var(--text-title)]" style={{ borderColor: "var(--glass-border)" }} title="Escolher cor personalizada"><Palette size={15} /><input aria-label="Escolher cor de fundo personalizada" type="color" value={value} onChange={(event) => onChange(event.target.value)} className="absolute inset-0 cursor-pointer opacity-0" /></label></div></div>;
