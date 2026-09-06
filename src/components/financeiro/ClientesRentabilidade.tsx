@@ -18,9 +18,11 @@ import type { AgencyClient, NewAgencyClient, UpdateAgencyClient, ClientStatus, C
 import { MoneyInput } from "@/components/ui/MoneyInput";
 import { PrimaryButton } from "@/components/ui/PrimaryButton";
 import { useModalOpen } from "@/hooks/useModalOpen";
+import { privateFinancialValue, useFinancialPrivacyStore } from "@/store/financial-privacy";
 
-const fmt = (v: number) =>
-  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(v);
+const currencyFormatter = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
+const fmtEditable = (v: number) => currencyFormatter.format(v);
+const fmt = (v: number) => privateFinancialValue(fmtEditable(v));
 
 const STATUS_CONFIG: Record<ClientStatus, { label: string; color: string }> = {
   ativo:    { label: "Ativo",    color: "text-emerald-400 bg-emerald-400/10 border-emerald-400/20" },
@@ -289,7 +291,7 @@ function ClienteModal({ client, onClose, onSave, onDelete }: ClientModalProps) {
                       "text-sm font-semibold",
                       fee > 0 && share.percentage > 0 ? "text-amber-400" : "text-[var(--text-muted)]"
                     )}>
-                      {fmt(calc)}
+                      {fmtEditable(calc)}
                     </span>
                   </div>
                   <button
@@ -338,18 +340,18 @@ function ClienteModal({ client, onClose, onSave, onDelete }: ClientModalProps) {
               <div className="grid grid-cols-4 gap-3 text-center">
                 <div>
                   <p className="text-[10px] text-[var(--text-muted)] mb-1">Receita</p>
-                  <p className="text-sm font-bold text-[var(--text-title)]">{fmt(fee)}</p>
+                  <p className="text-sm font-bold text-[var(--text-title)]">{fmtEditable(fee)}</p>
                 </div>
                 <div>
                   <p className="text-[10px] text-[var(--text-muted)] mb-1">Custos</p>
                   <p className={cn("text-sm font-bold", totalSharesAmt > 0 ? "text-red-400" : "text-[var(--silver)]")}>
-                    {fmt(totalSharesAmt)}
+                    {fmtEditable(totalSharesAmt)}
                   </p>
                 </div>
                 <div>
                   <p className="text-[10px] text-[var(--text-muted)] mb-1">Lucro</p>
                   <p className={cn("text-sm font-bold", previewLucro >= 0 ? "text-emerald-400" : "text-red-400")}>
-                    {fmt(previewLucro)}
+                    {fmtEditable(previewLucro)}
                   </p>
                 </div>
                 <div>
@@ -406,6 +408,8 @@ interface Props {
 }
 
 export function ClientesRentabilidade({ year, month }: Props) {
+  const valuesHidden = useFinancialPrivacyStore((state) => state.valuesHidden);
+  void valuesHidden;
   const { clients, createClient, updateClient, deleteClient } = useAgencyClients();
   const { data, clientProfitability, isLoading, refetch: refetchDashboard } = useFinanceiroDashboard(year, month);
   const { saveShares } = useClientCostShares();
@@ -470,10 +474,10 @@ export function ClientesRentabilidade({ year, month }: Props) {
       {/* Summary cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: "Clientes Ativos",  value: String(clientesAtivos),         icon: <Users size={18} />,        accent: "#4a8fd4" },
+          { label: "Clientes Ativos",  value: privateFinancialValue(String(clientesAtivos)), icon: <Users size={18} />, accent: "#4a8fd4" },
           { label: "MRR Total",        value: fmt(mrr),                       icon: <DollarSign size={18} />,   accent: "#10b981" },
           { label: "Lucro Total",      value: fmt(lucroTotal),                icon: <TrendingUp size={18} />,   accent: lucroTotal >= 0 ? "#10b981" : "#ef4444" },
-          { label: "Margem Geral",     value: `${margemGeral.toFixed(1)}%`,   icon: <TrendingDown size={18} />, accent: margemGeral >= 30 ? "#10b981" : margemGeral >= 0 ? "#f59e0b" : "#ef4444" },
+          { label: "Margem Geral",     value: privateFinancialValue(`${margemGeral.toFixed(1)}%`), icon: <TrendingDown size={18} />, accent: margemGeral >= 30 ? "#10b981" : margemGeral >= 0 ? "#f59e0b" : "#ef4444" },
         ].map((s, i) => (
           <motion.div key={s.label} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.06 }}
             className="lc-card px-5 py-4 flex items-center gap-3">
@@ -490,7 +494,7 @@ export function ClientesRentabilidade({ year, month }: Props) {
       </div>
 
       <div className="flex justify-between items-center">
-        <p className="text-sm text-[var(--silver)]">{clients.length} clientes cadastrados</p>
+        <p className="text-sm text-[var(--silver)]">{privateFinancialValue(String(clients.length))} clientes cadastrados</p>
         <PrimaryButton onClick={() => setModal({ open: true })} signature size="medium">
           <Users size={16} />
           Novo Cliente
@@ -561,10 +565,10 @@ export function ClientesRentabilidade({ year, month }: Props) {
                       </td>
                       <td className={cn("px-4 py-3 font-bold whitespace-nowrap", profitColor)}>{fmt(p.lucro)}</td>
                       <td className={cn("px-4 py-3 font-semibold whitespace-nowrap", marginColor)}>
-                        {p.margem.toFixed(1)}%
+                        {privateFinancialValue(`${p.margem.toFixed(1)}%`)}
                       </td>
                       <td className="px-4 py-3 text-[var(--silver)] whitespace-nowrap">
-                        {p.client.contract_start ? `${p.tempo_contrato_meses}m` : "—"}
+                        {p.client.contract_start ? privateFinancialValue(`${p.tempo_contrato_meses}m`) : "—"}
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">
                         <span className={cn("text-xs font-medium px-2.5 py-1 rounded-full border", sc.color)}>

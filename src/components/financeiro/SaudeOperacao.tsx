@@ -16,6 +16,7 @@ import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { useAgencyClients } from "@/hooks/useAgencyClients";
 import { useSaudeOperacao, type SaudeInsight } from "@/hooks/useSaudeOperacao";
+import { privateFinancialValue, useFinancialPrivacyStore } from "@/store/financial-privacy";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SaudeOperacao — Módulo de Retenção e Saúde da Carteira
@@ -24,9 +25,9 @@ import { useSaudeOperacao, type SaudeInsight } from "@/hooks/useSaudeOperacao";
 // ── Formatters ────────────────────────────────────────────────────────────────
 
 const fmtBRL = (v: number) =>
-  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(v);
+  privateFinancialValue(new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(v));
 
-const fmtPct = (v: number) => `${v.toFixed(1)}%`;
+const fmtPct = (v: number) => privateFinancialValue(`${v.toFixed(1)}%`);
 
 // ── Custom Tooltip ────────────────────────────────────────────────────────────
 
@@ -49,7 +50,7 @@ function ChartTooltip({ active, payload, label }: {
               ? fmtBRL(p.value)
               : p.name.toLowerCase().includes("%") || p.name.toLowerCase().includes("churn") || p.name.toLowerCase().includes("reten")
               ? fmtPct(p.value)
-              : p.value}
+              : privateFinancialValue(String(p.value))}
           </span>
         </div>
       ))}
@@ -161,6 +162,8 @@ interface Props {
 }
 
 export function SaudeOperacao({ year, month }: Props) {
+  const valuesHidden = useFinancialPrivacyStore((state) => state.valuesHidden);
+  void valuesHidden;
   const { clients, isLoading } = useAgencyClients();
   const metrics = useSaudeOperacao(clients, year, month, isLoading);
 
@@ -220,14 +223,14 @@ export function SaudeOperacao({ year, month }: Props) {
         <KpiCard
           label="LTV Médio"
           value={fmtBRL(metrics.ltv)}
-          sub={`Ticket ${fmtBRL(metrics.avg_ticket)} × ${metrics.avg_permanence_months.toFixed(0)} meses`}
+          sub={`Ticket ${fmtBRL(metrics.avg_ticket)} × ${privateFinancialValue(metrics.avg_permanence_months.toFixed(0))} meses`}
           icon={<Target size={18} />}
           accent="#4a8fd4"
           delay={0}
         />
         <KpiCard
           label="Permanência Média"
-          value={`${metrics.avg_permanence_months.toFixed(1)} meses`}
+          value={privateFinancialValue(`${metrics.avg_permanence_months.toFixed(1)} meses`)}
           sub={metrics.avg_permanence_months >= 12 ? "Retenção forte" : metrics.avg_permanence_months >= 6 ? "Retenção moderada" : "Retenção baixa"}
           icon={<Clock size={18} />}
           accent="#a78bfa"
@@ -236,7 +239,7 @@ export function SaudeOperacao({ year, month }: Props) {
         <KpiCard
           label="Churn Rate"
           value={fmtPct(metrics.churn_rate)}
-          sub={metrics.churned_count > 0 ? `${metrics.churned_count} cancelamento${metrics.churned_count > 1 ? "s" : ""} este mês` : "Nenhum cancelamento este mês"}
+          sub={metrics.churned_count > 0 ? `${privateFinancialValue(String(metrics.churned_count))} cancelamento${metrics.churned_count > 1 ? "s" : ""} este mês` : "Nenhum cancelamento este mês"}
           icon={<TrendingDown size={18} />}
           accent={churnColor}
           trend={metrics.churn_rate === 0 ? "neutral" : churnGood ? "up" : "down"}
@@ -253,7 +256,7 @@ export function SaudeOperacao({ year, month }: Props) {
         />
         <KpiCard
           label="Clientes Ativos"
-          value={String(metrics.active_count)}
+          value={privateFinancialValue(String(metrics.active_count))}
           sub={`MRR ${fmtBRL(metrics.mrr)}`}
           icon={<Users size={18} />}
           accent="#10b981"
@@ -300,8 +303,8 @@ export function SaudeOperacao({ year, month }: Props) {
                     <div className="flex items-start gap-2.5">
                       <span className={cn("mt-0.5 shrink-0", cfg.textColor)}>{cfg.icon}</span>
                       <div>
-                        <p className={cn("text-sm font-semibold mb-0.5", cfg.textColor)}>{insight.title}</p>
-                        <p className="text-xs text-[var(--silver)] leading-relaxed">{insight.message}</p>
+                        <p className={cn("text-sm font-semibold mb-0.5", cfg.textColor)}>{/\d/.test(insight.title) ? privateFinancialValue(insight.title) : insight.title}</p>
+                        <p className="text-xs text-[var(--silver)] leading-relaxed">{privateFinancialValue(insight.message)}</p>
                       </div>
                     </div>
                   </motion.div>
@@ -343,7 +346,7 @@ export function SaudeOperacao({ year, month }: Props) {
             </defs>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
             <XAxis dataKey="mes" tick={{ fill: "var(--text-muted)", fontSize: 11 }} axisLine={false} tickLine={false} />
-            <YAxis tick={{ fill: "var(--text-muted)", fontSize: 11 }} axisLine={false} tickLine={false} />
+            <YAxis tick={{ fill: "var(--text-muted)", fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={v => privateFinancialValue(String(v))} />
             <Tooltip content={<ChartTooltip />} />
             <Legend
               wrapperStyle={{ fontSize: "11px", paddingTop: "12px" }}
@@ -393,7 +396,7 @@ export function SaudeOperacao({ year, month }: Props) {
             </defs>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
             <XAxis dataKey="mes" tick={{ fill: "var(--text-muted)", fontSize: 11 }} axisLine={false} tickLine={false} />
-            <YAxis tick={{ fill: "var(--text-muted)", fontSize: 11 }} axisLine={false} tickLine={false} domain={[0, 100]} />
+            <YAxis tick={{ fill: "var(--text-muted)", fontSize: 11 }} axisLine={false} tickLine={false} domain={[0, 100]} tickFormatter={v => privateFinancialValue(String(v))} />
             <Tooltip content={<ChartTooltip />} />
             <Legend
               wrapperStyle={{ fontSize: "11px", paddingTop: "12px" }}
@@ -449,7 +452,7 @@ export function SaudeOperacao({ year, month }: Props) {
             <YAxis
               tick={{ fill: "var(--text-muted)", fontSize: 11 }}
               axisLine={false} tickLine={false}
-              tickFormatter={v => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)}
+              tickFormatter={v => privateFinancialValue(v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v))}
             />
             <Tooltip content={<ChartTooltip />} />
             <Area
@@ -523,7 +526,7 @@ export function SaudeOperacao({ year, month }: Props) {
                   className="hover:bg-[var(--hover)] transition-colors"
                 >
                   <td className="px-5 py-3 text-[var(--text-title)] font-medium capitalize">{row.mes}</td>
-                  <td className="px-5 py-3 text-[var(--silver)]">{row.entradas || "—"}</td>
+                  <td className="px-5 py-3 text-[var(--silver)]">{row.entradas ? privateFinancialValue(String(row.entradas)) : "—"}</td>
                   {row.entradas === 0 ? (
                     <>
                       <td className="px-5 py-3 text-[var(--text-muted)]">—</td>
@@ -542,7 +545,7 @@ export function SaudeOperacao({ year, month }: Props) {
                             "inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full font-semibold",
                             cohortColor(cell.pct)
                           )}>
-                            {cell.n} <span className="opacity-70">({cell.pct.toFixed(0)}%)</span>
+                            {privateFinancialValue(String(cell.n))} <span className="opacity-70">({privateFinancialValue(`${cell.pct.toFixed(0)}%`)})</span>
                           </span>
                         </td>
                       ))}
@@ -571,7 +574,7 @@ export function SaudeOperacao({ year, month }: Props) {
               </div>
               <div>
                 <p className="text-sm font-semibold text-[var(--text-title)]">Clientes Encerrados</p>
-                <p className="text-[11px] text-[var(--text-muted)]">{metrics.churned_clients.length} contrato{metrics.churned_clients.length > 1 ? "s" : ""} encerrado{metrics.churned_clients.length > 1 ? "s" : ""}</p>
+                <p className="text-[11px] text-[var(--text-muted)]">{privateFinancialValue(String(metrics.churned_clients.length))} contrato{metrics.churned_clients.length > 1 ? "s" : ""} encerrado{metrics.churned_clients.length > 1 ? "s" : ""}</p>
               </div>
             </div>
           </div>
@@ -611,7 +614,7 @@ export function SaudeOperacao({ year, month }: Props) {
                         : "—"}
                     </td>
                     <td className="px-5 py-3 text-[var(--silver)] whitespace-nowrap">
-                      {row.tempo_meses > 0 ? `${row.tempo_meses}m` : "—"}
+                      {row.tempo_meses > 0 ? privateFinancialValue(`${row.tempo_meses}m`) : "—"}
                     </td>
                     <td className="px-5 py-3 whitespace-nowrap">
                       <span className={row.receita_total > 0 ? "text-[var(--text-title)] font-semibold" : "text-[var(--text-muted)]"}>
