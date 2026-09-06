@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { EditorContent, useEditor, type Editor } from "@tiptap/react";
+import { Mark, mergeAttributes } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
 import UnderlineExtension from "@tiptap/extension-underline";
 import Highlight from "@tiptap/extension-highlight";
@@ -10,8 +11,8 @@ import { Color, TextStyle } from "@tiptap/extension-text-style";
 import {
   AlignCenter, AlignLeft, AlignRight, ArrowDown, ArrowLeft, ArrowUp, AtSign,
   Bold, Bookmark, Check, ChevronRight, Copy, Download, GripVertical, Heart, Highlighter, ImagePlus,
-  Italic, Layers3, MessageCircle, MoreHorizontal, Move, Moon, Palette, Plus, Send, Share2, Sun, Trash2,
-  Type, Underline, Upload, UserRound, X,
+  Italic, Layers3, MessageCircle, MoreHorizontal, Move, Moon, Palette, Plus, Redo2, RotateCcw, Send, Share2, Square, Sun, Trash2,
+  Type, Underline, Undo2, Upload, UserRound, X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -53,7 +54,15 @@ type TextBlock = { id: string; content: string; fontSize: number; textWidth: num
 type TweetProfile = { avatar: string; avatarCrop: MediaCrop; name: string; handle: string; verified: boolean };
 type PersistedPostProject = { version: 1; format: PostFormat; slides: Slide[]; activeId: string; tweetProfile: TweetProfile; updatedAt: number };
 type MobileEditorPanel = "text" | "image" | "background" | "slide" | "export" | null;
-type MobileTextTool = "format" | "color" | "fontSize" | "lineHeight" | "textWidth" | null;
+type MobileInlineTool = "format" | "textColor" | "highlight" | "backdrop";
+type MobileTextTool = MobileInlineTool | "fontSize" | "lineHeight" | "textWidth" | null;
+type MobileVisualTool =
+  | { kind: "backgroundColor" }
+  | { kind: "backgroundDarkness" }
+  | { kind: "mediaCrop"; index: number; axis: keyof MediaCrop }
+  | { kind: "avatarCrop"; axis: keyof MediaCrop }
+  | { kind: "textPlacement" }
+  | null;
 
 const ACTIVE_TEMPLATE_KEY = "genesy-post-generator-active-template";
 const QUICK_TEXT_COLORS = [
@@ -70,6 +79,27 @@ const DEFAULT_PROFILE: TweetProfile = {
   handle: "@genesycompany",
   verified: true,
 };
+
+const TextBackdrop = Mark.create({
+  name: "textBackdrop",
+  addAttributes() {
+    return {
+      backgroundColor: { default: "#000000", parseHTML: (element) => element.style.backgroundColor || "#000000" },
+      color: { default: "#ffffff", parseHTML: (element) => element.style.color || "#ffffff" },
+    };
+  },
+  parseHTML() {
+    return [{ tag: "span[data-text-backdrop]" }];
+  },
+  renderHTML({ HTMLAttributes }) {
+    const { backgroundColor, color, ...attributes } = HTMLAttributes;
+    return ["span", mergeAttributes(attributes, {
+      "data-text-backdrop": "true",
+      class: "post-text-backdrop",
+      style: `background-color:${backgroundColor};color:${color}`,
+    }), 0];
+  },
+});
 
 function uid() { return Math.random().toString(36).slice(2, 10); }
 function defaultMediaCrop(): MediaCrop { return { x: 50, y: 50, zoom: 1 }; }
@@ -261,7 +291,9 @@ function PostEditor({ template, onBack }: { template: PostTemplate; onBack: () =
   const [exporting, setExporting] = useState<"one" | "all" | "share" | null>(null);
   const [mobilePanel, setMobilePanel] = useState<MobileEditorPanel>(null);
   const [mobileTextTool, setMobileTextTool] = useState<MobileTextTool>(null);
+  const [mobileVisualTool, setMobileVisualTool] = useState<MobileVisualTool>(null);
   const [mobileCanvasMaxHeight, setMobileCanvasMaxHeight] = useState(560);
+  const [mobileKeyboardInset, setMobileKeyboardInset] = useState(0);
   const [isMobileEditor, setIsMobileEditor] = useState(false);
   const defaultExportName = template === "tweet" ? "posts-tweet" : "stories-plus";
   const [exportName, setExportName] = useState(defaultExportName);
@@ -303,6 +335,22 @@ function PostEditor({ template, onBack }: { template: PostTemplate; onBack: () =
     };
   }, [setCanvasMode]);
 
+  useEffect(() => {
+    const viewport = window.visualViewport;
+    if (!viewport) return;
+    const updateKeyboardInset = () => {
+      const inset = Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop);
+      setMobileKeyboardInset(inset > 100 ? Math.round(inset) : 0);
+    };
+    updateKeyboardInset();
+    viewport.addEventListener("resize", updateKeyboardInset);
+    viewport.addEventListener("scroll", updateKeyboardInset);
+    return () => {
+      viewport.removeEventListener("resize", updateKeyboardInset);
+      viewport.removeEventListener("scroll", updateKeyboardInset);
+    };
+  }, []);
+
   const restoreProject = useCallback((project: PersistedPostProject) => {
     if (!project.slides?.length) return;
     const restored = normalizePostProject(template, project);
@@ -322,6 +370,7 @@ function PostEditor({ template, onBack }: { template: PostTemplate; onBack: () =
       StarterKit.configure({ heading: false, blockquote: false, bulletList: false, orderedList: false, code: false, codeBlock: false, horizontalRule: false }),
       UnderlineExtension,
       Highlight.configure({ multicolor: true }),
+      TextBackdrop,
       TextStyle,
       Color,
       TextAlign.configure({ types: ["paragraph"] }),
@@ -668,6 +717,7 @@ function PostEditor({ template, onBack }: { template: PostTemplate; onBack: () =
               onSelectTextBlock={(id) => {
                 setActiveTextBlockId(id);
                 setMobileTextTool(null);
+                setMobileVisualTool(null);
                 setMobilePanel("text");
               }}
               onReorderText={reorderLayout}
@@ -687,14 +737,17 @@ function PostEditor({ template, onBack }: { template: PostTemplate; onBack: () =
 
         <MobileEditorDock active={mobilePanel} onChange={(panel) => {
           setMobileTextTool(null);
+          setMobileVisualTool(null);
           setMobilePanel(panel);
         }} />
 
-        {isMobileEditor && mobilePanel && !(mobilePanel === "text" && mobileTextTool) && (
+        {isMobileEditor && mobilePanel && !mobileTextTool && !mobileVisualTool && (
           <MobilePanelSheet
             title={mobilePanel === "text" ? "Texto" : mobilePanel === "image" ? "Imagens" : mobilePanel === "background" ? "Aparência" : mobilePanel === "slide" ? "Slide" : "Exportar"}
+            keyboardInset={mobilePanel === "text" ? mobileKeyboardInset : 0}
             onClose={() => {
               setMobileTextTool(null);
+              setMobileVisualTool(null);
               setMobilePanel(null);
             }}
           >
@@ -728,6 +781,7 @@ function PostEditor({ template, onBack }: { template: PostTemplate; onBack: () =
                   profile={tweetProfile}
                   setProfile={setTweetProfile}
                   onFocusTextControl={setMobileTextTool}
+                  onFocusVisualControl={setMobileVisualTool}
                 />
                 {mobilePanel === "slide" && (
                   <div className="grid grid-cols-2 gap-2 border-t p-4" style={{ borderColor: "var(--border)" }}>
@@ -754,6 +808,24 @@ function PostEditor({ template, onBack }: { template: PostTemplate; onBack: () =
             onExpand={() => setMobileTextTool(null)}
             onClose={() => {
               setMobileTextTool(null);
+              setMobileVisualTool(null);
+              setMobilePanel(null);
+            }}
+          />
+        )}
+
+        {isMobileEditor && mobileVisualTool && (
+          <MobileVisualQuickPanel
+            tool={mobileVisualTool}
+            slide={active}
+            textBlockId={activeTextBlock.id}
+            update={update}
+            profile={tweetProfile}
+            setProfile={setTweetProfile}
+            placeText={placeActiveText}
+            onExpand={() => setMobileVisualTool(null)}
+            onClose={() => {
+              setMobileVisualTool(null);
               setMobilePanel(null);
             }}
           />
@@ -886,17 +958,17 @@ function MobileEditorDock({ active, onChange }: { active: MobileEditorPanel; onC
   );
 }
 
-function MobilePanelSheet({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
+function MobilePanelSheet({ title, keyboardInset = 0, onClose, children }: { title: string; keyboardInset?: number; onClose: () => void; children: React.ReactNode }) {
   return (
     <div className="fixed inset-0 z-40 lg:hidden" role="dialog" aria-modal="true" aria-label={`Configurações de ${title.toLowerCase()}`}>
       <button type="button" onClick={onClose} className="absolute inset-0 bg-black/35" aria-label="Fechar painel" />
-      <section className="absolute inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] max-h-[68dvh] overflow-hidden rounded-t-[24px] border-t shadow-2xl" style={{ background: "var(--bg-modal)", borderColor: "var(--glass-border)" }}>
+      <section className="absolute inset-x-0 flex flex-col overflow-hidden rounded-t-[24px] border-t shadow-2xl transition-[bottom,max-height] duration-200" style={{ background: "var(--bg-modal)", borderColor: "var(--glass-border)", bottom: `calc(4rem + env(safe-area-inset-bottom) + ${keyboardInset}px)`, maxHeight: keyboardInset ? `calc(100dvh - ${keyboardInset}px - 5rem - env(safe-area-inset-top))` : "68dvh" }}>
         <div className="mx-auto mt-2 h-1 w-10 rounded-full bg-[var(--glass-border)]" />
         <div className="flex items-center justify-between border-b px-4 py-3" style={{ borderColor: "var(--border)" }}>
           <h2 className="text-sm font-semibold text-[var(--text-title)]">{title}</h2>
           <button type="button" onClick={onClose} className="grid h-9 w-9 place-items-center rounded-xl text-[var(--muted-foreground)] active:bg-[var(--hover)]" aria-label="Fechar"><X size={17} /></button>
         </div>
-        <div className="max-h-[calc(68dvh-58px)] overflow-y-auto overscroll-contain">{children}</div>
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">{children}</div>
       </section>
     </div>
   );
@@ -920,6 +992,58 @@ function SlidesRail({ slides, activeId, template, format, profile, onSelect, onA
   </div>;})}</div><Button variant="outline" fullWidth size="sm" onClick={onAdd} icon={<Plus />} className="mt-3">Adicionar slide</Button></aside>;
 }
 
+function MobileVisualQuickPanel({ tool, slide, textBlockId, update, profile, setProfile, placeText, onExpand, onClose }: {
+  tool: Exclude<MobileVisualTool, null>;
+  slide: Slide;
+  textBlockId: string;
+  update: (patch: Partial<Slide>) => void;
+  profile: TweetProfile;
+  setProfile: React.Dispatch<React.SetStateAction<TweetProfile>>;
+  placeText: (placement: "above" | "below") => void;
+  onExpand: () => void;
+  onClose: () => void;
+}) {
+  const mediaCrop = tool.kind === "mediaCrop" ? { ...defaultMediaCrop(), ...slide.mediaCrops[tool.index] } : null;
+  const avatarCrop = profile.avatarCrop;
+  const textLayoutIndex = slide.layout.indexOf(textBlockId);
+  const mediaLayoutIndex = slide.layout.indexOf("media");
+  const textPlacement = textLayoutIndex < mediaLayoutIndex ? "above" : "below";
+  const axisLabel = (axis: keyof MediaCrop) => axis === "x" ? "Horizontal" : axis === "y" ? "Vertical" : "Zoom";
+  const label = tool.kind === "backgroundColor" ? "Cor de fundo"
+    : tool.kind === "backgroundDarkness" ? `Escurecer foto · ${slide.imageDarkness}%`
+    : tool.kind === "textPlacement" ? "Posição do texto"
+    : tool.kind === "mediaCrop" ? `Imagem ${tool.index + 1} · ${axisLabel(tool.axis)}`
+    : `Foto do perfil · ${axisLabel(tool.axis)}`;
+
+  const updateMediaCrop = (value: number) => {
+    if (tool.kind !== "mediaCrop" || !mediaCrop) return;
+    const mediaCrops = [...slide.mediaCrops];
+    mediaCrops[tool.index] = { ...mediaCrop, [tool.axis]: value };
+    update({ mediaCrops });
+  };
+  const updateAvatarCrop = (value: number) => {
+    if (tool.kind !== "avatarCrop") return;
+    setProfile((current) => ({ ...current, avatarCrop: { ...current.avatarCrop, [tool.axis]: value } }));
+  };
+
+  return (
+    <section className="fixed inset-x-2 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-50 mx-auto max-w-xl overflow-hidden rounded-2xl border shadow-2xl lg:hidden" style={{ background: "var(--bg-modal)", borderColor: "var(--accent-blue)" }} role="dialog" aria-label={label}>
+      <div className="flex h-11 items-center gap-2 border-b px-2" style={{ borderColor: "var(--border)" }}>
+        <button type="button" onClick={onExpand} className="grid h-9 w-9 place-items-center rounded-xl text-[var(--accent-blue)] active:bg-[var(--hover)]" aria-label="Voltar à edição completa"><ArrowUp size={16} /></button>
+        <p className="min-w-0 flex-1 truncate text-xs font-semibold text-[var(--text-title)]">{label}</p>
+        <button type="button" onClick={onClose} className="grid h-9 w-9 place-items-center rounded-xl text-[var(--muted-foreground)] active:bg-[var(--hover)]" aria-label="Fechar ajuste"><X size={16} /></button>
+      </div>
+      <div className="px-4 py-4">
+        {tool.kind === "backgroundColor" && <BackgroundColorRow value={slide.background} onChange={(background) => update({ background, foreground: contrastColor(background) })} />}
+        {tool.kind === "backgroundDarkness" && <input aria-label="Escurecer foto" type="range" min="0" max="90" value={slide.imageDarkness} onChange={(event) => update({ imageDarkness: Number(event.target.value) })} className="block h-8 w-full accent-[#27a3ff]" />}
+        {tool.kind === "mediaCrop" && mediaCrop && <input aria-label={`${axisLabel(tool.axis)} da imagem ${tool.index + 1}`} type="range" min={tool.axis === "zoom" ? 1 : 0} max={tool.axis === "zoom" ? 2.5 : 100} step={tool.axis === "zoom" ? 0.05 : 1} value={mediaCrop[tool.axis]} onChange={(event) => updateMediaCrop(Number(event.target.value))} className="block h-8 w-full accent-[#27a3ff]" />}
+        {tool.kind === "avatarCrop" && <input aria-label={`${axisLabel(tool.axis)} da foto do perfil`} type="range" min={tool.axis === "zoom" ? 1 : 0} max={tool.axis === "zoom" ? 4 : 100} step={tool.axis === "zoom" ? 0.05 : 1} value={avatarCrop[tool.axis]} onChange={(event) => updateAvatarCrop(Number(event.target.value))} className="block h-8 w-full accent-[#27a3ff]" />}
+        {tool.kind === "textPlacement" && <div className="grid grid-cols-2 gap-2"><button type="button" onClick={() => placeText("above")} className={cn("rounded-xl border px-3 py-2.5 text-xs", textPlacement === "above" && "border-[var(--accent-blue)] bg-[var(--hover)]")}>Acima da imagem</button><button type="button" onClick={() => placeText("below")} className={cn("rounded-xl border px-3 py-2.5 text-xs", textPlacement === "below" && "border-[var(--accent-blue)] bg-[var(--hover)]")}>Abaixo da imagem</button></div>}
+      </div>
+    </section>
+  );
+}
+
 function MobileTextQuickPanel({ tool, editor, defaultColor, allowItalic, template, textBlock, updateTextBlock, onExpand, onClose }: {
   tool: Exclude<MobileTextTool, null>;
   editor: Editor | null;
@@ -933,7 +1057,9 @@ function MobileTextQuickPanel({ tool, editor, defaultColor, allowItalic, templat
 }) {
   const labels: Record<Exclude<MobileTextTool, null>, string> = {
     format: "Formatação",
-    color: "Cor do trecho",
+    textColor: "Cor do texto",
+    highlight: "Marca-texto",
+    backdrop: "Texto destacado",
     fontSize: `Tamanho · ${textBlock.fontSize}px`,
     lineHeight: `Espaçamento · ${Math.round(textBlock.lineHeight * 100)}%`,
     textWidth: `Largura · ${textBlock.textWidth}%`,
@@ -946,8 +1072,8 @@ function MobileTextQuickPanel({ tool, editor, defaultColor, allowItalic, templat
         <p className="min-w-0 flex-1 truncate text-xs font-semibold text-[var(--text-title)]">{labels[tool]}</p>
         <button type="button" onClick={onClose} className="grid h-9 w-9 place-items-center rounded-xl text-[var(--muted-foreground)] active:bg-[var(--hover)]" aria-label="Fechar ajuste"><X size={16} /></button>
       </div>
-      {(tool === "format" || tool === "color") ? (
-        <TextToolbar editor={editor} defaultColor={defaultColor} allowItalic={allowItalic} compact visibleGroup={tool} preserveSelection />
+      {(["format", "textColor", "highlight", "backdrop"] as string[]).includes(tool) ? (
+        <TextToolbar editor={editor} defaultColor={defaultColor} allowItalic={allowItalic} compact visibleGroup={tool as MobileInlineTool} preserveSelection />
       ) : (
         <div className="px-4 py-4">
           {tool === "fontSize" && <input aria-label="Tamanho do texto" type="range" min={template === "tweet" ? 28 : 36} max={template === "tweet" ? 128 : 190} step="1" value={textBlock.fontSize} onChange={(event) => updateTextBlock({ fontSize: Number(event.target.value) })} className="block h-8 w-full accent-[#27a3ff]" />}
@@ -983,7 +1109,7 @@ function MobileTextComposer({ editor }: { editor: Editor | null }) {
   );
 }
 
-function TextToolbar({ editor, defaultColor, allowItalic, compact = false, visibleGroup, preserveSelection = false, onToolUse }: { editor: Editor | null; defaultColor: string; allowItalic: boolean; compact?: boolean; visibleGroup?: "format" | "color"; preserveSelection?: boolean; onToolUse?: (tool: "format" | "color") => void }) {
+function TextToolbar({ editor, defaultColor, allowItalic, compact = false, visibleGroup, preserveSelection = false, onToolUse }: { editor: Editor | null; defaultColor: string; allowItalic: boolean; compact?: boolean; visibleGroup?: MobileInlineTool; preserveSelection?: boolean; onToolUse?: (tool: MobileInlineTool) => void }) {
   const [, setRevision] = useState(0);
   useEffect(() => {
     if (!editor) return;
@@ -994,38 +1120,63 @@ function TextToolbar({ editor, defaultColor, allowItalic, compact = false, visib
   }, [editor]);
   if (!editor) return <div className={cn("mx-auto h-11 max-w-xl rounded-xl border border-dashed", compact ? "m-3" : "mb-3")} />;
   const hasSelection = editor.state.selection.from !== editor.state.selection.to;
-  const tool = (active: boolean) => cn("editor-tool", active && "bg-[var(--hover)] text-[var(--accent-blue)]");
+  const toolClass = (active: boolean) => cn("editor-tool shrink-0", active && "bg-[var(--hover)] text-[var(--accent-blue)]");
   const chain = () => preserveSelection ? editor.chain() : editor.chain().focus();
-  return <div className={cn("mx-auto flex min-h-11 max-w-xl flex-wrap items-center gap-1 border p-1.5", compact ? "sticky top-0 z-10 border-x-0 border-t-0 px-3 py-2 shadow-sm" : "mb-3 rounded-xl shadow-lg")} style={{ background: "var(--bg-modal)", borderColor: hasSelection ? "var(--accent-blue)" : "var(--glass-border)" }}>
-    {visibleGroup !== "color" && <>
-      <button onClick={() => { chain().toggleBold().run(); onToolUse?.("format"); }} disabled={!hasSelection} className={tool(editor.isActive("bold"))} title="Negrito"><Bold /></button>
-      {allowItalic && <button onClick={() => { chain().toggleItalic().run(); onToolUse?.("format"); }} disabled={!hasSelection} className={tool(editor.isActive("italic"))} title="Itálico" aria-label="Aplicar itálico ao trecho selecionado"><Italic /></button>}
-      <button onClick={() => { chain().toggleUnderline().run(); onToolUse?.("format"); }} disabled={!hasSelection} className={tool(editor.isActive("underline"))} title="Sublinhar"><Underline /></button>
+  const backdropActive = editor.isActive("textBackdrop");
+  const backdropAttributes = editor.getAttributes("textBackdrop") as { backgroundColor?: string; color?: string };
+  const show = (group: MobileInlineTool) => !visibleGroup || visibleGroup === group;
+  const cycleBackdrop = () => {
+    if (!backdropActive) {
+      chain().setMark("textBackdrop", { backgroundColor: "#000000", color: "#ffffff" }).run();
+    } else {
+      const background = (backdropAttributes.backgroundColor || "").replace(/\s/g, "").toLowerCase();
+      if (background === "#000000" || background === "rgb(0,0,0)") chain().setMark("textBackdrop", { backgroundColor: "#ffffff", color: "#000000" }).run();
+      else chain().unsetMark("textBackdrop").run();
+    }
+    onToolUse?.("backdrop");
+  };
+  return <div className={cn("mx-auto flex min-h-11 max-w-xl items-center gap-1 border p-1.5", compact ? "sticky top-0 z-10 flex-nowrap overflow-x-auto border-x-0 border-t-0 px-3 py-2 shadow-sm [scrollbar-width:none]" : "mb-3 flex-wrap rounded-xl shadow-lg")} style={{ background: "var(--bg-modal)", borderColor: hasSelection ? "var(--accent-blue)" : "var(--glass-border)" }}>
+    {show("format") && <>
+      <button onClick={() => { chain().toggleBold().run(); onToolUse?.("format"); }} disabled={!hasSelection} className={toolClass(editor.isActive("bold"))} title="Negrito"><Bold /></button>
+      {allowItalic && <button onClick={() => { chain().toggleItalic().run(); onToolUse?.("format"); }} disabled={!hasSelection} className={toolClass(editor.isActive("italic"))} title="Itálico" aria-label="Aplicar itálico ao trecho selecionado"><Italic /></button>}
+      <button onClick={() => { chain().toggleUnderline().run(); onToolUse?.("format"); }} disabled={!hasSelection} className={toolClass(editor.isActive("underline"))} title="Sublinhar"><Underline /></button>
+      <span className="mx-1 h-6 w-px shrink-0 bg-[var(--border)]" />
+      <button onClick={() => { chain().setTextAlign("left").run(); onToolUse?.("format"); }} className={toolClass(editor.isActive({ textAlign: "left" }))} title="Alinhar à esquerda"><AlignLeft /></button>
+      <button onClick={() => { chain().setTextAlign("center").run(); onToolUse?.("format"); }} className={toolClass(editor.isActive({ textAlign: "center" }))} title="Centralizar"><AlignCenter /></button>
+      <button onClick={() => { chain().setTextAlign("right").run(); onToolUse?.("format"); }} className={toolClass(editor.isActive({ textAlign: "right" }))} title="Alinhar à direita"><AlignRight /></button>
+      <span className="mx-1 h-6 w-px shrink-0 bg-[var(--border)]" />
+      <button onClick={() => chain().undo().run()} disabled={!editor.can().undo()} className={toolClass(false)} title="Desfazer" aria-label="Desfazer"><Undo2 /></button>
+      <button onClick={() => chain().redo().run()} disabled={!editor.can().redo()} className={toolClass(false)} title="Refazer" aria-label="Refazer"><Redo2 /></button>
     </>}
-    {visibleGroup !== "format" && <>
-      <TextColorTool disabled={!hasSelection} value={editor.getAttributes("textStyle").color || defaultColor} onChange={(color) => { chain().setColor(color).run(); onToolUse?.("color"); }} />
-      <ColorTool title="Marca-texto" disabled={!hasSelection} value={editor.getAttributes("highlight").color || "#ffdf2b"} icon={<Highlighter />} onChange={(color) => { chain().setHighlight({ color }).run(); onToolUse?.("color"); }} />
-    </>}
-    {visibleGroup !== "color" && <>
-      <span className="mx-1 h-6 w-px bg-[var(--border)]" />
-      <button onClick={() => { chain().setTextAlign("left").run(); onToolUse?.("format"); }} className={tool(editor.isActive({ textAlign: "left" }))} title="Alinhar à esquerda"><AlignLeft /></button>
-      <button onClick={() => { chain().setTextAlign("center").run(); onToolUse?.("format"); }} className={tool(editor.isActive({ textAlign: "center" }))} title="Centralizar"><AlignCenter /></button>
-      <button onClick={() => { chain().setTextAlign("right").run(); onToolUse?.("format"); }} className={tool(editor.isActive({ textAlign: "right" }))} title="Alinhar à direita"><AlignRight /></button>
-    </>}
+    {show("textColor") && <TextColorTool disabled={!hasSelection} value={editor.getAttributes("textStyle").color || defaultColor} isAutomatic={!editor.getAttributes("textStyle").color} onAuto={() => { chain().unsetColor().run(); onToolUse?.("textColor"); }} onChange={(color) => { chain().setColor(color).run(); onToolUse?.("textColor"); }} />}
+    {show("highlight") && <HighlightColorTool disabled={!hasSelection} value={editor.getAttributes("highlight").color || "#ffdf2b"} active={editor.isActive("highlight")} onClear={() => { chain().unsetHighlight().run(); onToolUse?.("highlight"); }} onChange={(color) => { chain().setHighlight({ color }).run(); onToolUse?.("highlight"); }} />}
+    {show("backdrop") && <div className="flex shrink-0 items-center gap-1"><button type="button" onClick={cycleBackdrop} disabled={!hasSelection} className={toolClass(backdropActive)} title="Texto destacado" aria-label="Alternar texto destacado"><Square fill={backdropActive ? backdropAttributes.backgroundColor || "#000000" : "none"} /></button>{backdropActive && <label className="editor-tool relative shrink-0 cursor-pointer" title="Cor do fundo destacado" aria-label="Escolher cor do fundo destacado"><Palette /><input aria-label="Cor do fundo destacado" type="color" value={toHexColor(backdropAttributes.backgroundColor || "#000000")} disabled={!hasSelection} className="absolute inset-0 cursor-pointer opacity-0" onChange={(event) => { const backgroundColor = event.target.value; chain().setMark("textBackdrop", { backgroundColor, color: contrastColor(backgroundColor) }).run(); onToolUse?.("backdrop"); }} /></label>}</div>}
     {!compact && <span className="ml-auto pr-2 text-[9px] text-[var(--muted-foreground)]">{hasSelection ? "Formatação do trecho selecionado" : "Selecione um trecho para formatar"}</span>}
   </div>;
 }
 
-function TextColorTool({ value, disabled, onChange }: { value: string; disabled: boolean; onChange: (value: string) => void }) {
+function toHexColor(value: string) {
+  if (/^#[0-9a-f]{6}$/i.test(value)) return value;
+  const match = value.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/i);
+  return match ? `#${match.slice(1, 4).map((channel) => Number(channel).toString(16).padStart(2, "0")).join("")}` : "#000000";
+}
+
+function TextColorTool({ value, disabled, isAutomatic, onAuto, onChange }: { value: string; disabled: boolean; isAutomatic: boolean; onAuto: () => void; onChange: (value: string) => void }) {
   const selected = value.toLowerCase();
-  return <div role="group" aria-label="Cor do texto" className={cn("flex items-center gap-1 rounded-lg px-1", disabled && "pointer-events-none opacity-40")}>
+  return <div role="group" aria-label="Cor do texto" className={cn("flex shrink-0 items-center gap-1 rounded-lg px-1", disabled && "pointer-events-none opacity-40")}>
+    <button type="button" disabled={disabled} title="Cor automática" aria-label="Usar cor automática do texto" aria-pressed={isAutomatic} onClick={onAuto} className={cn("grid h-7 w-7 place-items-center rounded-full border transition", isAutomatic ? "border-[var(--accent-blue)] text-[var(--accent-blue)]" : "border-[var(--glass-border)] text-[var(--muted-foreground)]")}><RotateCcw size={12} /></button>
     {QUICK_TEXT_COLORS.map((color) => <button key={color.value} type="button" disabled={disabled} title={color.label} aria-label={`Aplicar cor ${color.label}`} aria-pressed={selected === color.value} onClick={() => onChange(color.value)} className={cn("h-6 w-6 rounded-full border border-white/20 shadow-sm transition hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-blue)]", selected === color.value && "ring-2 ring-white ring-offset-1 ring-offset-[var(--bg-modal)]")} style={{ background: color.value }} />)}
-    <label className="editor-tool relative cursor-pointer" title="Mais cores" aria-label="Abrir seletor de cores personalizado"><Palette /><input aria-label="Cor personalizada do texto" type="color" value={value} disabled={disabled} className="absolute inset-0 cursor-pointer opacity-0" onChange={(event) => onChange(event.target.value)} /></label>
+    <label className="editor-tool relative shrink-0 cursor-pointer" title="Mais cores" aria-label="Abrir seletor de cores personalizado"><Palette /><input aria-label="Cor personalizada do texto" type="color" value={toHexColor(value)} disabled={disabled} className="absolute inset-0 cursor-pointer opacity-0" onChange={(event) => onChange(event.target.value)} /></label>
   </div>;
 }
 
-function ColorTool({ title, value, disabled, icon, onChange }: { title: string; value: string; disabled: boolean; icon?: React.ReactNode; onChange: (value: string) => void }) {
-  return <label className={cn("editor-tool relative cursor-pointer", disabled && "pointer-events-none opacity-40")} title={title}>{icon ?? <span className="h-4 w-4 rounded-full border" style={{ background: value }} />}<input type="color" value={value} disabled={disabled} className="absolute inset-0 cursor-pointer opacity-0" onChange={(event) => onChange(event.target.value)} /></label>;
+function HighlightColorTool({ value, disabled, active, onClear, onChange }: { value: string; disabled: boolean; active: boolean; onClear: () => void; onChange: (value: string) => void }) {
+  const selected = value.toLowerCase();
+  return <div role="group" aria-label="Marca-texto" className={cn("flex shrink-0 items-center gap-1 rounded-lg px-1", disabled && "pointer-events-none opacity-40")}>
+    <button type="button" disabled={disabled} title="Sem marca-texto" aria-label="Remover marca-texto" aria-pressed={!active} onClick={onClear} className={cn("grid h-7 w-7 place-items-center rounded-full border transition", !active ? "border-[var(--accent-blue)] text-[var(--accent-blue)]" : "border-[var(--glass-border)] text-[var(--muted-foreground)]")}><X size={12} /></button>
+    {QUICK_TEXT_COLORS.map((color) => <button key={color.value} type="button" disabled={disabled} title={`Marca-texto ${color.label}`} aria-label={`Aplicar marca-texto ${color.label}`} aria-pressed={active && selected === color.value} onClick={() => onChange(color.value)} className={cn("h-6 w-6 rounded-md border border-white/20 shadow-sm transition hover:scale-110", active && selected === color.value && "ring-2 ring-white ring-offset-1 ring-offset-[var(--bg-modal)]")} style={{ background: color.value }} />)}
+    <label className="editor-tool relative shrink-0 cursor-pointer" title="Outra cor de marca-texto" aria-label="Escolher outra cor de marca-texto"><Highlighter /><input aria-label="Cor personalizada do marca-texto" type="color" value={toHexColor(value)} disabled={disabled} className="absolute inset-0 cursor-pointer opacity-0" onChange={(event) => onChange(event.target.value)} /></label>
+  </div>;
 }
 
 function ScaledCanvas({ width, height, format, profile, children, maxHeight = 680 }: { width: number; height: number; format: PostFormat; profile: TweetProfile; children: React.ReactNode; maxHeight?: number }) {
@@ -1124,7 +1275,7 @@ function Avatar({ src, size, crop = defaultMediaCrop() }: { src: string; size: n
   return src ? <span className="block shrink-0 overflow-hidden rounded-full" style={{ width: size, height: size }}><img src={src} alt="Foto do perfil" className="h-full w-full object-cover" style={{ objectPosition: `${crop.x}% ${crop.y}%`, transform: `scale(${crop.zoom})`, transformOrigin: `${crop.x}% ${crop.y}%` }} /></span> : <span className="grid shrink-0 place-items-center rounded-full bg-[#20252a] text-white" style={{ width: size, height: size }}><UserRound size={size * .42} /></span>;
 }
 
-function PropertiesPanel({ section, template, format, setFormat, slide, update, activeTextBlock, selectTextBlock, updateTextBlock, addTextBlock, removeTextBlock, placeText, profile, setProfile, onFocusTextControl }: { section?: Exclude<MobileEditorPanel, "export" | null>; template: PostTemplate; format: PostFormat; setFormat: (format: PostFormat) => void; slide: Slide; update: (patch: Partial<Slide>) => void; activeTextBlock: TextBlock; selectTextBlock: (id: string) => void; updateTextBlock: (patch: Partial<TextBlock>) => void; addTextBlock: () => void; removeTextBlock: () => void; placeText: (placement: "above" | "below") => void; profile: TweetProfile; setProfile: React.Dispatch<React.SetStateAction<TweetProfile>>; onFocusTextControl?: (tool: Exclude<MobileTextTool, null>) => void }) {
+function PropertiesPanel({ section, template, format, setFormat, slide, update, activeTextBlock, selectTextBlock, updateTextBlock, addTextBlock, removeTextBlock, placeText, profile, setProfile, onFocusTextControl, onFocusVisualControl }: { section?: Exclude<MobileEditorPanel, "export" | null>; template: PostTemplate; format: PostFormat; setFormat: (format: PostFormat) => void; slide: Slide; update: (patch: Partial<Slide>) => void; activeTextBlock: TextBlock; selectTextBlock: (id: string) => void; updateTextBlock: (patch: Partial<TextBlock>) => void; addTextBlock: () => void; removeTextBlock: () => void; placeText: (placement: "above" | "below") => void; profile: TweetProfile; setProfile: React.Dispatch<React.SetStateAction<TweetProfile>>; onFocusTextControl?: (tool: Exclude<MobileTextTool, null>) => void; onFocusVisualControl?: (tool: Exclude<MobileVisualTool, null>) => void }) {
   const addFile = (file: File | undefined, callback: (url: string) => void) => { if (!file) return; if (!file.type.startsWith("image/")) return toast.error("Selecione um arquivo de imagem."); const reader = new FileReader(); reader.onload = () => callback(String(reader.result)); reader.readAsDataURL(file); };
   const updateProfile = (patch: Partial<TweetProfile>) => setProfile((current) => ({ ...current, ...patch }));
   const updateBackground = (background: string) => update({ background, foreground: contrastColor(background) });
@@ -1154,7 +1305,7 @@ function PropertiesPanel({ section, template, format, setFormat, slide, update, 
             <Field label={`Largura do bloco · ${activeTextBlock.textWidth}%`}><input aria-label="Largura do texto" type="range" min="40" max={template === "tweet" ? 76 : 84} step="2" value={Math.min(activeTextBlock.textWidth, template === "tweet" ? 76 : 84)} onChange={(event) => updateTextBlock({ textWidth: Number(event.target.value) })} className="w-full accent-[#27a3ff]" /></Field>
           </>
         )}
-        <div className="grid grid-cols-2 gap-2"><button onClick={() => placeText("above")} className={cn("rounded-xl border px-3 py-2 text-xs", textPlacement === "above" && "border-[var(--accent-blue)] bg-[var(--hover)]")}>Acima da imagem</button><button onClick={() => placeText("below")} className={cn("rounded-xl border px-3 py-2 text-xs", textPlacement === "below" && "border-[var(--accent-blue)] bg-[var(--hover)]")}>Abaixo da imagem</button></div>
+        <div className="grid grid-cols-2 gap-2"><button onClick={() => { placeText("above"); onFocusVisualControl?.({ kind: "textPlacement" }); }} className={cn("rounded-xl border px-3 py-2 text-xs", textPlacement === "above" && "border-[var(--accent-blue)] bg-[var(--hover)]")}>Acima da imagem</button><button onClick={() => { placeText("below"); onFocusVisualControl?.({ kind: "textPlacement" }); }} className={cn("rounded-xl border px-3 py-2 text-xs", textPlacement === "below" && "border-[var(--accent-blue)] bg-[var(--hover)]")}>Abaixo da imagem</button></div>
         <p className="text-[10px] leading-relaxed text-[var(--muted-foreground)]"><Move size={11} className="mr-1 inline" />{section ? "Use os botões acima para posicionar a caixa em relação à imagem." : "Selecione uma caixa e arraste o controle azul. Ela se encaixa na sequência sem alterar margens ou distâncias."}</p>
       </PanelSection>}
 
@@ -1166,22 +1317,23 @@ function PropertiesPanel({ section, template, format, setFormat, slide, update, 
             onFile={(file) => addFile(file, (avatar) => updateProfile({ avatar, avatarCrop: defaultMediaCrop() }))}
             onRemove={() => updateProfile({ avatar: "", avatarCrop: defaultMediaCrop() })}
             onCropChange={(avatarCrop) => updateProfile({ avatarCrop })}
+            onFocusCrop={section ? (axis) => onFocusVisualControl?.({ kind: "avatarCrop", axis }) : undefined}
           />
           <Field label="Nome"><input value={profile.name} onChange={(event) => updateProfile({ name: event.target.value })} className="editor-input" /></Field>
           <Field label="Arroba"><div className="relative"><AtSign size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)]" /><input value={profile.handle.replace(/^@/, "")} onChange={(event) => updateProfile({ handle: `@${event.target.value.replace(/^@/, "")}` })} className="editor-input pl-8" /></div></Field>
           <label className="flex items-center justify-between text-xs"><span>Selo de verificação</span><input type="checkbox" checked={profile.verified} onChange={(event) => updateProfile({ verified: event.target.checked })} className="accent-[#27a3ff]" /></label>
         </PanelSection>
-        <PanelSection title="Aparência"><div className="grid grid-cols-2 gap-2"><button onClick={() => updateBackground("#ffffff")} className={cn("min-h-14 rounded-xl border p-3 text-left", slide.background === "#ffffff" && "border-[#27a3ff]")}><Sun size={15} /><span className="mt-2 block text-xs">Claro</span></button><button onClick={() => updateBackground("#000000")} className={cn("min-h-14 rounded-xl border p-3 text-left", slide.background === "#000000" && "border-[#27a3ff]")}><Moon size={15} /><span className="mt-2 block text-xs">Escuro absoluto</span></button></div></PanelSection></>}
-        {(!section || section === "image") && <MediaPanel slide={slide} update={update} addFile={addFile} title="Imagem do post" mobile={Boolean(section)} />}
+        <PanelSection title="Aparência">{section ? <MobileAdjustmentButton label="Cor de fundo" value={slide.background.toUpperCase()} onClick={() => onFocusVisualControl?.({ kind: "backgroundColor" })} /> : <div className="grid grid-cols-2 gap-2"><button onClick={() => updateBackground("#ffffff")} className={cn("min-h-14 rounded-xl border p-3 text-left", slide.background === "#ffffff" && "border-[#27a3ff]")}><Sun size={15} /><span className="mt-2 block text-xs">Claro</span></button><button onClick={() => updateBackground("#000000")} className={cn("min-h-14 rounded-xl border p-3 text-left", slide.background === "#000000" && "border-[#27a3ff]")}><Moon size={15} /><span className="mt-2 block text-xs">Escuro absoluto</span></button></div>}</PanelSection></>}
+        {(!section || section === "image") && <MediaPanel slide={slide} update={update} addFile={addFile} title="Imagem do post" mobile={Boolean(section)} onFocusCrop={section ? (index, axis) => onFocusVisualControl?.({ kind: "mediaCrop", index, axis }) : undefined} />}
       </> : <>
-        {(!section || section === "background") && <><PanelSection title="Cores"><BackgroundColorRow value={slide.background} onChange={updateBackground} /><div className="flex items-center justify-between rounded-xl border px-3 py-2" style={{ borderColor: "var(--glass-border)" }}><span className="text-xs">Texto automático</span><span className="h-7 w-7 rounded-full border" style={{ background: slide.foreground, borderColor: "var(--glass-border)" }} /></div></PanelSection>
-        <PanelSection title="Imagem de fundo"><UploadField label="Imagem do slide" value={slide.backgroundImage} square onFile={(file) => addFile(file, (backgroundImage) => update({ backgroundImage }))} onRemove={() => update({ backgroundImage: "" })} />{slide.backgroundImage && <Field label={`Escurecer foto · ${slide.imageDarkness}%`}><input type="range" min="0" max="90" value={slide.imageDarkness} onChange={(event) => update({ imageDarkness: Number(event.target.value) })} className="w-full accent-[#27a3ff]" /></Field>}</PanelSection></>}
-        {(!section || section === "image") && <MediaPanel slide={slide} update={update} addFile={addFile} title="Imagem complementar" mobile={Boolean(section)} />}
+        {(!section || section === "background") && <><PanelSection title="Cores">{section ? <MobileAdjustmentButton label="Cor de fundo" value={slide.background.toUpperCase()} onClick={() => onFocusVisualControl?.({ kind: "backgroundColor" })} /> : <BackgroundColorRow value={slide.background} onChange={updateBackground} />}<div className="flex items-center justify-between rounded-xl border px-3 py-2" style={{ borderColor: "var(--glass-border)" }}><span className="text-xs">Texto automático</span><span className="h-7 w-7 rounded-full border" style={{ background: slide.foreground, borderColor: "var(--glass-border)" }} /></div></PanelSection>
+        <PanelSection title="Imagem de fundo"><UploadField label="Imagem do slide" value={slide.backgroundImage} square onFile={(file) => addFile(file, (backgroundImage) => update({ backgroundImage }))} onRemove={() => update({ backgroundImage: "" })} />{slide.backgroundImage && (section ? <MobileAdjustmentButton label="Escurecer foto" value={`${slide.imageDarkness}%`} onClick={() => onFocusVisualControl?.({ kind: "backgroundDarkness" })} /> : <Field label={`Escurecer foto · ${slide.imageDarkness}%`}><input type="range" min="0" max="90" value={slide.imageDarkness} onChange={(event) => update({ imageDarkness: Number(event.target.value) })} className="w-full accent-[#27a3ff]" /></Field>)}</PanelSection></>}
+        {(!section || section === "image") && <MediaPanel slide={slide} update={update} addFile={addFile} title="Imagem complementar" mobile={Boolean(section)} onFocusCrop={section ? (index, axis) => onFocusVisualControl?.({ kind: "mediaCrop", index, axis }) : undefined} />}
       </>}
     </div></aside>;
 }
 
-function MediaPanel({ slide, update, addFile, title, mobile = false }: { slide: Slide; update: (patch: Partial<Slide>) => void; addFile: (file: File | undefined, callback: (url: string) => void) => void; title: string; mobile?: boolean }) {
+function MediaPanel({ slide, update, addFile, title, mobile = false, onFocusCrop }: { slide: Slide; update: (patch: Partial<Slide>) => void; addFile: (file: File | undefined, callback: (url: string) => void) => void; title: string; mobile?: boolean; onFocusCrop?: (index: number, axis: keyof MediaCrop) => void }) {
   const setMediaFile = (index: number, url: string) => {
     const media = [...slide.media];
     const mediaCrops = [...slide.mediaCrops];
@@ -1190,7 +1342,7 @@ function MediaPanel({ slide, update, addFile, title, mobile = false }: { slide: 
     const pairs = media.map((image, mediaIndex) => ({ image, crop: mediaCrops[mediaIndex] || defaultMediaCrop() })).filter((item) => Boolean(item.image)).slice(0, 2);
     update({ media: pairs.map((item) => item.image), mediaCrops: pairs.map((item) => item.crop) });
   };
-  return <PanelSection title={title}><p className="mb-3 text-[10px] leading-relaxed text-[var(--muted-foreground)]">{mobile ? "Toque em uma área para escolher uma foto da biblioteca ou da câmera. Use até duas imagens lado a lado." : "O quadro é sempre horizontal. Envie um arquivo ou cole uma imagem com Ctrl+V / ⌘V; use até duas lado a lado."}</p><div className="grid grid-cols-2 gap-2">{[0, 1].map((index) => <UploadTile key={index} value={slide.media[index]} crop={{ ...defaultMediaCrop(), ...slide.mediaCrops[index] }} label={`Imagem ${index + 1}`} onCropChange={(crop) => { const mediaCrops = [...slide.mediaCrops]; mediaCrops[index] = crop; update({ mediaCrops }); }} onFile={(file) => addFile(file, (url) => setMediaFile(index, url))} onRemove={() => update({ media: slide.media.filter((_, mediaIndex) => mediaIndex !== index), mediaCrops: slide.mediaCrops.filter((_, mediaIndex) => mediaIndex !== index) })} />)}</div></PanelSection>;
+  return <PanelSection title={title}><p className="mb-3 text-[10px] leading-relaxed text-[var(--muted-foreground)]">{mobile ? "Toque em uma área para escolher uma foto da biblioteca ou da câmera. Use até duas imagens lado a lado." : "O quadro é sempre horizontal. Envie um arquivo ou cole uma imagem com Ctrl+V / ⌘V; use até duas lado a lado."}</p><div className="grid grid-cols-2 gap-2">{[0, 1].map((index) => <UploadTile key={index} value={slide.media[index]} crop={{ ...defaultMediaCrop(), ...slide.mediaCrops[index] }} label={`Imagem ${index + 1}`} compactControls={mobile} onFocusCrop={(axis) => onFocusCrop?.(index, axis)} onCropChange={(crop) => { const mediaCrops = [...slide.mediaCrops]; mediaCrops[index] = crop; update({ mediaCrops }); }} onFile={(file) => addFile(file, (url) => setMediaFile(index, url))} onRemove={() => update({ media: slide.media.filter((_, mediaIndex) => mediaIndex !== index), mediaCrops: slide.mediaCrops.filter((_, mediaIndex) => mediaIndex !== index) })} />)}</div></PanelSection>;
 }
 
 function PanelSection({ title, children }: { title: string; children: React.ReactNode }) { return <section className="post-generator-panel-section border-b pb-5 last:border-0" style={{ borderColor: "var(--border)" }}><h2 className="mb-3 text-[10px] font-semibold uppercase tracking-[.14em] text-[var(--muted-foreground)]">{title}</h2><div className="space-y-3">{children}</div></section>; }
@@ -1201,7 +1353,7 @@ function BackgroundColorRow({ value, onChange }: { value: string; onChange: (val
   return <div className="flex items-center justify-between rounded-xl border px-3 py-2" style={{ borderColor: "var(--glass-border)" }}><span className="text-xs">Fundo</span><div className="flex items-center gap-2">{[{ value: "#000000", label: "Preto puro" }, { value: "#ffffff", label: "Branco puro" }].map((color) => <button key={color.value} type="button" onClick={() => onChange(color.value)} aria-label={`Usar fundo ${color.label.toLowerCase()}`} title={color.label} className={cn("h-8 w-8 rounded-full border transition hover:scale-105", normalizedValue === color.value ? "ring-2 ring-[#27a3ff] ring-offset-2 ring-offset-[var(--background)]" : "border-[var(--glass-border)]")} style={{ backgroundColor: color.value }} />)}<label className="relative grid h-8 w-8 cursor-pointer place-items-center rounded-full border text-[var(--muted-foreground)] transition hover:bg-[var(--hover)] hover:text-[var(--text-title)]" style={{ borderColor: "var(--glass-border)" }} title="Escolher cor personalizada"><Palette size={15} /><input aria-label="Escolher cor de fundo personalizada" type="color" value={value} onChange={(event) => onChange(event.target.value)} className="absolute inset-0 cursor-pointer opacity-0" /></label></div></div>;
 }
 
-function AvatarUploadField({ value, crop, onFile, onRemove, onCropChange }: { value: string; crop: MediaCrop; onFile: (file?: File) => void; onRemove: () => void; onCropChange: (crop: MediaCrop) => void }) {
+function AvatarUploadField({ value, crop, onFile, onRemove, onCropChange, onFocusCrop }: { value: string; crop: MediaCrop; onFile: (file?: File) => void; onRemove: () => void; onCropChange: (crop: MediaCrop) => void; onFocusCrop?: (axis: keyof MediaCrop) => void }) {
   return <div className="space-y-3">
     <div className="flex items-center gap-3">
       <span className="rounded-full border" style={{ borderColor: "var(--glass-border)" }}><Avatar src={value} crop={crop} size={76} /></span>
@@ -1212,15 +1364,13 @@ function AvatarUploadField({ value, crop, onFile, onRemove, onCropChange }: { va
     </div>
     {value && <div className="space-y-2 rounded-xl border p-3" style={{ borderColor: "var(--glass-border)", background: "var(--hover)" }}>
       <div className="flex items-center justify-between"><span className="text-[10px] font-medium text-[var(--text-title)]">Enquadramento da foto</span><button type="button" onClick={() => onCropChange(defaultMediaCrop())} className="text-[9px] text-[var(--accent-blue)] hover:underline">Centralizar</button></div>
-      <CropSlider label="Horizontal" value={crop.x} min={0} max={100} onChange={(x) => onCropChange({ ...crop, x })} />
-      <CropSlider label="Vertical" value={crop.y} min={0} max={100} onChange={(y) => onCropChange({ ...crop, y })} />
-      <CropSlider label="Zoom" value={crop.zoom} min={1} max={4} step={0.05} onChange={(zoom) => onCropChange({ ...crop, zoom })} />
+      {onFocusCrop ? <div className="grid gap-1.5"><MobileAdjustmentButton label="Horizontal" value={`${Math.round(crop.x)}%`} onClick={() => onFocusCrop("x")} /><MobileAdjustmentButton label="Vertical" value={`${Math.round(crop.y)}%`} onClick={() => onFocusCrop("y")} /><MobileAdjustmentButton label="Zoom" value={`${crop.zoom.toFixed(2)}×`} onClick={() => onFocusCrop("zoom")} /></div> : <><CropSlider label="Horizontal" value={crop.x} min={0} max={100} onChange={(x) => onCropChange({ ...crop, x })} /><CropSlider label="Vertical" value={crop.y} min={0} max={100} onChange={(y) => onCropChange({ ...crop, y })} /><CropSlider label="Zoom" value={crop.zoom} min={1} max={4} step={0.05} onChange={(zoom) => onCropChange({ ...crop, zoom })} /></>}
     </div>}
   </div>;
 }
 
 function UploadField({ label, value, onFile, onRemove, square = false }: { label: string; value: string; onFile: (file?: File) => void; onRemove: () => void; square?: boolean }) { return <div className="flex items-center gap-3"><span className={cn("grid h-11 w-11 shrink-0 place-items-center overflow-hidden border bg-[var(--hover)]", square ? "rounded-lg" : "rounded-full")}>{value ? <img src={value} alt="Arquivo selecionado" className="h-full w-full object-cover" /> : <UserRound size={17} />}</span><label className="flex-1 cursor-pointer rounded-lg border px-3 py-2 text-center text-[10px] hover:bg-[var(--hover)]"><Upload size={12} className="mr-1 inline" />{value ? "Trocar" : label}<input type="file" accept="image/*" className="sr-only" onChange={(event) => onFile(event.target.files?.[0])} /></label>{value && <button onClick={onRemove} className="text-[var(--muted-foreground)] hover:text-red-500" aria-label="Remover imagem"><X size={15} /></button>}</div>; }
 
-function UploadTile({ label, value, crop, onFile, onRemove, onCropChange }: { label: string; value?: string; crop: MediaCrop; onFile: (file?: File) => void; onRemove: () => void; onCropChange: (crop: MediaCrop) => void }) { return <div className="min-w-0 space-y-2"><div className="relative aspect-video overflow-hidden rounded-xl border bg-[var(--hover)]" style={{ borderColor: "var(--glass-border)" }}>{value ? <><img src={value} alt={label} className="h-full w-full object-cover" style={{ objectPosition: `${crop.x}% ${crop.y}%`, transform: `scale(${crop.zoom})`, transformOrigin: `${crop.x}% ${crop.y}%` }} /><button onClick={onRemove} aria-label={`Remover ${label}`} className="absolute right-1.5 top-1.5 grid h-6 w-6 place-items-center rounded-full bg-black/70 text-white"><X size={12} /></button></> : <label className="grid h-full cursor-pointer place-items-center text-center text-[10px] text-[var(--muted-foreground)]"><span><ImagePlus size={18} className="mx-auto mb-1" />{label}</span><input type="file" accept="image/*" className="sr-only" onChange={(event) => onFile(event.target.files?.[0])} /></label>}</div>{value && <div className="space-y-1.5 rounded-lg border p-2" style={{ borderColor: "var(--glass-border)" }}><CropSlider label="Horizontal" value={crop.x} min={0} max={100} onChange={(x) => onCropChange({ ...crop, x })} /><CropSlider label="Vertical" value={crop.y} min={0} max={100} onChange={(y) => onCropChange({ ...crop, y })} /><CropSlider label="Zoom" value={crop.zoom} min={1} max={2.5} step={0.05} onChange={(zoom) => onCropChange({ ...crop, zoom })} /></div>}</div>; }
+function UploadTile({ label, value, crop, onFile, onRemove, onCropChange, compactControls = false, onFocusCrop }: { label: string; value?: string; crop: MediaCrop; onFile: (file?: File) => void; onRemove: () => void; onCropChange: (crop: MediaCrop) => void; compactControls?: boolean; onFocusCrop?: (axis: keyof MediaCrop) => void }) { return <div className="min-w-0 space-y-2"><div className="relative aspect-video overflow-hidden rounded-xl border bg-[var(--hover)]" style={{ borderColor: "var(--glass-border)" }}>{value ? <><img src={value} alt={label} className="h-full w-full object-cover" style={{ objectPosition: `${crop.x}% ${crop.y}%`, transform: `scale(${crop.zoom})`, transformOrigin: `${crop.x}% ${crop.y}%` }} /><button onClick={onRemove} aria-label={`Remover ${label}`} className="absolute right-1.5 top-1.5 grid h-6 w-6 place-items-center rounded-full bg-black/70 text-white"><X size={12} /></button></> : <label className="grid h-full cursor-pointer place-items-center text-center text-[10px] text-[var(--muted-foreground)]"><span><ImagePlus size={18} className="mx-auto mb-1" />{label}</span><input type="file" accept="image/*" className="sr-only" onChange={(event) => onFile(event.target.files?.[0])} /></label>}</div>{value && <div className="space-y-1.5 rounded-lg border p-2" style={{ borderColor: "var(--glass-border)" }}>{compactControls ? <><MobileAdjustmentButton label="Horizontal" value={`${Math.round(crop.x)}%`} onClick={() => onFocusCrop?.("x")} /><MobileAdjustmentButton label="Vertical" value={`${Math.round(crop.y)}%`} onClick={() => onFocusCrop?.("y")} /><MobileAdjustmentButton label="Zoom" value={`${crop.zoom.toFixed(2)}×`} onClick={() => onFocusCrop?.("zoom")} /></> : <><CropSlider label="Horizontal" value={crop.x} min={0} max={100} onChange={(x) => onCropChange({ ...crop, x })} /><CropSlider label="Vertical" value={crop.y} min={0} max={100} onChange={(y) => onCropChange({ ...crop, y })} /><CropSlider label="Zoom" value={crop.zoom} min={1} max={2.5} step={0.05} onChange={(zoom) => onCropChange({ ...crop, zoom })} /></>}</div>}</div>; }
 
 function CropSlider({ label, value, min, max, step = 1, onChange }: { label: string; value: number; min: number; max: number; step?: number; onChange: (value: number) => void }) { return <label className="block"><span className="mb-0.5 flex justify-between text-[8px] text-[var(--muted-foreground)]"><span>{label}</span><span>{label === "Zoom" ? `${value.toFixed(2)}×` : `${Math.round(value)}%`}</span></span><input type="range" aria-label={`${label} da imagem`} min={min} max={max} step={step} value={value} onChange={(event) => onChange(Number(event.target.value))} className="block w-full accent-[#27a3ff]" /></label>; }

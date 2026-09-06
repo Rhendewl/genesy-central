@@ -1645,9 +1645,21 @@
 }
 .post-rich-text mark {
   color: inherit;
+  padding: 0.06em 0.15em;
+  margin-inline: 0.02em;
+  border-radius: 0.14em;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
 }
 .post-rich-text strong {
   font-weight: 700;
+}
+.post-rich-text .post-text-backdrop {
+  padding: 0.08em 0.22em 0.1em;
+  margin-inline: 0.025em;
+  border-radius: 0.2em;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
 }
 .post-rich-text .tiptap p + p,
 .post-rich-text > p + p {

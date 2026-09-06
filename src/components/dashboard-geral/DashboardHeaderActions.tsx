@@ -6,10 +6,11 @@ import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale/pt-BR";
-import { CalendarDays, ClipboardCheck, Bell, CheckCheck, Inbox, Trash2 } from "lucide-react";
+import { CalendarDays, ClipboardCheck, Bell, BellRing, CheckCheck, Inbox, Loader2, Smartphone, Trash2 } from "lucide-react";
 import type { useWorkspaceTasks } from "@/hooks/useWorkspaceTasks";
 import { Button } from "@/components/ui/button";
 import { FinancialPrivacyButton } from "@/components/ui/FinancialPrivacyButton";
+import { ensurePushSubscription } from "@/lib/notifications/push-client";
 
 function capitalize(s: string) {
   return s.charAt(0).toUpperCase() + s.slice(1);
@@ -180,12 +181,35 @@ function NotificationBell() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
+  const [pushPermission, setPushPermission] = useState<NotificationPermission | "unsupported">("unsupported");
+  const [isEnablingPush, setIsEnablingPush] = useState(false);
+  const [pushError, setPushError] = useState("");
   const [pos, setPos] = useState({ top: 0, left: 0 });
   const btnRef = useRef<HTMLButtonElement>(null);
   const knownIdsRef = useRef<Set<string>>(new Set());
   const hasInitialLoadRef = useRef(false);
 
-  useEffect(() => { setMounted(true); }, []);
+  useEffect(() => {
+    setMounted(true);
+    setPushPermission(typeof window !== "undefined" && "Notification" in window ? Notification.permission : "unsupported");
+  }, []);
+
+  const enableMobilePush = useCallback(async () => {
+    setIsEnablingPush(true);
+    setPushError("");
+    try {
+      const subscription = await ensurePushSubscription({ requestPermission: true });
+      setPushPermission(Notification.permission);
+      if (!subscription && Notification.permission !== "granted") {
+        setPushError("Permissão não concedida. Libere as notificações nos ajustes do celular.");
+      }
+    } catch (error) {
+      setPushPermission(typeof window !== "undefined" && "Notification" in window ? Notification.permission : "unsupported");
+      setPushError(error instanceof Error ? error.message : "Não foi possível ativar as notificações.");
+    } finally {
+      setIsEnablingPush(false);
+    }
+  }, []);
 
   const positionPanel = useCallback(() => {
     if (!btnRef.current) return;
@@ -373,6 +397,35 @@ function NotificationBell() {
                       )}
                       <CheckCheck size={16} style={{ color: unreadCount > 0 ? "var(--primary)" : "var(--muted-foreground)" }} />
                     </div>
+                  </div>
+
+                  <div className="border-b p-2" style={{ borderColor: "var(--glass-border)" }}>
+                    {pushPermission === "granted" ? (
+                      <div className="flex items-center gap-2 rounded-xl bg-emerald-500/10 px-3 py-2 text-xs text-emerald-500">
+                        <BellRing size={15} />
+                        <span>Alertas no celular estão ativos neste dispositivo.</span>
+                      </div>
+                    ) : pushPermission === "unsupported" ? (
+                      <div className="flex items-start gap-2 rounded-xl bg-amber-500/10 px-3 py-2 text-xs leading-relaxed text-amber-500">
+                        <Smartphone size={15} className="mt-0.5 shrink-0" />
+                        <span>Para receber alertas no iPhone, instale o app na tela inicial e abra-o por lá.</span>
+                      </div>
+                    ) : (
+                      <div className="rounded-xl bg-[var(--hover)] px-3 py-2.5">
+                        <div className="flex items-center gap-2">
+                          <Smartphone size={15} className="shrink-0 text-[var(--accent-blue)]" />
+                          <p className="min-w-0 flex-1 text-xs text-[var(--text-title)]">Receba alertas de saldo mesmo com o app fechado.</p>
+                          <button type="button" onClick={() => void enableMobilePush()} disabled={isEnablingPush || pushPermission === "denied"} className="shrink-0 rounded-lg bg-[var(--accent-blue)] px-2.5 py-1.5 text-[10px] font-semibold text-white disabled:opacity-50">
+                            {isEnablingPush ? <Loader2 size={13} className="animate-spin" /> : pushPermission === "denied" ? "Bloqueado" : "Ativar"}
+                          </button>
+                        </div>
+                        {(pushError || pushPermission === "denied") && (
+                          <p className="mt-2 text-[10px] leading-relaxed text-red-500">
+                            {pushError || "As notificações estão bloqueadas. Libere-as nos ajustes do navegador ou do celular."}
+                          </p>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   <div className="max-h-[360px] overflow-y-auto p-2">
