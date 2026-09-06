@@ -10,7 +10,7 @@ import TextAlign from "@tiptap/extension-text-align";
 import { Color, TextStyle } from "@tiptap/extension-text-style";
 import {
   AlignCenter, AlignLeft, AlignRight, ArrowDown, ArrowLeft, ArrowUp, AtSign,
-  Bold, Bookmark, Check, ChevronRight, Copy, Download, GripVertical, Heart, Highlighter, ImagePlus,
+  Bold, Bookmark, Check, ChevronRight, Copy, Download, GripVertical, Heart, ImagePlus,
   Italic, Layers3, MessageCircle, MoreHorizontal, Move, Moon, Palette, Plus, Redo2, RotateCcw, Send, Share2, Square, Sun, Trash2,
   Type, Underline, Undo2, Upload, UserRound, X,
 } from "lucide-react";
@@ -54,7 +54,7 @@ type TextBlock = { id: string; content: string; fontSize: number; textWidth: num
 type TweetProfile = { avatar: string; avatarCrop: MediaCrop; name: string; handle: string; verified: boolean };
 type PersistedPostProject = { version: 1; format: PostFormat; slides: Slide[]; activeId: string; tweetProfile: TweetProfile; updatedAt: number };
 type MobileEditorPanel = "text" | "image" | "background" | "slide" | "export" | null;
-type MobileInlineTool = "format" | "textColor" | "highlight" | "backdrop";
+type MobileInlineTool = "format" | "textColor" | "backdrop";
 type MobileTextTool = MobileInlineTool | "fontSize" | "lineHeight" | "textWidth" | null;
 type MobileVisualTool =
   | { kind: "backgroundColor" }
@@ -1058,7 +1058,6 @@ function MobileTextQuickPanel({ tool, editor, defaultColor, allowItalic, templat
   const labels: Record<Exclude<MobileTextTool, null>, string> = {
     format: "Formatação",
     textColor: "Cor do texto",
-    highlight: "Marca-texto",
     backdrop: "Texto destacado",
     fontSize: `Tamanho · ${textBlock.fontSize}px`,
     lineHeight: `Espaçamento · ${Math.round(textBlock.lineHeight * 100)}%`,
@@ -1072,7 +1071,7 @@ function MobileTextQuickPanel({ tool, editor, defaultColor, allowItalic, templat
         <p className="min-w-0 flex-1 truncate text-xs font-semibold text-[var(--text-title)]">{labels[tool]}</p>
         <button type="button" onClick={onClose} className="grid h-9 w-9 place-items-center rounded-xl text-[var(--muted-foreground)] active:bg-[var(--hover)]" aria-label="Fechar ajuste"><X size={16} /></button>
       </div>
-      {(["format", "textColor", "highlight", "backdrop"] as string[]).includes(tool) ? (
+      {(["format", "textColor", "backdrop"] as string[]).includes(tool) ? (
         <TextToolbar editor={editor} defaultColor={defaultColor} allowItalic={allowItalic} compact visibleGroup={tool as MobileInlineTool} preserveSelection />
       ) : (
         <div className="px-4 py-4">
@@ -1149,7 +1148,6 @@ function TextToolbar({ editor, defaultColor, allowItalic, compact = false, visib
       <button onClick={() => chain().redo().run()} disabled={!editor.can().redo()} className={toolClass(false)} title="Refazer" aria-label="Refazer"><Redo2 /></button>
     </>}
     {show("textColor") && <TextColorTool disabled={!hasSelection} value={editor.getAttributes("textStyle").color || defaultColor} isAutomatic={!editor.getAttributes("textStyle").color} onAuto={() => { chain().unsetColor().run(); onToolUse?.("textColor"); }} onChange={(color) => { chain().setColor(color).run(); onToolUse?.("textColor"); }} />}
-    {show("highlight") && <HighlightColorTool disabled={!hasSelection} value={editor.getAttributes("highlight").color || "#ffdf2b"} active={editor.isActive("highlight")} onClear={() => { chain().unsetHighlight().run(); onToolUse?.("highlight"); }} onChange={(color) => { chain().setHighlight({ color }).run(); onToolUse?.("highlight"); }} />}
     {show("backdrop") && <div className="flex shrink-0 items-center gap-1"><button type="button" onClick={cycleBackdrop} disabled={!hasSelection} className={toolClass(backdropActive)} title="Texto destacado" aria-label="Alternar texto destacado"><Square fill={backdropActive ? backdropAttributes.backgroundColor || "#000000" : "none"} /></button>{backdropActive && <label className="editor-tool relative shrink-0 cursor-pointer" title="Cor do fundo destacado" aria-label="Escolher cor do fundo destacado"><Palette /><input aria-label="Cor do fundo destacado" type="color" value={toHexColor(backdropAttributes.backgroundColor || "#000000")} disabled={!hasSelection} className="absolute inset-0 cursor-pointer opacity-0" onChange={(event) => { const backgroundColor = event.target.value; chain().setMark("textBackdrop", { backgroundColor, color: contrastColor(backgroundColor) }).run(); onToolUse?.("backdrop"); }} /></label>}</div>}
     {!compact && <span className="ml-auto pr-2 text-[9px] text-[var(--muted-foreground)]">{hasSelection ? "Formatação do trecho selecionado" : "Selecione um trecho para formatar"}</span>}
   </div>;
@@ -1167,15 +1165,6 @@ function TextColorTool({ value, disabled, isAutomatic, onAuto, onChange }: { val
     <button type="button" disabled={disabled} title="Cor automática" aria-label="Usar cor automática do texto" aria-pressed={isAutomatic} onClick={onAuto} className={cn("grid h-7 w-7 place-items-center rounded-full border transition", isAutomatic ? "border-[var(--accent-blue)] text-[var(--accent-blue)]" : "border-[var(--glass-border)] text-[var(--muted-foreground)]")}><RotateCcw size={12} /></button>
     {QUICK_TEXT_COLORS.map((color) => <button key={color.value} type="button" disabled={disabled} title={color.label} aria-label={`Aplicar cor ${color.label}`} aria-pressed={selected === color.value} onClick={() => onChange(color.value)} className={cn("h-6 w-6 rounded-full border border-white/20 shadow-sm transition hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-blue)]", selected === color.value && "ring-2 ring-white ring-offset-1 ring-offset-[var(--bg-modal)]")} style={{ background: color.value }} />)}
     <label className="editor-tool relative shrink-0 cursor-pointer" title="Mais cores" aria-label="Abrir seletor de cores personalizado"><Palette /><input aria-label="Cor personalizada do texto" type="color" value={toHexColor(value)} disabled={disabled} className="absolute inset-0 cursor-pointer opacity-0" onChange={(event) => onChange(event.target.value)} /></label>
-  </div>;
-}
-
-function HighlightColorTool({ value, disabled, active, onClear, onChange }: { value: string; disabled: boolean; active: boolean; onClear: () => void; onChange: (value: string) => void }) {
-  const selected = value.toLowerCase();
-  return <div role="group" aria-label="Marca-texto" className={cn("flex shrink-0 items-center gap-1 rounded-lg px-1", disabled && "pointer-events-none opacity-40")}>
-    <button type="button" disabled={disabled} title="Sem marca-texto" aria-label="Remover marca-texto" aria-pressed={!active} onClick={onClear} className={cn("grid h-7 w-7 place-items-center rounded-full border transition", !active ? "border-[var(--accent-blue)] text-[var(--accent-blue)]" : "border-[var(--glass-border)] text-[var(--muted-foreground)]")}><X size={12} /></button>
-    {QUICK_TEXT_COLORS.map((color) => <button key={color.value} type="button" disabled={disabled} title={`Marca-texto ${color.label}`} aria-label={`Aplicar marca-texto ${color.label}`} aria-pressed={active && selected === color.value} onClick={() => onChange(color.value)} className={cn("h-6 w-6 rounded-md border border-white/20 shadow-sm transition hover:scale-110", active && selected === color.value && "ring-2 ring-white ring-offset-1 ring-offset-[var(--bg-modal)]")} style={{ background: color.value }} />)}
-    <label className="editor-tool relative shrink-0 cursor-pointer" title="Outra cor de marca-texto" aria-label="Escolher outra cor de marca-texto"><Highlighter /><input aria-label="Cor personalizada do marca-texto" type="color" value={toHexColor(value)} disabled={disabled} className="absolute inset-0 cursor-pointer opacity-0" onChange={(event) => onChange(event.target.value)} /></label>
   </div>;
 }
 
