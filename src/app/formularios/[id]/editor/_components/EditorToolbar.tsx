@@ -5,6 +5,7 @@ import { ArrowLeft, Send, Link2, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import type { FormStatus } from "@/types";
 import { SaveIndicator } from "./SaveIndicator";
+import { buildPublicUrl } from "@/lib/public-url";
 
 interface EditorToolbarProps {
   formName: string;
@@ -47,13 +48,13 @@ export function EditorToolbar({
 
   const copyLink = () => {
     if (!publicPath) return;
-    const fullUrl = `${window.location.origin}${publicPath}`;
+    const fullUrl = buildPublicUrl(publicPath);
     navigator.clipboard.writeText(fullUrl).then(() => toast.success("Link copiado"));
   };
 
   const openForm = () => {
     if (!publicPath) return;
-    window.open(publicPath, "_blank", "noopener,noreferrer");
+    window.open(buildPublicUrl(publicPath), "_blank", "noopener,noreferrer");
   };
 
   const commitName = () => {

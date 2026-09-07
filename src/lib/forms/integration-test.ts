@@ -78,7 +78,7 @@ export async function testServerIntegration(db: SupabaseClient, formId: string, 
     sessionToken: "test-session",
     timestamp: Date.now(),
     payload: testPayload,
-    meta: { page_url: `https://dash.genesycompany.com/form/${form.slug ?? form.id}` },
+    meta: { page_url: `https://go.genesycompany.com/form/${form.slug ?? form.id}` },
     version: 1,
   }, { formSlug: form.slug ?? form.id, correlationId });
 

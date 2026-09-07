@@ -13,6 +13,7 @@ import type {
   AppointmentCustomFieldType,
   StandardFieldVisibility,
 } from "@/types/appointments";
+import { buildPublicUrl } from "@/lib/public-url";
 
 // ── Styles ────────────────────────────────────────────────────────────────────
 
@@ -319,7 +320,7 @@ export function PaginaPublicaTab({ calendar, onSave }: PaginaPublicaTabProps) {
     setIsSaving(false);
   };
 
-  const publicUrl = `${typeof window !== "undefined" ? window.location.origin : ""}/agendar/${calendar.slug}`;
+  const publicUrl = buildPublicUrl(`/agendar/${calendar.slug}`);
 
   return (
     <div className="space-y-4 max-w-xl pb-8">

@@ -64,10 +64,12 @@ export async function GET(req: NextRequest) {
 
     if (error) throw error;
 
-    const params = new URLSearchParams({ tab: "integracoes", meta_pending: tokenId });
-    if (clientId) params.set("meta_client", clientId);
+    const returnUrl = new URL(safeReturn, origin);
+    if (!returnUrl.searchParams.has("tab")) returnUrl.searchParams.set("tab", "integracoes");
+    returnUrl.searchParams.set("meta_pending", tokenId);
+    if (clientId) returnUrl.searchParams.set("meta_client", clientId);
 
-    return NextResponse.redirect(`${origin}${safeReturn}?${params}`);
+    return NextResponse.redirect(returnUrl);
   } catch (err) {
     console.error("[meta/callback]", err);
     return NextResponse.redirect(errorUrl);

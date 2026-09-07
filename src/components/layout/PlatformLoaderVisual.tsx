@@ -8,7 +8,7 @@ const CRYSTAL = "M253.02,226.65h243.82c6.92,0,13.55-2.75,18.45-7.64l173.93-173.9
 
 // Páginas públicas (visitante externo, sem login) não devem exibir o splash
 // da plataforma — são acessadas via link direto e o branding aqui é irrelevante.
-const PUBLIC_PATH_PREFIXES = ["/form/", "/agendar/"];
+const PUBLIC_PATH_PREFIXES = ["/form/", "/agendar/", "/analise-comercial/", "/coleta/"];
 
 export function PlatformLoaderVisual() {
   const pathname = usePathname();

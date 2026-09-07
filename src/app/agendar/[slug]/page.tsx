@@ -3,6 +3,7 @@
 
 import type { Metadata } from "next";
 import { BookingClient } from "./BookingClient";
+import { buildPublicUrl } from "@/lib/public-url";
 
 type Props = { params: Promise<{ slug: string }> };
 
@@ -34,7 +35,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
         title:       pageTitle,
         description: description ?? undefined,
         type:        "website",
-        url:         `${baseUrl}/agendar/${slug}`,
+        url:         buildPublicUrl(`/agendar/${slug}`),
       },
       twitter: {
         card:        "summary",

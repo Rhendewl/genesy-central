@@ -12,6 +12,7 @@ import { ConfigSubNav } from "./_components/ConfigSubNav";
 import type { Form, FormStatus } from "@/types";
 import { Switch } from "@/components/ui/Switch";
 import { preserveFormListContext } from "@/lib/forms/navigation";
+import { buildPublicUrl } from "@/lib/public-url";
 
 // ── Local types ───────────────────────────────────────────────────────────────
 
@@ -327,8 +328,7 @@ export default function FormularioConfiguracoesPage() {
 
   // ── Public URL ──────────────────────────────────────────────────────────────
 
-  const origin    = typeof window !== "undefined" ? window.location.origin : "https://seudominio.com";
-  const publicUrl = `${origin}/form/${draft?.slug ?? ""}`;
+  const publicUrl = buildPublicUrl(`/form/${draft?.slug ?? ""}`);
 
   // ── Render ──────────────────────────────────────────────────────────────────
 

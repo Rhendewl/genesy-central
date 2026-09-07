@@ -12,6 +12,7 @@ import { useFormularioEditor } from "@/hooks/useFormularioEditor";
 import { FormRenderer } from "@/components/formularios/FormRenderer";
 import type { FormRendererScreen } from "@/components/formularios/FormRenderer";
 import { preserveFormListContext } from "@/lib/forms/navigation";
+import { buildPublicUrl } from "@/lib/public-url";
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -101,13 +102,13 @@ export default function FormularioOverviewPage() {
 
   const copyLink = () => {
     if (!publicPath) return;
-    const fullUrl = `${window.location.origin}${publicPath}`;
+    const fullUrl = buildPublicUrl(publicPath);
     navigator.clipboard.writeText(fullUrl).then(() => toast.success("Link copiado"));
   };
 
   const openForm = () => {
     if (!publicPath) return;
-    window.open(publicPath, "_blank", "noopener,noreferrer");
+    window.open(buildPublicUrl(publicPath), "_blank", "noopener,noreferrer");
   };
 
   // ── Renderer compartilhado ─────────────────────────────────────────────────

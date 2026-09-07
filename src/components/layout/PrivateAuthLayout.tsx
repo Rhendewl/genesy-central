@@ -51,7 +51,8 @@ export function PrivateAuthLayout({ children }: { children: React.ReactNode }) {
   const isConvitePage  = pathname?.startsWith("/convite/") ?? false;
   const isFormPage     = pathname?.startsWith("/form/")    ?? false;
   const isAgendarPage  = pathname?.startsWith("/agendar/") ?? false;
-  const showDock = isAuthenticated && !isPortalPage && !isConvitePage && !isFormPage && !isAgendarPage;
+  const isCommercialCollectionPage = pathname?.startsWith("/analise-comercial/") || pathname?.startsWith("/coleta/");
+  const showDock = isAuthenticated && !isPortalPage && !isConvitePage && !isFormPage && !isAgendarPage && !isCommercialCollectionPage;
 
   // Mobile: top padding for the fixed header (safe-area-top + 8px gap + 56px header = ~4.5rem)
   // Desktop: left padding for the dock sidebar; no top padding needed

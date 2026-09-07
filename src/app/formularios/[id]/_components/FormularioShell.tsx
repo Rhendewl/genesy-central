@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { useFormularios } from "@/hooks/useFormularios";
 import type { Form, FormStatus } from "@/types";
 import { preserveFormListContext } from "@/lib/forms/navigation";
+import { buildPublicUrl } from "@/lib/public-url";
 
 // ── Tipos ──────────────────────────────────────────────────────────────────────
 
@@ -83,7 +84,7 @@ export function FormularioShell({ id, children }: FormularioShellProps) {
 
   const st        = meta ? STATUS_STYLE[meta.status] : null;
   const publicUrl = meta?.status === "published" && meta.slug
-    ? (typeof window !== "undefined" ? `${window.location.origin}/form/${meta.slug}` : null)
+    ? buildPublicUrl(`/form/${meta.slug}`)
     : null;
 
   return (

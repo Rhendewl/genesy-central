@@ -10,7 +10,7 @@ const PlatformLoaderVisual = dynamic(
 
 export function PlatformLoader() {
   const pathname = usePathname();
-  const isPublicPage = pathname?.startsWith("/form/") || pathname?.startsWith("/agendar/");
+  const isPublicPage = ["/form/", "/agendar/", "/analise-comercial/", "/coleta/"].some((prefix) => pathname?.startsWith(prefix));
   if (isPublicPage) return null;
   return <PlatformLoaderVisual />;
 }

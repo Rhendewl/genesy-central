@@ -7,7 +7,7 @@ const PUSH_REFRESH_THROTTLE_MS = 5 * 60_000;
 
 export function PwaRegistration() {
   const pathname = usePathname();
-  const isPublicPage = pathname?.startsWith("/form/") || pathname?.startsWith("/agendar/");
+  const isPublicPage = ["/form/", "/agendar/", "/analise-comercial/", "/coleta/"].some((prefix) => pathname?.startsWith(prefix));
 
   useEffect(() => {
     if (isPublicPage) return;
