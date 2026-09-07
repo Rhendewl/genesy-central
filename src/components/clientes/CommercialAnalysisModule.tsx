@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { AnimatePresence } from "framer-motion";
 import { useAgencyClients } from "@/hooks/useAgencyClients";
 import { Button } from "@/components/ui/button";
+import { ConfirmActionModal } from "@/components/ui/ConfirmActionModal";
 import { AccountPickerModal } from "@/components/trafego/IntegracoesTab";
 import { cn } from "@/lib/utils";
 import { DEFAULT_CAMPAIGN_PARSER, extractDevelopmentName } from "@/lib/clientes/commercial-intelligence";
@@ -75,8 +76,43 @@ function Settings({ clientId, data, onSaved, onConnectMeta }: { clientId: string
 
 function Templates({ templates, onSaved }: { templates: CommercialTemplate[]; onSaved: () => Promise<void> }) {
   const [editing, setEditing] = useState<CommercialTemplate | "new" | null>(null);
+  const [deleting, setDeleting] = useState<CommercialTemplate | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+
+  async function removeTemplate() {
+    if (!deleting) return;
+    setDeleteLoading(true);
+    const response = await fetch("/api/clientes/commercial-intelligence", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "delete_template", template_id: deleting.id }),
+    });
+    const json = await response.json() as { error?: string };
+    setDeleteLoading(false);
+    if (!response.ok) {
+      toast.error(json.error ?? "Não foi possível excluir o template");
+      return;
+    }
+    toast.success("Template excluído");
+    setDeleting(null);
+    await onSaved();
+  }
+
   if (editing) return <TemplateEditor template={editing === "new" ? null : editing} onCancel={() => setEditing(null)} onSaved={async () => { setEditing(null); await onSaved(); }} />;
-  return <div className="space-y-4"><div className="flex items-center justify-between"><p className="text-xs text-[var(--muted-foreground)]">Use o mesmo padrão de campos e scoring do módulo de Formulários.</p><Button onClick={() => setEditing("new")} icon={<Plus />} signature>Novo template</Button></div><div className="grid gap-4 sm:grid-cols-2">{templates.map((template) => <Panel key={template.id} title={template.name} subtitle={template.description ?? "Template personalizado"}><div className="mb-4 flex items-center justify-between"><span className="text-[10px] text-[var(--primary)]">{template.is_system ? `Ciclo ${template.week_number}` : "Personalizado"} · {template.questions.length} campos</span><button onClick={() => setEditing(template)} className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-[11px] hover:bg-[var(--hover)]"><Pencil size={12} />Editar</button></div><ol className="space-y-2">{template.questions.map((question, index) => <li key={question.id} className="flex items-center gap-2 text-xs text-[var(--muted-foreground)]"><span className="text-[var(--primary)]">{index + 1}.</span><span className="min-w-0 flex-1 truncate">{question.title}</span><span className="rounded bg-[var(--hover)] px-1.5 py-0.5 text-[9px]">{questionTypeLabel(question.type)}</span></li>)}</ol></Panel>)}</div></div>;
+  return <div className="space-y-4">
+    <div className="flex items-center justify-between"><p className="text-xs text-[var(--muted-foreground)]">Use o mesmo padrão de campos e scoring do módulo de Formulários.</p><Button onClick={() => setEditing("new")} icon={<Plus />} signature>Novo template</Button></div>
+    <div className="grid gap-4 sm:grid-cols-2">{templates.map((template) => <Panel key={template.id} title={template.name} subtitle={template.description ?? "Template personalizado"}>
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <span className="text-[10px] text-[var(--primary)]">{template.is_system ? `Ciclo ${template.week_number}` : "Personalizado"} · {template.questions.length} campos</span>
+        <div className="flex shrink-0 gap-1.5">
+          <button onClick={() => setEditing(template)} className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-[11px] hover:bg-[var(--hover)]"><Pencil size={12} />Editar</button>
+          <button type="button" onClick={() => setDeleting(template)} aria-label={`Excluir template ${template.name}`} title="Excluir template" className="grid h-9 w-9 place-items-center rounded-lg border text-rose-400 transition hover:bg-rose-500/10"><Trash2 size={13} /></button>
+        </div>
+      </div>
+      <ol className="space-y-2">{template.questions.map((question, index) => <li key={question.id} className="flex items-center gap-2 text-xs text-[var(--muted-foreground)]"><span className="text-[var(--primary)]">{index + 1}.</span><span className="min-w-0 flex-1 truncate">{question.title}</span><span className="rounded bg-[var(--hover)] px-1.5 py-0.5 text-[9px]">{questionTypeLabel(question.type)}</span></li>)}</ol>
+    </Panel>)}</div>
+    <ConfirmActionModal open={Boolean(deleting)} title="Excluir template?" description={`O template “${deleting?.name ?? ""}” deixará de aparecer nas novas coletas. Coletas e respostas anteriores serão preservadas.`} confirmLabel="Excluir template" loading={deleteLoading} onCancel={() => { if (!deleteLoading) setDeleting(null); }} onConfirm={removeTemplate} />
+  </div>;
 }
 
 function TemplateEditor({ template, onCancel, onSaved }: { template: CommercialTemplate | null; onCancel: () => void; onSaved: () => Promise<void> }) {
@@ -98,9 +134,10 @@ function weightLabel(weight?: QuestionWeight) { return ({ ignore: "sem scoring",
 function IconButton({ label, disabled, onClick, children }: { label: string; disabled?: boolean; onClick: () => void; children: React.ReactNode }) { return <button type="button" title={label} disabled={disabled} onClick={onClick} className="grid h-8 w-8 place-items-center rounded-lg border disabled:opacity-30">{children}</button>; }
 
 function Collections({ clientId, data, onSaved }: { clientId: string; data: ModuleData; onSaved: () => Promise<void> }) {
-  const [start, setStart] = useState(format(subDays(new Date(), 6), "yyyy-MM-dd")); const [end, setEnd] = useState(format(new Date(), "yyyy-MM-dd")); const [templateId, setTemplateId] = useState("default-1"); const [saving, setSaving] = useState(false); const [copied, setCopied] = useState(""); const [slugInput, setSlugInput] = useState(data.settings?.public_slug ?? ""); const [savingSlug, setSavingSlug] = useState(false); const [testEmail, setTestEmail] = useState(""); const [sendingTest, setSendingTest] = useState(false);
-  useEffect(() => { setSlugInput(data.settings?.public_slug ?? ""); }, [data.settings?.public_slug]);
+  const [start, setStart] = useState(format(subDays(new Date(), 6), "yyyy-MM-dd")); const [end, setEnd] = useState(format(new Date(), "yyyy-MM-dd")); const [templateId, setTemplateId] = useState(data.templates[0]?.id ?? ""); const [saving, setSaving] = useState(false); const [copied, setCopied] = useState(""); const [slugInput, setSlugInput] = useState(data.settings?.public_slug ?? ""); const [savingSlug, setSavingSlug] = useState(false); const [testEmail, setTestEmail] = useState(""); const [sendingTest, setSendingTest] = useState(false);
+  useEffect(() => { setSlugInput(data.settings?.public_slug ?? ""); setTemplateId((current) => data.templates.some((template) => template.id === current) ? current : data.templates[0]?.id ?? ""); }, [data.settings?.public_slug, data.templates]);
   async function create() {
+    if (!templateId) return toast.error("Crie um template antes de ativar a coleta");
     setSaving(true);
     const selectedAccounts = data.settings?.meta_account_ids ?? [];
     await Promise.allSettled(selectedAccounts.map(async (platformAccountId) => {

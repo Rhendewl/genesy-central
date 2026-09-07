@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
     supabase.from("commercial_intelligence_settings").select("*").eq("client_id", clientId).maybeSingle(),
     supabase.from("commercial_brokers").select("*").eq("client_id", clientId).order("name"),
     supabase.from("ad_platform_accounts").select("id,account_name,account_id,status,last_sync_at").eq("client_id", clientId).eq("platform", "meta").eq("status", "connected").order("account_name"),
-    supabase.from("commercial_templates").select("*").eq("is_active", true).order("week_number"),
+    supabase.from("commercial_templates").select("*").order("week_number"),
     supabase.from("commercial_collections").select("*").eq("client_id", clientId).order("period_end", { ascending: false }).limit(24),
     supabase.from("client_commercial_analyses").select("id,meeting_date,analysis_snapshot").eq("client_id", clientId).order("meeting_date", { ascending: false }),
   ]);
@@ -75,11 +75,12 @@ export async function GET(request: NextRequest) {
     brokers,
     accounts: accountsResult.data ?? [],
     templates: [
-      ...DEFAULT_COMMERCIAL_TEMPLATES.map((template) => {
+      ...DEFAULT_COMMERCIAL_TEMPLATES.flatMap((template) => {
         const override = (templatesResult.data ?? []).find((item) => item.is_system && item.week_number === template.week);
-        return { id: `default-${template.week}`, name: override?.name ?? template.name, description: override?.description ?? template.description, week_number: template.week, questions: override?.questions ?? template.questions, is_system: true };
+        if (override?.is_active === false) return [];
+        return [{ id: `default-${template.week}`, name: override?.name ?? template.name, description: override?.description ?? template.description, week_number: template.week, questions: override?.questions ?? template.questions, is_system: true }];
       }),
-      ...(templatesResult.data ?? []).filter((template) => !template.is_system),
+      ...(templatesResult.data ?? []).filter((template) => !template.is_system && template.is_active),
     ],
     collections: enrichedCollections,
     dashboard: buildDashboard(enrichedCollections, brokers, responseRows),
@@ -195,6 +196,34 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: true, analysis_link: analysisLink });
   }
 
+  if (action === "delete_template") {
+    const templateId = String(body?.template_id ?? "");
+    if (!templateId) return NextResponse.json({ error: "Template inválido" }, { status: 400 });
+    const defaultWeek = templateId.startsWith("default-") ? Number(templateId.split("-")[1]) : null;
+    if (defaultWeek !== null && Number.isInteger(defaultWeek) && defaultWeek > 0) {
+      const defaultTemplate = DEFAULT_COMMERCIAL_TEMPLATES.find((template) => template.week === defaultWeek);
+      if (!defaultTemplate) return NextResponse.json({ error: "Template padrão não encontrado" }, { status: 404 });
+      const { data: existing } = await supabase.from("commercial_templates").select("id").eq("user_id", user.id).eq("is_system", true).eq("week_number", defaultWeek).maybeSingle();
+      const { error } = existing
+        ? await supabase.from("commercial_templates").update({ is_active: false }).eq("id", existing.id).eq("user_id", user.id)
+        : await supabase.from("commercial_templates").insert({ user_id: user.id, name: defaultTemplate.name, description: defaultTemplate.description, questions: defaultTemplate.questions, is_system: true, week_number: defaultWeek, is_active: false });
+      if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+      return NextResponse.json({ ok: true });
+    }
+    const { data, error } = await supabase
+      .from("commercial_templates")
+      .update({ is_active: false })
+      .eq("id", templateId)
+      .eq("user_id", user.id)
+      .eq("is_system", false)
+      .eq("is_active", true)
+      .select("id")
+      .maybeSingle();
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+    if (!data) return NextResponse.json({ error: "Template personalizado não encontrado" }, { status: 404 });
+    return NextResponse.json({ ok: true });
+  }
+
   if (action === "create_template" || action === "save_template") {
     const name = String(body?.name ?? "").trim();
     const questions = Array.isArray(body?.questions) ? body.questions as FormStep[] : [];
@@ -285,12 +314,13 @@ export async function POST(request: NextRequest) {
     if (templateId.startsWith("default-")) {
       const week = Number(templateId.split("-")[1]);
       const base = DEFAULT_COMMERCIAL_TEMPLATES.find((item) => item.week === week);
-      const { data: override } = await supabase.from("commercial_templates").select("id,name,description,questions").eq("user_id", user.id).eq("is_system", true).eq("week_number", week).maybeSingle();
+      const { data: override } = await supabase.from("commercial_templates").select("id,name,description,questions,is_active").eq("user_id", user.id).eq("is_system", true).eq("week_number", week).maybeSingle();
+      if (override?.is_active === false) return NextResponse.json({ error: "Este template foi excluído" }, { status: 404 });
       template = override ? { ...override, week } : base;
       templateDbId = override?.id ?? null;
     }
     else {
-      const { data } = await supabase.from("commercial_templates").select("id,name,description,questions").eq("id", templateId).maybeSingle();
+      const { data } = await supabase.from("commercial_templates").select("id,name,description,questions").eq("id", templateId).eq("is_active", true).maybeSingle();
       template = data ? { ...data, week: null } : undefined; templateDbId = data?.id ?? null;
     }
     if (!template) return NextResponse.json({ error: "Template não encontrado" }, { status: 404 });
