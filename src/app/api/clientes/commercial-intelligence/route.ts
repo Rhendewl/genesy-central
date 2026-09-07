@@ -98,10 +98,15 @@ export async function PUT(request: NextRequest) {
     meta_account_ids?: string[];
     parser_pattern?: string;
     parser_group?: number;
+    automation_enabled?: boolean;
+    minimum_leads?: number;
+    minimum_active_days?: number;
     brokers?: Array<{ id?: string; name: string; email: string; phone?: string | null }>;
   } | null;
   if (!body?.client_id) return NextResponse.json({ error: "Cliente obrigatório" }, { status: 400 });
   if (!['weekly', 'biweekly', 'monthly'].includes(body.frequency ?? "")) return NextResponse.json({ error: "Frequência inválida" }, { status: 400 });
+  if (!Number.isInteger(body.minimum_leads) || Number(body.minimum_leads) < 1) return NextResponse.json({ error: "O mínimo de leads deve ser maior que zero" }, { status: 400 });
+  if (!Number.isInteger(body.minimum_active_days) || Number(body.minimum_active_days) < 1 || Number(body.minimum_active_days) > 31) return NextResponse.json({ error: "Informe entre 1 e 31 dias com atividade" }, { status: 400 });
   try { new RegExp(body.parser_pattern || DEFAULT_CAMPAIGN_PARSER); } catch { return NextResponse.json({ error: "Expressão do parser inválida" }, { status: 400 }); }
 
   const { data: existingSettings } = await supabase.from("commercial_intelligence_settings").select("public_slug").eq("client_id", body.client_id).maybeSingle();
@@ -117,6 +122,9 @@ export async function PUT(request: NextRequest) {
     parser_pattern: body.parser_pattern || DEFAULT_CAMPAIGN_PARSER,
     parser_group: body.parser_group ?? 1,
     public_slug: publicSlug,
+    automation_enabled: Boolean(body.automation_enabled),
+    minimum_leads: body.minimum_leads,
+    minimum_active_days: body.minimum_active_days,
   }, { onConflict: "user_id,client_id" });
   if (settingsError) return NextResponse.json({ error: settingsError.message }, { status: 400 });
 

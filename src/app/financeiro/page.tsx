@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   LayoutDashboard, DollarSign, TrendingDown,
@@ -59,6 +59,10 @@ export default function FinanceiroPage() {
   const [activeTab, setActiveTab] = useState<TabId>("dashboard");
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
+  useEffect(() => {
+    const requested = new URLSearchParams(window.location.search).get("tab") as TabId | null;
+    if (requested && TABS.some((tab) => tab.id === requested)) setActiveTab(requested);
+  }, []);
 
   const prevMonth = () => {
     if (month === 1) { setMonth(12); setYear(y => y - 1); }

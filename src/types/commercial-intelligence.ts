@@ -11,6 +11,13 @@ export interface CommercialIntelligenceSettings {
   parser_group: number;
   public_slug: string | null;
   is_active: boolean;
+  automation_enabled: boolean;
+  minimum_leads: number;
+  minimum_active_days: number;
+  last_automation_check_at: string | null;
+  last_automation_status: "waiting" | "deferred" | "sent" | "partial" | "error" | null;
+  last_automation_reason: string | null;
+  last_automatic_collection_at: string | null;
 }
 
 export interface CommercialBroker {
