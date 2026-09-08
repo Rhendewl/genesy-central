@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
 
   const [settingsResult, brokersResult, accountsResult, templatesResult, collectionsResult, legacyResult] = await Promise.all([
     supabase.from("commercial_intelligence_settings").select("*").eq("client_id", clientId).maybeSingle(),
-    supabase.from("commercial_brokers").select("*").eq("client_id", clientId).order("name"),
+    supabase.from("commercial_brokers").select("*").eq("client_id", clientId).eq("is_active", true).order("name"),
     supabase.from("ad_platform_accounts").select("id,account_name,account_id,status,last_sync_at").eq("client_id", clientId).eq("platform", "meta").eq("status", "connected").order("account_name"),
     supabase.from("commercial_templates").select("*").order("week_number"),
     supabase.from("commercial_collections").select("*").eq("client_id", clientId).order("period_end", { ascending: false }).limit(24),
@@ -271,8 +271,17 @@ export async function POST(request: NextRequest) {
     const brokerId = String(body?.broker_id ?? "");
     const clientId = String(body?.client_id ?? "");
     if (!brokerId || !clientId) return NextResponse.json({ error: "Corretor inválido" }, { status: 400 });
-    const { error } = await supabase.from("commercial_brokers").update({ is_active: false }).eq("id", brokerId).eq("client_id", clientId).eq("user_id", user.id);
+    const { data, error } = await supabase
+      .from("commercial_brokers")
+      .update({ is_active: false })
+      .eq("id", brokerId)
+      .eq("client_id", clientId)
+      .eq("user_id", user.id)
+      .eq("is_active", true)
+      .select("id")
+      .maybeSingle();
     if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+    if (!data) return NextResponse.json({ error: "Corretor não encontrado ou já removido" }, { status: 404 });
     return NextResponse.json({ ok: true });
   }
 
