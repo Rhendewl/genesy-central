@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildCommercialDiagnosis, calculateCommercialScore, DEFAULT_CAMPAIGN_PARSER, extractDevelopmentName, filterLeadGenerationDevelopments } from "../commercial-intelligence";
+import { buildCommercialDiagnosis, calculateCommercialScore, DEFAULT_CAMPAIGN_PARSER, extractDevelopmentName, filterLeadGenerationDevelopments, isCommercialAnswerValid } from "../commercial-intelligence";
 
 describe("commercial intelligence campaign parser", () => {
   it("extracts the first meaningful bracket", () => {
@@ -26,6 +26,21 @@ describe("commercial scoring", () => {
       { id: "interest", type: "single_choice", title: "Interesse", required: true, weight: "low", choices: [{ id: "1", label: "Alto", value: "high", score: 5 }] },
     ], { quality: 8, interest: "high" });
     expect(score).toBe(8.33);
+  });
+});
+
+describe("commercial answer validation", () => {
+  const requiredLongText = { id: "details", type: "long_text", title: "Detalhes", required: true } as const;
+  const optionalLongText = { ...requiredLongText, required: false } as const;
+
+  it("requires at least 75 non-whitespace characters in long text answers", () => {
+    expect(isCommercialAnswerValid(requiredLongText, "a".repeat(74))).toBe(false);
+    expect(isCommercialAnswerValid(requiredLongText, `  ${"a".repeat(75)}  `)).toBe(true);
+  });
+
+  it("allows an optional long text to remain empty but validates it when filled", () => {
+    expect(isCommercialAnswerValid(optionalLongText, "")).toBe(true);
+    expect(isCommercialAnswerValid(optionalLongText, "resposta curta")).toBe(false);
   });
 });
 

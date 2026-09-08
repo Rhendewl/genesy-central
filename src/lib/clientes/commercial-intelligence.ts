@@ -2,6 +2,7 @@ import type { FormStep } from "@/types";
 import type { CommercialDevelopment, CommercialDiagnosis, CommercialResponse } from "@/types/commercial-intelligence";
 
 export const DEFAULT_CAMPAIGN_PARSER = "\\[([^\\]]+)\\]";
+export const COMMERCIAL_LONG_TEXT_MIN_LENGTH = 75;
 const LEAD_GENERATION_OBJECTIVES = new Set(["leads", "conversoes", "vendas"]);
 
 const QUESTION_WEIGHTS = { ignore: 0, low: 1, medium: 2, high: 3, critical: 5 } as const;
@@ -60,6 +61,15 @@ export const DEFAULT_COMMERCIAL_TEMPLATES: Array<{
 
 function choice(labels: string[]) {
   return labels.map((label, index) => ({ id: `choice-${index + 1}`, label, value: label }));
+}
+
+export function isCommercialAnswerValid(question: FormStep, answer: unknown): boolean {
+  const isEmpty = answer === undefined || answer === null || answer === "" || (Array.isArray(answer) && answer.length === 0);
+  if (isEmpty) return !question.required;
+  if (question.type === "long_text") {
+    return typeof answer === "string" && answer.trim().length >= COMMERCIAL_LONG_TEXT_MIN_LENGTH;
+  }
+  return true;
 }
 
 export function filterLeadGenerationDevelopments(

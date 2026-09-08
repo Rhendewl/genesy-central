@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminSupabaseClient } from "@/lib/supabase-admin";
-import { calculateCommercialScore, filterLeadGenerationDevelopments } from "@/lib/clientes/commercial-intelligence";
+import { COMMERCIAL_LONG_TEXT_MIN_LENGTH, calculateCommercialScore, filterLeadGenerationDevelopments, isCommercialAnswerValid } from "@/lib/clientes/commercial-intelligence";
 import type { CommercialDevelopment } from "@/types/commercial-intelligence";
 import type { FormStep } from "@/types";
 
@@ -57,11 +57,9 @@ export async function POST(request: NextRequest, context: Context) {
   if (!broker) return NextResponse.json({ error: "Corretor inválido" }, { status: 400 });
 
   const questions = ((collection.meta_snapshot as { questions?: FormStep[] })?.questions ?? []);
-  const missing = questions.find((question) => {
-    const answer = body.answers?.[question.id];
-    return question.required && (answer === undefined || answer === "" || (Array.isArray(answer) && answer.length === 0));
-  });
-  if (missing) return NextResponse.json({ error: `Responda: ${missing.title}` }, { status: 400 });
+  const invalid = questions.find((question) => !isCommercialAnswerValid(question, body.answers?.[question.id]));
+  if (invalid?.type === "long_text") return NextResponse.json({ error: `Escreva pelo menos ${COMMERCIAL_LONG_TEXT_MIN_LENGTH} caracteres em: ${invalid.title}` }, { status: 400 });
+  if (invalid) return NextResponse.json({ error: `Responda: ${invalid.title}` }, { status: 400 });
   const score = calculateCommercialScore(questions, body.answers);
   const objectionQuestion = questions.find((question) => /obje[cç][aã]o|barreira|dificuldade|sinal/i.test(`${question.id} ${question.title}`));
   const objectionValue = objectionQuestion ? body.answers[objectionQuestion.id] : null;
