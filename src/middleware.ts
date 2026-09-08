@@ -20,6 +20,7 @@ const PUBLIC_ROUTES = [
   "/api/portal/",
   "/convite/",
   "/api/invite/",
+  "/api/version",
   "/api/leads",
   "/form/",
   "/api/form/",
