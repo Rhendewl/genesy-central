@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
 
   const [settingsResult, brokersResult, accountsResult, templatesResult, collectionsResult, legacyResult] = await Promise.all([
     supabase.from("commercial_intelligence_settings").select("*").eq("client_id", clientId).maybeSingle(),
-    supabase.from("commercial_brokers").select("*").eq("client_id", clientId).eq("is_active", true).order("name"),
+    supabase.from("commercial_brokers").select("*").eq("client_id", clientId).order("name"),
     supabase.from("ad_platform_accounts").select("id,account_name,account_id,status,last_sync_at").eq("client_id", clientId).eq("platform", "meta").eq("status", "connected").order("account_name"),
     supabase.from("commercial_templates").select("*").order("week_number"),
     supabase.from("commercial_collections").select("*").eq("client_id", clientId).order("period_end", { ascending: false }).limit(24),
@@ -44,7 +44,8 @@ export async function GET(request: NextRequest) {
     .find((error) => error?.code === "42P01");
   if (schemaError) return NextResponse.json({ error: "A migração da nova Análise Comercial ainda não foi aplicada.", migrationRequired: true }, { status: 503 });
 
-  const brokers = brokersResult.data ?? [];
+  const allBrokers = brokersResult.data ?? [];
+  const brokers = allBrokers.filter((broker) => broker.is_active);
   const rawCollections = (collectionsResult.data ?? []) as CommercialCollection[];
   const historicalCampaignIds = Array.from(new Set(rawCollections.flatMap((collection) => collection.developments.flatMap((development) => development.campaignIds))));
   const { data: historicalCampaigns } = historicalCampaignIds.length
@@ -57,11 +58,19 @@ export async function GET(request: NextRequest) {
   }));
   const collectionIds = collections.map((item) => item.id);
   const { data: responses } = collectionIds.length
-    ? await supabase.from("commercial_responses").select("*").in("collection_id", collectionIds).order("completed_at")
+    ? await supabase.from("commercial_responses").select("*").in("collection_id", collectionIds).order("completed_at", { ascending: false })
     : { data: [] };
 
   const allowedDevelopments = new Map(collections.map((collection) => [collection.id, new Set(collection.developments.map((development) => development.name))]));
-  const responseRows = ((responses ?? []) as CommercialResponse[]).filter((response) => allowedDevelopments.get(response.collection_id)?.has(response.development_name));
+  const brokerNames = new Map(allBrokers.map((broker) => [broker.id, broker.name]));
+  const collectionNames = new Map(collections.map((collection) => [collection.id, collection.name]));
+  const responseRows = ((responses ?? []) as CommercialResponse[])
+    .filter((response) => allowedDevelopments.get(response.collection_id)?.has(response.development_name))
+    .map((response) => ({
+      ...response,
+      broker_name: brokerNames.get(response.broker_id) ?? "Corretor removido",
+      collection_name: collectionNames.get(response.collection_id) ?? "Coleta",
+    }));
   const responseCount = new Map<string, number>();
   responseRows.forEach((row) => responseCount.set(row.collection_id, (responseCount.get(row.collection_id) ?? 0) + 1));
   const enrichedCollections = collections.map((collection) => ({
@@ -282,6 +291,46 @@ export async function POST(request: NextRequest) {
       .maybeSingle();
     if (error) return NextResponse.json({ error: error.message }, { status: 400 });
     if (!data) return NextResponse.json({ error: "Corretor não encontrado ou já removido" }, { status: 404 });
+    return NextResponse.json({ ok: true });
+  }
+
+  if (action === "delete_response") {
+    const responseId = String(body?.response_id ?? "");
+    const clientId = String(body?.client_id ?? "");
+    if (!responseId || !clientId) return NextResponse.json({ error: "Resposta inválida" }, { status: 400 });
+
+    const { data: response } = await supabase
+      .from("commercial_responses")
+      .select("id,collection_id")
+      .eq("id", responseId)
+      .eq("user_id", user.id)
+      .maybeSingle();
+    if (!response) return NextResponse.json({ error: "Resposta não encontrada" }, { status: 404 });
+
+    const { data: collection } = await supabase
+      .from("commercial_collections")
+      .select("id")
+      .eq("id", response.collection_id)
+      .eq("client_id", clientId)
+      .eq("user_id", user.id)
+      .maybeSingle();
+    if (!collection) return NextResponse.json({ error: "Resposta não pertence a este cliente" }, { status: 404 });
+
+    const { data: deleted, error } = await supabase
+      .from("commercial_responses")
+      .delete()
+      .eq("id", responseId)
+      .eq("user_id", user.id)
+      .select("id")
+      .maybeSingle();
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+    if (!deleted) return NextResponse.json({ error: "Resposta não encontrada" }, { status: 404 });
+
+    await supabase
+      .from("commercial_collections")
+      .update({ ai_diagnosis: null })
+      .eq("id", response.collection_id)
+      .eq("user_id", user.id);
     return NextResponse.json({ ok: true });
   }
 

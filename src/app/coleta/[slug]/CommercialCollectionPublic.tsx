@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowLeft, ArrowRight, Building2, Check, Loader2, Star } from "lucide-react";
+import { ArrowLeft, ArrowRight, Building2, Check, Loader2, SkipForward, Star } from "lucide-react";
 import type { FormStep } from "@/types";
 
 type PublicCollection = { id: string; name: string; clientName?: string; period_end?: string; developments: Array<{ name: string }>; questions: FormStep[] };
@@ -19,8 +19,10 @@ export function CommercialCollectionPublic({ slug }: { slug: string }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [done, setDone] = useState(false);
+  const [submittedDevelopments, setSubmittedDevelopments] = useState(0);
   const [showDevelopmentIntro, setShowDevelopmentIntro] = useState(false);
   const [error, setError] = useState("");
+  const autoAdvanceTimer = useRef<number | null>(null);
 
   useEffect(() => {
     fetch(`/api/commercial-collections/${slug}`).then(async (response) => {
@@ -30,6 +32,10 @@ export function CommercialCollectionPublic({ slug }: { slug: string }) {
       if (remembered && json.brokers.some((broker: Broker) => broker.id === remembered)) setBrokerId(remembered);
     }).catch((reason) => setError(reason instanceof Error ? reason.message : "Não foi possível abrir a coleta")).finally(() => setLoading(false));
   }, [slug]);
+
+  useEffect(() => () => {
+    if (autoAdvanceTimer.current !== null) window.clearTimeout(autoAdvanceTimer.current);
+  }, []);
 
   const development = collection?.developments[developmentIndex];
   const question = collection?.questions[questionIndex];
@@ -59,7 +65,31 @@ export function CommercialCollectionPublic({ slug }: { slug: string }) {
     if (!question) return;
     const nextAnswers = { ...answers, [question.id]: value };
     setAnswers(nextAnswers);
-    window.setTimeout(() => advance(nextAnswers), 360);
+    if (autoAdvanceTimer.current !== null) window.clearTimeout(autoAdvanceTimer.current);
+    autoAdvanceTimer.current = window.setTimeout(() => {
+      autoAdvanceTimer.current = null;
+      advance(nextAnswers);
+    }, 360);
+  }
+
+  function skipDevelopment() {
+    if (!collection || saving) return;
+    if (Object.keys(answers).length > 0 && !window.confirm("As respostas preenchidas para este empreendimento serão descartadas. Deseja continuar?")) return;
+    if (autoAdvanceTimer.current !== null) {
+      window.clearTimeout(autoAdvanceTimer.current);
+      autoAdvanceTimer.current = null;
+    }
+    localStorage.setItem(`genesy-commercial-broker:${collection.clientName ?? collection.id}`, brokerId);
+    setError("");
+    setAnswers({});
+    setQuestionIndex(0);
+    if (developmentIndex + 1 >= collection.developments.length) {
+      setDone(true);
+      return;
+    }
+    setDevelopmentIndex((value) => value + 1);
+    setShowDevelopmentIntro(true);
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   async function submit(finalAnswers = answers) {
@@ -71,6 +101,7 @@ export function CommercialCollectionPublic({ slug }: { slug: string }) {
     const response = await fetch(`/api/commercial-collections/${slug}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ broker_id: brokerId, development_name: development.name, answers: finalAnswers, respondent_key: respondentKey }) });
     const json = await response.json(); setSaving(false);
     if (!response.ok) { setError(json.error ?? "Não foi possível salvar"); return; }
+    setSubmittedDevelopments((value) => value + 1);
     localStorage.setItem(`genesy-commercial-broker:${collection.clientName ?? collection.id}`, brokerId);
     if (developmentIndex + 1 >= collection.developments.length) setDone(true);
     else { setDevelopmentIndex((value) => value + 1); setQuestionIndex(0); setAnswers({}); setShowDevelopmentIntro(true); window.scrollTo({ top: 0, behavior: "smooth" }); }
@@ -79,7 +110,7 @@ export function CommercialCollectionPublic({ slug }: { slug: string }) {
   if (loading) return <main className="grid min-h-dvh place-items-center bg-[#050607] text-white"><Loader2 className="animate-spin text-[#aeb7bd]" /></main>;
   if (error && !collection) return <BrandShell><div className="text-center"><BrandMark /><Building2 className="mx-auto mb-4 mt-8 text-[#707b82]" /><h1 className="text-xl font-semibold">Coleta indisponível</h1><p className="mt-2 text-sm text-[#8d969c]">{error}</p></div></BrandShell>;
   if (!collection) return null;
-  if (done) return <BrandShell><div className="w-full max-w-md rounded-3xl border border-white/10 bg-white/[.045] p-8 text-center shadow-2xl backdrop-blur-xl"><BrandMark /><div className="mx-auto mt-8 grid h-14 w-14 place-items-center rounded-full border border-emerald-300/25 bg-emerald-400/10 text-emerald-300"><Check /></div><h1 className="mt-5 text-2xl font-semibold">Feedback enviado</h1><p className="mt-2 text-sm leading-6 text-[#8d969c]">Obrigado, {brokerName}. Suas respostas já fazem parte da Análise Comercial.</p></div></BrandShell>;
+  if (done) return <BrandShell><div className="w-full max-w-md rounded-3xl border border-white/10 bg-white/[.045] p-8 text-center shadow-2xl backdrop-blur-xl"><BrandMark /><div className="mx-auto mt-8 grid h-14 w-14 place-items-center rounded-full border border-emerald-300/25 bg-emerald-400/10 text-emerald-300"><Check /></div><h1 className="mt-5 text-2xl font-semibold">{submittedDevelopments ? "Feedback enviado" : "Formulário encerrado"}</h1><p className="mt-2 text-sm leading-6 text-[#8d969c]">{submittedDevelopments ? `Obrigado, ${brokerName}. Suas respostas já fazem parte da Análise Comercial.` : `Tudo certo, ${brokerName}. Nenhuma resposta foi registrada.`}</p></div></BrandShell>;
 
   if (!identified) return <BrandShell><div className="w-full max-w-md"><div className="mb-7 text-center"><BrandMark /><h1 className="mt-6 text-2xl font-semibold">Antes de começar, quem é você?</h1><p className="mt-2 text-sm text-[#8d969c]">Selecione seu nome para vincular corretamente as respostas.</p></div><section className="rounded-3xl border border-white/10 bg-white/[.045] p-6 shadow-[0_28px_90px_rgba(0,0,0,.48)] backdrop-blur-xl"><label><span className="mb-2 block text-xs font-medium text-[#c3c9cd]">Corretor</span><select value={brokerId} onChange={(event) => setBrokerId(event.target.value)} className="w-full rounded-xl border border-white/10 bg-[#101214] px-3 py-3 text-sm outline-none transition focus:border-[#9ca7ad]"><option value="">Selecione seu nome</option>{brokers.map((broker) => <option key={broker.id} value={broker.id}>{broker.name}</option>)}</select></label><button disabled={!brokerId} onClick={() => setIdentified(true)} className="mt-5 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#7b868d] to-[#b0b8c0] px-5 py-3 text-sm font-semibold text-[#08090a] shadow-[0_12px_30px_rgba(160,170,176,.14)] disabled:opacity-40">Continuar <ArrowRight size={16} /></button></section></div></BrandShell>;
 
@@ -94,6 +125,7 @@ export function CommercialCollectionPublic({ slug }: { slug: string }) {
         <div className="min-h-[260px] overflow-hidden"><AnimatePresence mode="wait">{question && <motion.div key={`${development?.name}-${question.id}`} initial={{ opacity: 0, x: 22 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -22 }} transition={{ duration: 0.2 }}><p className="mb-4 text-[10px] font-semibold uppercase tracking-[.22em] text-[#aeb7bd]">Campanha · {development?.name}</p><Question question={question} value={answers[question.id]} onChange={(value) => setAnswers((current) => ({ ...current, [question.id]: value }))} onAutoAdvance={question.type === "rating" || question.type === "single_choice" ? answerAndAdvance : undefined} /></motion.div>}</AnimatePresence></div>
         {error && <p className="mt-5 text-sm text-rose-300">{error}</p>}
         <div className="mt-8 flex items-center justify-between gap-3"><button type="button" disabled={questionIndex === 0 || saving} onClick={() => { setQuestionIndex((value) => value - 1); setError(""); }} className="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-[#8d969c] disabled:invisible"><ArrowLeft size={16} /> Voltar</button>{question && question.type !== "rating" && question.type !== "single_choice" && <button type="button" disabled={!brokerId || !currentValid || saving || !valid && questionIndex + 1 === collection.questions.length} onClick={() => advance()} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-gradient-to-r from-[#7b868d] to-[#b0b8c0] px-5 py-3 text-sm font-semibold text-[#08090a] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40">{saving ? <Loader2 size={16} className="animate-spin" /> : questionIndex + 1 === collection.questions.length && developmentIndex + 1 === collection.developments.length ? <Check size={16} /> : <ArrowRight size={16} />}{questionIndex + 1 === collection.questions.length && developmentIndex + 1 === collection.developments.length ? "Enviar respostas" : "Continuar"}</button>}</div>
+        <div className="mt-5 border-t border-white/[.07] pt-4 text-center"><button type="button" disabled={saving} onClick={skipDevelopment} className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-xs text-[#747f86] transition hover:bg-white/[.035] hover:text-[#aeb7bd] disabled:cursor-not-allowed disabled:opacity-40"><SkipForward size={13} />{developmentIndex + 1 >= collection.developments.length ? "Não participo desta campanha · Encerrar" : "Não participo desta campanha · Pular empreendimento"}</button></div>
       </section>
     </div>
   </main>;

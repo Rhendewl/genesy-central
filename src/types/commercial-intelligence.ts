@@ -74,6 +74,8 @@ export interface CommercialResponse {
   score: number | null;
   objection: string | null;
   completed_at: string;
+  broker_name?: string;
+  collection_name?: string;
 }
 
 export interface CommercialDiagnosis {

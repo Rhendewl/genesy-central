@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 
-import { localTimeToUTC, utcToLocalTime, utcToLocalDate, getDayOfWeekInTimezone, formatDateLabel } from "../scheduling/timezone-resolver";
+import { localTimeToUTC, utcToLocalTime, utcToLocalDate, getDayOfWeekInTimezone, formatDateLabel, formatDateTimeInTimezone } from "../scheduling/timezone-resolver";
 import { resolveAvailability } from "../scheduling/availability-resolver";
 import { generateSlots } from "../scheduling/slot-generator";
 import { filterConflicts, parseBookingWindows } from "../scheduling/conflict-resolver";
@@ -157,6 +157,16 @@ describe("TimezoneResolver › utcToLocalDate", () => {
   it("returns same date when within local day", () => {
     const local = utcToLocalDate(new Date("2026-07-01T12:00:00Z"), TZ_SP);
     expect(local).toBe("2026-07-01");
+  });
+});
+
+describe("TimezoneResolver › formatDateTimeInTimezone", () => {
+  it("formats the appointment in the calendar timezone", () => {
+    expect(formatDateTimeInTimezone(new Date("2026-07-06T12:30:00Z"), TZ_SP)).toBe("06/07 às 09:30h");
+  });
+
+  it("uses the local day when UTC is already on the following date", () => {
+    expect(formatDateTimeInTimezone(new Date("2026-07-06T01:30:00Z"), TZ_SP)).toBe("05/07 às 22:30h");
   });
 });
 

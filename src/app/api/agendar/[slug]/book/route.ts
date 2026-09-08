@@ -138,6 +138,7 @@ export async function POST(req: NextRequest, { params }: Params) {
       bookingId,
       calendarId:   calendar.id,
       calendarName: calendar.name,
+      calendarTimezone: calendar.timezone,
       userId:       calendar.user_id,
       crmSettings:  calendar.settings?.crm ?? null,
       visitorName,

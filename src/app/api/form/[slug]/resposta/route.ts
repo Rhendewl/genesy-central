@@ -6,8 +6,8 @@ import { extractContactFromAnswers } from "@/lib/forms/extract-contact";
 import { getPlatformEventBus } from "@/lib/event-bus/platform";
 import { processSubmissionWebhooks } from "@/lib/forms/webhook-delivery";
 import { duplicateSubmissionCutoff, findExactDuplicateSubmission } from "@/lib/forms/submission-dedup";
+import { formatDateTimeInTimezone } from "@/lib/appointments/scheduling/timezone-resolver";
 import type { FormStep } from "@/types";
-import { format } from "date-fns";
 
 type Params = { params: Promise<{ slug: string }> };
 
@@ -433,21 +433,24 @@ async function appendLinkedBookingNotes(
   ));
   const { data: calendars } = await supabase
     .from("appointment_calendars")
-    .select("id, name")
+    .select("id, name, timezone")
     .in("id", calendarIds);
-  const names = new Map<string, string>(
-    (calendars ?? []).map((calendar: { id: string; name: string }) => [calendar.id, calendar.name]),
+  const calendarDetails = new Map<string, { name: string; timezone: string }>(
+    (calendars ?? []).map((calendar: { id: string; name: string; timezone: string }) => [calendar.id, { name: calendar.name, timezone: calendar.timezone }]),
   );
 
   const bookingNotes = bookings.map((booking: {
     calendar_id: string;
     starts_at: string;
     visitor_notes: string | null;
-  }) => [
-    `Reunião agendada para ${format(new Date(booking.starts_at), "dd/MM 'às' HH:mm'h'")}`,
-    `Calendário: ${names.get(booking.calendar_id) ?? "Agenda"}`,
-    booking.visitor_notes ? `Observações: ${booking.visitor_notes}` : null,
-  ].filter(Boolean).join("\n"));
+  }) => {
+    const calendar = calendarDetails.get(booking.calendar_id);
+    return [
+      `Reunião agendada para ${formatDateTimeInTimezone(new Date(booking.starts_at), calendar?.timezone ?? "America/Sao_Paulo")}`,
+      `Calendário: ${calendar?.name ?? "Agenda"}`,
+      booking.visitor_notes ? `Observações: ${booking.visitor_notes}` : null,
+    ].filter(Boolean).join("\n");
+  });
 
   return [formNotes, ...bookingNotes].filter(Boolean).join("\n\n") || null;
 }

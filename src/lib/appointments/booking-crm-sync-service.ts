@@ -7,8 +7,8 @@
 //   • Reuses LeadService directly — zero logic duplication.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { format }              from "date-fns";
 import { LeadService }         from "@/lib/crm/lead-service";
+import { formatDateTimeInTimezone, utcToLocalDate } from "@/lib/appointments/scheduling/timezone-resolver";
 import type { AppointmentCrmSettings } from "@/types/appointments";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -16,14 +16,15 @@ type Db = SupabaseClient<any, any, any>;
 
 // Linha de destaque em integration_notes — precisa ficar óbvia lendo por
 // cima, sem depender do resto do texto ("Calendário:", "Data/Hora:" etc).
-function meetingScheduledLine(startsAt: string): string {
-  return `Reunião agendada para ${format(new Date(startsAt), "dd/MM 'às' HH:mm'h'")}`;
+function meetingScheduledLine(startsAt: string, timezone: string): string {
+  return `Reunião agendada para ${formatDateTimeInTimezone(new Date(startsAt), timezone)}`;
 }
 
 export interface CrmSyncPayload {
   bookingId:    string;
   calendarId:   string;
   calendarName: string;
+  calendarTimezone: string;
   userId:       string;
   crmSettings:  AppointmentCrmSettings | null | undefined;
   visitorName:  string;
@@ -108,7 +109,7 @@ export class BookingCrmSyncService {
         const moveResult = await svc.moveLead(
           existingLeadId,
           cfg!.stage_id!,
-          { note: `Agendamento via calendário: ${payload.calendarName} em ${new Date(payload.startsAt).toLocaleString("pt-BR")}` },
+          { note: `Agendamento via calendário: ${payload.calendarName} em ${formatDateTimeInTimezone(new Date(payload.startsAt), payload.calendarTimezone)}` },
         );
 
         if (!moveResult.ok) {
@@ -127,7 +128,7 @@ export class BookingCrmSyncService {
         .maybeSingle();
 
       const bookingEntry = [
-        meetingScheduledLine(payload.startsAt),
+        meetingScheduledLine(payload.startsAt, payload.calendarTimezone),
         `Calendário: ${payload.calendarName}`,
         payload.visitorNotes ? `Observações: ${payload.visitorNotes}` : null,
       ].filter(Boolean).join("\n");
@@ -165,7 +166,7 @@ export class BookingCrmSyncService {
       // Dados do agendamento vão em integration_notes, nunca em "notes"
       // (reservado para observações manuais do CRM).
       const integrationNotes = [
-        meetingScheduledLine(payload.startsAt),
+        meetingScheduledLine(payload.startsAt, payload.calendarTimezone),
         `Calendário: ${payload.calendarName}`,
         payload.visitorNotes ? `Observações: ${payload.visitorNotes}` : null,
         payload.correlationId ? `Correlation ID: ${payload.correlationId}` : null,
@@ -179,7 +180,7 @@ export class BookingCrmSyncService {
         email:    payload.visitorEmail,
         source:   "Agenda",
         integration_notes: integrationNotes || null,
-        entered_at: new Date(payload.startsAt).toISOString().split("T")[0],
+        entered_at: utcToLocalDate(new Date(payload.startsAt), payload.calendarTimezone),
         iq_score: payload.iqScore,
       });
 

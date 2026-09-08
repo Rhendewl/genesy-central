@@ -111,3 +111,16 @@ export function formatDateLabel(utcDate: Date, timezone: string): string {
     month:    "short",
   });
 }
+
+export function formatDateTimeInTimezone(utcDate: Date, timezone: string): string {
+  const parts = new Intl.DateTimeFormat("pt-BR", {
+    timeZone: timezone,
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(utcDate);
+  const value = (type: Intl.DateTimeFormatPartTypes) => parts.find((part) => part.type === type)?.value ?? "";
+  return `${value("day")}/${value("month")} às ${value("hour")}:${value("minute")}h`;
+}
