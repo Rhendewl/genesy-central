@@ -1,5 +1,9 @@
-import { describe, expect, it } from "vitest";
-import { defaultPostLineHeight, normalizePostLineHeight, normalizePostTextWidth, numberedSlideFilename, sanitizeDownloadName } from "@/lib/marketing/post-generator";
+import { describe, expect, it, vi } from "vitest";
+import { defaultPostLineHeight, normalizePostLineHeight, normalizePostTextWidth, numberedSlideFilename, postElementToPng, sanitizeDownloadName } from "@/lib/marketing/post-generator";
+
+const toBlobMock = vi.hoisted(() => vi.fn());
+
+vi.mock("html-to-image", () => ({ toBlob: toBlobMock }));
 
 describe("sanitizeDownloadName", () => {
   it("preserva o nome escolhido e remove uma extensão zip duplicada", () => {
@@ -43,5 +47,32 @@ describe("normalizePostTextWidth", () => {
     expect(normalizePostTextWidth("stories", 500)).toBe(84);
     expect(normalizePostTextWidth("stories", 20)).toBe(40);
     expect(normalizePostTextWidth("stories", 72)).toBe(72);
+  });
+});
+
+describe("postElementToPng", () => {
+  it("aquece a renderização antes do PNG final quando o slide contém imagem", async () => {
+    Object.defineProperty(document, "fonts", { configurable: true, value: { ready: Promise.resolve() } });
+    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
+      callback(0);
+      return 1;
+    });
+
+    const element = document.createElement("div");
+    const image = document.createElement("img");
+    Object.defineProperties(image, {
+      complete: { configurable: true, value: true },
+      naturalWidth: { configurable: true, value: 1200 },
+      naturalHeight: { configurable: true, value: 800 },
+      decode: { configurable: true, value: vi.fn().mockResolvedValue(undefined) },
+    });
+    element.appendChild(image);
+    const expected = new Blob(["final"], { type: "image/png" });
+    toBlobMock.mockReset().mockResolvedValueOnce(new Blob(["warmup"])).mockResolvedValueOnce(expected);
+
+    await expect(postElementToPng(element, 1080, 1350)).resolves.toBe(expected);
+    expect(toBlobMock).toHaveBeenCalledTimes(2);
+
+    vi.unstubAllGlobals();
   });
 });

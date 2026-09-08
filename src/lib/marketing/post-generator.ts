@@ -21,18 +21,32 @@ async function waitForExportImages(element: HTMLElement) {
   await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
 }
 
+const exportOptions = (width: number, height: number) => ({
+  width,
+  height,
+  canvasWidth: width,
+  canvasHeight: height,
+  pixelRatio: 1,
+  cacheBust: false,
+  skipAutoScale: true,
+});
+
 export async function postElementToPng(element: HTMLElement, width: number, height: number) {
   await document.fonts.ready;
   await waitForExportImages(element);
-  const blob = await toBlob(element, {
-    width,
-    height,
-    canvasWidth: width,
-    canvasHeight: height,
-    pixelRatio: 1,
-    cacheBust: false,
-    skipAutoScale: true,
-  });
+  const options = exportOptions(width, height);
+
+  // Safari/iOS can finish decoding the original <img> but omit it from the
+  // first foreignObject-to-canvas paint. A first render primes that paint;
+  // the following frame produces the complete slide. This is especially
+  // visible when exporting a single slide, because batch export warmed the
+  // renderer while processing the preceding slides.
+  if (element.querySelector("img")) {
+    await toBlob(element, options);
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+  }
+
+  const blob = await toBlob(element, options);
   if (!blob) throw new Error("Falha ao gerar o PNG.");
   return blob;
 }
