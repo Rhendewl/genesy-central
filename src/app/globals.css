@@ -1655,9 +1655,11 @@
   font-weight: 700;
 }
 .post-rich-text .post-text-backdrop {
-  padding: 0.08em 0.22em 0.1em;
+  /* Vertical padding paints outside the inline line box and can cover glyphs
+     from adjacent lines. Keep the breathing room horizontal only. */
+  padding-inline: 0.22em;
   margin-inline: 0.025em;
-  border-radius: 0.2em;
+  border-radius: 0;
   -webkit-box-decoration-break: clone;
   box-decoration-break: clone;
 }
