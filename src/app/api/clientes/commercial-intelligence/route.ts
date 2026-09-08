@@ -334,6 +334,25 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: true });
   }
 
+  if (action === "delete_collection") {
+    const collectionId = String(body?.collection_id ?? "");
+    const clientId = String(body?.client_id ?? "");
+    if (!collectionId || !clientId) return NextResponse.json({ error: "Coleta inválida" }, { status: 400 });
+
+    const { data: deleted, error } = await supabase
+      .from("commercial_collections")
+      .delete()
+      .eq("id", collectionId)
+      .eq("client_id", clientId)
+      .eq("user_id", user.id)
+      .select("id,status")
+      .maybeSingle();
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+    if (!deleted) return NextResponse.json({ error: "Coleta não encontrada" }, { status: 404 });
+
+    return NextResponse.json({ ok: true, was_active: deleted.status === "published" });
+  }
+
   if (action === "create_collection") {
     const clientId = String(body?.client_id ?? "");
     const start = String(body?.period_start ?? "");
