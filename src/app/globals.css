@@ -1195,6 +1195,7 @@
     padding-left: calc(var(--gb-disc-left) + var(--gb-disc) + var(--gb-content-pad));
     text-align: center;
     text-shadow: 0 1px 2px rgba(0,0,0,.20);
+    color: var(--gb-ink) !important;
   }
   .genesy-button__label > svg { width: 1em; height: 1em; }
 
@@ -1245,7 +1246,7 @@
     background: linear-gradient(90deg, rgba(255,255,255,.658), rgba(230,233,235,.63));
   }
   .light .genesy-button--signature .genesy-button__label {
-    color: var(--gb-disc-color) !important;
+    color: #283137 !important;
   }
   .light .genesy-button--signature.genesy-button--primary { --gb-accent: #8997a1; }
   .light .genesy-button--signature.genesy-button--secondary { --gb-accent: #7f8d97; }
