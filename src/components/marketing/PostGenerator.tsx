@@ -20,6 +20,7 @@ import {
   createZip, defaultPostLineHeight, normalizePostLineHeight, normalizePostTextWidth, numberedSlideFilename, POST_FORMATS, postElementToPng, sanitizeDownloadName, saveBlob,
   type PostFormat, type PostTemplate,
 } from "@/lib/marketing/post-generator";
+import { snapCanvasPosition, type AlignmentGuide } from "@/lib/marketing/free-layout";
 import {
   getRemotePostProject,
   getRemotePostProjectIfChanged,
@@ -39,6 +40,8 @@ type Slide = {
   layout: string[];
   media: string[];
   mediaCrops: MediaCrop[];
+  mediaAspects: MediaAspect[];
+  mediaNaturalAspects: number[];
   backgroundImage: string;
   imageDarkness: number;
   fontSize: number;
@@ -47,9 +50,13 @@ type Slide = {
   textWidth: number;
   textPlacement: "above" | "below" | "free";
   mediaPosition: "top" | "bottom";
+  layoutMode: "auto" | "free";
+  freePositions: Record<string, CanvasPoint>;
 };
 
 type MediaCrop = { x: number; y: number; zoom: number };
+type MediaAspect = "original" | "1:1" | "4:5" | "16:9" | "9:16";
+type CanvasPoint = { x: number; y: number };
 type TextBlock = { id: string; content: string; fontSize: number; textWidth: number; lineHeight: number };
 type TweetProfile = { avatar: string; avatarCrop: MediaCrop; name: string; handle: string; verified: boolean };
 type PersistedPostProject = { version: 1; format: PostFormat; slides: Slide[]; activeId: string; tweetProfile: TweetProfile; updatedAt: number };
@@ -103,6 +110,19 @@ const TextBackdrop = Mark.create({
 
 function uid() { return Math.random().toString(36).slice(2, 10); }
 function defaultMediaCrop(): MediaCrop { return { x: 50, y: 50, zoom: 1 }; }
+function mediaAspectValue(aspect: MediaAspect, naturalAspect = 16 / 9) {
+  if (aspect === "original") return naturalAspect > 0 ? naturalAspect : 16 / 9;
+  const [width, height] = aspect.split(":").map(Number);
+  return width / height;
+}
+function readImageAspect(url: string) {
+  return new Promise<number>((resolve) => {
+    const image = new Image();
+    image.onload = () => resolve(image.naturalWidth && image.naturalHeight ? image.naturalWidth / image.naturalHeight : 16 / 9);
+    image.onerror = () => resolve(16 / 9);
+    image.src = url;
+  });
+}
 function makeTextBlock(template: PostTemplate, content: string): TextBlock { return { id: uid(), content, fontSize: template === "tweet" ? 45 : 70, textWidth: template === "tweet" ? 76 : 84, lineHeight: defaultPostLineHeight(template) }; }
 
 let postProjectDatabase: Promise<IDBDatabase> | null = null;
@@ -160,6 +180,8 @@ function makeSlide(template: PostTemplate, index = 0): Slide {
     layout: [textBlock.id, "media"],
     media: [],
     mediaCrops: [],
+    mediaAspects: [],
+    mediaNaturalAspects: [],
     backgroundImage: "",
     imageDarkness: 42,
     fontSize: template === "tweet" ? 45 : 70,
@@ -168,6 +190,8 @@ function makeSlide(template: PostTemplate, index = 0): Slide {
     textWidth: template === "tweet" ? 76 : 84,
     textPlacement: "above",
     mediaPosition: "bottom",
+    layoutMode: "auto",
+    freePositions: {},
   };
 }
 
@@ -176,6 +200,11 @@ function normalizePostProject(template: PostTemplate, project: PersistedPostProj
     const base = makeSlide(template, index);
     const media = Array.isArray(slide.media) ? slide.media.slice(0, 2) : [];
     const mediaCrops = media.map((_, mediaIndex) => ({ ...defaultMediaCrop(), ...(Array.isArray(slide.mediaCrops) ? slide.mediaCrops[mediaIndex] : undefined) }));
+    const mediaAspects = media.map((_, mediaIndex) => {
+      const aspect = Array.isArray(slide.mediaAspects) ? slide.mediaAspects[mediaIndex] : undefined;
+      return (["original", "1:1", "4:5", "16:9", "9:16"] as const).includes(aspect as MediaAspect) ? aspect as MediaAspect : "16:9";
+    });
+    const mediaNaturalAspects = media.map((_, mediaIndex) => Number.isFinite(slide.mediaNaturalAspects?.[mediaIndex]) ? slide.mediaNaturalAspects[mediaIndex] : 16 / 9);
     const textBlocks = Array.isArray(slide.textBlocks) && slide.textBlocks.length
       ? slide.textBlocks.map((block) => ({
           ...makeTextBlock(template, block.content || "<p>Novo texto</p>"),
@@ -189,7 +218,7 @@ function normalizePostProject(template: PostTemplate, project: PersistedPostProj
     const savedLayout = Array.isArray(slide.layout) ? slide.layout.filter((key) => validKeys.has(key)) : [];
     const fallbackLayout = slide.mediaPosition === "top" ? ["media", ...textBlocks.map((block) => block.id)] : [...textBlocks.map((block) => block.id), "media"];
     const layout = [...savedLayout, ...fallbackLayout.filter((key) => !savedLayout.includes(key))];
-    return { ...base, ...slide, id: slide.id || uid(), media, mediaCrops, textBlocks, layout };
+    return { ...base, ...slide, id: slide.id || uid(), media, mediaCrops, mediaAspects, mediaNaturalAspects, textBlocks, layout, layoutMode: slide.layoutMode === "free" ? "free" as const : "auto" as const, freePositions: slide.freePositions || {} };
   });
   const activeId = slides.some((slide) => slide.id === project.activeId) ? project.activeId : slides[0].id;
   return {
@@ -491,10 +520,11 @@ function PostEditor({ template, onBack }: { template: PostTemplate; onBack: () =
       event.preventDefault();
       if (active.media.length >= 2) return toast.error("Este slide já possui duas imagens. Remova uma delas para colar outra.");
       const reader = new FileReader();
-      reader.onload = () => {
+      reader.onload = async () => {
         const url = String(reader.result);
+        const naturalAspect = await readImageAspect(url);
         setSlides((current) => current.map((slide) => slide.id === activeId
-          ? { ...slide, media: [...slide.media, url].slice(0, 2), mediaCrops: [...slide.mediaCrops, defaultMediaCrop()].slice(0, 2) }
+          ? { ...slide, media: [...slide.media, url].slice(0, 2), mediaCrops: [...slide.mediaCrops, defaultMediaCrop()].slice(0, 2), mediaAspects: [...slide.mediaAspects, "original" as const].slice(0, 2), mediaNaturalAspects: [...slide.mediaNaturalAspects, naturalAspect].slice(0, 2) }
           : slide));
         toast.success("Imagem colada no slide.");
       };
@@ -519,6 +549,7 @@ function PostEditor({ template, onBack }: { template: PostTemplate; onBack: () =
 
   const update = (patch: Partial<Slide>) => setSlides((current) => current.map((slide) => slide.id === activeId ? { ...slide, ...patch } : slide));
   const updateTextBlock = (patch: Partial<TextBlock>) => update({ textBlocks: active.textBlocks.map((block) => block.id === activeTextBlockId ? { ...block, ...patch } : block) });
+  const updateFreePosition = (key: string, position: CanvasPoint) => update({ freePositions: { ...active.freePositions, [key]: position } });
 
   const addTextBlock = () => {
     const block = makeTextBlock(template, "<p>Novo texto</p>");
@@ -569,7 +600,8 @@ function PostEditor({ template, onBack }: { template: PostTemplate; onBack: () =
     const source = slides[sourceIndex];
     const idMap = new Map(source.textBlocks.map((block) => [block.id, uid()]));
     const textBlocks = source.textBlocks.map((block) => ({ ...block, id: idMap.get(block.id)! }));
-    const next = { ...source, id: uid(), media: [...source.media], mediaCrops: source.mediaCrops.map((crop) => ({ ...crop })), textBlocks, layout: source.layout.map((key) => idMap.get(key) || key) };
+    const freePositions = Object.fromEntries(Object.entries(source.freePositions).map(([key, value]) => [idMap.get(key) || key, { ...value }]));
+    const next = { ...source, id: uid(), media: [...source.media], mediaCrops: source.mediaCrops.map((crop) => ({ ...crop })), mediaAspects: [...source.mediaAspects], mediaNaturalAspects: [...source.mediaNaturalAspects], freePositions, textBlocks, layout: source.layout.map((key) => idMap.get(key) || key) };
     setSlides((current) => [...current.slice(0, sourceIndex + 1), next, ...current.slice(sourceIndex + 1)]);
     setActiveId(next.id);
     setActiveTextBlockId(textBlocks[0].id);
@@ -686,7 +718,7 @@ function PostEditor({ template, onBack }: { template: PostTemplate; onBack: () =
           <div className="mb-4 flex items-center justify-between"><div><p className="text-xs font-semibold text-[var(--text-title)]">Pré-visualização</p><p className="text-[10px] text-[var(--muted-foreground)]">Selecione um trecho para formatar ou cole uma imagem com Ctrl+V / ⌘V.</p></div><span className="rounded-full border px-2.5 py-1 text-[10px] text-[var(--muted-foreground)]">Slide {activeIndex + 1} de {slides.length}</span></div>
           <TextToolbar editor={editor} defaultColor={active.foreground} allowItalic={template === "stories"} />
           <ScaledCanvas width={dimensions.width} height={dimensions.height} format={format} profile={tweetProfile}>
-            <PostCanvas slide={active} profile={tweetProfile} template={template} width={dimensions.width} height={dimensions.height} editable={!isMobileEditor} editor={isMobileEditor ? undefined : editor} activeTextBlockId={activeTextBlockId} onSelectTextBlock={setActiveTextBlockId} onReorderText={reorderLayout} />
+            <PostCanvas slide={active} profile={tweetProfile} template={template} width={dimensions.width} height={dimensions.height} editable={!isMobileEditor} editor={isMobileEditor ? undefined : editor} activeTextBlockId={activeTextBlockId} onSelectTextBlock={setActiveTextBlockId} onReorderText={reorderLayout} onPositionChange={updateFreePosition} />
           </ScaledCanvas>
           <div className="mx-auto mt-4 flex max-w-xl items-center justify-center gap-1.5"><Button variant="outline" size="sm" onClick={() => move(-1)} disabled={activeIndex === 0} aria-label="Mover slide para cima"><ArrowUp /></Button><Button variant="outline" size="sm" onClick={() => move(1)} disabled={activeIndex === slides.length - 1} aria-label="Mover slide para baixo"><ArrowDown /></Button><Button variant="outline" size="sm" onClick={duplicate} icon={<Copy />}>Duplicar</Button><Button variant="danger" size="sm" onClick={remove} icon={<Trash2 />}>Excluir</Button></div>
         </main>
@@ -721,6 +753,7 @@ function PostEditor({ template, onBack }: { template: PostTemplate; onBack: () =
                 setMobilePanel("text");
               }}
               onReorderText={reorderLayout}
+              onPositionChange={updateFreePosition}
             />
           </ScaledCanvas>
         </main>
@@ -1194,12 +1227,14 @@ function ScaledCanvas({ width, height, format, profile, children, maxHeight = 68
   </div>;
 }
 
-function PostCanvas({ slide, profile, template, width, height, editable = false, editor, refCallback, activeTextBlockId, onSelectTextBlock, onReorderText }: { slide: Slide; profile: TweetProfile; template: PostTemplate; width: number; height: number; editable?: boolean; editor?: Editor | null; refCallback?: (node: HTMLDivElement | null) => void; activeTextBlockId?: string; onSelectTextBlock?: (id: string) => void; onReorderText?: (sourceId: string, targetId: string, after: boolean) => void }) {
+function PostCanvas({ slide, profile, template, width, height, editable = false, editor, refCallback, activeTextBlockId, onSelectTextBlock, onReorderText, onPositionChange }: { slide: Slide; profile: TweetProfile; template: PostTemplate; width: number; height: number; editable?: boolean; editor?: Editor | null; refCallback?: (node: HTMLDivElement | null) => void; activeTextBlockId?: string; onSelectTextBlock?: (id: string) => void; onReorderText?: (sourceId: string, targetId: string, after: boolean) => void; onPositionChange?: (key: string, position: CanvasPoint) => void }) {
   const safeLeft = template === "tweet" ? 12 : 8;
   const safeWidth = 100 - safeLeft * 2;
+  const canvasRef = useRef<HTMLDivElement | null>(null);
+  const [guides, setGuides] = useState<AlignmentGuide[]>([]);
   const [draggedTextId, setDraggedTextId] = useState<string | null>(null);
   const [dropTargetId, setDropTargetId] = useState<string | null>(null);
-  const media = slide.media.length ? <HorizontalMedia media={slide.media} crops={slide.mediaCrops} /> : null;
+  const media = slide.media.length ? <HorizontalMedia media={slide.media} crops={slide.mediaCrops} aspects={slide.mediaAspects} naturalAspects={slide.mediaNaturalAspects} /> : null;
   const profileBlock = template === "tweet" ? <TweetProfileBlock profile={profile} foreground={slide.foreground} /> : null;
   const textMap = new Map(slide.textBlocks.map((block) => [block.id, block]));
   const layout = [...slide.layout, ...slide.textBlocks.map((block) => block.id).filter((id) => !slide.layout.includes(id)), ...(slide.layout.includes("media") ? [] : ["media"] )];
@@ -1210,10 +1245,65 @@ function PostCanvas({ slide, profile, template, width, height, editable = false,
     return <div key={key} className={cn("relative w-full min-w-0 max-w-full transition", dropTargetId === key && draggedTextId !== key && "rounded-[28px] ring-[8px] ring-[#27a3ff]/35")} onDragOver={editable ? (event) => { event.preventDefault(); event.dataTransfer.dropEffect = "move"; setDropTargetId(key); } : undefined} onDragLeave={editable ? () => setDropTargetId((current) => current === key ? null : current) : undefined} onDrop={editable ? (event) => { event.preventDefault(); const sourceId = draggedTextId || event.dataTransfer.getData("text/plain"); if (sourceId && sourceId !== key) { const rect = event.currentTarget.getBoundingClientRect(); onReorderText?.(sourceId, key, event.clientY >= rect.top + rect.height / 2); } setDraggedTextId(null); setDropTargetId(null); } : undefined}>{child}</div>;
   });
 
-  return <div ref={refCallback} data-post-canvas={template} className="relative overflow-hidden" style={{ width, height, background: slide.background, color: slide.foreground, fontFamily: template === "tweet" ? "Arial, Helvetica, sans-serif" : "Advercase, Georgia, serif", fontWeight: 400 }}>
+  const defaultPosition = (key: string, index = 0): CanvasPoint => {
+    if (key === "profile") return { x: safeLeft, y: 7 };
+    if (key.startsWith("media:")) return { x: safeLeft + (slide.media.length > 1 ? index * 44 : 0), y: template === "tweet" ? 52 : 46 };
+    return { x: safeLeft, y: (template === "tweet" ? 25 : 12) + index * 20 };
+  };
+  const setRefs = (node: HTMLDivElement | null) => { canvasRef.current = node; refCallback?.(node); };
+  const freeContent = slide.layoutMode === "free" ? <>
+    {profileBlock && <FreeCanvasElement elementKey="profile" position={slide.freePositions.profile || defaultPosition("profile")} canvasRef={canvasRef} canvas={{ width, height }} editable={editable} onPositionChange={onPositionChange} onGuidesChange={setGuides}>{profileBlock}</FreeCanvasElement>}
+    {slide.textBlocks.map((block, index) => <FreeCanvasElement key={block.id} elementKey={block.id} position={slide.freePositions[block.id] || defaultPosition(block.id, index)} canvasRef={canvasRef} canvas={{ width, height }} editable={editable} onPositionChange={onPositionChange} onGuidesChange={setGuides} className="max-w-full" style={{ width: `${block.textWidth}%` }}><TextBlockItem block={block} editor={editor} editable={editable} active={activeTextBlockId === block.id} foreground={slide.foreground} story={template === "stories"} safeWidth={100} onSelect={() => onSelectTextBlock?.(block.id)} onDragStart={() => undefined} onDragEnd={() => undefined} free /></FreeCanvasElement>)}
+    {slide.media.map((image, index) => {
+      const aspect = mediaAspectValue(slide.mediaAspects[index] || "16:9", slide.mediaNaturalAspects[index]);
+      const baseWidth = slide.media.length > 1 ? 40 : 76;
+      const itemWidth = Math.max(24, Math.min(baseWidth, (height * .44 * aspect) / width * 100));
+      return <FreeCanvasElement key={`media:${index}`} elementKey={`media:${index}`} position={slide.freePositions[`media:${index}`] || defaultPosition(`media:${index}`, index)} canvasRef={canvasRef} canvas={{ width, height }} editable={editable} onPositionChange={onPositionChange} onGuidesChange={setGuides} style={{ width: `${itemWidth}%` }}><MediaFrame image={image} crop={slide.mediaCrops[index]} aspect={aspect} /></FreeCanvasElement>;
+    })}
+  </> : <BalancedContent safeLeft={safeLeft} safeWidth={safeWidth} gap={template === "tweet" ? 44 : 52}>{profileBlock}{layoutItems}</BalancedContent>;
+
+  return <div ref={setRefs} data-post-canvas={template} className="relative overflow-hidden" style={{ width, height, background: slide.background, color: slide.foreground, fontFamily: template === "tweet" ? "Arial, Helvetica, sans-serif" : "Advercase, Georgia, serif", fontWeight: 400 }}>
     {template === "stories" && slide.backgroundImage && <><img src={slide.backgroundImage} alt="Fundo do slide" className="absolute inset-0 h-full w-full object-cover" /><span className="absolute inset-0 bg-black" style={{ opacity: slide.imageDarkness / 100 }} /></>}
-    <BalancedContent safeLeft={safeLeft} safeWidth={safeWidth} gap={template === "tweet" ? 44 : 52}>{profileBlock}{layoutItems}</BalancedContent>
+    {freeContent}
+    {editable && guides.map((guide) => <span key={`${guide.axis}:${guide.value}`} aria-hidden className="pointer-events-none absolute z-50 bg-[#ff3ca6] shadow-[0_0_0_1px_rgba(255,255,255,.65)]" style={guide.axis === "x" ? { left: guide.value, top: 0, bottom: 0, width: 3 } : { top: guide.value, left: 0, right: 0, height: 3 }} />)}
   </div>;
+}
+
+function FreeCanvasElement({ elementKey, position, canvasRef, canvas, editable, onPositionChange, onGuidesChange, className, style, children }: { elementKey: string; position: CanvasPoint; canvasRef: React.RefObject<HTMLDivElement>; canvas: { width: number; height: number }; editable: boolean; onPositionChange?: (key: string, position: CanvasPoint) => void; onGuidesChange: (guides: AlignmentGuide[]) => void; className?: string; style?: React.CSSProperties; children: React.ReactNode }) {
+  const elementRef = useRef<HTMLDivElement>(null);
+  const dragRef = useRef<{ pointerId: number; clientX: number; clientY: number; start: CanvasPoint; size: { width: number; height: number }; siblings: Array<CanvasPoint & { width: number; height: number }>; scale: number } | null>(null);
+  const startDrag = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (!editable || !onPositionChange || event.button !== 0) return;
+    const target = event.target as HTMLElement;
+    if (target.closest("[contenteditable='true']") && !target.closest("[data-free-drag-handle]")) return;
+    const canvasNode = canvasRef.current;
+    const elementNode = elementRef.current;
+    if (!canvasNode || !elementNode) return;
+    event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    const canvasRect = canvasNode.getBoundingClientRect();
+    const scale = canvasRect.width / canvas.width;
+    const rect = elementNode.getBoundingClientRect();
+    const siblings = Array.from(canvasNode.querySelectorAll<HTMLElement>("[data-free-key]")).filter((node) => node !== elementNode).map((node) => {
+      const sibling = node.getBoundingClientRect();
+      return { x: (sibling.left - canvasRect.left) / scale, y: (sibling.top - canvasRect.top) / scale, width: sibling.width / scale, height: sibling.height / scale };
+    });
+    dragRef.current = { pointerId: event.pointerId, clientX: event.clientX, clientY: event.clientY, start: { x: position.x / 100 * canvas.width, y: position.y / 100 * canvas.height }, size: { width: rect.width / scale, height: rect.height / scale }, siblings, scale };
+  };
+  const moveDrag = (event: React.PointerEvent<HTMLDivElement>) => {
+    const drag = dragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId || !onPositionChange) return;
+    const candidate = { x: drag.start.x + (event.clientX - drag.clientX) / drag.scale, y: drag.start.y + (event.clientY - drag.clientY) / drag.scale };
+    const snapped = snapCanvasPosition(candidate, drag.size, canvas, drag.siblings, 9 / drag.scale);
+    onGuidesChange(snapped.guides);
+    onPositionChange(elementKey, { x: snapped.position.x / canvas.width * 100, y: snapped.position.y / canvas.height * 100 });
+  };
+  const endDrag = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (dragRef.current?.pointerId !== event.pointerId) return;
+    dragRef.current = null;
+    onGuidesChange([]);
+  };
+  return <div ref={elementRef} data-free-key={elementKey} className={cn("absolute z-10 touch-none", editable && "cursor-move select-none", className)} style={{ ...style, left: `${position.x}%`, top: `${position.y}%` }} onPointerDown={startDrag} onPointerMove={moveDrag} onPointerUp={endDrag} onPointerCancel={endDrag}>{children}</div>;
 }
 
 function BalancedContent({ safeLeft, safeWidth, gap, children }: { safeLeft: number; safeWidth: number; gap: number; children: React.ReactNode }) {
@@ -1242,10 +1332,10 @@ function TweetProfileBlock({ profile, foreground }: { profile: TweetProfile; for
   return <div className="flex items-center gap-[24px]"><Avatar src={profile.avatar} crop={profile.avatarCrop} size={122} /><div><p className="flex items-center gap-[12px] text-[45px] font-bold leading-none">{profile.name}{profile.verified && <img src="/brand/verified-badge.png" alt="Perfil verificado" className="h-[38px] w-[38px] shrink-0 object-contain" />}</p><p className="mt-[14px] text-[34px]" style={{ color: foreground, opacity: .62 }}>{profile.handle}</p></div></div>;
 }
 
-function TextBlockItem({ block, editor, editable, active, foreground, story, safeWidth, onSelect, onDragStart, onDragEnd }: { block: TextBlock; editor?: Editor | null; editable: boolean; active: boolean; foreground: string; story: boolean; safeWidth: number; onSelect: () => void; onDragStart: (event: React.DragEvent<HTMLButtonElement>) => void; onDragEnd: () => void }) {
-  const width = Math.min(block.textWidth, safeWidth) / safeWidth * 100;
+function TextBlockItem({ block, editor, editable, active, foreground, story, safeWidth, onSelect, onDragStart, onDragEnd, free = false }: { block: TextBlock; editor?: Editor | null; editable: boolean; active: boolean; foreground: string; story: boolean; safeWidth: number; onSelect: () => void; onDragStart: (event: React.DragEvent<HTMLButtonElement>) => void; onDragEnd: () => void; free?: boolean }) {
+  const width = free ? 100 : Math.min(block.textWidth, safeWidth) / safeWidth * 100;
   return <div onClick={editable ? onSelect : undefined} className={cn("relative mx-auto min-w-0 max-w-full", editable && "cursor-text", active && "z-10")} style={{ width: `${width}%`, color: foreground, fontSize: block.fontSize, fontWeight: 400, lineHeight: block.lineHeight, overflowWrap: "anywhere", wordBreak: "break-word" }}>
-    {editable && active && <button type="button" draggable aria-label="Mover caixa de texto" title="Arraste para reorganizar esta caixa" className="absolute -bottom-14 left-1/2 hidden h-12 w-12 -translate-x-1/2 cursor-grab place-items-center rounded-full bg-[#27a3ff] text-white shadow-xl active:cursor-grabbing lg:grid" onDragStart={onDragStart} onDragEnd={onDragEnd}><Move size={24} /></button>}
+    {editable && active && <button type="button" draggable={!free} data-free-drag-handle={free ? "true" : undefined} aria-label="Mover caixa de texto" title={free ? "Arraste para posicionar livremente" : "Arraste para reorganizar esta caixa"} className="absolute -bottom-14 left-1/2 hidden h-12 w-12 -translate-x-1/2 cursor-grab place-items-center rounded-full bg-[#27a3ff] text-white shadow-xl active:cursor-grabbing lg:grid" onDragStart={free ? undefined : onDragStart} onDragEnd={free ? undefined : onDragEnd}><Move size={24} /></button>}
     <PostText block={block} editor={active ? editor : undefined} editable={editable && active} className={cn("w-full", story && "tracking-[-.03em]", editable && !active && "rounded-lg ring-[5px] ring-transparent hover:ring-[#27a3ff]/20", active && "rounded-lg ring-[5px] ring-[#27a3ff]/25")} />
   </div>;
 }
@@ -1255,9 +1345,14 @@ function PostText({ block, editor, editable, className }: { block: TextBlock; ed
   return <div className={cn("post-rich-text min-w-0 max-w-full", className)} dangerouslySetInnerHTML={{ __html: block.content }} />;
 }
 
-function HorizontalMedia({ media, crops, className }: { media: string[]; crops: MediaCrop[]; className?: string }) {
+function MediaFrame({ image, crop: savedCrop, aspect }: { image: string; crop?: MediaCrop; aspect: number }) {
+  const crop = { ...defaultMediaCrop(), ...savedCrop };
+  return <div className="w-full overflow-hidden rounded-[36px] border border-black/10" style={{ aspectRatio: aspect }}><img src={image} alt="Mídia do post" className="h-full w-full object-cover" draggable={false} style={{ objectPosition: `${crop.x}% ${crop.y}%`, transform: `scale(${crop.zoom})`, transformOrigin: `${crop.x}% ${crop.y}%` }} /></div>;
+}
+
+function HorizontalMedia({ media, crops, aspects, naturalAspects, className }: { media: string[]; crops: MediaCrop[]; aspects: MediaAspect[]; naturalAspects: number[]; className?: string }) {
   if (!media.length) return null;
-  return <div className={cn("grid aspect-[16/9] overflow-hidden rounded-[36px] border border-black/10", className)} style={{ gridTemplateColumns: `repeat(${media.length},minmax(0,1fr))` }}>{media.map((image, index) => { const crop = { ...defaultMediaCrop(), ...crops[index] }; return <div key={`${image.slice(-20)}-${index}`} className="h-full min-w-0 overflow-hidden" style={{ borderLeft: index ? "3px solid rgba(255,255,255,.8)" : undefined }}><img src={image} alt="Mídia do post" className="h-full w-full object-cover" style={{ objectPosition: `${crop.x}% ${crop.y}%`, transform: `scale(${crop.zoom})`, transformOrigin: `${crop.x}% ${crop.y}%` }} /></div>; })}</div>;
+  return <div className={cn("flex w-full items-center justify-center gap-2", className)}>{media.map((image, index) => <div key={`${image.slice(-20)}-${index}`} className="min-w-0 flex-1"><MediaFrame image={image} crop={crops[index]} aspect={mediaAspectValue(aspects[index] || "16:9", naturalAspects[index])} /></div>)}</div>;
 }
 
 function Avatar({ src, size, crop = defaultMediaCrop() }: { src: string; size: number; crop?: MediaCrop }) {
@@ -1271,7 +1366,7 @@ function PropertiesPanel({ section, template, format, setFormat, slide, update, 
   const textLayoutIndex = slide.layout.indexOf(activeTextBlock.id);
   const mediaLayoutIndex = slide.layout.indexOf("media");
   const textPlacement = textLayoutIndex < mediaLayoutIndex ? "above" : "below";
-  return <aside className="p-4 lg:p-5"><div className="space-y-6">{(!section || section === "slide") && <PanelSection title="Documento"><div className="grid grid-cols-2 gap-2">{(Object.entries(POST_FORMATS) as Array<[PostFormat, { label: string; width: number; height: number }]>).map(([value, item]) => <button key={value} onClick={() => setFormat(value)} className={cn("min-h-14 rounded-xl border p-3 text-left transition", format === value ? "border-[var(--accent-blue)] bg-[var(--hover)]" : "border-[var(--glass-border)]")}><span className="block text-xs font-semibold text-[var(--text-title)]">{item.label}</span><span className="text-[9px] text-[var(--muted-foreground)]">{value === "story" ? "Story" : "Feed 4:5"}</span>{format === value && <Check size={13} className="float-right -mt-5 text-[var(--accent-blue)]" />}</button>)}</div></PanelSection>}
+  return <aside className="p-4 lg:p-5"><div className="space-y-6">{(!section || section === "slide") && <><PanelSection title="Documento"><div className="grid grid-cols-2 gap-2">{(Object.entries(POST_FORMATS) as Array<[PostFormat, { label: string; width: number; height: number }]>).map(([value, item]) => <button key={value} onClick={() => setFormat(value)} className={cn("min-h-14 rounded-xl border p-3 text-left transition", format === value ? "border-[var(--accent-blue)] bg-[var(--hover)]" : "border-[var(--glass-border)]")}><span className="block text-xs font-semibold text-[var(--text-title)]">{item.label}</span><span className="text-[9px] text-[var(--muted-foreground)]">{value === "story" ? "Story" : "Feed 4:5"}</span>{format === value && <Check size={13} className="float-right -mt-5 text-[var(--accent-blue)]" />}</button>)}</div></PanelSection><PanelSection title="Composição"><div className="grid grid-cols-2 gap-2"><button type="button" onClick={() => update({ layoutMode: "auto" })} className={cn("rounded-xl border px-3 py-2.5 text-xs", slide.layoutMode === "auto" ? "border-[var(--accent-blue)] bg-[var(--hover)] text-[var(--text-title)]" : "border-[var(--glass-border)] text-[var(--muted-foreground)]")}>Automático</button><button type="button" onClick={() => update({ layoutMode: "free" })} className={cn("rounded-xl border px-3 py-2.5 text-xs", slide.layoutMode === "free" ? "border-[var(--accent-blue)] bg-[var(--hover)] text-[var(--text-title)]" : "border-[var(--glass-border)] text-[var(--muted-foreground)]")}><Move size={13} className="mr-1 inline" />Livre</button></div><p className="text-[10px] leading-relaxed text-[var(--muted-foreground)]">No modo livre, arraste textos e imagens. Guias magnéticas aparecem ao alinhar centros e bordas.</p></PanelSection></>}
 
       {(!section || section === "text") && <PanelSection title="Caixas de texto">
         <div className="flex flex-wrap gap-1.5">
@@ -1294,8 +1389,8 @@ function PropertiesPanel({ section, template, format, setFormat, slide, update, 
             <Field label={`Largura do bloco · ${activeTextBlock.textWidth}%`}><input aria-label="Largura do texto" type="range" min="40" max={template === "tweet" ? 76 : 84} step="2" value={Math.min(activeTextBlock.textWidth, template === "tweet" ? 76 : 84)} onChange={(event) => updateTextBlock({ textWidth: Number(event.target.value) })} className="w-full accent-[#27a3ff]" /></Field>
           </>
         )}
-        <div className="grid grid-cols-2 gap-2"><button onClick={() => { placeText("above"); onFocusVisualControl?.({ kind: "textPlacement" }); }} className={cn("rounded-xl border px-3 py-2 text-xs", textPlacement === "above" && "border-[var(--accent-blue)] bg-[var(--hover)]")}>Acima da imagem</button><button onClick={() => { placeText("below"); onFocusVisualControl?.({ kind: "textPlacement" }); }} className={cn("rounded-xl border px-3 py-2 text-xs", textPlacement === "below" && "border-[var(--accent-blue)] bg-[var(--hover)]")}>Abaixo da imagem</button></div>
-        <p className="text-[10px] leading-relaxed text-[var(--muted-foreground)]"><Move size={11} className="mr-1 inline" />{section ? "Use os botões acima para posicionar a caixa em relação à imagem." : "Selecione uma caixa e arraste o controle azul. Ela se encaixa na sequência sem alterar margens ou distâncias."}</p>
+        {slide.layoutMode === "auto" && <div className="grid grid-cols-2 gap-2"><button onClick={() => { placeText("above"); onFocusVisualControl?.({ kind: "textPlacement" }); }} className={cn("rounded-xl border px-3 py-2 text-xs", textPlacement === "above" && "border-[var(--accent-blue)] bg-[var(--hover)]")}>Acima da imagem</button><button onClick={() => { placeText("below"); onFocusVisualControl?.({ kind: "textPlacement" }); }} className={cn("rounded-xl border px-3 py-2 text-xs", textPlacement === "below" && "border-[var(--accent-blue)] bg-[var(--hover)]")}>Abaixo da imagem</button></div>}
+        <p className="text-[10px] leading-relaxed text-[var(--muted-foreground)]"><Move size={11} className="mr-1 inline" />{slide.layoutMode === "free" ? "Arraste a caixa diretamente no slide; ela se alinha ao centro e aos demais elementos." : section ? "Use os botões acima para posicionar a caixa em relação à imagem." : "Selecione uma caixa e arraste o controle azul. Ela se encaixa na sequência sem alterar margens ou distâncias."}</p>
       </PanelSection>}
 
       {template === "tweet" ? <>
@@ -1323,15 +1418,26 @@ function PropertiesPanel({ section, template, format, setFormat, slide, update, 
 }
 
 function MediaPanel({ slide, update, addFile, title, mobile = false, onFocusCrop }: { slide: Slide; update: (patch: Partial<Slide>) => void; addFile: (file: File | undefined, callback: (url: string) => void) => void; title: string; mobile?: boolean; onFocusCrop?: (index: number, axis: keyof MediaCrop) => void }) {
-  const setMediaFile = (index: number, url: string) => {
+  const setMediaFile = async (index: number, url: string) => {
+    const naturalAspect = await readImageAspect(url);
     const media = [...slide.media];
     const mediaCrops = [...slide.mediaCrops];
+    const mediaAspects = [...slide.mediaAspects];
+    const mediaNaturalAspects = [...slide.mediaNaturalAspects];
     media[index] = url;
     mediaCrops[index] = defaultMediaCrop();
-    const pairs = media.map((image, mediaIndex) => ({ image, crop: mediaCrops[mediaIndex] || defaultMediaCrop() })).filter((item) => Boolean(item.image)).slice(0, 2);
-    update({ media: pairs.map((item) => item.image), mediaCrops: pairs.map((item) => item.crop) });
+    mediaAspects[index] = "original";
+    mediaNaturalAspects[index] = naturalAspect;
+    const pairs = media.map((image, mediaIndex) => ({ image, crop: mediaCrops[mediaIndex] || defaultMediaCrop(), aspect: mediaAspects[mediaIndex] || "original" as const, naturalAspect: mediaNaturalAspects[mediaIndex] || 16 / 9 })).filter((item) => Boolean(item.image)).slice(0, 2);
+    update({ media: pairs.map((item) => item.image), mediaCrops: pairs.map((item) => item.crop), mediaAspects: pairs.map((item) => item.aspect), mediaNaturalAspects: pairs.map((item) => item.naturalAspect) });
   };
-  return <PanelSection title={title}><p className="mb-3 text-[10px] leading-relaxed text-[var(--muted-foreground)]">{mobile ? "Toque em uma área para escolher uma foto da biblioteca ou da câmera. Use até duas imagens lado a lado." : "O quadro é sempre horizontal. Envie um arquivo ou cole uma imagem com Ctrl+V / ⌘V; use até duas lado a lado."}</p><div className="grid grid-cols-2 gap-2">{[0, 1].map((index) => <UploadTile key={index} value={slide.media[index]} crop={{ ...defaultMediaCrop(), ...slide.mediaCrops[index] }} label={`Imagem ${index + 1}`} compactControls={mobile} onFocusCrop={(axis) => onFocusCrop?.(index, axis)} onCropChange={(crop) => { const mediaCrops = [...slide.mediaCrops]; mediaCrops[index] = crop; update({ mediaCrops }); }} onFile={(file) => addFile(file, (url) => setMediaFile(index, url))} onRemove={() => update({ media: slide.media.filter((_, mediaIndex) => mediaIndex !== index), mediaCrops: slide.mediaCrops.filter((_, mediaIndex) => mediaIndex !== index) })} />)}</div></PanelSection>;
+  const removeMedia = (index: number) => {
+    const freePositions = { ...slide.freePositions };
+    delete freePositions[`media:${index}`];
+    if (index === 0 && freePositions["media:1"]) { freePositions["media:0"] = freePositions["media:1"]; delete freePositions["media:1"]; }
+    update({ media: slide.media.filter((_, mediaIndex) => mediaIndex !== index), mediaCrops: slide.mediaCrops.filter((_, mediaIndex) => mediaIndex !== index), mediaAspects: slide.mediaAspects.filter((_, mediaIndex) => mediaIndex !== index), mediaNaturalAspects: slide.mediaNaturalAspects.filter((_, mediaIndex) => mediaIndex !== index), freePositions });
+  };
+  return <PanelSection title={title}><p className="mb-3 text-[10px] leading-relaxed text-[var(--muted-foreground)]">{mobile ? "Escolha a proporção e ajuste zoom e enquadramento de cada imagem." : "Cada imagem pode manter o formato original ou usar uma proporção fixa. Cole também com Ctrl+V / ⌘V."}</p><div className="grid grid-cols-2 gap-2">{[0, 1].map((index) => <UploadTile key={index} value={slide.media[index]} crop={{ ...defaultMediaCrop(), ...slide.mediaCrops[index] }} aspect={slide.mediaAspects[index] || "original"} naturalAspect={slide.mediaNaturalAspects[index]} label={`Imagem ${index + 1}`} compactControls={mobile} onFocusCrop={(axis) => onFocusCrop?.(index, axis)} onCropChange={(crop) => { const mediaCrops = [...slide.mediaCrops]; mediaCrops[index] = crop; update({ mediaCrops }); }} onAspectChange={(aspect) => { const mediaAspects = [...slide.mediaAspects]; mediaAspects[index] = aspect; update({ mediaAspects }); }} onFile={(file) => addFile(file, (url) => void setMediaFile(index, url))} onRemove={() => removeMedia(index)} />)}</div></PanelSection>;
 }
 
 function PanelSection({ title, children }: { title: string; children: React.ReactNode }) { return <section className="post-generator-panel-section border-b pb-5 last:border-0" style={{ borderColor: "var(--border)" }}><h2 className="mb-3 text-[10px] font-semibold uppercase tracking-[.14em] text-[var(--muted-foreground)]">{title}</h2><div className="space-y-3">{children}</div></section>; }
@@ -1360,6 +1466,6 @@ function AvatarUploadField({ value, crop, onFile, onRemove, onCropChange, onFocu
 
 function UploadField({ label, value, onFile, onRemove, square = false }: { label: string; value: string; onFile: (file?: File) => void; onRemove: () => void; square?: boolean }) { return <div className="flex items-center gap-3"><span className={cn("grid h-11 w-11 shrink-0 place-items-center overflow-hidden border bg-[var(--hover)]", square ? "rounded-lg" : "rounded-full")}>{value ? <img src={value} alt="Arquivo selecionado" className="h-full w-full object-cover" /> : <UserRound size={17} />}</span><label className="flex-1 cursor-pointer rounded-lg border px-3 py-2 text-center text-[10px] hover:bg-[var(--hover)]"><Upload size={12} className="mr-1 inline" />{value ? "Trocar" : label}<input type="file" accept="image/*" className="sr-only" onChange={(event) => onFile(event.target.files?.[0])} /></label>{value && <button onClick={onRemove} className="text-[var(--muted-foreground)] hover:text-red-500" aria-label="Remover imagem"><X size={15} /></button>}</div>; }
 
-function UploadTile({ label, value, crop, onFile, onRemove, onCropChange, compactControls = false, onFocusCrop }: { label: string; value?: string; crop: MediaCrop; onFile: (file?: File) => void; onRemove: () => void; onCropChange: (crop: MediaCrop) => void; compactControls?: boolean; onFocusCrop?: (axis: keyof MediaCrop) => void }) { return <div className="min-w-0 space-y-2"><div className="relative aspect-video overflow-hidden rounded-xl border bg-[var(--hover)]" style={{ borderColor: "var(--glass-border)" }}>{value ? <><img src={value} alt={label} className="h-full w-full object-cover" style={{ objectPosition: `${crop.x}% ${crop.y}%`, transform: `scale(${crop.zoom})`, transformOrigin: `${crop.x}% ${crop.y}%` }} /><button onClick={onRemove} aria-label={`Remover ${label}`} className="absolute right-1.5 top-1.5 grid h-6 w-6 place-items-center rounded-full bg-black/70 text-white"><X size={12} /></button></> : <label className="grid h-full cursor-pointer place-items-center text-center text-[10px] text-[var(--muted-foreground)]"><span><ImagePlus size={18} className="mx-auto mb-1" />{label}</span><input type="file" accept="image/*" className="sr-only" onChange={(event) => onFile(event.target.files?.[0])} /></label>}</div>{value && <div className="space-y-1.5 rounded-lg border p-2" style={{ borderColor: "var(--glass-border)" }}>{compactControls ? <><MobileAdjustmentButton label="Horizontal" value={`${Math.round(crop.x)}%`} onClick={() => onFocusCrop?.("x")} /><MobileAdjustmentButton label="Vertical" value={`${Math.round(crop.y)}%`} onClick={() => onFocusCrop?.("y")} /><MobileAdjustmentButton label="Zoom" value={`${crop.zoom.toFixed(2)}×`} onClick={() => onFocusCrop?.("zoom")} /></> : <><CropSlider label="Horizontal" value={crop.x} min={0} max={100} onChange={(x) => onCropChange({ ...crop, x })} /><CropSlider label="Vertical" value={crop.y} min={0} max={100} onChange={(y) => onCropChange({ ...crop, y })} /><CropSlider label="Zoom" value={crop.zoom} min={1} max={2.5} step={0.05} onChange={(zoom) => onCropChange({ ...crop, zoom })} /></>}</div>}</div>; }
+function UploadTile({ label, value, crop, aspect, naturalAspect, onFile, onRemove, onCropChange, onAspectChange, compactControls = false, onFocusCrop }: { label: string; value?: string; crop: MediaCrop; aspect: MediaAspect; naturalAspect?: number; onFile: (file?: File) => void; onRemove: () => void; onCropChange: (crop: MediaCrop) => void; onAspectChange: (aspect: MediaAspect) => void; compactControls?: boolean; onFocusCrop?: (axis: keyof MediaCrop) => void }) { const previewAspect = mediaAspectValue(aspect, naturalAspect); return <div className="min-w-0 space-y-2"><div className="relative mx-auto w-full overflow-hidden rounded-xl border bg-[var(--hover)]" style={{ borderColor: "var(--glass-border)", aspectRatio: previewAspect }}>{value ? <><img src={value} alt={label} className="h-full w-full object-cover" style={{ objectPosition: `${crop.x}% ${crop.y}%`, transform: `scale(${crop.zoom})`, transformOrigin: `${crop.x}% ${crop.y}%` }} /><button onClick={onRemove} aria-label={`Remover ${label}`} className="absolute right-1.5 top-1.5 grid h-6 w-6 place-items-center rounded-full bg-black/70 text-white"><X size={12} /></button></> : <label className="grid h-full min-h-20 cursor-pointer place-items-center text-center text-[10px] text-[var(--muted-foreground)]"><span><ImagePlus size={18} className="mx-auto mb-1" />{label}</span><input type="file" accept="image/*" className="sr-only" onChange={(event) => onFile(event.target.files?.[0])} /></label>}</div>{value && <div className="space-y-2 rounded-lg border p-2" style={{ borderColor: "var(--glass-border)" }}><label className="block"><span className="mb-1 block text-[8px] text-[var(--muted-foreground)]">Proporção</span><select aria-label={`Proporção da ${label.toLowerCase()}`} value={aspect} onChange={(event) => onAspectChange(event.target.value as MediaAspect)} className="editor-input h-9 w-full py-1 text-[10px]"><option value="original">Original · livre</option><option value="1:1">Quadrada · 1:1</option><option value="4:5">Vertical · 4:5</option><option value="9:16">Story · 9:16</option><option value="16:9">Horizontal · 16:9</option></select></label>{compactControls ? <><MobileAdjustmentButton label="Horizontal" value={`${Math.round(crop.x)}%`} onClick={() => onFocusCrop?.("x")} /><MobileAdjustmentButton label="Vertical" value={`${Math.round(crop.y)}%`} onClick={() => onFocusCrop?.("y")} /><MobileAdjustmentButton label="Zoom" value={`${crop.zoom.toFixed(2)}×`} onClick={() => onFocusCrop?.("zoom")} /></> : <><CropSlider label="Horizontal" value={crop.x} min={0} max={100} onChange={(x) => onCropChange({ ...crop, x })} /><CropSlider label="Vertical" value={crop.y} min={0} max={100} onChange={(y) => onCropChange({ ...crop, y })} /><CropSlider label="Zoom" value={crop.zoom} min={1} max={2.5} step={0.05} onChange={(zoom) => onCropChange({ ...crop, zoom })} /></>}</div>}</div>; }
 
 function CropSlider({ label, value, min, max, step = 1, onChange }: { label: string; value: number; min: number; max: number; step?: number; onChange: (value: number) => void }) { return <label className="block"><span className="mb-0.5 flex justify-between text-[8px] text-[var(--muted-foreground)]"><span>{label}</span><span>{label === "Zoom" ? `${value.toFixed(2)}×` : `${Math.round(value)}%`}</span></span><input type="range" aria-label={`${label} da imagem`} min={min} max={max} step={step} value={value} onChange={(event) => onChange(Number(event.target.value))} className="block w-full accent-[#27a3ff]" /></label>; }

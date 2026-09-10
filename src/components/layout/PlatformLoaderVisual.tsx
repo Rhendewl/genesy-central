@@ -9,6 +9,8 @@ const CRYSTAL = "M253.02,226.65h243.82c6.92,0,13.55-2.75,18.45-7.64l173.93-173.9
 // Páginas públicas (visitante externo, sem login) não devem exibir o splash
 // da plataforma — são acessadas via link direto e o branding aqui é irrelevante.
 const PUBLIC_PATH_PREFIXES = ["/form/", "/agendar/", "/analise-comercial/", "/coleta/"];
+const LOADER_EXIT_AT_MS = 3000;
+const LOADER_REMOVE_AT_MS = 3600;
 
 export function PlatformLoaderVisual() {
   const pathname = usePathname();
@@ -20,13 +22,32 @@ export function PlatformLoaderVisual() {
 
   useEffect(() => {
     if (isPublicPage) return;
-    if (sessionStorage.getItem("genesy-loaded")) return;
-    sessionStorage.setItem("genesy-loaded", "1");
+    try {
+      if (sessionStorage.getItem("genesy-loaded")) return;
+      sessionStorage.setItem("genesy-loaded", "1");
+    } catch {
+      // O splash continua descartável mesmo quando o navegador bloqueia storage.
+    }
+    const startedAt = Date.now();
     setVisible(true);
 
-    const t1 = setTimeout(() => setExiting(true),  3000);
-    const t2 = setTimeout(() => setVisible(false), 3600);
-    return () => { clearTimeout(t1); clearTimeout(t2); };
+    const finishIfExpired = () => {
+      const elapsed = Date.now() - startedAt;
+      if (elapsed >= LOADER_REMOVE_AT_MS) setVisible(false);
+      else if (elapsed >= LOADER_EXIT_AT_MS) setExiting(true);
+    };
+    const t1 = window.setTimeout(() => setExiting(true), LOADER_EXIT_AT_MS);
+    const t2 = window.setTimeout(() => setVisible(false), LOADER_REMOVE_AT_MS);
+    document.addEventListener("visibilitychange", finishIfExpired);
+    window.addEventListener("focus", finishIfExpired);
+    window.addEventListener("pageshow", finishIfExpired);
+    return () => {
+      window.clearTimeout(t1);
+      window.clearTimeout(t2);
+      document.removeEventListener("visibilitychange", finishIfExpired);
+      window.removeEventListener("focus", finishIfExpired);
+      window.removeEventListener("pageshow", finishIfExpired);
+    };
   }, [isPublicPage]);
 
   if (!visible || isPublicPage) return null;
@@ -41,6 +62,14 @@ export function PlatformLoaderVisual() {
           align-items: center;
           justify-content: center;
           z-index: 9999;
+          animation: gl-overlay-guard 4200ms steps(1, end) forwards;
+        }
+
+        /* Fail-safe: mesmo com timers suspensos pelo navegador/PWA, o overlay
+           nunca pode continuar bloqueando a plataforma. */
+        @keyframes gl-overlay-guard {
+          0%, 99% { visibility: visible; pointer-events: auto; }
+          100% { visibility: hidden; pointer-events: none; }
         }
 
         /* Entry */
@@ -103,7 +132,7 @@ export function PlatformLoaderVisual() {
         }
       `}</style>
 
-      <div id="gl-overlay" style={{ background: theme === "light" ? "#ffffff" : "#000000" }}>
+      <div id="gl-overlay" style={{ background: theme === "light" ? "#ffffff" : "#000000" }} onAnimationEnd={(event) => { if (event.currentTarget === event.target && event.animationName === "gl-overlay-guard") setVisible(false); }}>
         <div className={`gl-entry${exiting ? " gl-exit" : ""}`}>
           <div className="gl-breathe">
             <div className="gl-float">

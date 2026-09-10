@@ -87,7 +87,7 @@ async function resolveTemplate(db: SupabaseClient, userId: string, slot: Commerc
   if (!fallback) return null;
   const { data: override } = await db
     .from("commercial_templates")
-    .select("id,name,description,questions,is_active")
+    .select("id,name,description,questions,logic_rules,is_active")
     .eq("user_id", userId)
     .eq("is_system", true)
     .eq("week_number", week)
@@ -98,6 +98,7 @@ async function resolveTemplate(db: SupabaseClient, userId: string, slot: Commerc
     name: override?.name ?? fallback.name,
     description: override?.description ?? fallback.description,
     questions: override?.questions ?? fallback.questions,
+    logicRules: override?.logic_rules ?? [],
     week,
   };
 }
@@ -241,7 +242,7 @@ async function processClient(db: SupabaseClient, settings: AutomationSettings, t
     status: "published",
     automation_key: automationKey,
     developments,
-    meta_snapshot: { accounts: accountIds, questions: template.questions, generated_at: new Date().toISOString(), campaign_filter: "lead_generation_only", automation: true, automation_template_slot: slot, active_days: activeDays, minimum_active_days: settings.minimum_active_days, minimum_leads: settings.minimum_leads, email_recipients: brokers.map((broker) => ({ broker_id: broker.id, email: broker.email })) },
+    meta_snapshot: { accounts: accountIds, questions: template.questions, logic_rules: template.logicRules, generated_at: new Date().toISOString(), campaign_filter: "lead_generation_only", automation: true, automation_template_slot: slot, active_days: activeDays, minimum_active_days: settings.minimum_active_days, minimum_leads: settings.minimum_leads, email_recipients: brokers.map((broker) => ({ broker_id: broker.id, email: broker.email })) },
   }).select("id,name").single();
   const { data: existingCollection } = collectionError?.code === "23505"
     ? await db.from("commercial_collections").select("id,name").eq("automation_key", automationKey).maybeSingle()

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { format, subDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { AlertTriangle, ArrowDown, ArrowUp, BarChart3, Bot, Building2, CalendarDays, Check, ChevronDown, ClipboardList, Copy, ExternalLink, FileText, Loader2, Mail, MessageSquareText, Pencil, Plus, Settings2, Sparkles, Target, Trash2, TrendingUp, Users } from "lucide-react";
+import { AlertTriangle, ArrowDown, ArrowRight, ArrowUp, BarChart3, Bot, Building2, CalendarDays, Check, ChevronDown, ClipboardList, Copy, Download, ExternalLink, FileText, GitBranch, Loader2, Mail, MessageSquareText, Pencil, Plus, Settings2, Sparkles, Target, Trash2, TrendingUp, Users } from "lucide-react";
 import { toast } from "sonner";
 import { AnimatePresence } from "framer-motion";
 import { useAgencyClients } from "@/hooks/useAgencyClients";
@@ -13,8 +13,10 @@ import { ConfirmActionModal } from "@/components/ui/ConfirmActionModal";
 import { AccountPickerModal } from "@/components/trafego/IntegracoesTab";
 import { cn } from "@/lib/utils";
 import { DEFAULT_CAMPAIGN_PARSER, extractDevelopmentName } from "@/lib/clientes/commercial-intelligence";
+import { validateCommercialLogicRules } from "@/lib/clientes/commercial-question-logic";
+import { saveCommercialIntelligenceSummaryPdf } from "@/lib/commercial-intelligence-summary-pdf";
 import { buildPublicUrl, PUBLIC_SITE_ORIGIN } from "@/lib/public-url";
-import type { FormStep, FormStepType, MetaAdAccount, QuestionWeight } from "@/types";
+import type { FormStep, FormStepType, LogicRule, MetaAdAccount, QuestionWeight } from "@/types";
 import type { CommercialBroker, CommercialCollection, CommercialDashboard, CommercialIntelligenceSettings, CommercialResponse, CommercialTemplate } from "@/types/commercial-intelligence";
 
 type Tab = "dashboard" | "responses" | "settings" | "templates" | "collections" | "ai";
@@ -27,6 +29,7 @@ export function CommercialAnalysisModule() {
   const { clients, isLoading: clientsLoading } = useAgencyClients();
   const activeClients = clients.filter((client) => client.status === "ativo");
   const [clientId, setClientId] = useState("");
+  const activeClientName = activeClients.find((client) => client.id === clientId)?.name ?? "Cliente";
   const [tab, setTab] = useState<Tab>("dashboard");
   const [data, setData] = useState<ModuleData>({ settings: null, brokers: [], accounts: [], templates: [], collections: [], dashboard: emptyDashboard });
   const [loading, setLoading] = useState(false);
@@ -51,7 +54,7 @@ export function CommercialAnalysisModule() {
   return <div className="space-y-5">
     <section className="flex flex-col gap-4 rounded-2xl border p-4 sm:flex-row sm:items-center sm:justify-between" style={{ background: "var(--glass-bg-soft)", borderColor: "var(--glass-border)" }}><div><p className="text-[10px] font-semibold uppercase tracking-[.18em] text-[var(--primary)]">Inteligência comercial</p><h2 className="mt-1 text-lg font-semibold text-[var(--text-title)]">Marketing e vendas na mesma leitura</h2><p className="mt-1 text-xs text-[var(--muted-foreground)]">Somente campanhas de captação com leads entram nas coletas.</p></div><label className="relative flex min-w-0 items-center gap-3 rounded-xl border px-3 py-2.5 sm:min-w-[290px]" style={{ background: "var(--glass-bg)", borderColor: "var(--glass-border)" }}><span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[var(--hover)] text-[var(--primary)]"><Building2 size={16} /></span><span className="min-w-0 flex-1"><span className="block text-[9px] font-semibold uppercase tracking-[.14em] text-[var(--muted-foreground)]">Cliente em análise</span><select aria-label="Cliente em análise" value={clientId} onChange={(event) => setClientId(event.target.value)} className="w-full appearance-none bg-transparent pr-6 text-sm font-semibold text-[var(--text-title)] outline-none"><option value="">Selecionar cliente</option>{activeClients.map((client) => <option key={client.id} value={client.id}>{client.name}</option>)}</select></span><ChevronDown size={15} className="pointer-events-none absolute right-3 bottom-4 text-[var(--muted-foreground)]" /></label></section>
     <nav className="overflow-x-auto rounded-2xl border p-1.5" style={{ background: "var(--glass-bg-soft)" }}><div className="flex min-w-max gap-1">{tabItems.map(([id, label, icon]) => <button key={id} onClick={() => setTab(id)} className={cn("flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-medium transition", tab === id ? "text-[var(--text-title)]" : "text-[var(--muted-foreground)] hover:text-[var(--text-title)]")} style={tab === id ? { background: "var(--segment-active-bg)" } : {}}>{icon}{label}</button>)}</div></nav>
-    {!clientId ? <Empty title="Selecione um cliente" text="A inteligência comercial é configurada por cliente." /> : migrationRequired ? <MigrationNotice /> : loading ? <Loading /> : <>{tab === "dashboard" && <Dashboard dashboard={data.dashboard} hasCollections={data.collections.length > 0} />}{(data.legacyAnalyses?.length ?? 0) > 0 && tab === "dashboard" && <p className="rounded-xl border border-sky-500/15 bg-sky-500/[.05] px-4 py-3 text-xs text-[var(--muted-foreground)]">{data.legacyAnalyses?.length} diagnóstico(s) da versão anterior preservado(s) e disponível(is) pela API compatível.</p>}{tab === "responses" && <Responses clientId={clientId} responses={data.responses ?? []} collections={data.collections} onSaved={load} />}{tab === "settings" && <Settings clientId={clientId} data={data} onSaved={load} onConnectMeta={beginMetaConnection} />}{tab === "templates" && <Templates templates={data.templates} onSaved={load} />}{tab === "collections" && <Collections clientId={clientId} data={data} onSaved={load} />}{tab === "ai" && <Intelligence collections={data.collections} onSaved={load} />}</>}
+    {!clientId ? <Empty title="Selecione um cliente" text="A inteligência comercial é configurada por cliente." /> : migrationRequired ? <MigrationNotice /> : loading ? <Loading /> : <>{tab === "dashboard" && <Dashboard dashboard={data.dashboard} hasCollections={data.collections.length > 0} />}{(data.legacyAnalyses?.length ?? 0) > 0 && tab === "dashboard" && <p className="rounded-xl border border-sky-500/15 bg-sky-500/[.05] px-4 py-3 text-xs text-[var(--muted-foreground)]">{data.legacyAnalyses?.length} diagnóstico(s) da versão anterior preservado(s) e disponível(is) pela API compatível.</p>}{tab === "responses" && <Responses clientId={clientId} clientName={activeClientName} responses={data.responses ?? []} collections={data.collections} onSaved={load} />}{tab === "settings" && <Settings clientId={clientId} data={data} onSaved={load} onConnectMeta={beginMetaConnection} />}{tab === "templates" && <Templates templates={data.templates} onSaved={load} />}{tab === "collections" && <Collections clientId={clientId} data={data} onSaved={load} />}{tab === "ai" && <Intelligence collections={data.collections} onSaved={load} />}</>}
     <AnimatePresence>{pendingMetaId && <AccountPickerModal pendingId={pendingMetaId} defaultClientId={clientId} onClose={closeMetaPicker} onConnect={connectPendingAccount} fetchPending={fetchPendingAccounts} clients={activeClients.map((client) => ({ id: client.id, name: client.name }))} />}</AnimatePresence>
   </div>;
 }
@@ -78,19 +81,38 @@ function Dashboard({ dashboard, hasCollections }: { dashboard: CommercialDashboa
   </div>;
 }
 
-function Responses({ clientId, responses, collections, onSaved }: { clientId: string; responses: CommercialResponse[]; collections: CommercialCollection[]; onSaved: () => Promise<void> }) {
+function Responses({ clientId, clientName, responses, collections, onSaved }: { clientId: string; clientName: string; responses: CommercialResponse[]; collections: CommercialCollection[]; onSaved: () => Promise<void> }) {
   const [deleting, setDeleting] = useState<CommercialResponse | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [openCollections, setOpenCollections] = useState<Set<string>>(() => new Set());
   const [openResponses, setOpenResponses] = useState<Set<string>>(() => new Set());
+  const [exportCollectionId, setExportCollectionId] = useState("");
+  const [exporting, setExporting] = useState(false);
   const groups = useMemo(() => collections.map((collection) => ({
     collection,
     responses: responses.filter((response) => response.collection_id === collection.id),
   })).filter((group) => group.responses.length > 0), [collections, responses]);
 
   useEffect(() => {
-    if (groups[0]) setOpenCollections((current) => current.size ? current : new Set([groups[0].collection.id]));
+    if (groups[0]) {
+      setOpenCollections((current) => current.size ? current : new Set([groups[0].collection.id]));
+      setExportCollectionId((current) => groups.some((group) => group.collection.id === current) ? current : groups[0].collection.id);
+    }
   }, [groups]);
+
+  async function exportSummary() {
+    const group = groups.find((item) => item.collection.id === exportCollectionId) ?? groups[0];
+    if (!group) return;
+    setExporting(true);
+    try {
+      await saveCommercialIntelligenceSummaryPdf({ clientName, collection: group.collection, responses: group.responses });
+      toast.success("Resumo comercial exportado em PDF");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível gerar o PDF");
+    } finally {
+      setExporting(false);
+    }
+  }
 
   function toggle(setter: React.Dispatch<React.SetStateAction<Set<string>>>, id: string) {
     setter((current) => { const next = new Set(current); if (next.has(id)) next.delete(id); else next.add(id); return next; });
@@ -117,7 +139,7 @@ function Responses({ clientId, responses, collections, onSaved }: { clientId: st
 
   if (!responses.length) return <Empty title="Nenhuma resposta" text="As respostas enviadas pelos corretores aparecerão aqui." />;
   return <div className="space-y-4">
-    <div className="flex flex-col gap-3 rounded-2xl border p-4 sm:flex-row sm:items-center sm:justify-between" style={{ background: "var(--glass-bg-soft)" }}><div><p className="text-sm font-semibold text-[var(--text-title)]">Respostas organizadas por coleta</p><p className="mt-1 text-xs text-[var(--muted-foreground)]">Abra uma semana, escolha o empreendimento e veja o formulário completo de cada corretor.</p></div><div className="flex items-center gap-2 text-[11px] text-[var(--muted-foreground)]"><MessageSquareText size={14} className="text-sky-400" />{responses.length} resposta{responses.length === 1 ? "" : "s"} em {groups.length} coleta{groups.length === 1 ? "" : "s"}</div></div>
+    <div className="flex flex-col gap-4 rounded-2xl border p-4 lg:flex-row lg:items-center lg:justify-between" style={{ background: "var(--glass-bg-soft)" }}><div><p className="text-sm font-semibold text-[var(--text-title)]">Respostas organizadas por coleta</p><p className="mt-1 text-xs text-[var(--muted-foreground)]">Abra uma semana, escolha o empreendimento e veja o formulário completo de cada corretor.</p><div className="mt-2 flex items-center gap-2 text-[11px] text-[var(--muted-foreground)]"><MessageSquareText size={14} className="text-sky-400" />{responses.length} resposta{responses.length === 1 ? "" : "s"} em {groups.length} coleta{groups.length === 1 ? "" : "s"}</div></div><div className="flex flex-col gap-2 sm:flex-row"><select aria-label="Período do resumo em PDF" value={exportCollectionId} onChange={(event) => setExportCollectionId(event.target.value)} className="lc-form-control crm-form-select min-w-0 sm:w-64">{groups.map((group) => <option key={group.collection.id} value={group.collection.id}>{group.collection.name}</option>)}</select><Button onClick={() => void exportSummary()} loading={exporting} loadingLabel="Gerando PDF…" icon={<Download />} signature>Exportar resumo</Button></div></div>
     {groups.map(({ collection, responses: collectionResponses }) => {
       const isOpen = openCollections.has(collection.id);
       const developments = Array.from(new Set(collectionResponses.map((response) => response.development_name)));
@@ -218,7 +240,7 @@ function Templates({ templates, onSaved }: { templates: CommercialTemplate[]; on
     <div className="flex items-center justify-between"><p className="text-xs text-[var(--muted-foreground)]">Use o mesmo padrão de campos e scoring do módulo de Formulários.</p><Button onClick={() => setEditing("new")} icon={<Plus />} signature>Novo template</Button></div>
     <div className="grid gap-4 sm:grid-cols-2">{templates.map((template) => <Panel key={template.id} title={template.name} subtitle={template.description ?? "Template personalizado"}>
       <div className="mb-4 flex items-center justify-between gap-3">
-        <span className="text-[10px] text-[var(--primary)]">{template.is_system ? `Ciclo ${template.week_number}` : "Personalizado"} · {template.questions.length} campos</span>
+        <span className="flex items-center gap-2 text-[10px] text-[var(--primary)]">{template.is_system ? `Ciclo ${template.week_number}` : "Personalizado"} · {template.questions.length} campos{(template.logic_rules?.length ?? 0) > 0 && <span className="inline-flex items-center gap-1 rounded-full bg-sky-500/10 px-2 py-0.5 text-sky-400"><GitBranch size={10} />{template.logic_rules.length} regra{template.logic_rules.length === 1 ? "" : "s"}</span>}</span>
         <div className="flex shrink-0 gap-1.5">
           <button onClick={() => setEditing(template)} className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-[11px] hover:bg-[var(--hover)]"><Pencil size={12} />Editar</button>
           <button type="button" onClick={() => setDeleting(template)} aria-label={`Excluir template ${template.name}`} title="Excluir template" className="grid h-9 w-9 place-items-center rounded-lg border text-rose-400 transition hover:bg-rose-500/10"><Trash2 size={13} /></button>
@@ -231,11 +253,75 @@ function Templates({ templates, onSaved }: { templates: CommercialTemplate[]; on
 }
 
 function TemplateEditor({ template, onCancel, onSaved }: { template: CommercialTemplate | null; onCancel: () => void; onSaved: () => Promise<void> }) {
-  const [name, setName] = useState(template?.name ?? ""); const [description, setDescription] = useState(template?.description ?? ""); const [questions, setQuestions] = useState<FormStep[]>(template?.questions ?? [newQuestion()]); const [saving, setSaving] = useState(false);
+  const [name, setName] = useState(template?.name ?? "");
+  const [description, setDescription] = useState(template?.description ?? "");
+  const [questions, setQuestions] = useState<FormStep[]>(template?.questions ?? [newQuestion()]);
+  const [logicRules, setLogicRules] = useState<LogicRule[]>(template?.logic_rules ?? []);
+  const [saving, setSaving] = useState(false);
+
   function patchQuestion(index: number, patch: Partial<FormStep>) { setQuestions((rows) => rows.map((row, i) => i === index ? { ...row, ...patch } as FormStep : row)); }
   function move(index: number, direction: -1 | 1) { const target = index + direction; if (target < 0 || target >= questions.length) return; setQuestions((rows) => { const next = [...rows]; [next[index], next[target]] = [next[target], next[index]]; return next; }); }
-  async function save() { if (!name.trim() || questions.some((question) => !question.title.trim())) return toast.error("Preencha o nome e o título de todas as perguntas"); setSaving(true); const response = await fetch("/api/clientes/commercial-intelligence", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "save_template", template_id: template?.id, name, description, questions }) }); const json = await response.json(); setSaving(false); if (!response.ok) return toast.error(json.error); toast.success(template ? "Template atualizado" : "Template criado"); await onSaved(); }
-  return <div className="space-y-4"><Panel title={template ? `Editar · ${template.name}` : "Novo template"} subtitle="Cada bloco abaixo é um campo real do formulário"><div className="grid gap-3 sm:grid-cols-2"><Field label="Nome do template"><input value={name} onChange={(event) => setName(event.target.value)} className="lc-form-control" placeholder="Ex.: Qualidade comercial" /></Field><Field label="Descrição"><input value={description ?? ""} onChange={(event) => setDescription(event.target.value)} className="lc-form-control" placeholder="Objetivo desta rodada" /></Field></div></Panel>{questions.map((question, index) => <section key={question.id} className="rounded-2xl border p-4" style={{ background: "var(--glass-bg-soft)" }}><div className="mb-4 flex items-center justify-between"><div><p className="text-xs font-semibold">Pergunta {index + 1}</p><p className="text-[10px] text-[var(--muted-foreground)]">{questionTypeLabel(question.type)} · peso {weightLabel(question.weight)}</p></div><div className="flex gap-1"><IconButton label="Subir" disabled={index === 0} onClick={() => move(index, -1)}><ArrowUp size={13} /></IconButton><IconButton label="Descer" disabled={index === questions.length - 1} onClick={() => move(index, 1)}><ArrowDown size={13} /></IconButton><IconButton label="Excluir" disabled={questions.length === 1} onClick={() => setQuestions((rows) => rows.filter((_, i) => i !== index))}><Trash2 size={13} className="text-rose-400" /></IconButton></div></div><div className="grid gap-3 sm:grid-cols-2"><Field label="Pergunta"><input value={question.title} onChange={(event) => patchQuestion(index, { title: event.target.value })} className="lc-form-control" placeholder="Digite a pergunta" /></Field><Field label="Tipo de campo"><select value={question.type} onChange={(event) => patchQuestion(index, changeQuestionType(question, event.target.value as FormStepType))} className="lc-form-control crm-form-select">{(["rating", "single_choice", "multiple_choice", "short_text", "long_text", "number"] as FormStepType[]).map((type) => <option key={type} value={type}>{questionTypeLabel(type)}</option>)}</select></Field><Field label="Peso no scoring"><select value={question.weight ?? "medium"} onChange={(event) => patchQuestion(index, { weight: event.target.value as QuestionWeight })} className="lc-form-control crm-form-select"><option value="ignore">Não pontua</option><option value="low">Baixo</option><option value="medium">Médio</option><option value="high">Alto</option><option value="critical">Crítico</option></select></Field><label className="flex items-center gap-2 self-end pb-3 text-xs"><input type="checkbox" checked={question.required} onChange={(event) => patchQuestion(index, { required: event.target.checked })} />Resposta obrigatória</label></div>{question.type === "rating" && <Field label="Escala"><select value={question.maxRating ?? 10} onChange={(event) => patchQuestion(index, { maxRating: Number(event.target.value) })} className="lc-form-control crm-form-select mt-3 max-w-xs"><option value={5}>1 a 5</option><option value={10}>0 a 10</option></select></Field>}{(question.type === "single_choice" || question.type === "multiple_choice") && <ChoiceEditor choices={question.choices ?? []} onChange={(choices) => patchQuestion(index, { choices })} />}</section>)}<button onClick={() => setQuestions((rows) => [...rows, newQuestion()])} className="flex w-full items-center justify-center gap-2 rounded-2xl border border-dashed p-4 text-xs font-medium text-[var(--primary)] hover:bg-[var(--hover)]"><Plus size={14} />Adicionar pergunta</button><div className="flex justify-end gap-2"><button onClick={onCancel} className="rounded-xl border px-4 py-2 text-xs">Cancelar</button><Button onClick={() => void save()} loading={saving} icon={<Check />} signature>Salvar template</Button></div></div>;
+  function removeQuestion(index: number) {
+    const removedId = questions[index].id;
+    setQuestions((rows) => rows.filter((_, questionIndex) => questionIndex !== index));
+    setLogicRules((rules) => rules.filter((rule) => rule.condition.step !== removedId && rule.action.target !== removedId));
+  }
+  function updateChoices(index: number, choices: NonNullable<FormStep["choices"]>) {
+    const previous = questions[index].choices ?? [];
+    const replacements = new Map(previous.map((choice) => [choice.id, { before: choice.value, after: choices.find((item) => item.id === choice.id)?.value }]));
+    patchQuestion(index, { choices });
+    setLogicRules((rules) => rules.flatMap((rule) => {
+      if (rule.condition.step !== questions[index].id) return [rule];
+      const changed = Array.from(replacements.values()).find((replacement) => replacement.before === rule.condition.value);
+      if (!changed) return [rule];
+      return changed.after !== undefined ? [{ ...rule, condition: { ...rule.condition, value: changed.after } }] : [];
+    }));
+  }
+  async function save() {
+    if (!name.trim() || questions.some((question) => !question.title.trim())) return toast.error("Preencha o nome e o título de todas as perguntas");
+    const logicErrors = validateCommercialLogicRules(questions, logicRules);
+    if (logicErrors.length) return toast.error(logicErrors[0]);
+    setSaving(true);
+    const response = await fetch("/api/clientes/commercial-intelligence", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "save_template", template_id: template?.id, name, description, questions, logic_rules: logicRules }) });
+    const json = await response.json();
+    setSaving(false);
+    if (!response.ok) return toast.error(json.error);
+    toast.success(template ? "Template atualizado" : "Template criado");
+    await onSaved();
+  }
+
+  return <div className="space-y-4">
+    <Panel title={template ? `Editar · ${template.name}` : "Novo template"} subtitle="Cada bloco abaixo é um campo real do formulário">
+      <div className="grid gap-3 sm:grid-cols-2"><Field label="Nome do template"><input value={name} onChange={(event) => setName(event.target.value)} className="lc-form-control" placeholder="Ex.: Qualidade comercial" /></Field><Field label="Descrição"><input value={description ?? ""} onChange={(event) => setDescription(event.target.value)} className="lc-form-control" placeholder="Objetivo desta rodada" /></Field></div>
+    </Panel>
+    {questions.map((question, index) => <section key={question.id} className="rounded-2xl border p-4" style={{ background: "var(--glass-bg-soft)" }}>
+      <div className="mb-4 flex items-center justify-between"><div><p className="text-xs font-semibold">Pergunta {index + 1}</p><p className="text-[10px] text-[var(--muted-foreground)]">{questionTypeLabel(question.type)} · peso {weightLabel(question.weight)}</p></div><div className="flex gap-1"><IconButton label="Subir" disabled={index === 0} onClick={() => move(index, -1)}><ArrowUp size={13} /></IconButton><IconButton label="Descer" disabled={index === questions.length - 1} onClick={() => move(index, 1)}><ArrowDown size={13} /></IconButton><IconButton label="Excluir" disabled={questions.length === 1} onClick={() => removeQuestion(index)}><Trash2 size={13} className="text-rose-400" /></IconButton></div></div>
+      <div className="grid gap-3 sm:grid-cols-2"><Field label="Pergunta"><input value={question.title} onChange={(event) => patchQuestion(index, { title: event.target.value })} className="lc-form-control" placeholder="Digite a pergunta" /></Field><Field label="Tipo de campo"><select value={question.type} onChange={(event) => { patchQuestion(index, changeQuestionType(question, event.target.value as FormStepType)); setLogicRules((rules) => rules.filter((rule) => rule.condition.step !== question.id)); }} className="lc-form-control crm-form-select">{(["rating", "single_choice", "multiple_choice", "short_text", "long_text", "number"] as FormStepType[]).map((type) => <option key={type} value={type}>{questionTypeLabel(type)}</option>)}</select></Field><Field label="Peso no scoring"><select value={question.weight ?? "medium"} onChange={(event) => patchQuestion(index, { weight: event.target.value as QuestionWeight })} className="lc-form-control crm-form-select"><option value="ignore">Não pontua</option><option value="low">Baixo</option><option value="medium">Médio</option><option value="high">Alto</option><option value="critical">Crítico</option></select></Field><label className="flex items-center gap-2 self-end pb-3 text-xs"><input type="checkbox" checked={question.required} onChange={(event) => patchQuestion(index, { required: event.target.checked })} />Resposta obrigatória</label></div>
+      {question.type === "rating" && <Field label="Escala"><select value={question.maxRating ?? 10} onChange={(event) => { patchQuestion(index, { maxRating: Number(event.target.value) }); setLogicRules((rules) => rules.filter((rule) => rule.condition.step !== question.id)); }} className="lc-form-control crm-form-select mt-3 max-w-xs"><option value={5}>1 a 5</option><option value={10}>0 a 10</option></select></Field>}
+      {(question.type === "single_choice" || question.type === "multiple_choice") && <ChoiceEditor choices={question.choices ?? []} onChange={(choices) => updateChoices(index, choices)} />}
+      <CommercialLogicEditor question={question} questionIndex={index} questions={questions} rules={logicRules.filter((rule) => rule.condition.step === question.id)} onChange={(nextRules) => setLogicRules((rules) => [...rules.filter((rule) => rule.condition.step !== question.id), ...nextRules])} />
+    </section>)}
+    <button onClick={() => setQuestions((rows) => [...rows, newQuestion()])} className="flex w-full items-center justify-center gap-2 rounded-2xl border border-dashed p-4 text-xs font-medium text-[var(--primary)] hover:bg-[var(--hover)]"><Plus size={14} />Adicionar pergunta</button>
+    <div className="flex justify-end gap-2"><button onClick={onCancel} className="rounded-xl border px-4 py-2 text-xs">Cancelar</button><Button onClick={() => void save()} loading={saving} icon={<Check />} signature>Salvar template</Button></div>
+  </div>;
+}
+
+function CommercialLogicEditor({ question, questionIndex, questions, rules, onChange }: { question: FormStep; questionIndex: number; questions: FormStep[]; rules: LogicRule[]; onChange: (rules: LogicRule[]) => void }) {
+  const choices = question.type === "rating"
+    ? Array.from({ length: question.maxRating === 10 ? 11 : question.maxRating ?? 5 }, (_, index) => question.maxRating === 10 ? index : index + 1).map((value) => ({ label: `Nota ${value}`, value }))
+    : (question.type === "single_choice" || question.type === "multiple_choice")
+      ? (question.choices ?? []).filter((choice) => choice.value.trim()).map((choice) => ({ label: choice.label, value: choice.value }))
+      : [];
+  const targets = questions.slice(questionIndex + 1);
+  if (!choices.length || !targets.length) return null;
+  const operator = question.type === "multiple_choice" ? "contains" as const : "equals" as const;
+  function addRule() {
+    onChange([...rules, { id: crypto.randomUUID(), condition: { step: question.id, operator, value: choices[0].value }, action: { type: "jump", target: targets[0].id } }]);
+  }
+  return <div className="mt-4 rounded-xl border border-sky-500/15 bg-sky-500/[.04] p-3">
+    <div className="flex items-center justify-between gap-3"><div><p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-sky-400"><GitBranch size={12} />Lógica condicional</p><p className="mt-1 text-[10px] text-[var(--muted-foreground)]">Direcione uma resposta para uma pergunta posterior.</p></div><button type="button" onClick={addRule} className="inline-flex items-center gap-1 rounded-lg border px-2.5 py-2 text-[10px] text-[var(--primary)]"><Plus size={11} />Adicionar lógica</button></div>
+    {rules.length > 0 && <div className="mt-3 space-y-2">{rules.map((rule) => <div key={rule.id} className="grid gap-2 rounded-lg border bg-[var(--glass-bg)] p-2 sm:grid-cols-[1fr_auto_1fr_auto] sm:items-center"><select aria-label="Se a resposta for" value={String(rule.condition.value ?? "")} onChange={(event) => onChange(rules.map((item) => item.id === rule.id ? { ...item, condition: { ...item.condition, operator, value: question.type === "rating" ? Number(event.target.value) : event.target.value } } : item))} className="lc-form-control crm-form-select text-xs">{choices.map((choice) => <option key={choice.value} value={choice.value}>{choice.label}</option>)}</select><ArrowRight size={13} className="hidden text-sky-400 sm:block" /><select aria-label="Direcionar para" value={rule.action.target ?? ""} onChange={(event) => onChange(rules.map((item) => item.id === rule.id ? { ...item, action: { type: "jump", target: event.target.value } } : item))} className="lc-form-control crm-form-select text-xs">{targets.map((target) => <option key={target.id} value={target.id}>Pergunta {questions.findIndex((item) => item.id === target.id) + 1} · {target.title || "Sem título"}</option>)}</select><button type="button" aria-label="Remover lógica" onClick={() => onChange(rules.filter((item) => item.id !== rule.id))} className="grid h-9 w-9 place-items-center rounded-lg text-rose-400 hover:bg-rose-500/10"><Trash2 size={13} /></button></div>)}</div>}
+  </div>;
 }
 
 function ChoiceEditor({ choices, onChange }: { choices: NonNullable<FormStep["choices"]>; onChange: (choices: NonNullable<FormStep["choices"]>) => void }) {

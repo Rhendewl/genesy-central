@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowLeft, ArrowRight, Building2, Check, Loader2, SkipForward, Star } from "lucide-react";
-import type { FormStep } from "@/types";
+import type { FormStep, LogicRule } from "@/types";
 import { COMMERCIAL_LONG_TEXT_MIN_LENGTH, isCommercialAnswerValid } from "@/lib/clientes/commercial-intelligence";
+import { commercialQuestionPath, nextCommercialQuestionIndex } from "@/lib/clientes/commercial-question-logic";
 
-type PublicCollection = { id: string; name: string; clientName?: string; period_end?: string; developments: Array<{ name: string }>; questions: FormStep[] };
+type PublicCollection = { id: string; name: string; clientName?: string; period_end?: string; developments: Array<{ name: string }>; questions: FormStep[]; logicRules: LogicRule[] };
 type Broker = { id: string; name: string };
 
 export function CommercialCollectionPublic({ slug }: { slug: string }) {
@@ -16,6 +17,7 @@ export function CommercialCollectionPublic({ slug }: { slug: string }) {
   const [identified, setIdentified] = useState(false);
   const [developmentIndex, setDevelopmentIndex] = useState(0);
   const [questionIndex, setQuestionIndex] = useState(0);
+  const [questionHistory, setQuestionHistory] = useState<number[]>([]);
   const [answers, setAnswers] = useState<Record<string, unknown>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -44,15 +46,15 @@ export function CommercialCollectionPublic({ slug }: { slug: string }) {
   const totalSteps = collection ? collection.developments.length * collection.questions.length : 0;
   const currentStep = collection ? developmentIndex * collection.questions.length + questionIndex + 1 : 0;
   const progress = totalSteps ? Math.round((currentStep / totalSteps) * 100) : 0;
-  const valid = useMemo(() => collection?.questions.every((question) => isCommercialAnswerValid(question, answers[question.id])), [answers, collection]);
-
   const currentValid = question ? isAnswerValid(question, answers[question.id]) : false;
 
   function advance(nextAnswers = answers) {
     if (!collection || !question || !isAnswerValid(question, nextAnswers[question.id])) return;
     setError("");
-    if (questionIndex + 1 < collection.questions.length) {
-      setQuestionIndex((value) => value + 1);
+    const nextIndex = nextCommercialQuestionIndex(collection.questions, collection.logicRules, questionIndex, nextAnswers);
+    if (nextIndex >= 0) {
+      setQuestionHistory((history) => [...history, questionIndex]);
+      setQuestionIndex(nextIndex);
       window.scrollTo({ top: 0, behavior: "smooth" });
       return;
     }
@@ -80,6 +82,7 @@ export function CommercialCollectionPublic({ slug }: { slug: string }) {
     setError("");
     setAnswers({});
     setQuestionIndex(0);
+    setQuestionHistory([]);
     if (developmentIndex + 1 >= collection.developments.length) {
       setDone(true);
       return;
@@ -90,7 +93,7 @@ export function CommercialCollectionPublic({ slug }: { slug: string }) {
   }
 
   async function submit(finalAnswers = answers) {
-    const allValid = collection?.questions.every((item) => isAnswerValid(item, finalAnswers[item.id]));
+    const allValid = collection && commercialQuestionPath(collection.questions, collection.logicRules, finalAnswers).every((item) => isAnswerValid(item, finalAnswers[item.id]));
     if (!collection || !development || !brokerId || !allValid) return;
     setSaving(true); setError("");
     let respondentKey = localStorage.getItem("genesy-commercial-respondent-key");
@@ -101,7 +104,7 @@ export function CommercialCollectionPublic({ slug }: { slug: string }) {
     setSubmittedDevelopments((value) => value + 1);
     localStorage.setItem(`genesy-commercial-broker:${collection.clientName ?? collection.id}`, brokerId);
     if (developmentIndex + 1 >= collection.developments.length) setDone(true);
-    else { setDevelopmentIndex((value) => value + 1); setQuestionIndex(0); setAnswers({}); setShowDevelopmentIntro(true); window.scrollTo({ top: 0, behavior: "smooth" }); }
+    else { setDevelopmentIndex((value) => value + 1); setQuestionIndex(0); setQuestionHistory([]); setAnswers({}); setShowDevelopmentIntro(true); window.scrollTo({ top: 0, behavior: "smooth" }); }
   }
 
   if (loading) return <main className="grid min-h-dvh place-items-center bg-[#050607] text-white"><Loader2 className="animate-spin text-[#aeb7bd]" /></main>;
@@ -121,7 +124,7 @@ export function CommercialCollectionPublic({ slug }: { slug: string }) {
         <div className="mb-6 flex items-center justify-between gap-3"><span className="text-[10px] font-semibold uppercase tracking-[.16em] text-[#8d969c]">Pergunta {questionIndex + 1} de {collection.questions.length}</span><span className="text-[10px] text-[#707b82]">{progress}% concluído</span></div>
         <div className="min-h-[260px] overflow-hidden"><AnimatePresence mode="wait">{question && <motion.div key={`${development?.name}-${question.id}`} initial={{ opacity: 0, x: 22 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -22 }} transition={{ duration: 0.2 }}><p className="mb-4 text-[10px] font-semibold uppercase tracking-[.22em] text-[#aeb7bd]">Campanha · {development?.name}</p><Question question={question} value={answers[question.id]} onChange={(value) => setAnswers((current) => ({ ...current, [question.id]: value }))} onAutoAdvance={question.type === "rating" || question.type === "single_choice" ? answerAndAdvance : undefined} /></motion.div>}</AnimatePresence></div>
         {error && <p className="mt-5 text-sm text-rose-300">{error}</p>}
-        <div className="mt-8 flex items-center justify-between gap-3"><button type="button" disabled={questionIndex === 0 || saving} onClick={() => { setQuestionIndex((value) => value - 1); setError(""); }} className="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-[#8d969c] disabled:invisible"><ArrowLeft size={16} /> Voltar</button>{question && question.type !== "rating" && question.type !== "single_choice" && <button type="button" disabled={!brokerId || !currentValid || saving || !valid && questionIndex + 1 === collection.questions.length} onClick={() => advance()} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-[#c3c9cd]/20 bg-[#b0b8c1] px-5 py-3 text-sm font-semibold text-[#08090a] transition hover:bg-[#c3c9cd] active:bg-[#a4adb4] disabled:cursor-not-allowed disabled:opacity-40">{saving ? <Loader2 size={16} className="animate-spin" /> : questionIndex + 1 === collection.questions.length && developmentIndex + 1 === collection.developments.length ? <Check size={16} /> : <ArrowRight size={16} />}{questionIndex + 1 === collection.questions.length && developmentIndex + 1 === collection.developments.length ? "Enviar respostas" : "Continuar"}</button>}</div>
+        <div className="mt-8 flex items-center justify-between gap-3"><button type="button" disabled={!questionHistory.length || saving} onClick={() => { const previous = questionHistory.at(-1); if (previous === undefined) return; setQuestionHistory((history) => history.slice(0, -1)); setQuestionIndex(previous); setError(""); }} className="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-[#8d969c] disabled:invisible"><ArrowLeft size={16} /> Voltar</button>{question && question.type !== "rating" && question.type !== "single_choice" && <button type="button" disabled={!brokerId || !currentValid || saving} onClick={() => advance()} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-[#c3c9cd]/20 bg-[#b0b8c1] px-5 py-3 text-sm font-semibold text-[#08090a] transition hover:bg-[#c3c9cd] active:bg-[#a4adb4] disabled:cursor-not-allowed disabled:opacity-40">{saving ? <Loader2 size={16} className="animate-spin" /> : nextCommercialQuestionIndex(collection.questions, collection.logicRules, questionIndex, answers) < 0 && developmentIndex + 1 === collection.developments.length ? <Check size={16} /> : <ArrowRight size={16} />}{nextCommercialQuestionIndex(collection.questions, collection.logicRules, questionIndex, answers) < 0 && developmentIndex + 1 === collection.developments.length ? "Enviar respostas" : "Continuar"}</button>}</div>
       </section>
     </div>
   </main>;

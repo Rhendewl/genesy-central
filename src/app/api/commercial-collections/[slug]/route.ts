@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminSupabaseClient } from "@/lib/supabase-admin";
 import { COMMERCIAL_LONG_TEXT_MIN_LENGTH, calculateCommercialScore, filterLeadGenerationDevelopments, isCommercialAnswerValid } from "@/lib/clientes/commercial-intelligence";
+import { commercialQuestionPath } from "@/lib/clientes/commercial-question-logic";
 import type { CommercialDevelopment } from "@/types/commercial-intelligence";
-import type { FormStep } from "@/types";
+import type { FormStep, LogicRule } from "@/types";
 
 type Context = { params: Promise<{ slug: string }> };
 
@@ -36,7 +37,9 @@ export async function GET(_request: NextRequest, context: Context) {
   return NextResponse.json({
     collection: {
       id: collection.id, name: collection.name, period_start: collection.period_start, period_end: collection.period_end,
-      developments, questions: (collection.meta_snapshot as { questions?: FormStep[] })?.questions ?? [],
+      developments,
+      questions: (collection.meta_snapshot as { questions?: FormStep[] })?.questions ?? [],
+      logicRules: (collection.meta_snapshot as { logic_rules?: LogicRule[] })?.logic_rules ?? [],
       clientName: Array.isArray(collection.agency_clients) ? collection.agency_clients[0]?.name : (collection.agency_clients as { name?: string } | null)?.name,
     },
     brokers: brokers ?? [],
@@ -57,17 +60,22 @@ export async function POST(request: NextRequest, context: Context) {
   if (!broker) return NextResponse.json({ error: "Corretor inválido" }, { status: 400 });
 
   const questions = ((collection.meta_snapshot as { questions?: FormStep[] })?.questions ?? []);
-  const invalid = questions.find((question) => !isCommercialAnswerValid(question, body.answers?.[question.id]));
+  const logicRules = ((collection.meta_snapshot as { logic_rules?: LogicRule[] })?.logic_rules ?? []);
+  const answeredPath = commercialQuestionPath(questions, logicRules, body.answers);
+  const invalid = answeredPath.find((question) => !isCommercialAnswerValid(question, body.answers?.[question.id]));
   if (invalid?.type === "long_text") return NextResponse.json({ error: `Escreva pelo menos ${COMMERCIAL_LONG_TEXT_MIN_LENGTH} caracteres em: ${invalid.title}` }, { status: 400 });
   if (invalid) return NextResponse.json({ error: `Responda: ${invalid.title}` }, { status: 400 });
-  const score = calculateCommercialScore(questions, body.answers);
-  const objectionQuestion = questions.find((question) => /obje[cç][aã]o|barreira|dificuldade|sinal/i.test(`${question.id} ${question.title}`));
-  const objectionValue = objectionQuestion ? body.answers[objectionQuestion.id] : null;
+  const sanitizedAnswers = Object.fromEntries(answeredPath
+    .filter((question) => Object.prototype.hasOwnProperty.call(body.answers, question.id))
+    .map((question) => [question.id, body.answers?.[question.id]]));
+  const score = calculateCommercialScore(answeredPath, sanitizedAnswers);
+  const objectionQuestion = answeredPath.find((question) => /obje[cç][aã]o|barreira|dificuldade|sinal/i.test(`${question.id} ${question.title}`));
+  const objectionValue = objectionQuestion ? sanitizedAnswers[objectionQuestion.id] : null;
   const objection = typeof objectionValue === "string" && objectionValue.trim() ? objectionValue.trim().slice(0, 300) : null;
 
   const { data, error } = await supabase.from("commercial_responses").upsert({
     user_id: collection.user_id, collection_id: collection.id, broker_id: broker.id,
-    development_name: body.development_name, answers: body.answers, score, objection,
+    development_name: body.development_name, answers: sanitizedAnswers, score, objection,
     respondent_key: body.respondent_key?.slice(0, 100) || null, completed_at: new Date().toISOString(),
   }, { onConflict: "collection_id,broker_id,development_name" }).select("id").single();
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });

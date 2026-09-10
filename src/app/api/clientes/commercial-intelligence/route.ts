@@ -8,8 +8,9 @@ import {
   extractDevelopmentName,
   filterLeadGenerationDevelopments,
 } from "@/lib/clientes/commercial-intelligence";
+import { validateCommercialLogicRules } from "@/lib/clientes/commercial-question-logic";
 import type { CommercialCollection, CommercialDevelopment, CommercialResponse } from "@/types/commercial-intelligence";
-import type { FormStep } from "@/types";
+import type { FormStep, LogicRule } from "@/types";
 import { buildCommercialAnalysisEmail, getResendClient } from "@/lib/resend";
 
 export const dynamic = "force-dynamic";
@@ -41,7 +42,7 @@ export async function GET(request: NextRequest) {
 
   const schemaError = [settingsResult, brokersResult, templatesResult, collectionsResult]
     .map((result) => result.error)
-    .find((error) => error?.code === "42P01");
+    .find((error) => error?.code === "42P01" || error?.code === "42703");
   if (schemaError) return NextResponse.json({ error: "A migração da nova Análise Comercial ainda não foi aplicada.", migrationRequired: true }, { status: 503 });
 
   const allBrokers = brokersResult.data ?? [];
@@ -87,9 +88,9 @@ export async function GET(request: NextRequest) {
       ...DEFAULT_COMMERCIAL_TEMPLATES.flatMap((template) => {
         const override = (templatesResult.data ?? []).find((item) => item.is_system && item.week_number === template.week);
         if (override?.is_active === false) return [];
-        return [{ id: `default-${template.week}`, name: override?.name ?? template.name, description: override?.description ?? template.description, week_number: template.week, questions: override?.questions ?? template.questions, is_system: true }];
+        return [{ id: `default-${template.week}`, name: override?.name ?? template.name, description: override?.description ?? template.description, week_number: template.week, questions: override?.questions ?? template.questions, logic_rules: override?.logic_rules ?? [], is_system: true }];
       }),
-      ...(templatesResult.data ?? []).filter((template) => !template.is_system && template.is_active),
+      ...(templatesResult.data ?? []).filter((template) => !template.is_system && template.is_active).map((template) => ({ ...template, logic_rules: template.logic_rules ?? [] })),
     ],
     collections: enrichedCollections,
     dashboard: buildDashboard(enrichedCollections, brokers, responseRows),
@@ -223,7 +224,7 @@ export async function POST(request: NextRequest) {
       const { data: existing } = await supabase.from("commercial_templates").select("id").eq("user_id", user.id).eq("is_system", true).eq("week_number", defaultWeek).maybeSingle();
       const { error } = existing
         ? await supabase.from("commercial_templates").update({ is_active: false }).eq("id", existing.id).eq("user_id", user.id)
-        : await supabase.from("commercial_templates").insert({ user_id: user.id, name: defaultTemplate.name, description: defaultTemplate.description, questions: defaultTemplate.questions, is_system: true, week_number: defaultWeek, is_active: false });
+        : await supabase.from("commercial_templates").insert({ user_id: user.id, name: defaultTemplate.name, description: defaultTemplate.description, questions: defaultTemplate.questions, logic_rules: [], is_system: true, week_number: defaultWeek, is_active: false });
       if (error) return NextResponse.json({ error: error.message }, { status: 400 });
       return NextResponse.json({ ok: true });
     }
@@ -244,19 +245,22 @@ export async function POST(request: NextRequest) {
   if (action === "create_template" || action === "save_template") {
     const name = String(body?.name ?? "").trim();
     const questions = Array.isArray(body?.questions) ? body.questions as FormStep[] : [];
+    const logicRules = Array.isArray(body?.logic_rules) ? body.logic_rules as LogicRule[] : [];
     if (!name || !questions.length) return NextResponse.json({ error: "Nome e perguntas são obrigatórios" }, { status: 400 });
+    const logicErrors = validateCommercialLogicRules(questions, logicRules);
+    if (logicErrors.length) return NextResponse.json({ error: logicErrors[0] }, { status: 400 });
     const templateId = String(body?.template_id ?? "");
     const defaultWeek = templateId.startsWith("default-") ? Number(templateId.split("-")[1]) : null;
     let query;
     if (defaultWeek) {
       const { data: existing } = await supabase.from("commercial_templates").select("id").eq("user_id", user.id).eq("is_system", true).eq("week_number", defaultWeek).maybeSingle();
       query = existing
-        ? supabase.from("commercial_templates").update({ name, description: String(body?.description ?? "").trim() || null, questions }).eq("id", existing.id).select().single()
-        : supabase.from("commercial_templates").insert({ user_id: user.id, name, description: String(body?.description ?? "").trim() || null, questions, is_system: true, week_number: defaultWeek }).select().single();
+        ? supabase.from("commercial_templates").update({ name, description: String(body?.description ?? "").trim() || null, questions, logic_rules: logicRules }).eq("id", existing.id).select().single()
+        : supabase.from("commercial_templates").insert({ user_id: user.id, name, description: String(body?.description ?? "").trim() || null, questions, logic_rules: logicRules, is_system: true, week_number: defaultWeek }).select().single();
     } else if (templateId) {
-      query = supabase.from("commercial_templates").update({ name, description: String(body?.description ?? "").trim() || null, questions }).eq("id", templateId).eq("is_system", false).select().single();
+      query = supabase.from("commercial_templates").update({ name, description: String(body?.description ?? "").trim() || null, questions, logic_rules: logicRules }).eq("id", templateId).eq("is_system", false).select().single();
     } else {
-      query = supabase.from("commercial_templates").insert({ user_id: user.id, name, description: String(body?.description ?? "").trim() || null, questions, is_system: false }).select().single();
+      query = supabase.from("commercial_templates").insert({ user_id: user.id, name, description: String(body?.description ?? "").trim() || null, questions, logic_rules: logicRules, is_system: false }).select().single();
     }
     const { data, error } = await query;
     if (error) return NextResponse.json({ error: error.message }, { status: 400 });
@@ -399,13 +403,13 @@ export async function POST(request: NextRequest) {
     if (templateId.startsWith("default-")) {
       const week = Number(templateId.split("-")[1]);
       const base = DEFAULT_COMMERCIAL_TEMPLATES.find((item) => item.week === week);
-      const { data: override } = await supabase.from("commercial_templates").select("id,name,description,questions,is_active").eq("user_id", user.id).eq("is_system", true).eq("week_number", week).maybeSingle();
+      const { data: override } = await supabase.from("commercial_templates").select("id,name,description,questions,logic_rules,is_active").eq("user_id", user.id).eq("is_system", true).eq("week_number", week).maybeSingle();
       if (override?.is_active === false) return NextResponse.json({ error: "Este template foi excluído" }, { status: 404 });
-      template = override ? { ...override, week } : base;
+      template = override ? { ...override, week } : base ? { ...base, logic_rules: [] } : undefined;
       templateDbId = override?.id ?? null;
     }
     else {
-      const { data } = await supabase.from("commercial_templates").select("id,name,description,questions").eq("id", templateId).eq("is_active", true).maybeSingle();
+      const { data } = await supabase.from("commercial_templates").select("id,name,description,questions,logic_rules").eq("id", templateId).eq("is_active", true).maybeSingle();
       template = data ? { ...data, week: null } : undefined; templateDbId = data?.id ?? null;
     }
     if (!template) return NextResponse.json({ error: "Template não encontrado" }, { status: 404 });
@@ -416,7 +420,7 @@ export async function POST(request: NextRequest) {
       user_id: user.id, client_id: clientId, template_id: templateDbId,
       name: `${template.name} · ${new Date(`${end}T12:00:00`).toLocaleDateString("pt-BR")}`,
       slug, period_start: start, period_end: end, status: "published", developments,
-      meta_snapshot: { accounts: accountIds, questions: template.questions, generated_at: new Date().toISOString(), metrics_pending: metricsUnavailable, campaign_filter: "lead_generation_only" },
+      meta_snapshot: { accounts: accountIds, questions: template.questions, logic_rules: template.logic_rules ?? [], generated_at: new Date().toISOString(), metrics_pending: metricsUnavailable, campaign_filter: "lead_generation_only" },
     }).select().single();
     if (error) return NextResponse.json({ error: error.message }, { status: 400 });
     return NextResponse.json({ collection, metrics_pending: metricsUnavailable }, { status: 201 });

@@ -1,4 +1,4 @@
-import type { FormStep } from "@/types";
+import type { FormStep, LogicRule } from "@/types";
 
 export type CommercialFrequency = "weekly" | "biweekly" | "monthly";
 
@@ -35,6 +35,7 @@ export interface CommercialTemplate {
   description: string | null;
   week_number: number | null;
   questions: FormStep[];
+  logic_rules: LogicRule[];
   is_system: boolean;
 }
 
