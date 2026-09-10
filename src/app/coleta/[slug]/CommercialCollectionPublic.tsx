@@ -72,14 +72,23 @@ export function CommercialCollectionPublic({ slug }: { slug: string }) {
     }, 360);
   }
 
-  function skipDevelopment() {
+  async function skipDevelopment() {
     if (!collection || saving) return;
     if (autoAdvanceTimer.current !== null) {
       window.clearTimeout(autoAdvanceTimer.current);
       autoAdvanceTimer.current = null;
     }
-    localStorage.setItem(`genesy-commercial-broker:${collection.clientName ?? collection.id}`, brokerId);
+    setSaving(true);
     setError("");
+    const response = await fetch(`/api/commercial-collections/${slug}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "skip", broker_id: brokerId, development_name: development?.name }),
+    });
+    const json = await response.json();
+    setSaving(false);
+    if (!response.ok) { setError(json.error ?? "Não foi possível registrar a não participação"); return; }
+    localStorage.setItem(`genesy-commercial-broker:${collection.clientName ?? collection.id}`, brokerId);
     setAnswers({});
     setQuestionIndex(0);
     setQuestionHistory([]);

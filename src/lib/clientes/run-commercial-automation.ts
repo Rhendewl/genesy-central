@@ -242,7 +242,7 @@ async function processClient(db: SupabaseClient, settings: AutomationSettings, t
     status: "published",
     automation_key: automationKey,
     developments,
-    meta_snapshot: { accounts: accountIds, questions: template.questions, logic_rules: template.logicRules, generated_at: new Date().toISOString(), campaign_filter: "lead_generation_only", automation: true, automation_template_slot: slot, active_days: activeDays, minimum_active_days: settings.minimum_active_days, minimum_leads: settings.minimum_leads, email_recipients: brokers.map((broker) => ({ broker_id: broker.id, email: broker.email })) },
+    meta_snapshot: { accounts: accountIds, questions: template.questions, logic_rules: template.logicRules, generated_at: new Date().toISOString(), campaign_filter: "lead_generation_only", automation: true, automation_template_slot: slot, active_days: activeDays, minimum_active_days: settings.minimum_active_days, minimum_leads: settings.minimum_leads, broker_ids: brokers.map((broker) => broker.id), email_recipients: brokers.map((broker) => ({ broker_id: broker.id, email: broker.email })) },
   }).select("id,name").single();
   const { data: existingCollection } = collectionError?.code === "23505"
     ? await db.from("commercial_collections").select("id,name").eq("automation_key", automationKey).maybeSingle()

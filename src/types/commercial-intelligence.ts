@@ -27,6 +27,7 @@ export interface CommercialBroker {
   email: string;
   phone: string | null;
   is_active: boolean;
+  created_at: string;
 }
 
 export interface CommercialTemplate {
@@ -63,6 +64,7 @@ export interface CommercialCollection {
   ai_diagnosis: CommercialDiagnosis | null;
   response_count?: number;
   expected_responses?: number;
+  expected_by_broker?: Record<string, number>;
   created_at: string;
 }
 

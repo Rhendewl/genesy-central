@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildCommercialDiagnosis, calculateCommercialScore, DEFAULT_CAMPAIGN_PARSER, extractDevelopmentName, filterLeadGenerationDevelopments, isCommercialAnswerValid } from "../commercial-intelligence";
+import { buildCommercialDiagnosis, calculateCommercialScore, DEFAULT_CAMPAIGN_PARSER, extractDevelopmentName, filterLeadGenerationDevelopments, isCommercialAnswerValid, resolveCommercialCollectionBrokerIds } from "../commercial-intelligence";
 
 describe("commercial intelligence campaign parser", () => {
   it("extracts the first meaningful bracket", () => {
@@ -71,5 +71,33 @@ describe("lead-generation collection filter", () => {
     ];
     const filtered = filterLeadGenerationDevelopments(developments, new Map([["lead", "leads"], ["traffic", "trafego"], ["reach-with-lead", "alcance"]]));
     expect(filtered.map((item) => item.name)).toEqual(["Áurea", "Atlas"]);
+  });
+});
+
+describe("commercial collection participation", () => {
+  const brokers = [
+    { id: "broker-original", created_at: "2026-09-01T10:00:00Z" },
+    { id: "broker-later", created_at: "2026-09-08T10:00:00Z" },
+  ];
+
+  it("does not create retroactive pending answers for brokers registered later", () => {
+    expect(resolveCommercialCollectionBrokerIds({
+      created_at: "2026-09-04T10:00:00Z",
+      meta_snapshot: {},
+    }, brokers)).toEqual(["broker-original"]);
+  });
+
+  it("uses the immutable participant snapshot when the collection provides it", () => {
+    expect(resolveCommercialCollectionBrokerIds({
+      created_at: "2026-09-10T10:00:00Z",
+      meta_snapshot: { broker_ids: ["broker-original"] },
+    }, brokers)).toEqual(["broker-original"]);
+  });
+
+  it("recognizes recipients recorded by automated legacy collections", () => {
+    expect(resolveCommercialCollectionBrokerIds({
+      created_at: "2026-09-10T10:00:00Z",
+      meta_snapshot: { email_recipients: [{ broker_id: "broker-later", email: "broker@example.com" }] },
+    }, brokers)).toEqual(["broker-later"]);
   });
 });

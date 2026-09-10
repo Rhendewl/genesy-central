@@ -49,8 +49,8 @@ export async function GET(_request: NextRequest, context: Context) {
 export async function POST(request: NextRequest, context: Context) {
   const { slug } = await context.params;
   const supabase = createAdminSupabaseClient();
-  const body = await request.json().catch(() => null) as { broker_id?: string; development_name?: string; answers?: Record<string, unknown>; respondent_key?: string } | null;
-  if (!body?.broker_id || !body.development_name || !body.answers) return NextResponse.json({ error: "Resposta incompleta" }, { status: 400 });
+  const body = await request.json().catch(() => null) as { action?: "skip"; broker_id?: string; development_name?: string; answers?: Record<string, unknown>; respondent_key?: string } | null;
+  if (!body?.broker_id || !body.development_name || (body.action !== "skip" && !body.answers)) return NextResponse.json({ error: "Resposta incompleta" }, { status: 400 });
 
   const collection = await resolveCollection(supabase, slug);
   if (!collection || collection.status !== "published") return NextResponse.json({ error: "Coleta encerrada" }, { status: 410 });
@@ -59,15 +59,28 @@ export async function POST(request: NextRequest, context: Context) {
   const { data: broker } = await supabase.from("commercial_brokers").select("id").eq("id", body.broker_id).eq("client_id", collection.client_id).eq("is_active", true).maybeSingle();
   if (!broker) return NextResponse.json({ error: "Corretor inválido" }, { status: 400 });
 
+  if (body.action === "skip") {
+    const { error } = await supabase.from("commercial_collection_skips").upsert({
+      user_id: collection.user_id,
+      collection_id: collection.id,
+      broker_id: broker.id,
+      development_name: body.development_name,
+    }, { onConflict: "collection_id,broker_id,development_name" });
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+    await supabase.from("commercial_responses").delete().eq("collection_id", collection.id).eq("broker_id", broker.id).eq("development_name", body.development_name);
+    return NextResponse.json({ skipped: true });
+  }
+
+  const answers = body.answers ?? {};
   const questions = ((collection.meta_snapshot as { questions?: FormStep[] })?.questions ?? []);
   const logicRules = ((collection.meta_snapshot as { logic_rules?: LogicRule[] })?.logic_rules ?? []);
-  const answeredPath = commercialQuestionPath(questions, logicRules, body.answers);
-  const invalid = answeredPath.find((question) => !isCommercialAnswerValid(question, body.answers?.[question.id]));
+  const answeredPath = commercialQuestionPath(questions, logicRules, answers);
+  const invalid = answeredPath.find((question) => !isCommercialAnswerValid(question, answers[question.id]));
   if (invalid?.type === "long_text") return NextResponse.json({ error: `Escreva pelo menos ${COMMERCIAL_LONG_TEXT_MIN_LENGTH} caracteres em: ${invalid.title}` }, { status: 400 });
   if (invalid) return NextResponse.json({ error: `Responda: ${invalid.title}` }, { status: 400 });
   const sanitizedAnswers = Object.fromEntries(answeredPath
-    .filter((question) => Object.prototype.hasOwnProperty.call(body.answers, question.id))
-    .map((question) => [question.id, body.answers?.[question.id]]));
+    .filter((question) => Object.prototype.hasOwnProperty.call(answers, question.id))
+    .map((question) => [question.id, answers[question.id]]));
   const score = calculateCommercialScore(answeredPath, sanitizedAnswers);
   const objectionQuestion = answeredPath.find((question) => /obje[cç][aã]o|barreira|dificuldade|sinal/i.test(`${question.id} ${question.title}`));
   const objectionValue = objectionQuestion ? sanitizedAnswers[objectionQuestion.id] : null;
@@ -79,5 +92,6 @@ export async function POST(request: NextRequest, context: Context) {
     respondent_key: body.respondent_key?.slice(0, 100) || null, completed_at: new Date().toISOString(),
   }, { onConflict: "collection_id,broker_id,development_name" }).select("id").single();
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+  await supabase.from("commercial_collection_skips").delete().eq("collection_id", collection.id).eq("broker_id", broker.id).eq("development_name", body.development_name);
   return NextResponse.json({ response_id: data.id });
 }

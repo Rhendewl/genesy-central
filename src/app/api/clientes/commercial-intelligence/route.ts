@@ -7,6 +7,7 @@ import {
   DEFAULT_COMMERCIAL_TEMPLATES,
   extractDevelopmentName,
   filterLeadGenerationDevelopments,
+  resolveCommercialCollectionBrokerIds,
 } from "@/lib/clientes/commercial-intelligence";
 import { validateCommercialLogicRules } from "@/lib/clientes/commercial-question-logic";
 import type { CommercialCollection, CommercialDevelopment, CommercialResponse } from "@/types/commercial-intelligence";
@@ -58,9 +59,15 @@ export async function GET(request: NextRequest) {
     developments: filterLeadGenerationDevelopments(collection.developments, objectivesByCampaignId),
   }));
   const collectionIds = collections.map((item) => item.id);
-  const { data: responses } = collectionIds.length
-    ? await supabase.from("commercial_responses").select("*").in("collection_id", collectionIds).order("completed_at", { ascending: false })
-    : { data: [] };
+  const [responsesResult, skipsResult] = collectionIds.length
+    ? await Promise.all([
+      supabase.from("commercial_responses").select("*").in("collection_id", collectionIds).order("completed_at", { ascending: false }),
+      supabase.from("commercial_collection_skips").select("collection_id,broker_id,development_name").in("collection_id", collectionIds),
+    ])
+    : [{ data: [], error: null }, { data: [], error: null }];
+  if (skipsResult.error?.code === "42P01") return NextResponse.json({ error: "A migração de participação por campanha ainda não foi aplicada.", migrationRequired: true }, { status: 503 });
+  const responses = responsesResult.data;
+  const skippedParticipations = new Set((skipsResult.data ?? []).map((row) => `${row.collection_id}:${row.broker_id}:${row.development_name}`));
 
   const allowedDevelopments = new Map(collections.map((collection) => [collection.id, new Set(collection.developments.map((development) => development.name))]));
   const brokerNames = new Map(allBrokers.map((broker) => [broker.id, broker.name]));
@@ -74,11 +81,19 @@ export async function GET(request: NextRequest) {
     }));
   const responseCount = new Map<string, number>();
   responseRows.forEach((row) => responseCount.set(row.collection_id, (responseCount.get(row.collection_id) ?? 0) + 1));
-  const enrichedCollections = collections.map((collection) => ({
-    ...collection,
-    response_count: responseCount.get(collection.id) ?? 0,
-    expected_responses: brokers.filter((broker) => broker.is_active).length * collection.developments.length,
-  }));
+  const enrichedCollections = collections.map((collection) => {
+    const participantIds = resolveCommercialCollectionBrokerIds(
+      collection,
+      brokers,
+      responseRows.filter((row) => row.collection_id === collection.id).map((row) => row.broker_id),
+    );
+    return {
+      ...collection,
+      response_count: responseCount.get(collection.id) ?? 0,
+      expected_by_broker: Object.fromEntries(participantIds.map((brokerId) => [brokerId, collection.developments.filter((development) => !skippedParticipations.has(`${collection.id}:${brokerId}:${development.name}`)).length])),
+      expected_responses: participantIds.reduce((sum, brokerId) => sum + collection.developments.filter((development) => !skippedParticipations.has(`${collection.id}:${brokerId}:${development.name}`)).length, 0),
+    };
+  });
 
   return NextResponse.json({
     settings: settingsResult.data ?? null,
@@ -364,7 +379,10 @@ export async function POST(request: NextRequest) {
     const templateId = String(body?.template_id ?? "default-1");
     if (!clientId || !/^\d{4}-\d{2}-\d{2}$/.test(start) || !/^\d{4}-\d{2}-\d{2}$/.test(end)) return NextResponse.json({ error: "Cliente e período são obrigatórios" }, { status: 400 });
 
-    const { data: settings } = await supabase.from("commercial_intelligence_settings").select("*").eq("client_id", clientId).maybeSingle();
+    const [{ data: settings }, { data: collectionBrokers }] = await Promise.all([
+      supabase.from("commercial_intelligence_settings").select("*").eq("client_id", clientId).maybeSingle(),
+      supabase.from("commercial_brokers").select("id").eq("client_id", clientId).eq("is_active", true),
+    ]);
     if (!settings) return NextResponse.json({ error: "Configure o cliente antes de gerar a coleta" }, { status: 400 });
     const accountIds = settings.meta_account_ids as string[];
     if (!accountIds.length) return NextResponse.json({ error: "Selecione ao menos uma conta Meta" }, { status: 400 });
@@ -420,7 +438,7 @@ export async function POST(request: NextRequest) {
       user_id: user.id, client_id: clientId, template_id: templateDbId,
       name: `${template.name} · ${new Date(`${end}T12:00:00`).toLocaleDateString("pt-BR")}`,
       slug, period_start: start, period_end: end, status: "published", developments,
-      meta_snapshot: { accounts: accountIds, questions: template.questions, logic_rules: template.logic_rules ?? [], generated_at: new Date().toISOString(), metrics_pending: metricsUnavailable, campaign_filter: "lead_generation_only" },
+      meta_snapshot: { accounts: accountIds, questions: template.questions, logic_rules: template.logic_rules ?? [], generated_at: new Date().toISOString(), metrics_pending: metricsUnavailable, campaign_filter: "lead_generation_only", broker_ids: (collectionBrokers ?? []).map((broker) => broker.id) },
     }).select().single();
     if (error) return NextResponse.json({ error: error.message }, { status: 400 });
     return NextResponse.json({ collection, metrics_pending: metricsUnavailable }, { status: 201 });
@@ -440,22 +458,25 @@ export async function POST(request: NextRequest) {
 }
 
 function buildDashboard(collections: Array<CommercialCollection & { expected_responses?: number }>, brokers: Array<{ id: string; name: string; is_active: boolean }>, responses: CommercialResponse[]) {
-  const expectedResponses = collections.filter((item) => item.status !== "archived").reduce((sum, item) => sum + (item.expected_responses ?? 0), 0);
-  const totalResponses = responses.length;
+  const dashboardCollections = collections.filter((item) => item.status !== "archived");
+  const dashboardCollectionIds = new Set(dashboardCollections.map((item) => item.id));
+  const dashboardResponses = responses.filter((response) => dashboardCollectionIds.has(response.collection_id));
+  const expectedResponses = dashboardCollections.reduce((sum, item) => sum + (item.expected_responses ?? 0), 0);
+  const totalResponses = dashboardResponses.length;
   const average = (rows: CommercialResponse[]) => {
     const scored = rows.filter((row) => row.score !== null); return scored.length ? scored.reduce((sum, row) => sum + Number(row.score), 0) / scored.length : 0;
   };
-  const developmentNames = Array.from(new Set(collections.flatMap((item) => item.developments.map((development) => development.name))));
-  const objections = new Map<string, number>(); responses.forEach((row) => { if (row.objection) objections.set(row.objection, (objections.get(row.objection) ?? 0) + 1); });
+  const developmentNames = Array.from(new Set(dashboardCollections.flatMap((item) => item.developments.map((development) => development.name))));
+  const objections = new Map<string, number>(); dashboardResponses.forEach((row) => { if (row.objection) objections.set(row.objection, (objections.get(row.objection) ?? 0) + 1); });
   return {
     responseRate: expectedResponses ? Math.round((totalResponses / expectedResponses) * 100) : 0,
     totalResponses, expectedResponses,
-    byBroker: brokers.filter((broker) => broker.is_active).map((broker) => ({ id: broker.id, name: broker.name, responses: responses.filter((row) => row.broker_id === broker.id).length, expected: collections.reduce((sum, item) => sum + item.developments.length, 0) })),
+    byBroker: brokers.filter((broker) => broker.is_active).map((broker) => ({ id: broker.id, name: broker.name, responses: dashboardResponses.filter((row) => row.broker_id === broker.id).length, expected: dashboardCollections.reduce((sum, item) => sum + (item.expected_by_broker?.[broker.id] ?? 0), 0) })),
     byDevelopment: developmentNames.map((name) => {
-      const rows = responses.filter((row) => row.development_name === name); const meta = collections.flatMap((item) => item.developments).filter((item) => item.name === name);
+      const rows = dashboardResponses.filter((row) => row.development_name === name); const meta = dashboardCollections.flatMap((item) => item.developments).filter((item) => item.name === name);
       return { name, responses: rows.length, averageScore: Number(average(rows).toFixed(1)), leads: meta.reduce((sum, item) => sum + item.leads, 0), spend: meta.reduce((sum, item) => sum + item.spend, 0) };
     }).sort((a, b) => b.averageScore - a.averageScore || b.responses - a.responses),
-    weeklyEvolution: collections.slice().reverse().map((item) => { const rows = responses.filter((row) => row.collection_id === item.id); return { label: new Date(`${item.period_end}T12:00:00`).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }), responses: rows.length, averageScore: Number(average(rows).toFixed(1)) }; }),
+    weeklyEvolution: dashboardCollections.slice().reverse().map((item) => { const rows = dashboardResponses.filter((row) => row.collection_id === item.id); return { label: new Date(`${item.period_end}T12:00:00`).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }), responses: rows.length, averageScore: Number(average(rows).toFixed(1)) }; }),
     objections: Array.from(objections.entries()).map(([label, count]) => ({ label, count })).sort((a, b) => b.count - a.count).slice(0, 8),
   };
 }

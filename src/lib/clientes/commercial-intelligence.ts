@@ -1,5 +1,5 @@
 import type { FormStep } from "@/types";
-import type { CommercialDevelopment, CommercialDiagnosis, CommercialResponse } from "@/types/commercial-intelligence";
+import type { CommercialBroker, CommercialCollection, CommercialDevelopment, CommercialDiagnosis, CommercialResponse } from "@/types/commercial-intelligence";
 
 export const DEFAULT_CAMPAIGN_PARSER = "\\[([^\\]]+)\\]";
 export const COMMERCIAL_LONG_TEXT_MIN_LENGTH = 75;
@@ -77,6 +77,34 @@ export function filterLeadGenerationDevelopments(
   objectivesByCampaignId: Map<string, string>,
 ): CommercialDevelopment[] {
   return developments.filter((development) => development.leads > 0 || development.campaignIds.some((id) => LEAD_GENERATION_OBJECTIVES.has(objectivesByCampaignId.get(id) ?? "")));
+}
+
+/**
+ * Resolves who was actually part of a collection. New collections persist an
+ * explicit broker snapshot; automated legacy collections already carry the
+ * e-mail recipients. For older manual collections, the creation date prevents
+ * brokers added later from acquiring retroactive pending answers.
+ */
+export function resolveCommercialCollectionBrokerIds(
+  collection: Pick<CommercialCollection, "created_at" | "meta_snapshot">,
+  brokers: Array<Pick<CommercialBroker, "id" | "created_at">>,
+  responseBrokerIds: string[] = [],
+): string[] {
+  const snapshot = collection.meta_snapshot && typeof collection.meta_snapshot === "object"
+    ? collection.meta_snapshot
+    : {};
+  const snapshotBrokerIds = Array.isArray(snapshot.broker_ids)
+    ? snapshot.broker_ids.filter((id): id is string => typeof id === "string" && Boolean(id))
+    : null;
+  const recipients = Array.isArray(snapshot.email_recipients)
+    ? snapshot.email_recipients.flatMap((recipient) => recipient && typeof recipient === "object" && "broker_id" in recipient && typeof recipient.broker_id === "string" ? [recipient.broker_id] : [])
+    : null;
+  const explicit = snapshotBrokerIds ?? recipients;
+  const inferred = explicit ?? brokers
+    .filter((broker) => !broker.created_at || !collection.created_at || broker.created_at <= collection.created_at)
+    .map((broker) => broker.id);
+  const availableBrokerIds = new Set(brokers.map((broker) => broker.id));
+  return Array.from(new Set([...inferred, ...responseBrokerIds])).filter((id) => availableBrokerIds.has(id));
 }
 
 export function extractDevelopmentName(campaignName: string, pattern = DEFAULT_CAMPAIGN_PARSER, group = 1): string | null {
