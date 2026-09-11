@@ -122,10 +122,13 @@ export function StepRenderer({
   formAnswers = {},
   onPrepareCalendarBooking,
 }: StepRendererProps) {
-  const [error,     setError]     = useState<string | null>(null);
-  const [isFocused, setIsFocused] = useState(false);
+  const [error,             setError]             = useState<string | null>(null);
+  const [isFocused,         setIsFocused]         = useState(false);
+  const [confirmingPhone,   setConfirmingPhone]   = useState(false);
   const uid     = useId();
   const errorId = `${uid}-error`;
+  const phoneInputRef = useRef<HTMLInputElement>(null);
+  const confirmPhoneRef = useRef<HTMLButtonElement>(null);
 
   // Ref sempre aponta para o onNext mais recente — evita closure stale no setTimeout.
   const onNextRef = useRef(onNext);
@@ -139,6 +142,16 @@ export function StepRenderer({
       if (autoAdvanceTimer.current !== null) clearTimeout(autoAdvanceTimer.current);
     };
   }, []);
+
+  useEffect(() => {
+    setConfirmingPhone(false);
+  }, [step.id]);
+
+  useEffect(() => {
+    if (!confirmingPhone) return;
+    const frame = window.requestAnimationFrame(() => confirmPhoneRef.current?.focus());
+    return () => window.cancelAnimationFrame(frame);
+  }, [confirmingPhone]);
 
   const { primary, light, textColor, muted, cardBg, borderC } = resolveThemeColors(theme);
   const align = (theme?.textAlign ?? "left") as React.CSSProperties["textAlign"];
@@ -168,11 +181,21 @@ export function StepRenderer({
       return;
     }
     setError(null);
+    if (step.type === "phone" && String(value ?? "").trim() !== "") {
+      setConfirmingPhone(true);
+      return;
+    }
     onNext?.();
   }, [step, value, onNext]);
 
+  const confirmPhoneAndContinue = useCallback(() => {
+    setConfirmingPhone(false);
+    onNext?.();
+  }, [onNext]);
+
   const handleChange = useCallback((val: unknown) => {
     setError(null);
+    setConfirmingPhone(false);
     onChange?.(val);
   }, [onChange]);
 
@@ -277,6 +300,7 @@ export function StepRenderer({
       case "phone":
         return (
           <input
+            ref={phoneInputRef}
             type="tel"
             inputMode="tel"
             autoComplete="tel"
@@ -663,13 +687,51 @@ export function StepRenderer({
             <button
               type="button"
               onClick={handleNext}
-              disabled={nextDisabled}
+              disabled={nextDisabled || confirmingPhone}
               className="px-7 py-3 text-base font-semibold transition-all hover:opacity-90 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:opacity-40 disabled:active:scale-100"
               style={{ borderRadius: btnRadius, background: primary, color: "#fff" }}
             >
               {btnLabel}
             </button>
           )}
+          <AnimatePresence initial={false}>
+            {step.type === "phone" && confirmingPhone && (
+              <motion.div
+                role="alert"
+                aria-live="assertive"
+                initial={{ opacity: 0, x: -10, scale: 0.98 }}
+                animate={{ opacity: 1, x: 0, scale: 1 }}
+                exit={{ opacity: 0, x: -6, scale: 0.98 }}
+                transition={{ duration: 0.18 }}
+                className="w-full rounded-2xl border-2 border-[#facc15] bg-[#111827] p-4 text-white shadow-xl sm:w-auto sm:min-w-[310px] sm:max-w-md"
+              >
+                <p className="text-sm font-bold text-[#fde047]">Confira antes de avançar</p>
+                <p className="mt-1 text-sm leading-relaxed">
+                  O número <strong className="whitespace-nowrap text-base">{String(value ?? "")}</strong> está correto?
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button
+                    ref={confirmPhoneRef}
+                    type="button"
+                    onClick={confirmPhoneAndContinue}
+                    className="min-h-11 rounded-xl bg-[#facc15] px-4 py-2 text-sm font-bold text-[#111827] transition hover:bg-[#fde047] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white active:scale-95"
+                  >
+                    Sim, está correto
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setConfirmingPhone(false);
+                      window.requestAnimationFrame(() => phoneInputRef.current?.focus());
+                    }}
+                    className="min-h-11 rounded-xl border border-white/70 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white active:scale-95"
+                  >
+                    Corrigir número
+                  </button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       )}
     </div>

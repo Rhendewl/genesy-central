@@ -766,7 +766,12 @@ function PostEditor({ template, onBack }: { template: PostTemplate; onBack: () =
               editable
               activeTextBlockId={activeTextBlockId}
               onSelectTextBlock={(id) => {
-                setActiveTextBlockId(id);
+                selectTextBlock(id);
+                setMobileTextTool(null);
+                setMobileVisualTool(null);
+              }}
+              onEditTextBlock={(id) => {
+                editTextBlock(id);
                 setMobileTextTool(null);
                 setMobileVisualTool(null);
                 setMobilePanel("text");
@@ -1272,7 +1277,7 @@ function PostCanvas({ slide, profile, template, width, height, editable = false,
   const setRefs = (node: HTMLDivElement | null) => { canvasRef.current = node; refCallback?.(node); };
   const freeContent = slide.layoutMode === "free" ? <>
     {profileBlock && <FreeCanvasElement elementKey="profile" position={slide.freePositions.profile || defaultPosition("profile")} canvasRef={canvasRef} canvas={{ width, height }} editable={editable} onPositionChange={onPositionChange} onGuidesChange={setGuides}>{profileBlock}</FreeCanvasElement>}
-    {slide.textBlocks.map((block, index) => <FreeCanvasElement key={block.id} elementKey={block.id} position={slide.freePositions[block.id] || defaultPosition(block.id, index)} canvasRef={canvasRef} canvas={{ width, height }} editable={editable} onPositionChange={onPositionChange} onGuidesChange={setGuides} className="max-w-full" style={{ width: `${block.textWidth}%` }}><TextBlockItem block={block} editor={editor} editable={editable} active={activeTextBlockId === block.id} editing={editingTextBlockId === block.id} foreground={slide.foreground} story={template === "stories"} safeWidth={100} onSelect={() => onSelectTextBlock?.(block.id)} onEdit={() => onEditTextBlock?.(block.id)} onDragStart={() => undefined} onDragEnd={() => undefined} free /></FreeCanvasElement>)}
+    {slide.textBlocks.map((block, index) => <FreeCanvasElement key={block.id} elementKey={block.id} position={slide.freePositions[block.id] || defaultPosition(block.id, index)} canvasRef={canvasRef} canvas={{ width, height }} editable={editable} onPositionChange={onPositionChange} onGuidesChange={setGuides} onDoubleTap={() => onEditTextBlock?.(block.id)} className="max-w-full" style={{ width: `${block.textWidth}%` }}><TextBlockItem block={block} editor={editor} editable={editable} active={activeTextBlockId === block.id} editing={editingTextBlockId === block.id} foreground={slide.foreground} story={template === "stories"} safeWidth={100} onSelect={() => onSelectTextBlock?.(block.id)} onEdit={() => onEditTextBlock?.(block.id)} onDragStart={() => undefined} onDragEnd={() => undefined} free /></FreeCanvasElement>)}
     {slide.media.map((image, index) => {
       const aspect = mediaAspectValue(slide.mediaAspects[index] || "16:9", slide.mediaNaturalAspects[index]);
       const baseWidth = slide.media.length > 1 ? 40 : 76;
@@ -1288,9 +1293,10 @@ function PostCanvas({ slide, profile, template, width, height, editable = false,
   </div>;
 }
 
-function FreeCanvasElement({ elementKey, position, canvasRef, canvas, editable, onPositionChange, onGuidesChange, className, style, children }: { elementKey: string; position: CanvasPoint; canvasRef: React.RefObject<HTMLDivElement>; canvas: { width: number; height: number }; editable: boolean; onPositionChange?: (key: string, position: CanvasPoint) => void; onGuidesChange: (guides: AlignmentGuide[]) => void; className?: string; style?: React.CSSProperties; children: React.ReactNode }) {
+function FreeCanvasElement({ elementKey, position, canvasRef, canvas, editable, onPositionChange, onGuidesChange, onDoubleTap, className, style, children }: { elementKey: string; position: CanvasPoint; canvasRef: React.RefObject<HTMLDivElement>; canvas: { width: number; height: number }; editable: boolean; onPositionChange?: (key: string, position: CanvasPoint) => void; onGuidesChange: (guides: AlignmentGuide[]) => void; onDoubleTap?: () => void; className?: string; style?: React.CSSProperties; children: React.ReactNode }) {
   const elementRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{ pointerId: number; clientX: number; clientY: number; start: CanvasPoint; size: { width: number; height: number }; siblings: Array<CanvasPoint & { width: number; height: number }>; scale: number } | null>(null);
+  const lastTouchTapRef = useRef<{ at: number; clientX: number; clientY: number } | null>(null);
   const startDrag = (event: React.PointerEvent<HTMLDivElement>) => {
     if (!editable || !onPositionChange || event.button !== 0) return;
     if (event.detail > 1) return;
@@ -1319,7 +1325,19 @@ function FreeCanvasElement({ elementKey, position, canvasRef, canvas, editable, 
     onPositionChange(elementKey, { x: snapped.position.x / canvas.width * 100, y: snapped.position.y / canvas.height * 100 });
   };
   const endDrag = (event: React.PointerEvent<HTMLDivElement>) => {
-    if (dragRef.current?.pointerId !== event.pointerId) return;
+    const drag = dragRef.current;
+    if (drag?.pointerId !== event.pointerId) return;
+    const distance = Math.hypot(event.clientX - drag.clientX, event.clientY - drag.clientY);
+    if (event.pointerType !== "mouse" && distance <= 8 && onDoubleTap) {
+      const previous = lastTouchTapRef.current;
+      const now = Date.now();
+      if (previous && now - previous.at <= 350 && Math.hypot(event.clientX - previous.clientX, event.clientY - previous.clientY) <= 24) {
+        lastTouchTapRef.current = null;
+        onDoubleTap();
+      } else {
+        lastTouchTapRef.current = { at: now, clientX: event.clientX, clientY: event.clientY };
+      }
+    }
     dragRef.current = null;
     onGuidesChange([]);
   };
