@@ -154,6 +154,7 @@ export function StepRenderer({
   }, [confirmingPhone]);
 
   const { primary, light, textColor, muted, cardBg, borderC } = resolveThemeColors(theme);
+  const formBackground = theme?.backgroundColor ?? "var(--background)";
   const align = (theme?.textAlign ?? "left") as React.CSSProperties["textAlign"];
 
   const btnRadius =
@@ -730,28 +731,32 @@ export function StepRenderer({
                     animate={{ opacity: 1, x: 0, scaleX: 1 }}
                     exit={{ opacity: 0, x: -22, scaleX: 0.78 }}
                     transition={{ duration: 0.3, ease: [0.32, 0.72, 0, 1] }}
-                    className="relative -ml-4 flex min-w-0 flex-1 origin-left items-stretch"
+                    className="relative z-30 -ml-4 flex min-w-0 flex-1 origin-left items-stretch"
                   >
                     <span
                       aria-hidden="true"
-                      className="relative z-20 my-auto grid h-9 w-9 shrink-0 place-items-center rounded-full border-[3px]"
-                      style={{ background: primary, borderColor: cardBg, color: "#fff" }}
+                      className="relative z-40 my-auto grid h-9 w-9 shrink-0 place-items-center rounded-full border-[4px]"
+                      style={{ background: primary, borderColor: formBackground, color: "#fff" }}
                     >
                       <ChevronRight size={22} strokeWidth={3} />
                     </span>
 
                     <div
-                      className="-ml-4 flex min-w-0 flex-1 items-center gap-1.5 rounded-full border-2 py-1 pl-6 pr-1 sm:gap-2 sm:pl-7 sm:pr-1.5"
-                      style={{ background: cardBg, borderColor: primary, color: textColor }}
+                      className="relative -ml-4 flex min-w-0 flex-1 items-center gap-1.5 py-2 pl-7 pr-1.5 sm:gap-2 sm:pl-8 sm:pr-2"
+                      style={{ color: textColor }}
                     >
-                      <p aria-live="polite" className="min-w-[88px] flex-1 text-[12px] font-semibold leading-[1.08] sm:text-[13px]">
+                      <span aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 h-0.5" style={{ background: `linear-gradient(90deg, transparent 0%, ${primary} 82%)` }} />
+                      <span aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-0 h-0.5" style={{ background: `linear-gradient(90deg, transparent 0%, ${primary} 82%)` }} />
+                      <span aria-hidden="true" className="pointer-events-none absolute inset-y-0 right-0 w-8 rounded-r-full border-y-2 border-r-2" style={{ borderColor: primary }} />
+
+                      <p aria-live="polite" className="relative z-10 min-w-[88px] flex-1 text-[11px] font-semibold leading-[1.15] sm:text-xs">
                         O número digitado<br />está correto?
                       </p>
                       <button
                         ref={confirmPhoneRef}
                         type="button"
                         onClick={confirmPhoneAndContinue}
-                        className="min-h-10 shrink-0 rounded-full px-3 text-sm font-bold text-white transition hover:brightness-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 active:scale-95 sm:px-4 sm:text-[15px]"
+                        className="relative z-10 min-h-10 shrink-0 rounded-full px-3 text-sm font-bold text-white transition hover:brightness-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 active:scale-95 sm:px-4 sm:text-[15px]"
                         style={{ background: primary, outlineColor: primary }}
                       >
                         Sim!
