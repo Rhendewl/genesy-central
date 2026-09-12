@@ -88,7 +88,7 @@ function FormCard({
       animate={{ opacity: 1, y: 0 }}
       whileHover={{ y: -2 }}
       transition={{ duration: 0.2 }}
-      className="relative group p-4 cursor-pointer lc-card"
+      className={`relative group p-4 cursor-pointer lc-card ${menuOpen ? "z-40" : "z-0"}`}
       onClick={() => router.push(detailsHref)}
     >
       {/* Topo */}
@@ -128,13 +128,15 @@ function FormCard({
             <button
               onClick={e => { e.stopPropagation(); setMenuOpen(o => !o); }}
               className="p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity hover:bg-[var(--hover)]"
+              aria-label={`Opções do formulário ${form.name}`}
+              aria-expanded={menuOpen}
             >
               <MoreHorizontal size={14} style={{ color: "var(--muted-foreground)" }} />
             </button>
             {menuOpen && (
               <div
-                className="absolute right-0 top-6 z-20 w-44 rounded-lg border shadow-lg py-1"
-                style={{ background: "var(--card)", borderColor: "var(--border)" }}
+                className="absolute right-0 top-6 z-50 w-44 rounded-lg border py-1 shadow-2xl backdrop-blur-2xl"
+                style={{ background: "var(--background)", borderColor: "var(--border)" }}
                 onClick={e => e.stopPropagation()}
               >
                 {form.origin !== "nps" && (
