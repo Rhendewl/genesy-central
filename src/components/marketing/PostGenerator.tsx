@@ -20,7 +20,7 @@ import {
   createZip, defaultPostLineHeight, normalizePostLineHeight, normalizePostTextWidth, numberedSlideFilename, POST_FORMATS, postElementToPng, sanitizeDownloadName, saveBlob,
   type PostFormat, type PostTemplate,
 } from "@/lib/marketing/post-generator";
-import { snapCanvasPosition, type AlignmentGuide } from "@/lib/marketing/free-layout";
+import { resizeCanvasElement, snapCanvasPosition, type AlignmentGuide, type ResizeCorner } from "@/lib/marketing/free-layout";
 import {
   getRemotePostProject,
   getRemotePostProjectIfChanged,
@@ -52,6 +52,7 @@ type Slide = {
   mediaPosition: "top" | "bottom";
   layoutMode: "auto" | "free";
   freePositions: Record<string, CanvasPoint>;
+  freeSizes: Record<string, number>;
 };
 
 type MediaCrop = { x: number; y: number; zoom: number };
@@ -192,6 +193,7 @@ function makeSlide(template: PostTemplate, index = 0): Slide {
     mediaPosition: "bottom",
     layoutMode: "auto",
     freePositions: {},
+    freeSizes: {},
   };
 }
 
@@ -218,7 +220,7 @@ function normalizePostProject(template: PostTemplate, project: PersistedPostProj
     const savedLayout = Array.isArray(slide.layout) ? slide.layout.filter((key) => validKeys.has(key)) : [];
     const fallbackLayout = slide.mediaPosition === "top" ? ["media", ...textBlocks.map((block) => block.id)] : [...textBlocks.map((block) => block.id), "media"];
     const layout = [...savedLayout, ...fallbackLayout.filter((key) => !savedLayout.includes(key))];
-    return { ...base, ...slide, id: slide.id || uid(), media, mediaCrops, mediaAspects, mediaNaturalAspects, textBlocks, layout, layoutMode: slide.layoutMode === "free" ? "free" as const : "auto" as const, freePositions: slide.freePositions || {} };
+    return { ...base, ...slide, id: slide.id || uid(), media, mediaCrops, mediaAspects, mediaNaturalAspects, textBlocks, layout, layoutMode: slide.layoutMode === "free" ? "free" as const : "auto" as const, freePositions: slide.freePositions || {}, freeSizes: slide.freeSizes || {} };
   });
   const activeId = slides.some((slide) => slide.id === project.activeId) ? project.activeId : slides[0].id;
   return {
@@ -569,6 +571,10 @@ function PostEditor({ template, onBack }: { template: PostTemplate; onBack: () =
   const update = (patch: Partial<Slide>) => setSlides((current) => current.map((slide) => slide.id === activeId ? { ...slide, ...patch } : slide));
   const updateTextBlock = (patch: Partial<TextBlock>) => update({ textBlocks: active.textBlocks.map((block) => block.id === activeTextBlockId ? { ...block, ...patch } : block) });
   const updateFreePosition = (key: string, position: CanvasPoint) => update({ freePositions: { ...active.freePositions, [key]: position } });
+  const resizeFreeMedia = (key: string, position: CanvasPoint, width: number) => update({
+    freePositions: { ...active.freePositions, [key]: position },
+    freeSizes: { ...active.freeSizes, [key]: width },
+  });
 
   const addTextBlock = () => {
     const block = makeTextBlock(template, "<p>Novo texto</p>");
@@ -620,7 +626,7 @@ function PostEditor({ template, onBack }: { template: PostTemplate; onBack: () =
     const idMap = new Map(source.textBlocks.map((block) => [block.id, uid()]));
     const textBlocks = source.textBlocks.map((block) => ({ ...block, id: idMap.get(block.id)! }));
     const freePositions = Object.fromEntries(Object.entries(source.freePositions).map(([key, value]) => [idMap.get(key) || key, { ...value }]));
-    const next = { ...source, id: uid(), media: [...source.media], mediaCrops: source.mediaCrops.map((crop) => ({ ...crop })), mediaAspects: [...source.mediaAspects], mediaNaturalAspects: [...source.mediaNaturalAspects], freePositions, textBlocks, layout: source.layout.map((key) => idMap.get(key) || key) };
+    const next = { ...source, id: uid(), media: [...source.media], mediaCrops: source.mediaCrops.map((crop) => ({ ...crop })), mediaAspects: [...source.mediaAspects], mediaNaturalAspects: [...source.mediaNaturalAspects], freePositions, freeSizes: { ...source.freeSizes }, textBlocks, layout: source.layout.map((key) => idMap.get(key) || key) };
     setSlides((current) => [...current.slice(0, sourceIndex + 1), next, ...current.slice(sourceIndex + 1)]);
     setActiveId(next.id);
     setActiveTextBlockId(textBlocks[0].id);
@@ -737,7 +743,7 @@ function PostEditor({ template, onBack }: { template: PostTemplate; onBack: () =
           <div className="mb-4 flex items-center justify-between"><div><p className="text-xs font-semibold text-[var(--text-title)]">Pré-visualização</p><p className="text-[10px] text-[var(--muted-foreground)]">Um clique seleciona e permite mover; dois cliques liberam a edição do texto.</p></div><span className="rounded-full border px-2.5 py-1 text-[10px] text-[var(--muted-foreground)]">Slide {activeIndex + 1} de {slides.length}</span></div>
           <TextToolbar editor={editor} defaultColor={active.foreground} allowItalic={template === "stories"} />
           <ScaledCanvas width={dimensions.width} height={dimensions.height} format={format} profile={tweetProfile}>
-            <PostCanvas slide={active} profile={tweetProfile} template={template} width={dimensions.width} height={dimensions.height} editable={!isMobileEditor} editor={isMobileEditor ? undefined : editor} activeTextBlockId={activeTextBlockId} editingTextBlockId={editingTextBlockId} onSelectTextBlock={selectTextBlock} onEditTextBlock={editTextBlock} onReorderText={reorderLayout} onPositionChange={updateFreePosition} />
+            <PostCanvas slide={active} profile={tweetProfile} template={template} width={dimensions.width} height={dimensions.height} editable={!isMobileEditor} editor={isMobileEditor ? undefined : editor} activeTextBlockId={activeTextBlockId} editingTextBlockId={editingTextBlockId} onSelectTextBlock={selectTextBlock} onEditTextBlock={editTextBlock} onReorderText={reorderLayout} onPositionChange={updateFreePosition} onResizeMedia={resizeFreeMedia} />
           </ScaledCanvas>
           <div className="mx-auto mt-4 flex max-w-xl items-center justify-center gap-1.5"><Button variant="outline" size="sm" onClick={() => move(-1)} disabled={activeIndex === 0} aria-label="Mover slide para cima"><ArrowUp /></Button><Button variant="outline" size="sm" onClick={() => move(1)} disabled={activeIndex === slides.length - 1} aria-label="Mover slide para baixo"><ArrowDown /></Button><Button variant="outline" size="sm" onClick={duplicate} icon={<Copy />}>Duplicar</Button><Button variant="danger" size="sm" onClick={remove} icon={<Trash2 />}>Excluir</Button></div>
         </main>
@@ -778,6 +784,7 @@ function PostEditor({ template, onBack }: { template: PostTemplate; onBack: () =
               }}
               onReorderText={reorderLayout}
               onPositionChange={updateFreePosition}
+              onResizeMedia={resizeFreeMedia}
             />
           </ScaledCanvas>
         </main>
@@ -1251,13 +1258,15 @@ function ScaledCanvas({ width, height, format, profile, children, maxHeight = 68
   </div>;
 }
 
-function PostCanvas({ slide, profile, template, width, height, editable = false, editor, refCallback, activeTextBlockId, editingTextBlockId, onSelectTextBlock, onEditTextBlock, onReorderText, onPositionChange }: { slide: Slide; profile: TweetProfile; template: PostTemplate; width: number; height: number; editable?: boolean; editor?: Editor | null; refCallback?: (node: HTMLDivElement | null) => void; activeTextBlockId?: string; editingTextBlockId?: string | null; onSelectTextBlock?: (id: string) => void; onEditTextBlock?: (id: string) => void; onReorderText?: (sourceId: string, targetId: string, after: boolean) => void; onPositionChange?: (key: string, position: CanvasPoint) => void }) {
+function PostCanvas({ slide, profile, template, width, height, editable = false, editor, refCallback, activeTextBlockId, editingTextBlockId, onSelectTextBlock, onEditTextBlock, onReorderText, onPositionChange, onResizeMedia }: { slide: Slide; profile: TweetProfile; template: PostTemplate; width: number; height: number; editable?: boolean; editor?: Editor | null; refCallback?: (node: HTMLDivElement | null) => void; activeTextBlockId?: string; editingTextBlockId?: string | null; onSelectTextBlock?: (id: string) => void; onEditTextBlock?: (id: string) => void; onReorderText?: (sourceId: string, targetId: string, after: boolean) => void; onPositionChange?: (key: string, position: CanvasPoint) => void; onResizeMedia?: (key: string, position: CanvasPoint, width: number) => void }) {
   const safeLeft = template === "tweet" ? 12 : 8;
   const safeWidth = 100 - safeLeft * 2;
   const canvasRef = useRef<HTMLDivElement | null>(null);
   const [guides, setGuides] = useState<AlignmentGuide[]>([]);
   const [draggedTextId, setDraggedTextId] = useState<string | null>(null);
   const [dropTargetId, setDropTargetId] = useState<string | null>(null);
+  const [selectedMediaKey, setSelectedMediaKey] = useState<string | null>(null);
+  useEffect(() => setSelectedMediaKey(null), [slide.id, slide.layoutMode]);
   const media = slide.media.length ? <HorizontalMedia media={slide.media} crops={slide.mediaCrops} aspects={slide.mediaAspects} naturalAspects={slide.mediaNaturalAspects} /> : null;
   const profileBlock = template === "tweet" ? <TweetProfileBlock profile={profile} foreground={slide.foreground} /> : null;
   const textMap = new Map(slide.textBlocks.map((block) => [block.id, block]));
@@ -1279,32 +1288,37 @@ function PostCanvas({ slide, profile, template, width, height, editable = false,
     {profileBlock && <FreeCanvasElement elementKey="profile" position={slide.freePositions.profile || defaultPosition("profile")} canvasRef={canvasRef} canvas={{ width, height }} editable={editable} onPositionChange={onPositionChange} onGuidesChange={setGuides}>{profileBlock}</FreeCanvasElement>}
     {slide.textBlocks.map((block, index) => <FreeCanvasElement key={block.id} elementKey={block.id} position={slide.freePositions[block.id] || defaultPosition(block.id, index)} canvasRef={canvasRef} canvas={{ width, height }} editable={editable} onPositionChange={onPositionChange} onGuidesChange={setGuides} onDoubleTap={() => onEditTextBlock?.(block.id)} className="max-w-full" style={{ width: `${block.textWidth}%` }}><TextBlockItem block={block} editor={editor} editable={editable} active={activeTextBlockId === block.id} editing={editingTextBlockId === block.id} foreground={slide.foreground} story={template === "stories"} safeWidth={100} onSelect={() => onSelectTextBlock?.(block.id)} onEdit={() => onEditTextBlock?.(block.id)} onDragStart={() => undefined} onDragEnd={() => undefined} free /></FreeCanvasElement>)}
     {slide.media.map((image, index) => {
+      const key = `media:${index}`;
       const aspect = mediaAspectValue(slide.mediaAspects[index] || "16:9", slide.mediaNaturalAspects[index]);
       const baseWidth = slide.media.length > 1 ? 40 : 76;
-      const itemWidth = Math.max(24, Math.min(baseWidth, (height * .44 * aspect) / width * 100));
-      return <FreeCanvasElement key={`media:${index}`} elementKey={`media:${index}`} position={slide.freePositions[`media:${index}`] || defaultPosition(`media:${index}`, index)} canvasRef={canvasRef} canvas={{ width, height }} editable={editable} onPositionChange={onPositionChange} onGuidesChange={setGuides} style={{ width: `${itemWidth}%` }}><MediaFrame image={image} crop={slide.mediaCrops[index]} aspect={aspect} /></FreeCanvasElement>;
+      const defaultWidth = Math.max(24, Math.min(baseWidth, (height * .44 * aspect) / width * 100));
+      const itemWidth = slide.freeSizes[key] || defaultWidth;
+      return <FreeCanvasElement key={key} elementKey={key} position={slide.freePositions[key] || defaultPosition(key, index)} canvasRef={canvasRef} canvas={{ width, height }} editable={editable} onPositionChange={onPositionChange} onGuidesChange={setGuides} selected={selectedMediaKey === key} onSelect={() => setSelectedMediaKey(key)} resizeAspect={aspect} onResize={onResizeMedia} media style={{ width: `${itemWidth}%` }}><MediaFrame image={image} crop={slide.mediaCrops[index]} aspect={aspect} /></FreeCanvasElement>;
     })}
   </> : <BalancedContent safeLeft={safeLeft} safeWidth={safeWidth} gap={template === "tweet" ? 44 : 52}>{profileBlock}{layoutItems}</BalancedContent>;
 
-  return <div ref={setRefs} data-post-canvas={template} className="relative overflow-hidden" style={{ width, height, background: slide.background, color: slide.foreground, fontFamily: template === "tweet" ? "Arial, Helvetica, sans-serif" : "Advercase, Georgia, serif", fontWeight: 400 }}>
+  return <div ref={setRefs} data-post-canvas={template} className="relative overflow-hidden" style={{ width, height, background: slide.background, color: slide.foreground, fontFamily: template === "tweet" ? "Arial, Helvetica, sans-serif" : "Advercase, Georgia, serif", fontWeight: 400 }} onPointerDown={(event) => { if (!(event.target as HTMLElement).closest("[data-free-media]")) setSelectedMediaKey(null); }}>
     {template === "stories" && slide.backgroundImage && <><img src={slide.backgroundImage} alt="Fundo do slide" className="absolute inset-0 h-full w-full object-cover" /><span className="absolute inset-0 bg-black" style={{ opacity: slide.imageDarkness / 100 }} /></>}
     {freeContent}
     {editable && guides.map((guide) => <span key={`${guide.axis}:${guide.value}`} aria-hidden className="pointer-events-none absolute z-50 bg-[#ff3ca6] shadow-[0_0_0_1px_rgba(255,255,255,.65)]" style={guide.axis === "x" ? { left: guide.value, top: 0, bottom: 0, width: 3 } : { top: guide.value, left: 0, right: 0, height: 3 }} />)}
   </div>;
 }
 
-function FreeCanvasElement({ elementKey, position, canvasRef, canvas, editable, onPositionChange, onGuidesChange, onDoubleTap, className, style, children }: { elementKey: string; position: CanvasPoint; canvasRef: React.RefObject<HTMLDivElement>; canvas: { width: number; height: number }; editable: boolean; onPositionChange?: (key: string, position: CanvasPoint) => void; onGuidesChange: (guides: AlignmentGuide[]) => void; onDoubleTap?: () => void; className?: string; style?: React.CSSProperties; children: React.ReactNode }) {
+function FreeCanvasElement({ elementKey, position, canvasRef, canvas, editable, onPositionChange, onGuidesChange, onDoubleTap, selected = false, onSelect, resizeAspect, onResize, media = false, className, style, children }: { elementKey: string; position: CanvasPoint; canvasRef: React.RefObject<HTMLDivElement>; canvas: { width: number; height: number }; editable: boolean; onPositionChange?: (key: string, position: CanvasPoint) => void; onGuidesChange: (guides: AlignmentGuide[]) => void; onDoubleTap?: () => void; selected?: boolean; onSelect?: () => void; resizeAspect?: number; onResize?: (key: string, position: CanvasPoint, width: number) => void; media?: boolean; className?: string; style?: React.CSSProperties; children: React.ReactNode }) {
   const elementRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{ pointerId: number; clientX: number; clientY: number; start: CanvasPoint; size: { width: number; height: number }; siblings: Array<CanvasPoint & { width: number; height: number }>; scale: number } | null>(null);
+  const resizeRef = useRef<{ pointerId: number; clientX: number; clientY: number; position: CanvasPoint; size: { width: number; height: number }; scale: number; corner: ResizeCorner } | null>(null);
   const lastTouchTapRef = useRef<{ at: number; clientX: number; clientY: number } | null>(null);
   const startDrag = (event: React.PointerEvent<HTMLDivElement>) => {
     if (!editable || !onPositionChange || event.button !== 0) return;
     if (event.detail > 1) return;
     const target = event.target as HTMLElement;
+    if (target.closest("[data-resize-handle]")) return;
     if (target.closest("[contenteditable='true']") && !target.closest("[data-free-drag-handle]")) return;
     const canvasNode = canvasRef.current;
     const elementNode = elementRef.current;
     if (!canvasNode || !elementNode) return;
+    onSelect?.();
     event.preventDefault();
     event.currentTarget.setPointerCapture(event.pointerId);
     const canvasRect = canvasNode.getBoundingClientRect();
@@ -1341,7 +1355,63 @@ function FreeCanvasElement({ elementKey, position, canvasRef, canvas, editable, 
     dragRef.current = null;
     onGuidesChange([]);
   };
-  return <div ref={elementRef} data-free-key={elementKey} className={cn("absolute z-10 touch-none", editable && "cursor-move select-none", className)} style={{ ...style, left: `${position.x}%`, top: `${position.y}%` }} onPointerDown={startDrag} onPointerMove={moveDrag} onPointerUp={endDrag} onPointerCancel={endDrag}>{children}</div>;
+  const startResize = (corner: ResizeCorner) => (event: React.PointerEvent<HTMLButtonElement>) => {
+    if (!editable || !onResize || !resizeAspect || event.button !== 0) return;
+    const canvasNode = canvasRef.current;
+    const elementNode = elementRef.current;
+    if (!canvasNode || !elementNode) return;
+    event.preventDefault();
+    event.stopPropagation();
+    onSelect?.();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    const canvasRect = canvasNode.getBoundingClientRect();
+    const rect = elementNode.getBoundingClientRect();
+    const scale = canvasRect.width / canvas.width;
+    resizeRef.current = {
+      pointerId: event.pointerId,
+      clientX: event.clientX,
+      clientY: event.clientY,
+      position: { x: (rect.left - canvasRect.left) / scale, y: (rect.top - canvasRect.top) / scale },
+      size: { width: rect.width / scale, height: rect.width / scale / resizeAspect },
+      scale,
+      corner,
+    };
+    onGuidesChange([]);
+  };
+  const moveResize = (event: React.PointerEvent<HTMLButtonElement>) => {
+    const resize = resizeRef.current;
+    if (!resize || resize.pointerId !== event.pointerId || !onResize) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const result = resizeCanvasElement(
+      resize.position,
+      resize.size,
+      resize.corner,
+      { x: (event.clientX - resize.clientX) / resize.scale, y: (event.clientY - resize.clientY) / resize.scale },
+      canvas,
+      Math.max(96, canvas.width * .12),
+    );
+    onResize(elementKey, { x: result.position.x / canvas.width * 100, y: result.position.y / canvas.height * 100 }, result.size.width / canvas.width * 100);
+  };
+  const endResize = (event: React.PointerEvent<HTMLButtonElement>) => {
+    if (resizeRef.current?.pointerId !== event.pointerId) return;
+    event.preventDefault();
+    event.stopPropagation();
+    resizeRef.current = null;
+  };
+  const handlePosition: Record<ResizeCorner, string> = {
+    nw: "-left-9 -top-9 cursor-nwse-resize",
+    ne: "-right-9 -top-9 cursor-nesw-resize",
+    sw: "-bottom-9 -left-9 cursor-nesw-resize",
+    se: "-bottom-9 -right-9 cursor-nwse-resize",
+  };
+  return <div ref={elementRef} data-free-key={elementKey} data-free-media={media ? "true" : undefined} className={cn("absolute z-10 touch-none", editable && "cursor-move select-none", selected && "z-20", className)} style={{ ...style, left: `${position.x}%`, top: `${position.y}%` }} onPointerDown={startDrag} onPointerMove={moveDrag} onPointerUp={endDrag} onPointerCancel={endDrag}>
+    {children}
+    {editable && selected && resizeAspect && onResize && <>
+      <span aria-hidden className="pointer-events-none absolute inset-0 rounded-[36px] border-[5px] border-[#27a3ff] shadow-[0_0_0_3px_rgba(255,255,255,.9)]" />
+      {(["nw", "ne", "sw", "se"] as ResizeCorner[]).map((corner) => <button key={corner} type="button" data-resize-handle={corner} aria-label={`Redimensionar imagem pelo canto ${corner}`} className={cn("absolute z-30 grid h-[72px] w-[72px] touch-none place-items-center", handlePosition[corner])} onPointerDown={startResize(corner)} onPointerMove={moveResize} onPointerUp={endResize} onPointerCancel={endResize}><span className="block h-7 w-7 rounded-full border-[5px] border-white bg-[#27a3ff] shadow-lg" /></button>)}
+    </>}
+  </div>;
 }
 
 function BalancedContent({ safeLeft, safeWidth, gap, children }: { safeLeft: number; safeWidth: number; gap: number; children: React.ReactNode }) {
@@ -1428,7 +1498,7 @@ function PropertiesPanel({ section, template, format, setFormat, slide, update, 
           </>
         )}
         {slide.layoutMode === "auto" && <div className="grid grid-cols-2 gap-2"><button onClick={() => { placeText("above"); onFocusVisualControl?.({ kind: "textPlacement" }); }} className={cn("rounded-xl border px-3 py-2 text-xs", textPlacement === "above" && "border-[var(--accent-blue)] bg-[var(--hover)]")}>Acima da imagem</button><button onClick={() => { placeText("below"); onFocusVisualControl?.({ kind: "textPlacement" }); }} className={cn("rounded-xl border px-3 py-2 text-xs", textPlacement === "below" && "border-[var(--accent-blue)] bg-[var(--hover)]")}>Abaixo da imagem</button></div>}
-        <p className="text-[10px] leading-relaxed text-[var(--muted-foreground)]"><Move size={11} className="mr-1 inline" />{slide.layoutMode === "free" ? "Arraste a caixa diretamente no slide; ela se alinha ao centro e aos demais elementos." : section ? "Use os botões acima para posicionar a caixa em relação à imagem." : "Selecione uma caixa e arraste o controle azul. Ela se encaixa na sequência sem alterar margens ou distâncias."}</p>
+        <p className="text-[10px] leading-relaxed text-[var(--muted-foreground)]"><Move size={11} className="mr-1 inline" />{slide.layoutMode === "free" ? "Arraste a caixa diretamente no slide. Toque em uma imagem para mover ou redimensionar pelos cantos, sempre na proporção escolhida." : section ? "Use os botões acima para posicionar a caixa em relação à imagem." : "Selecione uma caixa e arraste o controle azul. Ela se encaixa na sequência sem alterar margens ou distâncias."}</p>
       </PanelSection>}
 
       {template === "tweet" ? <>
@@ -1471,9 +1541,12 @@ function MediaPanel({ slide, update, addFile, title, mobile = false, onFocusCrop
   };
   const removeMedia = (index: number) => {
     const freePositions = { ...slide.freePositions };
+    const freeSizes = { ...slide.freeSizes };
     delete freePositions[`media:${index}`];
+    delete freeSizes[`media:${index}`];
     if (index === 0 && freePositions["media:1"]) { freePositions["media:0"] = freePositions["media:1"]; delete freePositions["media:1"]; }
-    update({ media: slide.media.filter((_, mediaIndex) => mediaIndex !== index), mediaCrops: slide.mediaCrops.filter((_, mediaIndex) => mediaIndex !== index), mediaAspects: slide.mediaAspects.filter((_, mediaIndex) => mediaIndex !== index), mediaNaturalAspects: slide.mediaNaturalAspects.filter((_, mediaIndex) => mediaIndex !== index), freePositions });
+    if (index === 0 && freeSizes["media:1"]) { freeSizes["media:0"] = freeSizes["media:1"]; delete freeSizes["media:1"]; }
+    update({ media: slide.media.filter((_, mediaIndex) => mediaIndex !== index), mediaCrops: slide.mediaCrops.filter((_, mediaIndex) => mediaIndex !== index), mediaAspects: slide.mediaAspects.filter((_, mediaIndex) => mediaIndex !== index), mediaNaturalAspects: slide.mediaNaturalAspects.filter((_, mediaIndex) => mediaIndex !== index), freePositions, freeSizes });
   };
   return <PanelSection title={title}><p className="mb-3 text-[10px] leading-relaxed text-[var(--muted-foreground)]">{mobile ? "Escolha a proporção e ajuste zoom e enquadramento de cada imagem." : "Cada imagem pode manter o formato original ou usar uma proporção fixa. Cole também com Ctrl+V / ⌘V."}</p><div className="grid grid-cols-2 gap-2">{[0, 1].map((index) => <UploadTile key={index} value={slide.media[index]} crop={{ ...defaultMediaCrop(), ...slide.mediaCrops[index] }} aspect={slide.mediaAspects[index] || "original"} naturalAspect={slide.mediaNaturalAspects[index]} label={`Imagem ${index + 1}`} compactControls={mobile} onFocusCrop={(axis) => onFocusCrop?.(index, axis)} onCropChange={(crop) => { const mediaCrops = [...slide.mediaCrops]; mediaCrops[index] = crop; update({ mediaCrops }); }} onAspectChange={(aspect) => { const mediaAspects = [...slide.mediaAspects]; mediaAspects[index] = aspect; update({ mediaAspects }); }} onFile={(file) => addFile(file, (url) => void setMediaFile(index, url))} onRemove={() => removeMedia(index)} />)}</div></PanelSection>;
 }
@@ -1504,6 +1577,6 @@ function AvatarUploadField({ value, crop, onFile, onRemove, onCropChange, onFocu
 
 function UploadField({ label, value, onFile, onRemove, square = false }: { label: string; value: string; onFile: (file?: File) => void; onRemove: () => void; square?: boolean }) { return <div className="flex items-center gap-3"><span className={cn("grid h-11 w-11 shrink-0 place-items-center overflow-hidden border bg-[var(--hover)]", square ? "rounded-lg" : "rounded-full")}>{value ? <img src={value} alt="Arquivo selecionado" className="h-full w-full object-cover" /> : <UserRound size={17} />}</span><label className="flex-1 cursor-pointer rounded-lg border px-3 py-2 text-center text-[10px] hover:bg-[var(--hover)]"><Upload size={12} className="mr-1 inline" />{value ? "Trocar" : label}<input type="file" accept="image/*" className="sr-only" onChange={(event) => onFile(event.target.files?.[0])} /></label>{value && <button onClick={onRemove} className="text-[var(--muted-foreground)] hover:text-red-500" aria-label="Remover imagem"><X size={15} /></button>}</div>; }
 
-function UploadTile({ label, value, crop, aspect, naturalAspect, onFile, onRemove, onCropChange, onAspectChange, compactControls = false, onFocusCrop }: { label: string; value?: string; crop: MediaCrop; aspect: MediaAspect; naturalAspect?: number; onFile: (file?: File) => void; onRemove: () => void; onCropChange: (crop: MediaCrop) => void; onAspectChange: (aspect: MediaAspect) => void; compactControls?: boolean; onFocusCrop?: (axis: keyof MediaCrop) => void }) { const previewAspect = mediaAspectValue(aspect, naturalAspect); return <div className="min-w-0 space-y-2"><div className="relative mx-auto w-full overflow-hidden rounded-xl border bg-[var(--hover)]" style={{ borderColor: "var(--glass-border)", aspectRatio: previewAspect }}>{value ? <><img src={value} alt={label} className="h-full w-full object-cover" style={{ objectPosition: `${crop.x}% ${crop.y}%`, transform: `scale(${crop.zoom})`, transformOrigin: `${crop.x}% ${crop.y}%` }} /><button onClick={onRemove} aria-label={`Remover ${label}`} className="absolute right-1.5 top-1.5 grid h-6 w-6 place-items-center rounded-full bg-black/70 text-white"><X size={12} /></button></> : <label className="grid h-full min-h-20 cursor-pointer place-items-center text-center text-[10px] text-[var(--muted-foreground)]"><span><ImagePlus size={18} className="mx-auto mb-1" />{label}</span><input type="file" accept="image/*" className="sr-only" onChange={(event) => onFile(event.target.files?.[0])} /></label>}</div>{value && <div className="space-y-2 rounded-lg border p-2" style={{ borderColor: "var(--glass-border)" }}><label className="block"><span className="mb-1 block text-[8px] text-[var(--muted-foreground)]">Proporção</span><select aria-label={`Proporção da ${label.toLowerCase()}`} value={aspect} onChange={(event) => onAspectChange(event.target.value as MediaAspect)} className="editor-input h-9 w-full py-1 text-[10px]"><option value="original">Original · livre</option><option value="1:1">Quadrada · 1:1</option><option value="4:5">Vertical · 4:5</option><option value="9:16">Story · 9:16</option><option value="16:9">Horizontal · 16:9</option></select></label>{compactControls ? <><MobileAdjustmentButton label="Horizontal" value={`${Math.round(crop.x)}%`} onClick={() => onFocusCrop?.("x")} /><MobileAdjustmentButton label="Vertical" value={`${Math.round(crop.y)}%`} onClick={() => onFocusCrop?.("y")} /><MobileAdjustmentButton label="Zoom" value={`${crop.zoom.toFixed(2)}×`} onClick={() => onFocusCrop?.("zoom")} /></> : <><CropSlider label="Horizontal" value={crop.x} min={0} max={100} onChange={(x) => onCropChange({ ...crop, x })} /><CropSlider label="Vertical" value={crop.y} min={0} max={100} onChange={(y) => onCropChange({ ...crop, y })} /><CropSlider label="Zoom" value={crop.zoom} min={1} max={2.5} step={0.05} onChange={(zoom) => onCropChange({ ...crop, zoom })} /></>}</div>}</div>; }
+function UploadTile({ label, value, crop, aspect, naturalAspect, onFile, onRemove, onCropChange, onAspectChange, compactControls = false, onFocusCrop }: { label: string; value?: string; crop: MediaCrop; aspect: MediaAspect; naturalAspect?: number; onFile: (file?: File) => void; onRemove: () => void; onCropChange: (crop: MediaCrop) => void; onAspectChange: (aspect: MediaAspect) => void; compactControls?: boolean; onFocusCrop?: (axis: keyof MediaCrop) => void }) { const previewAspect = mediaAspectValue(aspect, naturalAspect); return <div className="min-w-0 space-y-2"><div className="relative mx-auto w-full overflow-hidden rounded-xl border bg-[var(--hover)]" style={{ borderColor: "var(--glass-border)", aspectRatio: previewAspect }}>{value ? <><img src={value} alt={label} className="h-full w-full object-cover" style={{ objectPosition: `${crop.x}% ${crop.y}%`, transform: `scale(${crop.zoom})`, transformOrigin: `${crop.x}% ${crop.y}%` }} /><button onClick={onRemove} aria-label={`Remover ${label}`} className="absolute right-1.5 top-1.5 grid h-6 w-6 place-items-center rounded-full bg-black/70 text-white"><X size={12} /></button></> : <label className="grid h-full min-h-20 cursor-pointer place-items-center text-center text-[10px] text-[var(--muted-foreground)]"><span><ImagePlus size={18} className="mx-auto mb-1" />{label}</span><input type="file" accept="image/*" className="sr-only" onChange={(event) => onFile(event.target.files?.[0])} /></label>}</div>{value && <div className="space-y-2 rounded-lg border p-2" style={{ borderColor: "var(--glass-border)" }}><label className="block"><span className="mb-1 block text-[8px] text-[var(--muted-foreground)]">Proporção</span><select aria-label={`Proporção da ${label.toLowerCase()}`} value={aspect} onChange={(event) => onAspectChange(event.target.value as MediaAspect)} className="editor-input h-9 w-full py-1 text-[10px]"><option value="original">Original · travada</option><option value="1:1">Quadrada · 1:1</option><option value="4:5">Vertical · 4:5</option><option value="9:16">Story · 9:16</option><option value="16:9">Horizontal · 16:9</option></select></label>{compactControls ? <><MobileAdjustmentButton label="Horizontal" value={`${Math.round(crop.x)}%`} onClick={() => onFocusCrop?.("x")} /><MobileAdjustmentButton label="Vertical" value={`${Math.round(crop.y)}%`} onClick={() => onFocusCrop?.("y")} /><MobileAdjustmentButton label="Zoom" value={`${crop.zoom.toFixed(2)}×`} onClick={() => onFocusCrop?.("zoom")} /></> : <><CropSlider label="Horizontal" value={crop.x} min={0} max={100} onChange={(x) => onCropChange({ ...crop, x })} /><CropSlider label="Vertical" value={crop.y} min={0} max={100} onChange={(y) => onCropChange({ ...crop, y })} /><CropSlider label="Zoom" value={crop.zoom} min={1} max={2.5} step={0.05} onChange={(zoom) => onCropChange({ ...crop, zoom })} /></>}</div>}</div>; }
 
 function CropSlider({ label, value, min, max, step = 1, onChange }: { label: string; value: number; min: number; max: number; step?: number; onChange: (value: number) => void }) { return <label className="block"><span className="mb-0.5 flex justify-between text-[8px] text-[var(--muted-foreground)]"><span>{label}</span><span>{label === "Zoom" ? `${value.toFixed(2)}×` : `${Math.round(value)}%`}</span></span><input type="range" aria-label={`${label} da imagem`} min={min} max={max} step={step} value={value} onChange={(event) => onChange(Number(event.target.value))} className="block w-full accent-[#27a3ff]" /></label>; }

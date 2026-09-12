@@ -1,11 +1,59 @@
 export type CanvasPoint = { x: number; y: number };
 export type CanvasSize = { width: number; height: number };
 export type AlignmentGuide = { axis: "x" | "y"; value: number };
+export type ResizeCorner = "nw" | "ne" | "sw" | "se";
 
 export type SnapResult = {
   position: CanvasPoint;
   guides: AlignmentGuide[];
 };
+
+export type ResizeResult = {
+  position: CanvasPoint;
+  size: CanvasSize;
+};
+
+/** Resizes from a corner while preserving the element's current aspect ratio. */
+export function resizeCanvasElement(
+  position: CanvasPoint,
+  size: CanvasSize,
+  corner: ResizeCorner,
+  delta: CanvasPoint,
+  canvas: CanvasSize,
+  minWidth = 96,
+): ResizeResult {
+  const growsLeft = corner.endsWith("w");
+  const growsUp = corner.startsWith("n");
+  const aspect = size.width / Math.max(size.height, 1);
+  const anchor = {
+    x: growsLeft ? position.x + size.width : position.x,
+    y: growsUp ? position.y + size.height : position.y,
+  };
+  const startVector = {
+    x: growsLeft ? -size.width : size.width,
+    y: growsUp ? -size.height : size.height,
+  };
+  const pointerVector = {
+    x: startVector.x + delta.x,
+    y: startVector.y + delta.y,
+  };
+  const scale = (pointerVector.x * startVector.x + pointerVector.y * startVector.y)
+    / Math.max(startVector.x ** 2 + startVector.y ** 2, 1);
+  const horizontalLimit = growsLeft ? anchor.x : canvas.width - anchor.x;
+  const verticalLimit = (growsUp ? anchor.y : canvas.height - anchor.y) * aspect;
+  const maxWidth = Math.max(1, Math.min(horizontalLimit, verticalLimit));
+  const constrainedMin = Math.min(minWidth, maxWidth);
+  const width = Math.min(maxWidth, Math.max(constrainedMin, size.width * scale));
+  const height = width / aspect;
+
+  return {
+    position: {
+      x: growsLeft ? anchor.x - width : anchor.x,
+      y: growsUp ? anchor.y - height : anchor.y,
+    },
+    size: { width, height },
+  };
+}
 
 type AlignmentTarget = { value: number; guide: number; priority: number };
 
