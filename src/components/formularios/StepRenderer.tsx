@@ -7,7 +7,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useState, useCallback, useId, useRef, useEffect } from "react";
-import { Star, CalendarClock } from "lucide-react";
+import { Star, CalendarClock, ChevronRight } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import type { FormStep, FormTheme } from "@/types";
@@ -192,6 +192,11 @@ export function StepRenderer({
     setConfirmingPhone(false);
     onNext?.();
   }, [onNext]);
+
+  const dismissPhoneConfirmation = useCallback(() => {
+    setConfirmingPhone(false);
+    window.requestAnimationFrame(() => phoneInputRef.current?.focus());
+  }, []);
 
   const handleChange = useCallback((val: unknown) => {
     setError(null);
@@ -604,7 +609,8 @@ export function StepRenderer({
   const showBackBtn = false;
   const btnLabel =
     step.type === "statement"   ? "Continuar" :
-    step.type === "file_upload" ? "Enviar arquivo" : "Próximo →";
+    step.type === "file_upload" ? "Enviar arquivo" :
+    step.type === "phone"       ? "Avançar" : "Próximo →";
   // nps_scale exige uma nota selecionada antes de liberar o avanço manual —
   // diferente de single_choice/rating, aqui não há auto-advance.
   const nextDisabled = step.type === "nps_scale" && (value === undefined || value === null || value === "");
@@ -683,7 +689,7 @@ export function StepRenderer({
               Voltar
             </button>
           )}
-          {showNextBtn && (
+          {showNextBtn && step.type !== "phone" && (
             <button
               type="button"
               onClick={handleNext}
@@ -694,44 +700,68 @@ export function StepRenderer({
               {btnLabel}
             </button>
           )}
-          <AnimatePresence initial={false}>
-            {step.type === "phone" && confirmingPhone && (
-              <motion.div
-                role="alert"
-                aria-live="assertive"
-                initial={{ opacity: 0, x: -10, scale: 0.98 }}
-                animate={{ opacity: 1, x: 0, scale: 1 }}
-                exit={{ opacity: 0, x: -6, scale: 0.98 }}
-                transition={{ duration: 0.18 }}
-                className="w-full rounded-2xl border-2 border-[#facc15] bg-[#111827] p-4 text-white shadow-xl sm:w-auto sm:min-w-[310px] sm:max-w-md"
+          {showNextBtn && step.type === "phone" && (
+            <motion.div
+              layout
+              className={cn("flex min-w-0 items-stretch", confirmingPhone ? "w-full max-w-[680px]" : "w-auto")}
+              transition={{ layout: { duration: 0.28, ease: [0.32, 0.72, 0, 1] } }}
+            >
+              <motion.button
+                layout
+                type="button"
+                onClick={confirmingPhone ? dismissPhoneConfirmation : handleNext}
+                disabled={nextDisabled}
+                aria-expanded={confirmingPhone}
+                aria-controls={`${uid}-phone-confirmation`}
+                aria-label={confirmingPhone ? "Voltar e corrigir o número" : "Avançar"}
+                className="relative z-20 min-h-[52px] w-[106px] shrink-0 rounded-full px-4 text-[15px] font-semibold transition hover:brightness-95 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 sm:w-[116px] sm:text-base"
+                style={{ background: primary, color: "#fff" }}
               >
-                <p className="text-sm font-bold text-[#fde047]">Confira antes de avançar</p>
-                <p className="mt-1 text-sm leading-relaxed">
-                  O número <strong className="whitespace-nowrap text-base">{String(value ?? "")}</strong> está correto?
-                </p>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <button
-                    ref={confirmPhoneRef}
-                    type="button"
-                    onClick={confirmPhoneAndContinue}
-                    className="min-h-11 rounded-xl bg-[#facc15] px-4 py-2 text-sm font-bold text-[#111827] transition hover:bg-[#fde047] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white active:scale-95"
+                {btnLabel}
+              </motion.button>
+
+              <AnimatePresence initial={false}>
+                {confirmingPhone && (
+                  <motion.div
+                    id={`${uid}-phone-confirmation`}
+                    role="group"
+                    aria-label="Confirmação do número de telefone"
+                    initial={{ opacity: 0, x: -34, scaleX: 0.72 }}
+                    animate={{ opacity: 1, x: 0, scaleX: 1 }}
+                    exit={{ opacity: 0, x: -22, scaleX: 0.78 }}
+                    transition={{ duration: 0.3, ease: [0.32, 0.72, 0, 1] }}
+                    className="relative -ml-4 flex min-w-0 flex-1 origin-left items-stretch"
                   >
-                    Sim, está correto
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setConfirmingPhone(false);
-                      window.requestAnimationFrame(() => phoneInputRef.current?.focus());
-                    }}
-                    className="min-h-11 rounded-xl border border-white/70 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white active:scale-95"
-                  >
-                    Corrigir número
-                  </button>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
+                    <span
+                      aria-hidden="true"
+                      className="relative z-20 my-auto grid h-9 w-9 shrink-0 place-items-center rounded-full border-[3px]"
+                      style={{ background: primary, borderColor: cardBg, color: "#fff" }}
+                    >
+                      <ChevronRight size={22} strokeWidth={3} />
+                    </span>
+
+                    <div
+                      className="-ml-4 flex min-w-0 flex-1 items-center gap-1.5 rounded-full border-2 py-1 pl-6 pr-1 sm:gap-2 sm:pl-7 sm:pr-1.5"
+                      style={{ background: cardBg, borderColor: primary, color: textColor }}
+                    >
+                      <p aria-live="polite" className="min-w-[88px] flex-1 text-[12px] font-semibold leading-[1.08] sm:text-[13px]">
+                        O número digitado<br />está correto?
+                      </p>
+                      <button
+                        ref={confirmPhoneRef}
+                        type="button"
+                        onClick={confirmPhoneAndContinue}
+                        className="min-h-10 shrink-0 rounded-full px-3 text-sm font-bold text-white transition hover:brightness-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 active:scale-95 sm:px-4 sm:text-[15px]"
+                        style={{ background: primary, outlineColor: primary }}
+                      >
+                        Sim!
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </motion.div>
+          )}
         </div>
       )}
     </div>
