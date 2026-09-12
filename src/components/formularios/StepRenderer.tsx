@@ -702,24 +702,21 @@ export function StepRenderer({
             </button>
           )}
           {showNextBtn && step.type === "phone" && (
-            <motion.div
-              layout
+            <div
               className={cn("flex min-w-0 items-stretch", confirmingPhone ? "w-full max-w-[680px]" : "w-auto")}
-              transition={{ layout: { duration: 0.28, ease: [0.32, 0.72, 0, 1] } }}
             >
-              <motion.button
-                layout
+              <button
                 type="button"
                 onClick={confirmingPhone ? dismissPhoneConfirmation : handleNext}
                 disabled={nextDisabled}
                 aria-expanded={confirmingPhone}
                 aria-controls={`${uid}-phone-confirmation`}
                 aria-label={confirmingPhone ? "Voltar e corrigir o número" : "Avançar"}
-                className="relative z-20 min-h-[52px] w-[106px] shrink-0 rounded-full px-4 text-[15px] font-semibold transition hover:brightness-95 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 sm:w-[116px] sm:text-base"
+                className="relative z-20 min-h-[52px] w-[106px] shrink-0 rounded-full px-4 text-[15px] font-semibold hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-40 sm:w-[116px] sm:text-base"
                 style={{ background: primary, color: "#fff" }}
               >
                 {btnLabel}
-              </motion.button>
+              </button>
 
               <AnimatePresence initial={false}>
                 {confirmingPhone && (
@@ -745,8 +742,8 @@ export function StepRenderer({
                       className="relative -ml-4 flex min-w-0 flex-1 items-center gap-1.5 py-2 pl-7 pr-1.5 sm:gap-2 sm:pl-8 sm:pr-2"
                       style={{ color: textColor }}
                     >
-                      <span aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 h-0.5" style={{ background: `linear-gradient(90deg, transparent 0%, ${primary} 82%)` }} />
-                      <span aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-0 h-0.5" style={{ background: `linear-gradient(90deg, transparent 0%, ${primary} 82%)` }} />
+                      <span aria-hidden="true" className="pointer-events-none absolute left-0 right-7 top-0 h-0.5" style={{ background: `linear-gradient(90deg, transparent 0%, ${primary} 82%)` }} />
+                      <span aria-hidden="true" className="pointer-events-none absolute bottom-0 left-0 right-7 h-0.5" style={{ background: `linear-gradient(90deg, transparent 0%, ${primary} 82%)` }} />
                       <span aria-hidden="true" className="pointer-events-none absolute inset-y-0 right-0 w-8 rounded-r-full border-y-2 border-r-2" style={{ borderColor: primary }} />
 
                       <p aria-live="polite" className="relative z-10 min-w-[88px] flex-1 text-[11px] font-semibold leading-[1.15] sm:text-xs">
@@ -765,7 +762,7 @@ export function StepRenderer({
                   </motion.div>
                 )}
               </AnimatePresence>
-            </motion.div>
+            </div>
           )}
         </div>
       )}
