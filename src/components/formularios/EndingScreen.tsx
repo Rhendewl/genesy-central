@@ -1,7 +1,6 @@
 "use client";
 
 import React from "react";
-import { motion } from "framer-motion";
 import { Loader2, RotateCcw } from "lucide-react";
 import type { FormEnding, FormTheme } from "@/types";
 
@@ -52,23 +51,15 @@ export const EndingScreen = React.memo(function EndingScreen({
       aria-labelledby="ending-title"
     >
       {/* Ícone de sucesso — sempre centralizado */}
-      <motion.div
-        initial={{ scale: 0.5, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        transition={{ type: "spring", stiffness: 300, damping: 20 }}
-        className="w-16 h-16 rounded-2xl flex items-center justify-center self-center"
+      <div
+        className="form-success-enter w-16 h-16 rounded-2xl flex items-center justify-center self-center"
         style={{ background: "rgba(34,197,94,0.15)" }}
         aria-hidden="true"
       >
-        <motion.span
-          initial={{ scale: 0 }}
-          animate={{ scale: 1 }}
-          transition={{ delay: 0.1, type: "spring", stiffness: 400 }}
-          style={{ fontSize: 28 }}
-        >
+        <span className="form-success-check" style={{ fontSize: 28 }}>
           ✓
-        </motion.span>
-      </motion.div>
+        </span>
+      </div>
 
       {/* Texto */}
       <div className="flex flex-col gap-2" style={{ textAlign: align }}>

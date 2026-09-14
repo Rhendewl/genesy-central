@@ -1,3 +1,5 @@
+import { cache } from "react";
+import { unstable_cache } from "next/cache";
 import { createAdminSupabaseClient } from "@/lib/supabase-admin";
 import type { Form } from "@/types";
 
@@ -10,7 +12,7 @@ const FORM_FIELDS = "id, user_id, name, slug, description, status, theme, settin
  * URL before the owner clicks Publish. Publication and edits are cheap reads
  * compared with serving a stale or inaccessible form.
  */
-export async function getPublicFormBySlug(slug: string): Promise<Form | null> {
+const queryPublicFormBySlug = unstable_cache(async (slug: string): Promise<Form | null> => {
   const { data, error } = await createAdminSupabaseClient()
     .from("forms")
     .select(FORM_FIELDS)
@@ -21,4 +23,8 @@ export async function getPublicFormBySlug(slug: string): Promise<Form | null> {
 
   if (error || !data) return null;
   return data as unknown as Form;
-}
+}, ["public-form-by-slug"], { revalidate: 15 });
+
+// React cache elimina a segunda leitura feita por generateMetadata na mesma
+// requisição; o cache do Next compartilha o resultado entre visitantes.
+export const getPublicFormBySlug = cache(queryPublicFormBySlug);

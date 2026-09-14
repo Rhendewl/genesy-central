@@ -7,12 +7,18 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useState, useCallback, useId, useRef, useEffect } from "react";
+import dynamic from "next/dynamic";
 import { Star, CalendarClock, ChevronRight } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import type { FormStep, FormTheme } from "@/types";
-import { CalendarStepField } from "./CalendarStepField";
 import { resolveThemeColors } from "@/lib/forms/theme-colors";
+
+// O calendário tem seu próprio runtime e chamadas de rede. Ele só é baixado
+// quando o visitante realmente alcança um bloco de agendamento.
+const CalendarStepField = dynamic(
+  () => import("./CalendarStepField").then(module => module.CalendarStepField),
+  { loading: () => <div className="h-40 animate-pulse rounded-xl bg-black/[0.04]" aria-label="Carregando agenda" /> },
+);
 
 export interface StepRendererProps {
   step: FormStep;
@@ -373,12 +379,11 @@ export function StepRenderer({
             {(step.choices ?? []).map(c => {
               const sel = selected.includes(c.value);
               return (
-                <motion.button
+                <button
                   key={c.id}
                   type="button"
                   role={isMulti ? "checkbox" : "radio"}
                   aria-checked={sel}
-                  whileTap={{ scale: 0.98 }}
                   onClick={() => {
                     if (isMulti) {
                       handleChange(sel
@@ -396,7 +401,7 @@ export function StepRenderer({
                       }, 350);
                     }
                   }}
-                  className="flex items-center gap-3 w-full px-4 py-3 rounded-xl text-base text-left transition-colors"
+                  className="flex items-center gap-3 w-full px-4 py-3 rounded-xl text-base text-left transition-all active:scale-[0.98]"
                   style={{
                     background: sel ? `${primary}18` : cardBg,
                     border: `1px solid ${sel ? primary : borderC}`,
@@ -415,7 +420,7 @@ export function StepRenderer({
                     {sel && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
                   </span>
                   {c.label}
-                </motion.button>
+                </button>
               );
             })}
           </div>
@@ -433,7 +438,7 @@ export function StepRenderer({
             aria-required={step.required}
           >
             {Array.from({ length: max }, (_, i) => i + 1).map(n => (
-              <motion.button
+              <button
                 key={n}
                 type="button"
                 onClick={() => {
@@ -444,12 +449,10 @@ export function StepRenderer({
                     if (!step.required || n > 0) { setError(null); onNextRef.current?.(); }
                   }, 400);
                 }}
-                whileHover={{ scale: 1.15 }}
-                whileTap={{ scale: 0.9 }}
                 aria-label={`${n} estrela${n !== 1 ? "s" : ""}`}
                 role="radio"
                 aria-checked={n === cur}
-                className="transition-transform focus-visible:outline focus-visible:outline-2 rounded"
+                className="transition-transform hover:scale-110 active:scale-90 focus-visible:outline focus-visible:outline-2 rounded"
                 style={{ outlineColor: primary }}
               >
                 <Star
@@ -460,7 +463,7 @@ export function StepRenderer({
                     transition: "color 0.15s, fill 0.15s",
                   }}
                 />
-              </motion.button>
+              </button>
             ))}
           </div>
         );
@@ -482,24 +485,19 @@ export function StepRenderer({
                 return (
                   <div key={n} className="relative min-w-0 flex-1">
                     {selected && (
-                      <motion.span
+                      <span
                         aria-hidden="true"
-                        className="pointer-events-none absolute inset-0 rounded-xl"
+                        className="form-nps-glow pointer-events-none absolute inset-0 rounded-xl"
                         style={{ background: scoreColor(n), filter: "blur(8px)" }}
-                        initial={{ opacity: 0.35, scale: 0.9 }}
-                        animate={{ opacity: [0.25, 0.65, 0.25], scale: [0.9, 1.2, 0.9] }}
-                        transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
                       />
                     )}
-                    <motion.button
+                    <button
                       type="button"
                       onClick={() => handleChange(n)}
-                      whileHover={{ scale: 1.08 }}
-                      whileTap={{ scale: 0.92 }}
                       aria-label={`Nota ${n}`}
                       role="radio"
                       aria-checked={selected}
-                      className="relative flex aspect-square w-full items-center justify-center rounded-xl text-[11px] font-bold transition-colors focus-visible:outline focus-visible:outline-2 sm:text-sm"
+                      className="relative flex aspect-square w-full items-center justify-center rounded-xl text-[11px] font-bold transition-all hover:scale-105 active:scale-95 focus-visible:outline focus-visible:outline-2 sm:text-sm"
                       style={{
                         background: selected ? scoreColor(n) : cardBg,
                         color: selected ? "#ffffff" : textColor,
@@ -508,7 +506,7 @@ export function StepRenderer({
                       }}
                     >
                       {n}
-                    </motion.button>
+                    </button>
                   </div>
                 );
               })}
@@ -650,23 +648,17 @@ export function StepRenderer({
       <div>{renderInput()}</div>
 
       {/* Mensagem de erro */}
-      <AnimatePresence>
         {error && (
-          <motion.p
+          <p
             id={errorId}
             role="alert"
             aria-live="polite"
-            initial={{ opacity: 0, y: -4 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -4 }}
-            transition={{ duration: 0.15 }}
-            className="text-sm font-medium -mt-2"
+            className="form-error-enter text-sm font-medium -mt-2"
             style={{ color: "#ef4444" }}
           >
             {error}
-          </motion.p>
+          </p>
         )}
-      </AnimatePresence>
 
       {/* Ações — sem onKeyDown no container para evitar double-fire em botões */}
       {(showNextBtn || showBackBtn) && (
@@ -718,17 +710,12 @@ export function StepRenderer({
                 {btnLabel}
               </button>
 
-              <AnimatePresence initial={false}>
                 {confirmingPhone && (
-                  <motion.div
+                  <div
                     id={`${uid}-phone-confirmation`}
                     role="group"
                     aria-label="Confirmação do número de telefone"
-                    initial={{ opacity: 0, x: -34, scaleX: 0.72 }}
-                    animate={{ opacity: 1, x: 0, scaleX: 1 }}
-                    exit={{ opacity: 0, x: -22, scaleX: 0.78 }}
-                    transition={{ duration: 0.3, ease: [0.32, 0.72, 0, 1] }}
-                    className="relative z-30 -ml-4 flex min-w-0 flex-1 origin-left items-stretch"
+                    className="form-phone-confirm-enter relative z-30 -ml-4 flex min-w-0 flex-1 origin-left items-stretch"
                   >
                     <span
                       aria-hidden="true"
@@ -759,9 +746,8 @@ export function StepRenderer({
                         Sim!
                       </button>
                     </div>
-                  </motion.div>
+                  </div>
                 )}
-              </AnimatePresence>
             </div>
           )}
         </div>

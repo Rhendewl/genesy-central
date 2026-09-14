@@ -3,10 +3,17 @@ import { notFound } from "next/navigation";
 import { getPublicFormBySlug } from "@/lib/forms/public-form";
 import { FormPublicClient } from "./FormPublicClient";
 
-// A visitor may try this URL before the owner publishes the form. Rendering it
-// dynamically prevents that first 404 from being cached after publication.
-export const revalidate = 0;
-export const dynamic = "force-dynamic";
+// Formulários publicados recebem picos de tráfego vindos de anúncios. Uma janela
+// curta permite servir o HTML na borda sem consultar o banco a cada clique, sem
+// deixar publicações e edições antigas por mais de alguns segundos.
+export const revalidate = 15;
+export const dynamicParams = true;
+
+// Os slugs são criados pelos clientes em tempo de execução. A lista vazia faz
+// o Next gerar cada um sob demanda e, depois, reutilizar a página via ISR.
+export function generateStaticParams() {
+  return [];
+}
 
 type PageProps = { params: { slug: string } };
 

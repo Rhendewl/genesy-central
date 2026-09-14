@@ -12,7 +12,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import React, { useEffect, useRef, useCallback } from "react";
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import type { Form, FormStep } from "@/types";
 import { StepRenderer } from "./StepRenderer";
 import { WelcomeScreen } from "./WelcomeScreen";
@@ -20,22 +19,6 @@ import { EndingScreen } from "./EndingScreen";
 import { FormProgressBar } from "./FormProgressBar";
 
 // ── Variantes de transição (constantes de módulo — nunca re-criadas) ──────────
-
-const EASE: [number, number, number, number] = [0.32, 0.72, 0, 1];
-
-// Movimento lateral + fade
-const VARIANTS = {
-  enter: (dir: number) => ({ x: dir > 0 ? "60%" : "-60%", opacity: 0 }),
-  center: { x: 0, opacity: 1, transition: { duration: 0.3, ease: EASE } },
-  exit:  (dir: number) => ({ x: dir > 0 ? "-60%" : "60%", opacity: 0, transition: { duration: 0.2, ease: EASE } }),
-};
-
-// Apenas fade — para prefers-reduced-motion
-const VARIANTS_REDUCED = {
-  enter: () => ({ opacity: 0, x: 0 }),
-  center: { opacity: 1, x: 0, transition: { duration: 0.15 } },
-  exit:  () => ({ opacity: 0, x: 0, transition: { duration: 0.1 } }),
-};
 
 // ── Tipos públicos ─────────────────────────────────────────────────────────────
 
@@ -122,8 +105,6 @@ export const FormRenderer = React.memo(function FormRenderer({
 }: FormRendererProps) {
 
   // ── Variantes baseadas em prefers-reduced-motion ───────────────────────────
-  const shouldReduce = useReducedMotion();
-  const variants     = shouldReduce ? VARIANTS_REDUCED : VARIANTS;
 
   // ── Dados derivados ────────────────────────────────────────────────────────
   const steps: FormStep[] = form.steps ?? [];
@@ -175,7 +156,6 @@ export const FormRenderer = React.memo(function FormRenderer({
   useEffect(() => {
     if (!loadedRef.current) {
       loadedRef.current = true;
-      console.log("[FormRenderer] mounted, screen=", screen, "steps=", steps.length, "currentStep=", currentStep?.id ?? null, "theme.bg=", form.theme?.backgroundColor);
       onRendererLoadedRef.current?.();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -185,7 +165,6 @@ export const FormRenderer = React.memo(function FormRenderer({
   // O hook nunca deveria chegar aqui nesse estado, mas se chegar, avança para o step.
   useEffect(() => {
     if (screen === "welcome" && !form.welcome_screen) {
-      console.warn("[FormRenderer] screen=welcome but form.welcome_screen is null → forcing start");
       onStartRef.current();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -245,16 +224,13 @@ export const FormRenderer = React.memo(function FormRenderer({
         aria-live="polite"
         aria-atomic="false"
       >
-        <AnimatePresence mode="wait" custom={direction} initial={false}>
-          <motion.div
+          <div
             key={screenKey}
-            custom={direction}
-            variants={variants}
-            initial="enter"
-            animate="center"
-            exit="exit"
-            className="absolute inset-0 flex items-center justify-center overflow-y-auto p-6"
-            style={{ paddingTop: screen === "step" ? "3rem" : "1.5rem" }}
+            className="form-screen-enter absolute inset-0 flex items-center justify-center overflow-y-auto p-6"
+            style={{
+              paddingTop: screen === "step" ? "3rem" : "1.5rem",
+              "--form-enter-x": direction > 0 ? "10%" : "-10%",
+            } as React.CSSProperties}
           >
 
             {/* Tela de boas-vindas */}
@@ -298,8 +274,7 @@ export const FormRenderer = React.memo(function FormRenderer({
               />
             )}
 
-          </motion.div>
-        </AnimatePresence>
+          </div>
       </div>
     </div>
   );

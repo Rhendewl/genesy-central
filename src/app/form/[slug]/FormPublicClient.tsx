@@ -89,7 +89,6 @@ export function FormPublicClient({ slug, initialForm }: { slug: string; initialF
 
   // ── Loading ────────────────────────────────────────────────────────────────
   if (screen === "loading") {
-    console.log("[FormPublicPage] render: loading");
     return (
       <div
         className="h-dvh flex items-center justify-center"
@@ -111,7 +110,6 @@ export function FormPublicClient({ slug, initialForm }: { slug: string; initialF
   // Cores hardcoded: este estado não tem acesso ao tema do formulário.
   // Usar CSS vars aqui causaria texto invisível no dark mode (html.dark).
   if (screen === "not_found") {
-    console.log("[FormPublicPage] render: not_found");
     return (
       <div
         className="h-dvh flex flex-col items-center justify-center gap-3 p-8 text-center"
@@ -133,7 +131,6 @@ export function FormPublicClient({ slug, initialForm }: { slug: string; initialF
   // ── Erro de submissão — após todas as tentativas ───────────────────────────
   // Cores hardcoded: usa bg do formulário (disponível) mas texto sem CSS vars.
   if (screen === "error") {
-    console.log("[FormPublicPage] render: error, isOnline:", isOnline);
     const errBg = bg;
     const errBtnRadius =
       form?.theme?.buttonStyle === "pill"   ? "9999px" :
@@ -186,11 +183,8 @@ export function FormPublicClient({ slug, initialForm }: { slug: string; initialF
 
   // ── Formulário ─────────────────────────────────────────────────────────────
   if (!form) {
-    console.warn("[FormPublicPage] screen=", screen, "but form is null → null render");
     return null;
   }
-
-  console.log("[FormPublicPage] render: screen=", screen, "rendererScreen=", rendererScreen, "bg=", bg, "steps=", form.steps?.length, "welcome=", form.welcome_screen?.enabled);
 
   return (
     <div

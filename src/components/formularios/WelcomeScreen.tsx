@@ -75,9 +75,14 @@ export const WelcomeScreen = React.memo(function WelcomeScreen({
     >
       {/* Imagem / Logo */}
       {welcome.imageUrl && (
-        <img
+        <Image
           src={welcome.imageUrl}
           alt="Logo ou imagem do formulário"
+          width={220}
+          height={88}
+          quality={72}
+          priority={!hasBanner}
+          sizes="(max-width: 640px) 140px, 220px"
           className="object-contain"
           style={{
             ...IMAGE_SIZE[welcome.imageSize ?? "medium"],

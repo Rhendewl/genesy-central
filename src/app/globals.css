@@ -1609,6 +1609,48 @@
 
 /* ── Rich HTML no preview do formulário ── */
 
+/* Transições leves do formulário público. CSS evita carregar um runtime de
+   animação inteiro antes de a primeira tela ficar interativa. */
+@keyframes form-screen-enter {
+  from { opacity: 0; transform: translateX(var(--form-enter-x, 10%)); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes form-fade-up {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes form-phone-confirm-enter {
+  from { opacity: 0; transform: translateX(-34px) scaleX(.72); }
+  to   { opacity: 1; transform: translateX(0) scaleX(1); }
+}
+@keyframes form-success-enter {
+  from { opacity: 0; transform: scale(.65); }
+  to   { opacity: 1; transform: scale(1); }
+}
+@keyframes form-success-check {
+  from { transform: scale(0); }
+  to   { transform: scale(1); }
+}
+@keyframes form-nps-glow {
+  0%, 100% { opacity: .25; transform: scale(.9); }
+  50%      { opacity: .65; transform: scale(1.2); }
+}
+.form-screen-enter { animation: form-screen-enter .24s cubic-bezier(.32,.72,0,1); }
+.form-error-enter { animation: form-fade-up .15s ease-out; }
+.form-phone-confirm-enter { animation: form-phone-confirm-enter .3s cubic-bezier(.32,.72,0,1); }
+.form-success-enter { animation: form-success-enter .3s cubic-bezier(.2,.8,.2,1); }
+.form-success-check { animation: form-success-check .22s .08s both cubic-bezier(.2,.8,.2,1); }
+.form-nps-glow { animation: form-nps-glow 1.6s infinite ease-in-out; }
+
+@media (prefers-reduced-motion: reduce) {
+  .form-screen-enter,
+  .form-error-enter,
+  .form-phone-confirm-enter,
+  .form-success-enter,
+  .form-success-check,
+  .form-nps-glow { animation: none; }
+}
+
 /* Título com rich text — herda font-size/weight do elemento pai */
 .rich-welcome-title strong { font-weight: 700; }
 .rich-welcome-title em     { font-style: italic; }

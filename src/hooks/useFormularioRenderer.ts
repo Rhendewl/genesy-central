@@ -227,8 +227,6 @@ export function useFormularioRenderer(slug: string, initialForm: Form | null = n
     const configUrl = `/api/form/${slug}/integracoes`;
     let cancelled = false;
 
-    console.log("[useFormularioRenderer] fetching:", formUrl);
-
     // A busca das integrações começa em paralelo, mas nunca bloqueia a primeira
     // pintura. O runtime mais pesado também é baixado sob demanda.
     const integrationsPromise = fetch(configUrl)
@@ -243,19 +241,10 @@ export function useFormularioRenderer(slug: string, initialForm: Form | null = n
       .then((formJson) => {
         if (cancelled) return;
         if (!formJson.formulario) {
-          console.warn("[useFormularioRenderer] no formulario in response → not_found. json:", formJson);
           setScreen("not_found");
           return;
         }
         const loadedForm = formJson.formulario as Form;
-        console.log("[useFormularioRenderer] form loaded:", {
-          id:             loadedForm.id,
-          name:           loadedForm.name,
-          status:         (loadedForm as unknown as Record<string, unknown>).status,
-          steps:          loadedForm.steps?.length,
-          welcome_screen: loadedForm.welcome_screen,
-          theme:          loadedForm.theme,
-        });
         setForm(loadedForm);
 
         // Restore correlationId from previous session (or use the generated one)
@@ -265,18 +254,15 @@ export function useFormularioRenderer(slug: string, initialForm: Form | null = n
         }
 
         if (stored) {
-          console.log("[useFormularioRenderer] restoring stored session, stepIndex:", stored.currentStepIndex);
           sessionTokenRef.current = stored.token;
           startTimeRef.current    = stored.startedAt;
           setAnswers(stored.answers);
           setCurrentStepIndex(stored.currentStepIndex);
           setScreen("step");
         } else if (!loadedForm.welcome_screen?.enabled) {
-          console.log("[useFormularioRenderer] welcome_screen disabled/null → screen=step");
           setScreen("step");
           void ensureSession();
         } else {
-          console.log("[useFormularioRenderer] welcome_screen enabled → screen=welcome");
           setScreen("welcome");
         }
 

@@ -1,7 +1,6 @@
 "use client";
 
 import React from "react";
-import { motion } from "framer-motion";
 
 interface FormProgressBarProps {
   pct: number;
@@ -24,11 +23,9 @@ export const FormProgressBar = React.memo(function FormProgressBar({
       aria-valuemax={100}
       aria-label={`Progresso do formulário: ${pct}%`}
     >
-      <motion.div
-        className="h-full"
-        animate={{ width: `${pct}%` }}
-        transition={{ duration: 0.5, ease: "easeOut" }}
-        style={{ background: color }}
+      <div
+        className="h-full transition-[width] duration-500 ease-out"
+        style={{ background: color, width: `${pct}%` }}
       />
     </div>
   );
