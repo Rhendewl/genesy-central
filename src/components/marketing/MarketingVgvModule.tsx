@@ -101,6 +101,7 @@ export function MarketingVgvModule({ embedded = false }: { embedded?: boolean })
   const [periodMode, setPeriodMode] = useState<MarketingVgvPeriodMode>("month");
   const [sales, setSales] = useState<MarketingVgvSale[]>([]);
   const [performance, setPerformance] = useState<MarketingVgvCampaignPerformance[]>([]);
+  const [registeredCampaigns, setRegisteredCampaigns] = useState<MarketingVgvCampaignPerformance[]>([]);
   const [forms, setForms] = useState<MarketingVgvForm[]>([]);
   const [activeView, setActiveView] = useState<"overview" | "sales" | "campaigns" | "forms">("overview");
   const [isLoading, setIsLoading] = useState(true);
@@ -126,13 +127,15 @@ export function MarketingVgvModule({ embedded = false }: { embedded?: boolean })
     setError(null);
     try {
       const params = new URLSearchParams({ start: rangeStart, end: rangeEnd });
-      const [salesData, performanceData, formsData] = await Promise.all([
+      const [salesData, performanceData, registeredCampaignData, formsData] = await Promise.all([
         request<{ sales: MarketingVgvSale[] }>(`/api/marketing/vgv?${params}`),
         request<{ performance: MarketingVgvCampaignPerformance[] }>(`/api/marketing/vgv/performance?${params}`),
+        request<{ performance: MarketingVgvCampaignPerformance[] }>("/api/marketing/vgv/performance?all=true"),
         request<{ forms: MarketingVgvForm[] }>("/api/marketing/vgv/forms"),
       ]);
       setSales(salesData.sales);
       setPerformance(performanceData.performance);
+      setRegisteredCampaigns(registeredCampaignData.performance);
       setForms(formsData.forms);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "Erro ao carregar as vendas");
@@ -144,11 +147,11 @@ export function MarketingVgvModule({ embedded = false }: { embedded?: boolean })
   useEffect(() => { void loadSales(); }, [loadSales]);
 
   const registeredCampaignOptions = useMemo(() => {
-    const rows = selectedClientId === "all" ? performance : performance.filter((row) => row.agency_client_id === selectedClientId);
+    const rows = selectedClientId === "all" ? registeredCampaigns : registeredCampaigns.filter((row) => row.agency_client_id === selectedClientId);
     const names = new Map<string, string>();
     rows.forEach((row) => names.set(normalizeCampaignName(row.campaign_name), row.campaign_name));
     return Array.from(names.values()).sort((a, b) => a.localeCompare(b, "pt-BR"));
-  }, [performance, selectedClientId]);
+  }, [registeredCampaigns, selectedClientId]);
   useEffect(() => { setSelectedCampaignName("all"); }, [selectedClientId]);
 
   const analysisSales = useMemo(() => sales.filter((sale) => (selectedClientId === "all" || sale.agency_client_id === selectedClientId) && (selectedCampaignName === "all" || normalizeCampaignName(sale.campaign_name) === normalizeCampaignName(selectedCampaignName))), [sales, selectedCampaignName, selectedClientId]);
@@ -202,6 +205,19 @@ export function MarketingVgvModule({ embedded = false }: { embedded?: boolean })
       toast.success("Venda apagada");
     } catch (deleteError) {
       toast.error(deleteError instanceof Error ? deleteError.message : "Erro ao apagar a venda");
+    }
+  }
+
+  async function deleteCampaign(campaign: MarketingVgvCampaignPerformance) {
+    if (!window.confirm(`Excluir a campanha "${campaign.campaign_name}"? As vendas já registradas serão preservadas, mas este investimento e os leads deixarão de entrar nas métricas.`)) return;
+    try {
+      await request(`/api/marketing/vgv/performance/${campaign.id}`, { method: "DELETE" });
+      setPerformance((items) => items.filter((item) => item.id !== campaign.id));
+      setRegisteredCampaigns((items) => items.filter((item) => item.id !== campaign.id));
+      if (selectedCampaignName !== "all" && normalizeCampaignName(selectedCampaignName) === normalizeCampaignName(campaign.campaign_name)) setSelectedCampaignName("all");
+      toast.success("Campanha excluída");
+    } catch (deleteError) {
+      toast.error(deleteError instanceof Error ? deleteError.message : "Erro ao excluir a campanha");
     }
   }
 
@@ -406,7 +422,7 @@ export function MarketingVgvModule({ embedded = false }: { embedded?: boolean })
                 </div>
               )}
             </section>}
-            {activeView === "campaigns" && <CampaignPerformanceSection rows={campaignRows} rawRows={performance.filter((row) => (selectedClientId === "all" || row.agency_client_id === selectedClientId) && (selectedCampaignName === "all" || normalizeCampaignName(row.campaign_name) === normalizeCampaignName(selectedCampaignName)))} onAdd={() => { setEditingPerformance(null); setPerformanceDialogOpen(true); }} onEdit={(row) => { setEditingPerformance(row); setPerformanceDialogOpen(true); }} onDelete={async (id) => { try { await request(`/api/marketing/vgv/performance/${id}`, { method: "DELETE" }); setPerformance((items) => items.filter((item) => item.id !== id)); toast.success("Dados da campanha removidos"); } catch (deleteError) { toast.error(deleteError instanceof Error ? deleteError.message : "Erro ao remover os dados da campanha"); } }} />}
+            {activeView === "campaigns" && <CampaignPerformanceSection rows={campaignRows} rawRows={registeredCampaigns.filter((row) => (selectedClientId === "all" || row.agency_client_id === selectedClientId) && (selectedCampaignName === "all" || normalizeCampaignName(row.campaign_name) === normalizeCampaignName(selectedCampaignName)))} onAdd={() => { setEditingPerformance(null); setPerformanceDialogOpen(true); }} onEdit={(row) => { setEditingPerformance(row); setPerformanceDialogOpen(true); }} onDelete={deleteCampaign} />}
             {activeView === "forms" && <VgvFormsSection forms={forms} onCreate={() => setFormDialogOpen(true)} onToggle={async (form) => { try { const status = form.status === "active" ? "paused" : "active"; await request(`/api/marketing/vgv/forms/${form.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }) }); setForms((items) => items.map((item) => item.id === form.id ? { ...item, status } : item)); toast.success(status === "active" ? "Formulário ativado" : "Formulário pausado"); } catch (toggleError) { toast.error(toggleError instanceof Error ? toggleError.message : "Erro ao alterar o formulário"); } }} />}
           </>
         )}
@@ -422,9 +438,9 @@ export function MarketingVgvModule({ embedded = false }: { embedded?: boolean })
         }}
         onUpdated={(sale) => setSales((items) => sale.sale_date >= rangeStart && sale.sale_date < rangeEnd ? items.map((item) => item.id === sale.id ? sale : item) : items.filter((item) => item.id !== sale.id))}
         clients={assignableClients}
-        campaigns={performance}
+        campaigns={registeredCampaigns}
       />
-      <PerformanceDialog open={performanceDialogOpen} onOpenChange={(nextOpen) => { setPerformanceDialogOpen(nextOpen); if (!nextOpen) setEditingPerformance(null); }} clients={assignableClients} defaultStart={rangeStart} defaultEnd={format(subDays(range.end, 1), "yyyy-MM-dd")} row={editingPerformance} onCreated={(row) => setPerformance((items) => [row, ...items])} onUpdated={(row) => { setPerformance((items) => items.map((item) => item.id === row.id ? row : item)); if (editingPerformance && (editingPerformance.agency_client_id !== row.agency_client_id || editingPerformance.campaign_name !== row.campaign_name)) setSales((items) => items.map((sale) => sale.agency_client_id === editingPerformance.agency_client_id && sale.campaign_name === editingPerformance.campaign_name ? { ...sale, agency_client_id: row.agency_client_id, campaign_name: row.campaign_name } : sale)); }} />
+      <PerformanceDialog open={performanceDialogOpen} onOpenChange={(nextOpen) => { setPerformanceDialogOpen(nextOpen); if (!nextOpen) setEditingPerformance(null); }} clients={assignableClients} defaultStart={rangeStart} defaultEnd={format(subDays(range.end, 1), "yyyy-MM-dd")} row={editingPerformance} onCreated={(row) => { setRegisteredCampaigns((items) => [row, ...items]); if (row.period_start < rangeEnd && row.period_end >= rangeStart) setPerformance((items) => [row, ...items]); }} onUpdated={(row) => { setRegisteredCampaigns((items) => items.map((item) => item.id === row.id ? row : item)); setPerformance((items) => row.period_start < rangeEnd && row.period_end >= rangeStart ? (items.some((item) => item.id === row.id) ? items.map((item) => item.id === row.id ? row : item) : [row, ...items]) : items.filter((item) => item.id !== row.id)); if (editingPerformance && (editingPerformance.agency_client_id !== row.agency_client_id || editingPerformance.campaign_name !== row.campaign_name)) setSales((items) => items.map((sale) => sale.agency_client_id === editingPerformance.agency_client_id && sale.campaign_name === editingPerformance.campaign_name ? { ...sale, agency_client_id: row.agency_client_id, campaign_name: row.campaign_name } : sale)); }} />
       <VgvFormDialog open={formDialogOpen} onOpenChange={setFormDialogOpen} clients={assignableClients} onCreated={(form) => setForms((items) => [form, ...items])} />
     </div>
   );
@@ -558,7 +574,7 @@ function SaleDialog({ open, onOpenChange, defaultDate, onCreated, onUpdated, cli
   );
 }
 
-function CampaignPerformanceSection({ rows, rawRows, onAdd, onEdit, onDelete }: { rows: ReturnType<typeof calculateCampaignRows>; rawRows: MarketingVgvCampaignPerformance[]; onAdd: () => void; onEdit: (row: MarketingVgvCampaignPerformance) => void; onDelete: (id: string) => Promise<void> }) {
+function CampaignPerformanceSection({ rows, rawRows, onAdd, onEdit, onDelete }: { rows: ReturnType<typeof calculateCampaignRows>; rawRows: MarketingVgvCampaignPerformance[]; onAdd: () => void; onEdit: (row: MarketingVgvCampaignPerformance) => void; onDelete: (row: MarketingVgvCampaignPerformance) => Promise<void> }) {
   return <section className="overflow-hidden rounded-2xl border" style={{ background: "var(--glass-bg-soft)", borderColor: "var(--glass-border)" }}>
     <div className="flex flex-col gap-3 border-b p-5 sm:flex-row sm:items-center sm:justify-between" style={{ borderColor: "var(--border)" }}>
       <div><h2 className="text-sm font-semibold">Economia por campanha</h2><p className="mt-1 text-xs text-[var(--muted-foreground)]">Cruza mídia, vendas e comissão comercial. O ROI usa a comissão gerada como receita.</p></div>
@@ -572,7 +588,7 @@ function CampaignPerformanceSection({ rows, rawRows, onAdd, onEdit, onDelete }: 
         <td className="px-4 py-3">{row.leads ? formatCurrency(row.cpl) : "—"}</td><td className="px-4 py-3">{row.sales ? formatCurrency(row.cac) : "—"}</td><td className="px-4 py-3">{row.leads ? `${row.conversionRate.toFixed(2)}%` : "—"}</td><td className="px-4 py-3">{row.spend ? `${row.roas.toFixed(1)}x` : "—"}</td><td className={cn("px-4 py-3 font-semibold", row.commercialRoi >= 0 ? "text-emerald-400" : "text-red-400")}>{row.spend ? `${row.commercialRoi.toFixed(1)}%` : "—"}</td>
       </tr>)}</tbody>
     </table></div> : <div className="p-5"><MarketingEmptyState title="Sem dados de campanha" description="Informe investimento e leads para calcular CPL, CAC, conversão, ROAS e ROI sobre comissão." action={<Button onClick={onAdd} icon={<Plus />}>Adicionar dados</Button>} /></div>}
-    {rawRows.length > 0 && <div className="border-t p-4" style={{ borderColor: "var(--border)" }}><p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">Lançamentos de mídia</p><div className="space-y-2">{rawRows.map((row) => <div key={row.id} className="flex items-center gap-3 rounded-xl border px-3 py-2 text-xs" style={{ borderColor: "var(--glass-border)" }}><span className="min-w-0 flex-1 truncate"><strong>{row.campaign_name}</strong> · {row.client_name} · {formatCurrency(row.spend)} · {row.leads} leads</span><button onClick={() => onEdit(row)} className="p-2 text-[var(--muted-foreground)] transition hover:text-[var(--text-title)]" aria-label="Editar dados da campanha"><Pencil size={14} /></button><button onClick={() => void onDelete(row.id)} className="p-2 text-red-400" aria-label="Excluir dados da campanha"><Trash2 size={14} /></button></div>)}</div></div>}
+    {rawRows.length > 0 && <div className="border-t p-4" style={{ borderColor: "var(--border)" }}><div className="mb-3"><p className="text-xs font-semibold text-[var(--text-title)]">Campanhas cadastradas</p><p className="mt-1 text-[11px] text-[var(--muted-foreground)]">Edite ou exclua campanhas de qualquer período sem alterar as vendas já registradas.</p></div><div className="space-y-2">{rawRows.map((row) => <div key={row.id} className="flex flex-col gap-3 rounded-xl border px-3 py-3 text-xs sm:flex-row sm:items-center" style={{ borderColor: "var(--glass-border)" }}><span className="min-w-0 flex-1"><strong className="block truncate text-[var(--text-title)]">{row.campaign_name}</strong><span className="mt-1 block text-[11px] text-[var(--muted-foreground)]">{row.client_name} · {format(parseISO(row.period_start), "dd/MM/yyyy")} a {format(parseISO(row.period_end), "dd/MM/yyyy")} · {formatCurrency(row.spend)} · {row.leads} leads</span></span><div className="grid grid-cols-2 gap-2 sm:flex"><button type="button" onClick={() => onEdit(row)} className="flex items-center justify-center gap-1.5 rounded-lg border px-3 py-2 font-medium text-[var(--text-body)] transition hover:bg-[var(--hover)] hover:text-[var(--text-title)]" aria-label={`Editar campanha ${row.campaign_name}`}><Pencil size={14} />Editar</button><button type="button" onClick={() => void onDelete(row)} className="flex items-center justify-center gap-1.5 rounded-lg border border-red-500/20 px-3 py-2 font-medium text-red-400 transition hover:bg-red-500/10" aria-label={`Excluir campanha ${row.campaign_name}`}><Trash2 size={14} />Excluir</button></div></div>)}</div></div>}
   </section>;
 }
 

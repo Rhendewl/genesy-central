@@ -50,7 +50,10 @@ export function calculateVgvIntelligence(sales: MarketingVgvSale[], performance:
 export function calculateCampaignRows(sales: MarketingVgvSale[], performance: MarketingVgvCampaignPerformance[]) {
   const normalizeCampaign = (value: string) => value.trim().toLocaleLowerCase("pt-BR");
   const keyFor = (clientId: string, campaignName: string) => `${clientId}\u0000${normalizeCampaign(campaignName)}`;
-  const keys = new Set([...performance.map((row) => keyFor(row.agency_client_id, row.campaign_name)), ...sales.filter((sale) => sale.agency_client_id && sale.campaign_name).map((sale) => keyFor(sale.agency_client_id!, sale.campaign_name!))]);
+  // A resposta livre do cliente no formulário serve apenas como referência.
+  // Uma campanha só existe no dashboard quando foi cadastrada internamente
+  // com investimento, leads e período em campaign_performance.
+  const keys = new Set(performance.map((row) => keyFor(row.agency_client_id, row.campaign_name)));
   return Array.from(keys).map((key) => {
     const [clientId, normalizedCampaignName] = key.split("\u0000");
     const campaignSales = sales.filter((sale) => sale.agency_client_id === clientId && sale.campaign_name && normalizeCampaign(sale.campaign_name) === normalizedCampaignName);

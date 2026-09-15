@@ -30,6 +30,15 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
 export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> | { id: string } }) {
   const db = await createServerSupabaseClient();
-  try { await getMarketingServerContext(db); const { id } = await params; const { error } = await db.from("marketing_vgv_campaign_performance").delete().eq("id", id); if (error) throw new Error(error.message); return NextResponse.json({ success: true }); }
+  try {
+    await getMarketingServerContext(db);
+    const { id } = await params;
+    const { data: campaign, error: findError } = await db.from("marketing_vgv_campaign_performance").select("id").eq("id", id).maybeSingle();
+    if (findError) throw new Error(findError.message);
+    if (!campaign) throw Object.assign(new Error("Campanha não encontrada"), { status: 404 });
+    const { error } = await db.from("marketing_vgv_campaign_performance").delete().eq("id", id);
+    if (error) throw new Error(error.message);
+    return NextResponse.json({ success: true });
+  }
   catch (error) { const parsed = apiError(error); return NextResponse.json({ error: parsed.message }, { status: parsed.status }); }
 }

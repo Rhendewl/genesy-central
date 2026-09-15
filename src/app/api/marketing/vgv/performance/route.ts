@@ -8,9 +8,12 @@ export async function GET(req: NextRequest) {
   const db = await createServerSupabaseClient();
   try {
     await getMarketingServerContext(db);
+    const includeAll = req.nextUrl.searchParams.get("all") === "true";
     const start = req.nextUrl.searchParams.get("start"); const end = req.nextUrl.searchParams.get("end");
-    if (!validDate(start) || !validDate(end)) throw Object.assign(new Error("Período inválido"), { status: 400 });
-    const { data, error } = await db.from("marketing_vgv_campaign_performance").select("*, client:agency_clients(name)").lt("period_start", end!).gte("period_end", start!).order("period_start", { ascending: false });
+    if (!includeAll && (!validDate(start) || !validDate(end))) throw Object.assign(new Error("Período inválido"), { status: 400 });
+    let query = db.from("marketing_vgv_campaign_performance").select("*, client:agency_clients(name)");
+    if (!includeAll) query = query.lt("period_start", end!).gte("period_end", start!);
+    const { data, error } = await query.order("period_start", { ascending: false }).order("created_at", { ascending: false });
     if (error) throw new Error(error.message);
     return NextResponse.json({ performance: (data ?? []).map((row) => ({ ...row, client_name: row.client?.name ?? "Cliente", spend: Number(row.spend), leads: Number(row.leads), client: undefined })) });
   } catch (error) { const parsed = apiError(error); return NextResponse.json({ error: parsed.message }, { status: parsed.status }); }

@@ -31,6 +31,13 @@ describe("VGV intelligence", () => {
     expect(rows[0]).toMatchObject({ grossCommission: 25000, commercialRoi: 400, cpl: 100, cac: 5000, conversionRate: 2, roas: 100 });
   });
 
+  it("não cria campanha a partir do texto livre informado pelo cliente", () => {
+    const rows = calculateCampaignRows([
+      { agency_client_id: "client-1", campaign_name: "Campanha lembrada pelo corretor", sale_value: 500000, commission_percentage: 5 },
+    ] as never, []);
+    expect(rows).toEqual([]);
+  });
+
   it("soma campos numéricos configurados para o dashboard", () => {
     const metrics = calculateVgvCustomMetrics([
       { custom_fields: [{ id: "parcelas", label: "Parcelas", type: "number", required: false, include_in_dashboard: true }] },
