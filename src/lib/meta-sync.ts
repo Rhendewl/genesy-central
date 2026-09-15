@@ -150,6 +150,7 @@ export async function syncMetaAccount(params: SyncParams): Promise<SyncResult> {
         name:                campaign.name,
         status:              mapCampaignStatus(campaign.status),
         objective:           mapObjective(campaign.objective),
+        client_id:           clientId,
         platform_account_id: platformAccountId,
       };
 
@@ -163,7 +164,6 @@ export async function syncMetaAccount(params: SyncParams): Promise<SyncResult> {
         : await supabase.from("campaigns").insert({
             ...values,
             user_id:         userId,
-            client_id:       clientId,
             platform:        "meta",
             daily_budget:    campaign.daily_budget    ? parseFloat(campaign.daily_budget)    / 100 : 0,
             total_budget:    campaign.lifetime_budget ? parseFloat(campaign.lifetime_budget) / 100 : 0,

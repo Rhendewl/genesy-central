@@ -9,14 +9,14 @@ const W = 108;
 const H = 192;
 const PAD = 8;
 const CW = W - PAD * 2;
-const INK: RGB = [14, 17, 20];
-const MUTED: RGB = [91, 101, 111];
-const LINE: RGB = [222, 227, 231];
-const SURFACE: RGB = [245, 247, 249];
-const BLUE: RGB = [39, 163, 255];
-const DEEP_BLUE: RGB = [25, 102, 174];
-const GREEN: RGB = [24, 143, 91];
-const AMBER: RGB = [191, 122, 22];
+const INK: RGB = [16, 18, 20];
+const MUTED: RGB = [92, 96, 99];
+const LINE: RGB = [221, 218, 211];
+const SURFACE: RGB = [246, 244, 239];
+const NAVY: RGB = [30, 50, 63];
+const DEEP_NAVY: RGB = [19, 32, 40];
+const GOLD: RGB = [157, 126, 78];
+const IVORY: RGB = [251, 249, 244];
 
 const money = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 2 });
 const number = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 0 });
@@ -100,27 +100,27 @@ export function createTrafficReportPdf(data: TrafficReportData, assets: TrafficR
   };
 
   // Capa
-  pdf.setFillColor(3, 5, 7); pdf.rect(0, 0, W, H, "F");
-  pdf.setFillColor(9, 16, 22); pdf.circle(W + 4, 5, 52, "F");
-  pdf.setFillColor(7, 12, 17); pdf.circle(-5, H - 7, 48, "F");
+  pdf.setFillColor(11, 14, 16); pdf.rect(0, 0, W, H, "F");
+  pdf.setFillColor(20, 31, 37); pdf.circle(W + 8, 1, 55, "F");
+  pdf.setFillColor(15, 22, 26); pdf.circle(-8, H + 2, 52, "F");
   pdf.addImage(assets.logoLight, "PNG", PAD, 10, 29, 6.3);
-  text([119, 132, 143], 5.2, "bold"); pdf.text("RELATÓRIO EXECUTIVO", PAD, 62);
+  text([166, 157, 143], 5.2, "bold"); pdf.text("RELATÓRIO EXECUTIVO", PAD, 62);
   text([255, 255, 255], 22, "bold");
   const coverTitle = wrap("Tráfego Pago", 78); pdf.text(coverTitle, PAD, 75);
-  text([39, 163, 255], 12, "bold"); pdf.text(wrap(data.clientName, 88).slice(0, 2), PAD, 91);
-  text([178, 188, 197], 7); pdf.text(`${date(data.since)} a ${date(data.until)}`, PAD, 111);
-  if (data.accountName) { text([120, 132, 142], 5.7); pdf.text(wrap(data.accountName, 82), PAD, 119); }
-  pdf.setDrawColor(39, 163, 255); pdf.setLineWidth(1.1); pdf.line(PAD, 132, 34, 132);
-  text([107, 119, 129], 5.2); pdf.text("Performance de mídia, campanhas e criativos", PAD, 140);
-  text([74, 84, 92], 4.7); pdf.text(`Gerado em ${new Date(data.generatedAt).toLocaleDateString("pt-BR")}`, PAD, H - 10);
+  text(GOLD, 12, "bold"); pdf.text(wrap(data.clientName, 88).slice(0, 2), PAD, 91);
+  text([190, 186, 178], 7); pdf.text(`${date(data.since)} a ${date(data.until)}`, PAD, 111);
+  if (data.accountName) { text([145, 148, 148], 5.7); pdf.text(wrap(data.accountName, 82), PAD, 119); }
+  pdf.setDrawColor(...GOLD); pdf.setLineWidth(1.1); pdf.line(PAD, 132, 34, 132);
+  text([137, 139, 137], 5.2); pdf.text("Performance de mídia, campanhas e criativos", PAD, 140);
+  text([91, 96, 97], 4.7); pdf.text(`Gerado em ${new Date(data.generatedAt).toLocaleDateString("pt-BR")}`, PAD, H - 10);
 
   // Resumo em quadrantes
   addPage(); header("Performance do período", "Resumo executivo");
   const main = [
     { label: "VALOR INVESTIDO", value: money.format(data.metrics.spend), fill: INK, color: [255, 255, 255] as RGB },
-    { label: "LEADS GERADOS", value: number.format(data.metrics.leads), fill: BLUE, color: [255, 255, 255] as RGB },
-    { label: "CUSTO POR LEAD", value: data.metrics.leads ? money.format(data.metrics.cpl) : "-", fill: DEEP_BLUE, color: [255, 255, 255] as RGB },
-    { label: "CTR (TAXA DE CLIQUES)", value: `${data.metrics.ctr.toFixed(2)}%`, fill: [25, 31, 37] as RGB, color: [255, 255, 255] as RGB },
+    { label: "LEADS GERADOS", value: number.format(data.metrics.leads), fill: NAVY, color: [255, 255, 255] as RGB },
+    { label: "CUSTO POR LEAD", value: data.metrics.leads ? money.format(data.metrics.cpl) : "-", fill: DEEP_NAVY, color: [255, 255, 255] as RGB },
+    { label: "CTR (TAXA DE CLIQUES)", value: `${data.metrics.ctr.toFixed(2)}%`, fill: GOLD, color: [255, 255, 255] as RGB },
   ];
   const boxW = (CW - 3) / 2; const boxH = 31;
   main.forEach((metric, index) => {
@@ -149,12 +149,12 @@ export function createTrafficReportPdf(data: TrafficReportData, assets: TrafficR
   if (!data.campaigns.length) { text(MUTED, 7); pdf.text("Nenhuma campanha com dados no período.", PAD, y); }
   data.campaigns.slice(0, 6).forEach((campaign, index) => {
     const h = 22;
-    pdf.setFillColor(...(index === 0 ? [239, 248, 255] as RGB : SURFACE)); pdf.setDrawColor(...(index === 0 ? [185, 222, 248] as RGB : LINE));
+    pdf.setFillColor(...(index === 0 ? IVORY : SURFACE)); pdf.setDrawColor(...(index === 0 ? [201, 188, 164] as RGB : LINE));
     pdf.roundedRect(PAD, y, CW, h, 2.5, 2.5, "FD");
-    pdf.setFillColor(...(index === 0 ? BLUE : [210, 216, 222] as RGB)); pdf.circle(PAD + 5, y + 6, 2.6, "F");
+    pdf.setFillColor(...(index === 0 ? GOLD : [205, 202, 195] as RGB)); pdf.circle(PAD + 5, y + 6, 2.6, "F");
     text(index === 0 ? [255, 255, 255] : MUTED, 5.8, "bold"); pdf.text(String(index + 1), PAD + 5, y + 7.7, { align: "center" });
     text(INK, 6.7, "bold"); pdf.text(wrap(campaign.name, 69).slice(0, 2), PAD + 10, y + 6);
-    text(BLUE, 6.2, "bold"); pdf.text(`${number.format(campaign.leads)} leads`, W - PAD - 3, y + 6, { align: "right" });
+    text(NAVY, 6.2, "bold"); pdf.text(`${number.format(campaign.leads)} leads`, W - PAD - 3, y + 6, { align: "right" });
     text(MUTED, 5.1); pdf.text(`${money.format(campaign.spend)}  |  CPL ${campaign.leads ? money.format(campaign.cpl) : "-"}  |  CTR ${campaign.ctr.toFixed(2)}%`, PAD + 10, y + 17);
     y += h + 3;
   });
@@ -203,10 +203,10 @@ function drawCreative(
     }
     catch { pdf.setFillColor(225, 230, 234); pdf.roundedRect(PAD + 2, y + 2, CW - 4, imageH, 2, 2, "F"); }
   } else { pdf.setFillColor(225, 230, 234); pdf.roundedRect(PAD + 2, y + 2, CW - 4, imageH, 2, 2, "F"); }
-  pdf.setFillColor(...BLUE); pdf.circle(PAD + 7, y + 45, 3, "F");
+  pdf.setFillColor(...GOLD); pdf.circle(PAD + 7, y + 45, 3, "F");
   setText([255, 255, 255], 6, "bold"); pdf.text(String(index + 1), PAD + 7, y + 47, { align: "center" });
   setText(INK, 6.7, "bold"); pdf.text(wrap(creative.name, 67).slice(0, 2), PAD + 13, y + 44);
-  setText(BLUE, 6.2, "bold"); pdf.text(`${number.format(creative.leads)} leads`, W - PAD - 3, y + 45, { align: "right" });
+  setText(NAVY, 6.2, "bold"); pdf.text(`${number.format(creative.leads)} leads`, W - PAD - 3, y + 45, { align: "right" });
   setText(MUTED, 5); pdf.text(`${money.format(creative.spend)}  |  CPL ${creative.leads ? money.format(creative.cpl) : "-"}  |  CTR ${creative.ctr.toFixed(2)}%`, PAD + 13, y + 57);
 }
 

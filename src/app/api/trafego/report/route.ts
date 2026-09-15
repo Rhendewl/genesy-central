@@ -11,7 +11,7 @@ function validDate(value: string | null): value is string {
 function allowedImageHost(value: string) {
   try {
     const url = new URL(value);
-    return url.protocol === "https:" && ["fbcdn.net", "facebook.com", "cdninstagram.com"].some((domain) => url.hostname === domain || url.hostname.endsWith(`.${domain}`));
+    return url.protocol === "https:" && ["fbcdn.net", "facebook.com", "fbsbx.com", "cdninstagram.com"].some((domain) => url.hostname === domain || url.hostname.endsWith(`.${domain}`));
   } catch {
     return false;
   }
@@ -62,14 +62,14 @@ export async function GET(request: NextRequest) {
   const { data: campaigns, error: campaignsError } = await supabase
     .from("campaigns")
     .select("id,name,status,thumbnail_url")
-    .eq("client_id", clientId)
     .in("platform_account_id", selectedAccounts.map((account) => account.id));
   if (campaignsError) return NextResponse.json({ error: campaignsError.message }, { status: 400 });
   const campaignIds = (campaigns ?? []).map((campaign) => campaign.id);
   const { data: metrics, error: metricsError } = campaignIds.length
-    ? await supabase.from("campaign_metrics").select("campaign_id,spend,leads,impressions,reach,clicks,link_clicks,conversions,unique_ctr").in("campaign_id", campaignIds).in("platform_account_id", selectedAccounts.map((account) => account.id)).gte("date", since).lte("date", until)
+    ? await supabase.from("campaign_metrics").select("campaign_id,spend,leads,impressions,reach,clicks,link_clicks,conversions,unique_ctr").in("campaign_id", campaignIds).gte("date", since).lte("date", until)
     : { data: [], error: null };
   if (metricsError) return NextResponse.json({ error: metricsError.message }, { status: 400 });
+  if (!(metrics ?? []).length) return NextResponse.json({ error: "Não encontramos métricas para esta conta no período selecionado. Confirme se houve veiculação na Meta e tente sincronizar novamente." }, { status: 422 });
 
   const report = aggregateTrafficReport({
     clientName: client.name,
