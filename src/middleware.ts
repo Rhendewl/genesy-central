@@ -26,6 +26,8 @@ const PUBLIC_ROUTES = [
   "/api/form/",
   "/analise-comercial/",
   "/coleta/",
+  "/venda/",
+  "/api/public/vgv/",
   "/api/commercial-collections/",
   "/agendar/",
   "/api/agendar/",
@@ -36,8 +38,8 @@ const PUBLIC_ROUTES = [
 ];
 // Redirect authenticated users away from these (login page only)
 const AUTH_REDIRECT_ROUTES = ["/auth"];
-const PUBLIC_SHARE_ROUTES = ["/portal/", "/form/", "/analise-comercial/", "/coleta/", "/agendar/"];
-const PUBLIC_SHARE_API_ROUTES = ["/api/portal/", "/api/form/", "/api/commercial-collections/", "/api/agendar/"];
+const PUBLIC_SHARE_ROUTES = ["/portal/", "/form/", "/analise-comercial/", "/coleta/", "/agendar/", "/venda/"];
+const PUBLIC_SHARE_API_ROUTES = ["/api/portal/", "/api/form/", "/api/commercial-collections/", "/api/agendar/", "/api/public/vgv/"];
 
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;

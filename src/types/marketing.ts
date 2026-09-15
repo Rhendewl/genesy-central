@@ -117,6 +117,15 @@ export interface MarketingVgvCampaignPerformance {
   leads: number;
 }
 
+export interface MarketingVgvSyncedCampaign {
+  id: string;
+  agency_client_id: string;
+  client_name: string;
+  campaign_name: string;
+  spend: number;
+  leads: number;
+}
+
 export type MarketingContentInput = Partial<Omit<MarketingContent, "id" | "organization_id" | "created_by" | "updated_by" | "created_at" | "updated_at" | "archived_at" | "checklist" | "comments" | "can_edit" | "can_delete">> & {
   title: string;
   // Opção transitória usada apenas pela API para criar e vincular a tarefa.

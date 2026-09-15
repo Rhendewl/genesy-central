@@ -18,4 +18,11 @@ describe("public share host", () => {
     const response = await middleware(new NextRequest("https://go.genesycompany.com/form/pesquisa-cliente"));
     expect(response.headers.get("x-middleware-next")).toBe("1");
   });
+
+  it("keeps the VGV sale form and its API public", async () => {
+    const page = await middleware(new NextRequest("https://go.genesycompany.com/venda/cliente-teste"));
+    const api = await middleware(new NextRequest("https://go.genesycompany.com/api/public/vgv/cliente-teste"));
+    expect(page.headers.get("x-middleware-next")).toBe("1");
+    expect(api.headers.get("x-middleware-next")).toBe("1");
+  });
 });

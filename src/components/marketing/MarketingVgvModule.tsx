@@ -53,7 +53,7 @@ import { calculateCampaignRows, calculateSaleCommissions, calculateVgvCustomMetr
 import { privateFinancialValue, useFinancialPrivacyStore } from "@/store/financial-privacy";
 import { useAgencyClients } from "@/hooks/useAgencyClients";
 import { cn } from "@/lib/utils";
-import type { MarketingVgvCampaignPerformance, MarketingVgvCustomField, MarketingVgvForm, MarketingVgvSale, MarketingVgvSaleInput } from "@/types/marketing";
+import type { MarketingVgvCampaignPerformance, MarketingVgvCustomField, MarketingVgvForm, MarketingVgvSale, MarketingVgvSaleInput, MarketingVgvSyncedCampaign } from "@/types/marketing";
 
 const currency = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 const compactCurrency = new Intl.NumberFormat("pt-BR", {
@@ -72,6 +72,7 @@ const tooltipStyle = {
   boxShadow: "0 14px 38px rgba(0,0,0,.24)",
 };
 const axisTick = { fill: "var(--text-body)", fontSize: 11 };
+const normalizeCampaignName = (value: string | null | undefined) => String(value ?? "").trim().toLocaleLowerCase("pt-BR");
 
 const PERIOD_OPTIONS: { value: MarketingVgvPeriodMode; label: string }[] = [
   { value: "month", label: "Mês" },
@@ -100,12 +101,16 @@ export function MarketingVgvModule({ embedded = false }: { embedded?: boolean })
   const [periodMode, setPeriodMode] = useState<MarketingVgvPeriodMode>("month");
   const [sales, setSales] = useState<MarketingVgvSale[]>([]);
   const [performance, setPerformance] = useState<MarketingVgvCampaignPerformance[]>([]);
+  const [syncedCampaigns, setSyncedCampaigns] = useState<MarketingVgvSyncedCampaign[]>([]);
   const [forms, setForms] = useState<MarketingVgvForm[]>([]);
   const [activeView, setActiveView] = useState<"overview" | "sales" | "campaigns" | "forms">("overview");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingSale, setEditingSale] = useState<MarketingVgvSale | null>(null);
+  const [editingPerformance, setEditingPerformance] = useState<MarketingVgvCampaignPerformance | null>(null);
+  const [selectedClientId, setSelectedClientId] = useState("all");
+  const [selectedCampaignName, setSelectedCampaignName] = useState("all");
   const [performanceDialogOpen, setPerformanceDialogOpen] = useState(false);
   const [formDialogOpen, setFormDialogOpen] = useState(false);
   const range = useMemo(() => getMarketingVgvPeriodRange(periodMode, period), [period, periodMode]);
@@ -122,14 +127,16 @@ export function MarketingVgvModule({ embedded = false }: { embedded?: boolean })
     setError(null);
     try {
       const params = new URLSearchParams({ start: rangeStart, end: rangeEnd });
-      const [salesData, performanceData, formsData] = await Promise.all([
+      const [salesData, performanceData, formsData, syncedData] = await Promise.all([
         request<{ sales: MarketingVgvSale[] }>(`/api/marketing/vgv?${params}`),
         request<{ performance: MarketingVgvCampaignPerformance[] }>(`/api/marketing/vgv/performance?${params}`),
         request<{ forms: MarketingVgvForm[] }>("/api/marketing/vgv/forms"),
+        request<{ campaigns: MarketingVgvSyncedCampaign[] }>(`/api/marketing/vgv/synced-campaigns?${params}`),
       ]);
       setSales(salesData.sales);
       setPerformance(performanceData.performance);
       setForms(formsData.forms);
+      setSyncedCampaigns(syncedData.campaigns);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "Erro ao carregar as vendas");
     } finally {
@@ -139,21 +146,41 @@ export function MarketingVgvModule({ embedded = false }: { embedded?: boolean })
 
   useEffect(() => { void loadSales(); }, [loadSales]);
 
-  const metrics = useMemo(() => calculateVgvIntelligence(sales, performance), [performance, sales]);
-  const campaignRows = useMemo(() => calculateCampaignRows(sales, performance), [performance, sales]);
-  const customMetrics = useMemo(() => calculateVgvCustomMetrics(forms, sales), [forms, sales]);
+  const registeredCampaignOptions = useMemo(() => {
+    const rows = selectedClientId === "all" ? performance : performance.filter((row) => row.agency_client_id === selectedClientId);
+    const names = new Map<string, string>();
+    rows.forEach((row) => names.set(normalizeCampaignName(row.campaign_name), row.campaign_name));
+    return Array.from(names.values()).sort((a, b) => a.localeCompare(b, "pt-BR"));
+  }, [performance, selectedClientId]);
+  useEffect(() => { setSelectedCampaignName("all"); }, [selectedClientId]);
+
+  const analysisSales = useMemo(() => sales.filter((sale) => (selectedClientId === "all" || sale.agency_client_id === selectedClientId) && (selectedCampaignName === "all" || normalizeCampaignName(sale.campaign_name) === normalizeCampaignName(selectedCampaignName))), [sales, selectedCampaignName, selectedClientId]);
+  const analysisPerformance = useMemo(() => {
+    const clientManual = selectedClientId === "all" ? performance : performance.filter((row) => row.agency_client_id === selectedClientId);
+    const clientSynced = selectedClientId === "all" ? syncedCampaigns : syncedCampaigns.filter((row) => row.agency_client_id === selectedClientId);
+    if (selectedCampaignName !== "all") {
+      const syncedMatch = clientSynced.filter((row) => normalizeCampaignName(row.campaign_name) === normalizeCampaignName(selectedCampaignName));
+      const source = syncedMatch.length ? syncedMatch : clientManual.filter((row) => normalizeCampaignName(row.campaign_name) === normalizeCampaignName(selectedCampaignName));
+      return source as MarketingVgvCampaignPerformance[];
+    }
+    const clientsWithSyncedData = new Set(clientSynced.map((row) => row.agency_client_id));
+    return [...clientSynced, ...clientManual.filter((row) => !clientsWithSyncedData.has(row.agency_client_id))] as MarketingVgvCampaignPerformance[];
+  }, [performance, selectedCampaignName, selectedClientId, syncedCampaigns]);
+  const metrics = useMemo(() => calculateVgvIntelligence(analysisSales, analysisPerformance), [analysisPerformance, analysisSales]);
+  const campaignRows = useMemo(() => calculateCampaignRows(analysisSales, analysisPerformance), [analysisPerformance, analysisSales]);
+  const customMetrics = useMemo(() => calculateVgvCustomMetrics(forms, analysisSales), [analysisSales, forms]);
 
   const evolutionData = useMemo(() => {
     const totals = new Map<string, number>();
     if (periodMode === "month") {
-      for (const sale of sales) totals.set(sale.sale_date, (totals.get(sale.sale_date) ?? 0) + sale.sale_value);
+      for (const sale of analysisSales) totals.set(sale.sale_date, (totals.get(sale.sale_date) ?? 0) + sale.sale_value);
       return eachDayOfInterval({ start: range.start, end: subDays(range.end, 1) }).map((day) => {
         const key = format(day, "yyyy-MM-dd");
         return { date: format(day, "dd"), value: totals.get(key) ?? 0 };
       });
     }
 
-    for (const sale of sales) {
+    for (const sale of analysisSales) {
       const key = sale.sale_date.slice(0, 7);
       totals.set(key, (totals.get(key) ?? 0) + sale.sale_value);
     }
@@ -164,15 +191,15 @@ export function MarketingVgvModule({ embedded = false }: { embedded?: boolean })
         value: totals.get(key) ?? 0,
       };
     });
-  }, [periodMode, range.end, range.start, sales]);
+  }, [analysisSales, periodMode, range.end, range.start]);
 
   const brokerData = useMemo(() => {
     const totals = new Map<string, number>();
-    for (const sale of sales) totals.set(sale.broker_name, (totals.get(sale.broker_name) ?? 0) + sale.sale_value);
+    for (const sale of analysisSales) totals.set(sale.broker_name, (totals.get(sale.broker_name) ?? 0) + sale.sale_value);
     return Array.from(totals, ([name, value]) => ({ name, value }))
       .sort((a, b) => b.value - a.value)
       .slice(0, 8);
-  }, [sales]);
+  }, [analysisSales]);
 
   async function deleteSale(sale: MarketingVgvSale) {
     if (!window.confirm(`Apagar a venda atribuída a ${sale.client_name}?`)) return;
@@ -247,6 +274,15 @@ export function MarketingVgvModule({ embedded = false }: { embedded?: boolean })
               <ChevronRight size={16} />
             </button>
           </div>
+          <section className="grid gap-3 rounded-2xl border p-4 sm:grid-cols-2" style={{ background: "var(--glass-bg-soft)", borderColor: "var(--glass-border)" }}>
+            <Field label="Visão por cliente" id="vgv-client-filter">
+              <select id="vgv-client-filter" value={selectedClientId} onChange={(event) => setSelectedClientId(event.target.value)} className="lc-form-control crm-form-select"><option value="all">Todos os clientes</option>{assignableClients.map((client) => <option key={client.id} value={client.id}>{client.name}</option>)}</select>
+            </Field>
+            <Field label="Campanhas cadastradas" id="vgv-campaign-filter">
+              <select id="vgv-campaign-filter" value={selectedCampaignName} onChange={(event) => setSelectedCampaignName(event.target.value)} disabled={!registeredCampaignOptions.length} className="lc-form-control crm-form-select"><option value="all">Todas as campanhas do cliente</option>{registeredCampaignOptions.map((name) => <option key={name} value={name}>{name}</option>)}</select>
+            </Field>
+            <p className="text-[11px] leading-5 text-[var(--muted-foreground)] sm:col-span-2">{selectedCampaignName !== "all" ? "Visão da campanha selecionada, usando os dados sincronizados da Meta quando o nome corresponde; caso contrário, usa o lançamento cadastrado." : selectedClientId !== "all" && syncedCampaigns.some((row) => row.agency_client_id === selectedClientId) ? "Visão geral do cliente com investimento e leads sincronizados da Meta Ads, cruzados com as vendas registradas." : "Visão consolidada com os dados disponíveis no período."}</p>
+          </section>
         </div>}
 
         {isLoading ? <MarketingSkeleton /> : error ? (
@@ -318,7 +354,7 @@ export function MarketingVgvModule({ embedded = false }: { embedded?: boolean })
                 </div>
                 <UsersRound size={18} className="text-[var(--muted-foreground)]" />
               </div>
-              {sales.length ? (
+              {analysisSales.length ? (
                 <div className="overflow-x-auto">
                   <table className="w-full min-w-[980px] text-left text-sm">
                     <thead className="text-[11px] uppercase tracking-wide text-[var(--muted-foreground)]">
@@ -334,7 +370,7 @@ export function MarketingVgvModule({ embedded = false }: { embedded?: boolean })
                       </tr>
                     </thead>
                     <tbody>
-                      {sales.map((sale) => (
+                      {analysisSales.map((sale) => (
                         <tr key={sale.id} className="border-t transition-colors hover:bg-[var(--hover)]" style={{ borderColor: "var(--border)" }}>
                           <td className="px-5 py-3.5 font-medium">{sale.broker_name}</td>
                           <td className="px-5 py-3.5 text-[var(--text-body)]">{sale.buyer_name || sale.client_name}</td>
@@ -377,7 +413,7 @@ export function MarketingVgvModule({ embedded = false }: { embedded?: boolean })
                 </div>
               )}
             </section>}
-            {activeView === "campaigns" && <CampaignPerformanceSection rows={campaignRows} rawRows={performance} onAdd={() => setPerformanceDialogOpen(true)} onDelete={async (id) => { try { await request(`/api/marketing/vgv/performance/${id}`, { method: "DELETE" }); setPerformance((items) => items.filter((item) => item.id !== id)); toast.success("Dados da campanha removidos"); } catch (deleteError) { toast.error(deleteError instanceof Error ? deleteError.message : "Erro ao remover os dados da campanha"); } }} />}
+            {activeView === "campaigns" && <CampaignPerformanceSection rows={campaignRows} rawRows={performance.filter((row) => (selectedClientId === "all" || row.agency_client_id === selectedClientId) && (selectedCampaignName === "all" || normalizeCampaignName(row.campaign_name) === normalizeCampaignName(selectedCampaignName)))} onAdd={() => { setEditingPerformance(null); setPerformanceDialogOpen(true); }} onEdit={(row) => { setEditingPerformance(row); setPerformanceDialogOpen(true); }} onDelete={async (id) => { try { await request(`/api/marketing/vgv/performance/${id}`, { method: "DELETE" }); setPerformance((items) => items.filter((item) => item.id !== id)); toast.success("Dados da campanha removidos"); } catch (deleteError) { toast.error(deleteError instanceof Error ? deleteError.message : "Erro ao remover os dados da campanha"); } }} />}
             {activeView === "forms" && <VgvFormsSection forms={forms} onCreate={() => setFormDialogOpen(true)} onToggle={async (form) => { try { const status = form.status === "active" ? "paused" : "active"; await request(`/api/marketing/vgv/forms/${form.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }) }); setForms((items) => items.map((item) => item.id === form.id ? { ...item, status } : item)); toast.success(status === "active" ? "Formulário ativado" : "Formulário pausado"); } catch (toggleError) { toast.error(toggleError instanceof Error ? toggleError.message : "Erro ao alterar o formulário"); } }} />}
           </>
         )}
@@ -393,20 +429,22 @@ export function MarketingVgvModule({ embedded = false }: { embedded?: boolean })
         }}
         onUpdated={(sale) => setSales((items) => sale.sale_date >= rangeStart && sale.sale_date < rangeEnd ? items.map((item) => item.id === sale.id ? sale : item) : items.filter((item) => item.id !== sale.id))}
         clients={assignableClients}
+        campaigns={performance}
       />
-      <PerformanceDialog open={performanceDialogOpen} onOpenChange={setPerformanceDialogOpen} clients={assignableClients} defaultStart={rangeStart} defaultEnd={format(subDays(range.end, 1), "yyyy-MM-dd")} onCreated={(row) => setPerformance((items) => [row, ...items])} />
+      <PerformanceDialog open={performanceDialogOpen} onOpenChange={(nextOpen) => { setPerformanceDialogOpen(nextOpen); if (!nextOpen) setEditingPerformance(null); }} clients={assignableClients} defaultStart={rangeStart} defaultEnd={format(subDays(range.end, 1), "yyyy-MM-dd")} row={editingPerformance} onCreated={(row) => setPerformance((items) => [row, ...items])} onUpdated={(row) => { setPerformance((items) => items.map((item) => item.id === row.id ? row : item)); if (editingPerformance && (editingPerformance.agency_client_id !== row.agency_client_id || editingPerformance.campaign_name !== row.campaign_name)) setSales((items) => items.map((sale) => sale.agency_client_id === editingPerformance.agency_client_id && sale.campaign_name === editingPerformance.campaign_name ? { ...sale, agency_client_id: row.agency_client_id, campaign_name: row.campaign_name } : sale)); }} />
       <VgvFormDialog open={formDialogOpen} onOpenChange={setFormDialogOpen} clients={assignableClients} onCreated={(form) => setForms((items) => [form, ...items])} />
     </div>
   );
 }
 
-function SaleDialog({ open, onOpenChange, defaultDate, onCreated, onUpdated, clients, sale }: {
+function SaleDialog({ open, onOpenChange, defaultDate, onCreated, onUpdated, clients, campaigns, sale }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   defaultDate: string;
   onCreated: (sale: MarketingVgvSale) => void;
   onUpdated: (sale: MarketingVgvSale) => void;
   clients: Array<{ id: string; name: string }>;
+  campaigns: MarketingVgvCampaignPerformance[];
   sale: MarketingVgvSale | null;
 }) {
   const [form, setForm] = useState<MarketingVgvSaleInput>({
@@ -423,6 +461,11 @@ function SaleDialog({ open, onOpenChange, defaultDate, onCreated, onUpdated, cli
     sale_date: defaultDate,
   });
   const [isSaving, setIsSaving] = useState(false);
+  const availableCampaigns = useMemo(() => {
+    const options = new Map<string, MarketingVgvCampaignPerformance>();
+    campaigns.filter((row) => row.agency_client_id === form.agency_client_id).forEach((row) => options.set(normalizeCampaignName(row.campaign_name), row));
+    return Array.from(options.values()).sort((a, b) => a.campaign_name.localeCompare(b.campaign_name, "pt-BR"));
+  }, [campaigns, form.agency_client_id]);
 
   useEffect(() => {
     if (open) setForm(sale ? {
@@ -470,7 +513,7 @@ function SaleDialog({ open, onOpenChange, defaultDate, onCreated, onUpdated, cli
           </DialogHeader>
           <div className="mt-5 grid gap-4 sm:grid-cols-2">
             <Field label="Cliente da agência" id="vgv-agency-client" className="sm:col-span-2">
-              <select id="vgv-agency-client" required value={form.agency_client_id ?? ""} onChange={(event) => setForm((current) => ({ ...current, agency_client_id: event.target.value }))} className="lc-form-control crm-form-select"><option value="">Selecionar cliente</option>{clients.map((client) => <option key={client.id} value={client.id}>{client.name}</option>)}</select>
+              <select id="vgv-agency-client" required value={form.agency_client_id ?? ""} onChange={(event) => setForm((current) => ({ ...current, agency_client_id: event.target.value, campaign_name: "", development_name: "" }))} className="lc-form-control crm-form-select"><option value="">Selecionar cliente</option>{clients.map((client) => <option key={client.id} value={client.id}>{client.name}</option>)}</select>
             </Field>
             <Field label="Valor da venda" id="vgv-sale-value">
               <MoneyInput value={form.sale_value} onChange={(sale_value) => setForm((current) => ({ ...current, sale_value }))} max={999_999_999.99} />
@@ -484,7 +527,7 @@ function SaleDialog({ open, onOpenChange, defaultDate, onCreated, onUpdated, cli
             <Field label="Lead comprador" id="vgv-client">
               <Input id="vgv-client" required maxLength={160} placeholder="Ex.: João e Ana" value={form.buyer_name ?? ""} onChange={(event) => setForm((current) => ({ ...current, buyer_name: event.target.value, client_name: event.target.value }))} />
             </Field>
-            <Field label="Campanha" id="vgv-campaign"><Input id="vgv-campaign" required maxLength={200} value={form.campaign_name ?? ""} onChange={(event) => setForm((current) => ({ ...current, campaign_name: event.target.value }))} /></Field>
+            <Field label="Campanha vinculada" id="vgv-campaign">{availableCampaigns.length ? <select id="vgv-campaign" required value={form.campaign_name ?? ""} onChange={(event) => { const selected = availableCampaigns.find((row) => row.campaign_name === event.target.value); setForm((current) => ({ ...current, campaign_name: event.target.value, development_name: selected?.development_name ?? current.development_name })); }} className="lc-form-control crm-form-select"><option value="">Selecionar campanha</option>{sale?.campaign_name && !availableCampaigns.some((row) => row.campaign_name === sale.campaign_name) && <option value={sale.campaign_name}>{sale.campaign_name}</option>}{availableCampaigns.map((row) => <option key={row.id} value={row.campaign_name}>{row.campaign_name} · {formatCurrency(row.spend)} · {row.leads} leads</option>)}</select> : <Input id="vgv-campaign" required maxLength={200} placeholder={form.agency_client_id ? "Cadastre a campanha na aba Campanhas" : "Selecione primeiro o cliente"} value={form.campaign_name ?? ""} onChange={(event) => setForm((current) => ({ ...current, campaign_name: event.target.value }))} />}</Field>
             <Field label="Empreendimento" id="vgv-development"><Input id="vgv-development" required maxLength={200} value={form.development_name ?? ""} onChange={(event) => setForm((current) => ({ ...current, development_name: event.target.value }))} /></Field>
             <Field label="Comissão (%)" id="vgv-commission" className="sm:col-span-2">
               <div className="relative">
@@ -522,7 +565,7 @@ function SaleDialog({ open, onOpenChange, defaultDate, onCreated, onUpdated, cli
   );
 }
 
-function CampaignPerformanceSection({ rows, rawRows, onAdd, onDelete }: { rows: ReturnType<typeof calculateCampaignRows>; rawRows: MarketingVgvCampaignPerformance[]; onAdd: () => void; onDelete: (id: string) => Promise<void> }) {
+function CampaignPerformanceSection({ rows, rawRows, onAdd, onEdit, onDelete }: { rows: ReturnType<typeof calculateCampaignRows>; rawRows: MarketingVgvCampaignPerformance[]; onAdd: () => void; onEdit: (row: MarketingVgvCampaignPerformance) => void; onDelete: (id: string) => Promise<void> }) {
   return <section className="overflow-hidden rounded-2xl border" style={{ background: "var(--glass-bg-soft)", borderColor: "var(--glass-border)" }}>
     <div className="flex flex-col gap-3 border-b p-5 sm:flex-row sm:items-center sm:justify-between" style={{ borderColor: "var(--border)" }}>
       <div><h2 className="text-sm font-semibold">Economia por campanha</h2><p className="mt-1 text-xs text-[var(--muted-foreground)]">Cruza mídia, vendas e comissão comercial. O ROI usa a comissão gerada como receita.</p></div>
@@ -536,16 +579,16 @@ function CampaignPerformanceSection({ rows, rawRows, onAdd, onDelete }: { rows: 
         <td className="px-4 py-3">{row.leads ? formatCurrency(row.cpl) : "—"}</td><td className="px-4 py-3">{row.sales ? formatCurrency(row.cac) : "—"}</td><td className="px-4 py-3">{row.leads ? `${row.conversionRate.toFixed(2)}%` : "—"}</td><td className="px-4 py-3">{row.spend ? `${row.roas.toFixed(1)}x` : "—"}</td><td className={cn("px-4 py-3 font-semibold", row.commercialRoi >= 0 ? "text-emerald-400" : "text-red-400")}>{row.spend ? `${row.commercialRoi.toFixed(1)}%` : "—"}</td>
       </tr>)}</tbody>
     </table></div> : <div className="p-5"><MarketingEmptyState title="Sem dados de campanha" description="Informe investimento e leads para calcular CPL, CAC, conversão, ROAS e ROI sobre comissão." action={<Button onClick={onAdd} icon={<Plus />}>Adicionar dados</Button>} /></div>}
-    {rawRows.length > 0 && <div className="border-t p-4" style={{ borderColor: "var(--border)" }}><p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">Lançamentos de mídia</p><div className="space-y-2">{rawRows.map((row) => <div key={row.id} className="flex items-center gap-3 rounded-xl border px-3 py-2 text-xs" style={{ borderColor: "var(--glass-border)" }}><span className="min-w-0 flex-1 truncate"><strong>{row.campaign_name}</strong> · {row.client_name} · {formatCurrency(row.spend)} · {row.leads} leads</span><button onClick={() => void onDelete(row.id)} className="p-2 text-red-400" aria-label="Excluir dados da campanha"><Trash2 size={14} /></button></div>)}</div></div>}
+    {rawRows.length > 0 && <div className="border-t p-4" style={{ borderColor: "var(--border)" }}><p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">Lançamentos de mídia</p><div className="space-y-2">{rawRows.map((row) => <div key={row.id} className="flex items-center gap-3 rounded-xl border px-3 py-2 text-xs" style={{ borderColor: "var(--glass-border)" }}><span className="min-w-0 flex-1 truncate"><strong>{row.campaign_name}</strong> · {row.client_name} · {formatCurrency(row.spend)} · {row.leads} leads</span><button onClick={() => onEdit(row)} className="p-2 text-[var(--muted-foreground)] transition hover:text-[var(--text-title)]" aria-label="Editar dados da campanha"><Pencil size={14} /></button><button onClick={() => void onDelete(row.id)} className="p-2 text-red-400" aria-label="Excluir dados da campanha"><Trash2 size={14} /></button></div>)}</div></div>}
   </section>;
 }
 
-function PerformanceDialog({ open, onOpenChange, clients, defaultStart, defaultEnd, onCreated }: { open: boolean; onOpenChange: (open: boolean) => void; clients: Array<{ id: string; name: string }>; defaultStart: string; defaultEnd: string; onCreated: (row: MarketingVgvCampaignPerformance) => void }) {
+function PerformanceDialog({ open, onOpenChange, clients, defaultStart, defaultEnd, onCreated, onUpdated, row }: { open: boolean; onOpenChange: (open: boolean) => void; clients: Array<{ id: string; name: string }>; defaultStart: string; defaultEnd: string; onCreated: (row: MarketingVgvCampaignPerformance) => void; onUpdated: (row: MarketingVgvCampaignPerformance) => void; row: MarketingVgvCampaignPerformance | null }) {
   const empty = useMemo(() => ({ agency_client_id: "", campaign_name: "", development_name: "", period_start: defaultStart, period_end: defaultEnd, spend: 0, leads: 0 }), [defaultEnd, defaultStart]);
   const [form, setForm] = useState(empty); const [saving, setSaving] = useState(false);
-  useEffect(() => { if (open) setForm(empty); }, [empty, open]);
-  async function submit(event: React.FormEvent) { event.preventDefault(); setSaving(true); try { const data = await request<{ performance: MarketingVgvCampaignPerformance }>("/api/marketing/vgv/performance", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) }); onCreated(data.performance); onOpenChange(false); toast.success("Dados de campanha adicionados"); } catch (error) { toast.error(error instanceof Error ? error.message : "Erro ao salvar"); } finally { setSaving(false); } }
-  return <Dialog open={open} onOpenChange={onOpenChange}><DialogContent className="sm:max-w-lg"><form onSubmit={submit}><DialogHeader><DialogTitle>Dados de mídia da campanha</DialogTitle><DialogDescription>Informações internas para calcular CPL, CAC, conversão e ROAS. Elas não aparecem no formulário do cliente.</DialogDescription></DialogHeader><div className="mt-5 grid gap-4 sm:grid-cols-2"><Field label="Cliente" id="perf-client" className="sm:col-span-2"><select id="perf-client" required value={form.agency_client_id} onChange={(event) => setForm({ ...form, agency_client_id: event.target.value })} className="lc-form-control crm-form-select"><option value="">Selecionar cliente</option>{clients.map((client) => <option key={client.id} value={client.id}>{client.name}</option>)}</select></Field><Field label="Campanha" id="perf-campaign"><Input id="perf-campaign" required value={form.campaign_name} onChange={(event) => setForm({ ...form, campaign_name: event.target.value })} /></Field><Field label="Empreendimento" id="perf-dev"><Input id="perf-dev" value={form.development_name} onChange={(event) => setForm({ ...form, development_name: event.target.value })} /></Field><Field label="Início" id="perf-start"><Input id="perf-start" type="date" required value={form.period_start} onChange={(event) => setForm({ ...form, period_start: event.target.value })} /></Field><Field label="Fim" id="perf-end"><Input id="perf-end" type="date" required value={form.period_end} onChange={(event) => setForm({ ...form, period_end: event.target.value })} /></Field><Field label="Investimento" id="perf-spend"><MoneyInput value={form.spend} onChange={(spend) => setForm({ ...form, spend })} /></Field><Field label="Leads gerados" id="perf-leads"><Input id="perf-leads" type="number" min="0" step="1" required value={form.leads} onChange={(event) => setForm({ ...form, leads: Number(event.target.value) })} /></Field></div><DialogFooter className="mt-5"><Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button><Button type="submit" loading={saving}>Salvar dados</Button></DialogFooter></form></DialogContent></Dialog>;
+  useEffect(() => { if (open) setForm(row ? { agency_client_id: row.agency_client_id, campaign_name: row.campaign_name, development_name: row.development_name ?? "", period_start: row.period_start, period_end: row.period_end, spend: row.spend, leads: row.leads } : empty); }, [empty, open, row]);
+  async function submit(event: React.FormEvent) { event.preventDefault(); setSaving(true); try { const data = await request<{ performance: MarketingVgvCampaignPerformance }>(row ? `/api/marketing/vgv/performance/${row.id}` : "/api/marketing/vgv/performance", { method: row ? "PATCH" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) }); if (row) onUpdated(data.performance); else onCreated(data.performance); onOpenChange(false); toast.success(row ? "Campanha atualizada" : "Dados de campanha adicionados"); } catch (error) { toast.error(error instanceof Error ? error.message : "Erro ao salvar"); } finally { setSaving(false); } }
+  return <Dialog open={open} onOpenChange={onOpenChange}><DialogContent className="sm:max-w-lg"><form onSubmit={submit}><DialogHeader><DialogTitle>{row ? "Editar campanha" : "Dados de mídia da campanha"}</DialogTitle><DialogDescription>Informações internas para calcular CPL, CAC, conversão e ROAS. Elas não aparecem no formulário do cliente.</DialogDescription></DialogHeader><div className="mt-5 grid gap-4 sm:grid-cols-2"><Field label="Cliente" id="perf-client" className="sm:col-span-2"><select id="perf-client" required value={form.agency_client_id} onChange={(event) => setForm({ ...form, agency_client_id: event.target.value })} className="lc-form-control crm-form-select"><option value="">Selecionar cliente</option>{clients.map((client) => <option key={client.id} value={client.id}>{client.name}</option>)}</select></Field><Field label="Campanha" id="perf-campaign"><Input id="perf-campaign" required value={form.campaign_name} onChange={(event) => setForm({ ...form, campaign_name: event.target.value })} /></Field><Field label="Empreendimento" id="perf-dev"><Input id="perf-dev" value={form.development_name} onChange={(event) => setForm({ ...form, development_name: event.target.value })} /></Field><Field label="Início" id="perf-start"><Input id="perf-start" type="date" required value={form.period_start} onChange={(event) => setForm({ ...form, period_start: event.target.value })} /></Field><Field label="Fim" id="perf-end"><Input id="perf-end" type="date" required value={form.period_end} onChange={(event) => setForm({ ...form, period_end: event.target.value })} /></Field><Field label="Investimento" id="perf-spend"><MoneyInput value={form.spend} onChange={(spend) => setForm({ ...form, spend })} /></Field><Field label="Leads gerados" id="perf-leads"><Input id="perf-leads" type="number" min="0" step="1" required value={form.leads} onChange={(event) => setForm({ ...form, leads: Number(event.target.value) })} /></Field></div><DialogFooter className="mt-5"><Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button><Button type="submit" loading={saving}>{row ? "Salvar alterações" : "Salvar dados"}</Button></DialogFooter></form></DialogContent></Dialog>;
 }
 
 function VgvFormsSection({ forms, onCreate, onToggle }: { forms: MarketingVgvForm[]; onCreate: () => void; onToggle: (form: MarketingVgvForm) => Promise<void> }) {
