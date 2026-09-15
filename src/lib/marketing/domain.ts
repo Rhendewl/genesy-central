@@ -85,12 +85,29 @@ export function parseMarketingVgvSaleInput(value: unknown): MarketingVgvSaleInpu
   if (!Number.isFinite(commissionPercentage) || commissionPercentage < 0 || commissionPercentage > 100) throw new Error("A comissão deve estar entre 0% e 100%");
   if (!isValidSaleDate) throw new Error("Data da venda inválida");
 
+  const agencyShare = body.agency_share_percentage === undefined ? 100 : Number(body.agency_share_percentage);
+  if (!Number.isFinite(agencyShare) || agencyShare < 0 || agencyShare > 100) throw new Error("A participação da agência deve estar entre 0% e 100%");
+  const customAnswers = body.custom_answers && typeof body.custom_answers === "object" && !Array.isArray(body.custom_answers)
+    ? Object.fromEntries(Object.entries(body.custom_answers as Record<string, unknown>).slice(0, 30).flatMap(([key, answer]) => {
+        const safeKey = cleanText(key, 80);
+        if (!safeKey || (typeof answer !== "string" && typeof answer !== "number")) return [];
+        return [[safeKey, typeof answer === "string" ? cleanText(answer, 500) : answer]];
+      }))
+    : {};
+
   return {
     sale_value: Math.round(saleValue * 100) / 100,
     broker_name: brokerName,
     client_name: clientName,
     commission_percentage: Math.round(commissionPercentage * 100) / 100,
     sale_date: saleDate,
+    agency_client_id: typeof body.agency_client_id === "string" ? body.agency_client_id : null,
+    buyer_name: optionalText(body.buyer_name, 160) ?? clientName,
+    campaign_name: optionalText(body.campaign_name, 200),
+    development_name: optionalText(body.development_name, 200),
+    include_agency_commission: body.include_agency_commission !== false,
+    agency_share_percentage: Math.round(agencyShare * 100) / 100,
+    custom_answers: customAnswers,
   };
 }
 

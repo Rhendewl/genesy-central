@@ -50,6 +50,7 @@ export function useTrafegoMetrics(
       let metricsQuery = supabase
         .from("campaign_metrics")
         .select("*, campaign:campaigns(id, name, client_id, platform, status)")
+        .not("platform_account_id", "is", null)
         .gte("date", start)
         .lte("date", end);
 
@@ -58,6 +59,8 @@ export function useTrafegoMetrics(
       let campaignsQuery = supabase
         .from("campaigns")
         .select("*, client:agency_clients(id, name)")
+        .eq("platform", "meta")
+        .not("platform_account_id", "is", null)
         .eq("status", "ativa");
 
       if (platformAccountId) campaignsQuery = campaignsQuery.eq("platform_account_id", platformAccountId);

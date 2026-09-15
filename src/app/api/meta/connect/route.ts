@@ -57,11 +57,23 @@ export async function POST(req: NextRequest) {
 
     if (accErr) throw accErr;
 
+    // Reconnections replace the old credential. Keeping more than one token
+    // makes `.single()` fail during sync and looks like an early expiration.
+    const { error: staleTokenError } = await supabase
+      .from("meta_tokens")
+      .delete()
+      .eq("platform_account_id", account.id)
+      .eq("user_id", user.id)
+      .neq("id", pendingId);
+    if (staleTokenError) throw staleTokenError;
+
     // Link token → platform account
-    await supabase
+    const { error: linkTokenError } = await supabase
       .from("meta_tokens")
       .update({ platform_account_id: account.id })
-      .eq("id", pendingId);
+      .eq("id", pendingId)
+      .eq("user_id", user.id);
+    if (linkTokenError) throw linkTokenError;
 
     const accessToken = decryptToken(tokenRow.encrypted_token as string);
 

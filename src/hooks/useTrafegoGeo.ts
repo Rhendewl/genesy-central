@@ -18,7 +18,11 @@ export function useTrafegoGeo(
     try {
       const supabase = getSupabaseClient();
 
-      let campaignsQuery = supabase.from("campaigns").select("id");
+      let campaignsQuery = supabase
+        .from("campaigns")
+        .select("id")
+        .eq("platform", "meta")
+        .not("platform_account_id", "is", null);
       if (platformAccountId) {
         campaignsQuery = campaignsQuery.eq("platform_account_id", platformAccountId);
       }

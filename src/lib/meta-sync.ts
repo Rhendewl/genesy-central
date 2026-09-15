@@ -133,6 +133,7 @@ export async function syncMetaAccount(params: SyncParams): Promise<SyncResult> {
           .from("campaigns")
           .select("id, external_id")
           .eq("user_id", userId)
+          .eq("platform_account_id", platformAccountId)
           .in("external_id", metaCampaignIds)
       : { data: [], error: null };
 
@@ -153,7 +154,12 @@ export async function syncMetaAccount(params: SyncParams): Promise<SyncResult> {
       };
 
       const { error } = existingId
-        ? await supabase.from("campaigns").update(values).eq("id", existingId)
+        ? await supabase
+            .from("campaigns")
+            .update(values)
+            .eq("id", existingId)
+            .eq("user_id", userId)
+            .eq("platform_account_id", platformAccountId)
         : await supabase.from("campaigns").insert({
             ...values,
             user_id:         userId,
@@ -184,6 +190,7 @@ export async function syncMetaAccount(params: SyncParams): Promise<SyncResult> {
       .select("id, external_id")
       .eq("user_id", userId)
       .eq("platform", "meta")
+      .eq("platform_account_id", platformAccountId)
       .not("external_id", "is", null);
 
     if (dbCampsErr) {
@@ -279,16 +286,49 @@ export async function syncMetaAccount(params: SyncParams): Promise<SyncResult> {
     // Persiste em lotes, reduzindo centenas de viagens ao banco a poucas
     // operações mesmo em contas com muitas campanhas.
     const METRIC_BATCH_SIZE = 500;
+    let metricsPersistedSuccessfully = true;
     for (let index = 0; index < metricRows.length; index += METRIC_BATCH_SIZE) {
       const batch = metricRows.slice(index, index + METRIC_BATCH_SIZE);
       const { error: upsertErr } = await supabase
         .from("campaign_metrics")
         .upsert(batch, { onConflict: "campaign_id,date" });
       if (upsertErr) {
+        metricsPersistedSuccessfully = false;
         warnings.push(`Erro ao salvar lote de métricas: ${upsertErr.message}`);
         metricsSkipped += batch.length;
       } else {
         metricsSynced += batch.length;
+      }
+    }
+
+    // A Meta é a fonte canônica: remova somente linhas desta conta/período
+    // que deixaram de existir na resposta atual (ajustes, exclusões ou estornos).
+    // A limpeza acontece apenas depois de todos os upserts terem sucesso.
+    if (metricsPersistedSuccessfully) {
+      const incomingKeys = new Set(metricRows.map(row => `${row.campaign_id as string}:${row.date as string}`));
+      const { data: existingMetrics, error: existingMetricsError } = await supabase
+        .from("campaign_metrics")
+        .select("id, campaign_id, date")
+        .eq("user_id", userId)
+        .eq("platform_account_id", platformAccountId)
+        .gte("date", since)
+        .lte("date", until);
+
+      if (existingMetricsError) {
+        warnings.push(`Não foi possível reconciliar métricas antigas: ${existingMetricsError.message}`);
+      } else {
+        const staleIds = (existingMetrics ?? [])
+          .filter(row => !incomingKeys.has(`${row.campaign_id as string}:${row.date as string}`))
+          .map(row => row.id as string);
+        for (let index = 0; index < staleIds.length; index += 500) {
+          const { error: deleteError } = await supabase
+            .from("campaign_metrics")
+            .delete()
+            .eq("user_id", userId)
+            .eq("platform_account_id", platformAccountId)
+            .in("id", staleIds.slice(index, index + 500));
+          if (deleteError) warnings.push(`Não foi possível remover métricas antigas: ${deleteError.message}`);
+        }
       }
     }
 
@@ -381,11 +421,39 @@ export async function syncMetaAccount(params: SyncParams): Promise<SyncResult> {
           reach:               parseInt(row.reach ?? "0", 10),
         }];
       });
+      let geoPersistedSuccessfully = true;
       for (let index = 0; index < geoValues.length; index += 500) {
         const { error: geoErr } = await supabase
           .from("campaign_geo_metrics")
           .upsert(geoValues.slice(index, index + 500), { onConflict: "campaign_id,date,region" });
-        if (geoErr) console.warn("[meta-sync] geo batch upsert error:", geoErr.message);
+        if (geoErr) {
+          geoPersistedSuccessfully = false;
+          console.warn("[meta-sync] geo batch upsert error:", geoErr.message);
+        }
+      }
+
+      if (geoPersistedSuccessfully) {
+        const incomingGeoKeys = new Set(geoValues.map(row => `${row.campaign_id}:${row.date}:${row.region}`));
+        const { data: existingGeo, error: existingGeoError } = await supabase
+          .from("campaign_geo_metrics")
+          .select("id, campaign_id, date, region")
+          .eq("user_id", userId)
+          .eq("platform_account_id", platformAccountId)
+          .gte("date", since)
+          .lte("date", until);
+        if (existingGeoError) throw existingGeoError;
+        const staleGeoIds = (existingGeo ?? [])
+          .filter(row => !incomingGeoKeys.has(`${row.campaign_id}:${row.date}:${row.region}`))
+          .map(row => row.id as string);
+        for (let index = 0; index < staleGeoIds.length; index += 500) {
+          const { error: staleGeoError } = await supabase
+            .from("campaign_geo_metrics")
+            .delete()
+            .eq("user_id", userId)
+            .eq("platform_account_id", platformAccountId)
+            .in("id", staleGeoIds.slice(index, index + 500));
+          if (staleGeoError) throw staleGeoError;
+        }
       }
     } catch (geoErr) {
       console.warn("[meta-sync] geo sync falhou (não-fatal):", geoErr);

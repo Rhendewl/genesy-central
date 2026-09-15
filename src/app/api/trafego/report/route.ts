@@ -67,7 +67,7 @@ export async function GET(request: NextRequest) {
   if (campaignsError) return NextResponse.json({ error: campaignsError.message }, { status: 400 });
   const campaignIds = (campaigns ?? []).map((campaign) => campaign.id);
   const { data: metrics, error: metricsError } = campaignIds.length
-    ? await supabase.from("campaign_metrics").select("campaign_id,spend,leads,impressions,reach,clicks,link_clicks,conversions,unique_ctr").in("campaign_id", campaignIds).gte("date", since).lte("date", until)
+    ? await supabase.from("campaign_metrics").select("campaign_id,spend,leads,impressions,reach,clicks,link_clicks,conversions,unique_ctr").in("campaign_id", campaignIds).in("platform_account_id", selectedAccounts.map((account) => account.id)).gte("date", since).lte("date", until)
     : { data: [], error: null };
   if (metricsError) return NextResponse.json({ error: metricsError.message }, { status: 400 });
 

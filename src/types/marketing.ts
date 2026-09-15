@@ -61,6 +61,15 @@ export interface MarketingVgvSale {
   broker_name: string;
   client_name: string;
   commission_percentage: number;
+  agency_client_id: string | null;
+  buyer_name: string | null;
+  campaign_name: string | null;
+  development_name: string | null;
+  source: "manual" | "form";
+  form_id: string | null;
+  include_agency_commission: boolean;
+  agency_share_percentage: number;
+  custom_answers: Record<string, string | number>;
   sale_date: string;
   created_by: string;
   created_at: string;
@@ -71,7 +80,41 @@ export interface MarketingVgvSale {
 export type MarketingVgvSaleInput = Pick<
   MarketingVgvSale,
   "sale_value" | "broker_name" | "client_name" | "commission_percentage" | "sale_date"
->;
+> & Partial<Pick<MarketingVgvSale, "agency_client_id" | "buyer_name" | "campaign_name" | "development_name" | "include_agency_commission" | "agency_share_percentage" | "custom_answers">>;
+
+export interface MarketingVgvCustomField {
+  id: string;
+  label: string;
+  type: "text" | "number";
+  required: boolean;
+  include_in_dashboard: boolean;
+}
+
+export interface MarketingVgvForm {
+  id: string;
+  agency_client_id: string;
+  client_name: string;
+  name: string;
+  slug: string;
+  status: "active" | "paused";
+  default_commission_percentage: number;
+  include_agency_commission: boolean;
+  agency_share_percentage: number;
+  custom_fields: MarketingVgvCustomField[];
+  created_at: string;
+}
+
+export interface MarketingVgvCampaignPerformance {
+  id: string;
+  agency_client_id: string;
+  client_name: string;
+  campaign_name: string;
+  development_name: string | null;
+  period_start: string;
+  period_end: string;
+  spend: number;
+  leads: number;
+}
 
 export type MarketingContentInput = Partial<Omit<MarketingContent, "id" | "organization_id" | "created_by" | "updated_by" | "created_at" | "updated_at" | "archived_at" | "checklist" | "comments" | "can_edit" | "can_delete">> & {
   title: string;

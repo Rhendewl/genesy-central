@@ -79,6 +79,14 @@ const QUICK_TEXT_COLORS = [
   { value: "#007ae6", label: "Azul" },
   { value: "#07d140", label: "Verde" },
 ] as const;
+const QUICK_BACKDROP_COLORS = [
+  { value: "#000000", label: "Preto" },
+  { value: "#ffffff", label: "Branco" },
+  { value: "#dd1c00", label: "Vermelho" },
+  { value: "#f8ad1b", label: "Amarelo" },
+  { value: "#007ae6", label: "Azul" },
+  { value: "#07d140", label: "Verde" },
+] as const;
 
 const DEFAULT_PROFILE: TweetProfile = {
   avatar: "",
@@ -1188,15 +1196,23 @@ function TextToolbar({ editor, defaultColor, allowItalic, compact = false, visib
   const backdropActive = editor.isActive("textBackdrop");
   const backdropAttributes = editor.getAttributes("textBackdrop") as { backgroundColor?: string; color?: string };
   const show = (group: MobileInlineTool) => !visibleGroup || visibleGroup === group;
+  const backdropChain = () => {
+    const command = chain();
+    return hasSelection ? command : command.selectAll();
+  };
+  const setBackdrop = (backgroundColor: string) => {
+    backdropChain().setMark("textBackdrop", { backgroundColor, color: contrastColor(backgroundColor) }).run();
+    onToolUse?.("backdrop");
+  };
   const cycleBackdrop = () => {
     if (!backdropActive) {
-      chain().setMark("textBackdrop", { backgroundColor: "#000000", color: "#ffffff" }).run();
+      setBackdrop("#000000");
     } else {
       const background = (backdropAttributes.backgroundColor || "").replace(/\s/g, "").toLowerCase();
-      if (background === "#000000" || background === "rgb(0,0,0)") chain().setMark("textBackdrop", { backgroundColor: "#ffffff", color: "#000000" }).run();
-      else chain().unsetMark("textBackdrop").run();
+      if (background === "#000000" || background === "rgb(0,0,0)") setBackdrop("#ffffff");
+      else backdropChain().unsetMark("textBackdrop").run();
     }
-    onToolUse?.("backdrop");
+    if (backdropActive) onToolUse?.("backdrop");
   };
   return <div className={cn("mx-auto flex min-h-11 max-w-xl items-center gap-1 border p-1.5", compact ? "sticky top-0 z-10 flex-nowrap overflow-x-auto border-x-0 border-t-0 px-3 py-2 shadow-sm [scrollbar-width:none]" : "mb-3 flex-wrap rounded-xl shadow-lg")} style={{ background: "var(--bg-modal)", borderColor: hasSelection ? "var(--accent-blue)" : "var(--glass-border)" }}>
     {show("format") && <>
@@ -1212,7 +1228,7 @@ function TextToolbar({ editor, defaultColor, allowItalic, compact = false, visib
       <button onClick={() => chain().redo().run()} disabled={!editor.can().redo()} className={toolClass(false)} title="Refazer" aria-label="Refazer"><Redo2 /></button>
     </>}
     {show("textColor") && <TextColorTool disabled={!hasSelection} value={editor.getAttributes("textStyle").color || defaultColor} isAutomatic={!editor.getAttributes("textStyle").color} onAuto={() => { chain().unsetColor().run(); onToolUse?.("textColor"); }} onChange={(color) => { chain().setColor(color).run(); onToolUse?.("textColor"); }} />}
-    {show("backdrop") && <div className="flex shrink-0 items-center gap-1"><button type="button" onClick={cycleBackdrop} disabled={!hasSelection} className={toolClass(backdropActive)} title="Texto destacado" aria-label="Alternar texto destacado"><Square fill={backdropActive ? backdropAttributes.backgroundColor || "#000000" : "none"} /></button>{backdropActive && <label className="editor-tool relative shrink-0 cursor-pointer" title="Cor do fundo destacado" aria-label="Escolher cor do fundo destacado"><Palette /><input aria-label="Cor do fundo destacado" type="color" value={toHexColor(backdropAttributes.backgroundColor || "#000000")} disabled={!hasSelection} className="absolute inset-0 cursor-pointer opacity-0" onChange={(event) => { const backgroundColor = event.target.value; chain().setMark("textBackdrop", { backgroundColor, color: contrastColor(backgroundColor) }).run(); onToolUse?.("backdrop"); }} /></label>}</div>}
+    {show("backdrop") && <div className="flex shrink-0 items-center gap-1"><button type="button" onClick={cycleBackdrop} className={toolClass(backdropActive)} title="Texto destacado" aria-label="Alternar texto destacado"><Square fill={backdropActive ? backdropAttributes.backgroundColor || "#000000" : "none"} /></button>{QUICK_BACKDROP_COLORS.map((color) => <button key={color.value} type="button" onClick={() => setBackdrop(color.value)} title={`Fundo ${color.label}`} aria-label={`Aplicar fundo ${color.label}`} className={cn("h-6 w-6 shrink-0 rounded-full border border-white/25 shadow-sm", toHexColor(backdropAttributes.backgroundColor || "#000000").toLowerCase() === color.value && backdropActive && "ring-2 ring-[var(--accent-blue)] ring-offset-1 ring-offset-[var(--bg-modal)]")} style={{ backgroundColor: color.value }} />)}<label className="editor-tool relative shrink-0 cursor-pointer" title="Cor personalizada do fundo destacado" aria-label="Escolher cor personalizada do fundo destacado"><Palette /><input aria-label="Cor do fundo destacado" type="color" value={toHexColor(backdropAttributes.backgroundColor || "#000000")} className="absolute inset-0 cursor-pointer opacity-0" onChange={(event) => setBackdrop(event.target.value)} /></label></div>}
     {!compact && <span className="ml-auto pr-2 text-[9px] text-[var(--muted-foreground)]">{hasSelection ? "Formatação do trecho selecionado" : "Selecione um trecho para formatar"}</span>}
   </div>;
 }
@@ -1263,6 +1279,7 @@ function PostCanvas({ slide, profile, template, width, height, editable = false,
   const safeWidth = 100 - safeLeft * 2;
   const canvasRef = useRef<HTMLDivElement | null>(null);
   const [guides, setGuides] = useState<AlignmentGuide[]>([]);
+  const [isFreeDragging, setIsFreeDragging] = useState(false);
   const [draggedTextId, setDraggedTextId] = useState<string | null>(null);
   const [dropTargetId, setDropTargetId] = useState<string | null>(null);
   const [selectedMediaKey, setSelectedMediaKey] = useState<string | null>(null);
@@ -1285,28 +1302,29 @@ function PostCanvas({ slide, profile, template, width, height, editable = false,
   };
   const setRefs = (node: HTMLDivElement | null) => { canvasRef.current = node; refCallback?.(node); };
   const freeContent = slide.layoutMode === "free" ? <>
-    {profileBlock && <FreeCanvasElement elementKey="profile" position={slide.freePositions.profile || defaultPosition("profile")} canvasRef={canvasRef} canvas={{ width, height }} editable={editable} onPositionChange={onPositionChange} onGuidesChange={setGuides}>{profileBlock}</FreeCanvasElement>}
-    {slide.textBlocks.map((block, index) => <FreeCanvasElement key={block.id} elementKey={block.id} position={slide.freePositions[block.id] || defaultPosition(block.id, index)} canvasRef={canvasRef} canvas={{ width, height }} editable={editable} onPositionChange={onPositionChange} onGuidesChange={setGuides} onDoubleTap={() => onEditTextBlock?.(block.id)} className="max-w-full" style={{ width: `${block.textWidth}%` }}><TextBlockItem block={block} editor={editor} editable={editable} active={activeTextBlockId === block.id} editing={editingTextBlockId === block.id} foreground={slide.foreground} story={template === "stories"} safeWidth={100} onSelect={() => onSelectTextBlock?.(block.id)} onEdit={() => onEditTextBlock?.(block.id)} onDragStart={() => undefined} onDragEnd={() => undefined} free /></FreeCanvasElement>)}
+    {profileBlock && <FreeCanvasElement elementKey="profile" position={slide.freePositions.profile || defaultPosition("profile")} canvasRef={canvasRef} canvas={{ width, height }} editable={editable} onPositionChange={onPositionChange} onGuidesChange={setGuides} onInteractionChange={setIsFreeDragging}>{profileBlock}</FreeCanvasElement>}
+    {slide.textBlocks.map((block, index) => <FreeCanvasElement key={block.id} elementKey={block.id} position={slide.freePositions[block.id] || defaultPosition(block.id, index)} canvasRef={canvasRef} canvas={{ width, height }} editable={editable} onPositionChange={onPositionChange} onGuidesChange={setGuides} onInteractionChange={setIsFreeDragging} onDoubleTap={() => onEditTextBlock?.(block.id)} className="max-w-full" style={{ width: `${block.textWidth}%` }}><TextBlockItem block={block} editor={editor} editable={editable} active={activeTextBlockId === block.id} editing={editingTextBlockId === block.id} foreground={slide.foreground} story={template === "stories"} safeWidth={100} onSelect={() => onSelectTextBlock?.(block.id)} onEdit={() => onEditTextBlock?.(block.id)} onDragStart={() => undefined} onDragEnd={() => undefined} free /></FreeCanvasElement>)}
     {slide.media.map((image, index) => {
       const key = `media:${index}`;
       const aspect = mediaAspectValue(slide.mediaAspects[index] || "16:9", slide.mediaNaturalAspects[index]);
       const baseWidth = slide.media.length > 1 ? 40 : 76;
       const defaultWidth = Math.max(24, Math.min(baseWidth, (height * .44 * aspect) / width * 100));
       const itemWidth = slide.freeSizes[key] || defaultWidth;
-      return <FreeCanvasElement key={key} elementKey={key} position={slide.freePositions[key] || defaultPosition(key, index)} canvasRef={canvasRef} canvas={{ width, height }} editable={editable} onPositionChange={onPositionChange} onGuidesChange={setGuides} selected={selectedMediaKey === key} onSelect={() => setSelectedMediaKey(key)} resizeAspect={aspect} onResize={onResizeMedia} media style={{ width: `${itemWidth}%` }}><MediaFrame image={image} crop={slide.mediaCrops[index]} aspect={aspect} /></FreeCanvasElement>;
+      return <FreeCanvasElement key={key} elementKey={key} position={slide.freePositions[key] || defaultPosition(key, index)} canvasRef={canvasRef} canvas={{ width, height }} editable={editable} onPositionChange={onPositionChange} onGuidesChange={setGuides} onInteractionChange={setIsFreeDragging} selected={selectedMediaKey === key} onSelect={() => setSelectedMediaKey(key)} resizeAspect={aspect} onResize={onResizeMedia} media style={{ width: `${itemWidth}%` }}><MediaFrame image={image} crop={slide.mediaCrops[index]} aspect={aspect} /></FreeCanvasElement>;
     })}
   </> : <BalancedContent safeLeft={safeLeft} safeWidth={safeWidth} gap={template === "tweet" ? 44 : 52}>{profileBlock}{layoutItems}</BalancedContent>;
 
   return <div ref={setRefs} data-post-canvas={template} className="relative overflow-hidden" style={{ width, height, background: slide.background, color: slide.foreground, fontFamily: template === "tweet" ? "Arial, Helvetica, sans-serif" : "Advercase, Georgia, serif", fontWeight: 400 }} onPointerDown={(event) => { if (!(event.target as HTMLElement).closest("[data-free-media]")) setSelectedMediaKey(null); }}>
     {template === "stories" && slide.backgroundImage && <><img src={slide.backgroundImage} alt="Fundo do slide" className="absolute inset-0 h-full w-full object-cover" /><span className="absolute inset-0 bg-black" style={{ opacity: slide.imageDarkness / 100 }} /></>}
     {freeContent}
+    {editable && isFreeDragging && <><span aria-hidden className="pointer-events-none absolute inset-y-0 z-40 w-px bg-[#27a3ff]/55" style={{ left: width / 2 }} /><span aria-hidden className="pointer-events-none absolute inset-x-0 z-40 h-px bg-[#27a3ff]/55" style={{ top: height / 2 }} /></>}
     {editable && guides.map((guide) => <span key={`${guide.axis}:${guide.value}`} aria-hidden className="pointer-events-none absolute z-50 bg-[#ff3ca6] shadow-[0_0_0_1px_rgba(255,255,255,.65)]" style={guide.axis === "x" ? { left: guide.value, top: 0, bottom: 0, width: 3 } : { top: guide.value, left: 0, right: 0, height: 3 }} />)}
   </div>;
 }
 
-function FreeCanvasElement({ elementKey, position, canvasRef, canvas, editable, onPositionChange, onGuidesChange, onDoubleTap, selected = false, onSelect, resizeAspect, onResize, media = false, className, style, children }: { elementKey: string; position: CanvasPoint; canvasRef: React.RefObject<HTMLDivElement>; canvas: { width: number; height: number }; editable: boolean; onPositionChange?: (key: string, position: CanvasPoint) => void; onGuidesChange: (guides: AlignmentGuide[]) => void; onDoubleTap?: () => void; selected?: boolean; onSelect?: () => void; resizeAspect?: number; onResize?: (key: string, position: CanvasPoint, width: number) => void; media?: boolean; className?: string; style?: React.CSSProperties; children: React.ReactNode }) {
+function FreeCanvasElement({ elementKey, position, canvasRef, canvas, editable, onPositionChange, onGuidesChange, onInteractionChange, onDoubleTap, selected = false, onSelect, resizeAspect, onResize, media = false, className, style, children }: { elementKey: string; position: CanvasPoint; canvasRef: React.RefObject<HTMLDivElement>; canvas: { width: number; height: number }; editable: boolean; onPositionChange?: (key: string, position: CanvasPoint) => void; onGuidesChange: (guides: AlignmentGuide[]) => void; onInteractionChange?: (active: boolean) => void; onDoubleTap?: () => void; selected?: boolean; onSelect?: () => void; resizeAspect?: number; onResize?: (key: string, position: CanvasPoint, width: number) => void; media?: boolean; className?: string; style?: React.CSSProperties; children: React.ReactNode }) {
   const elementRef = useRef<HTMLDivElement>(null);
-  const dragRef = useRef<{ pointerId: number; clientX: number; clientY: number; start: CanvasPoint; size: { width: number; height: number }; siblings: Array<CanvasPoint & { width: number; height: number }>; scale: number } | null>(null);
+  const dragRef = useRef<{ pointerId: number; clientX: number; clientY: number; start: CanvasPoint; size: { width: number; height: number }; siblings: Array<CanvasPoint & { width: number; height: number }>; scale: number; latestPosition: CanvasPoint | null } | null>(null);
   const resizeRef = useRef<{ pointerId: number; clientX: number; clientY: number; position: CanvasPoint; size: { width: number; height: number }; scale: number; corner: ResizeCorner } | null>(null);
   const lastTouchTapRef = useRef<{ at: number; clientX: number; clientY: number } | null>(null);
   const startDrag = (event: React.PointerEvent<HTMLDivElement>) => {
@@ -1328,15 +1346,24 @@ function FreeCanvasElement({ elementKey, position, canvasRef, canvas, editable, 
       const sibling = node.getBoundingClientRect();
       return { x: (sibling.left - canvasRect.left) / scale, y: (sibling.top - canvasRect.top) / scale, width: sibling.width / scale, height: sibling.height / scale };
     });
-    dragRef.current = { pointerId: event.pointerId, clientX: event.clientX, clientY: event.clientY, start: { x: position.x / 100 * canvas.width, y: position.y / 100 * canvas.height }, size: { width: rect.width / scale, height: rect.height / scale }, siblings, scale };
+    dragRef.current = { pointerId: event.pointerId, clientX: event.clientX, clientY: event.clientY, start: { x: position.x / 100 * canvas.width, y: position.y / 100 * canvas.height }, size: { width: rect.width / scale, height: rect.height / scale }, siblings, scale, latestPosition: null };
+    onInteractionChange?.(true);
   };
   const moveDrag = (event: React.PointerEvent<HTMLDivElement>) => {
     const drag = dragRef.current;
     if (!drag || drag.pointerId !== event.pointerId || !onPositionChange) return;
+    event.preventDefault();
     const candidate = { x: drag.start.x + (event.clientX - drag.clientX) / drag.scale, y: drag.start.y + (event.clientY - drag.clientY) / drag.scale };
     const snapped = snapCanvasPosition(candidate, drag.size, canvas, drag.siblings, 9 / drag.scale);
+    const latestPosition = { x: snapped.position.x / canvas.width * 100, y: snapped.position.y / canvas.height * 100 };
+    drag.latestPosition = latestPosition;
+    // Paint the element immediately under the finger. Persisting the whole
+    // project on every pointer event caused visible lag on mobile devices.
+    if (elementRef.current) {
+      elementRef.current.style.left = `${latestPosition.x}%`;
+      elementRef.current.style.top = `${latestPosition.y}%`;
+    }
     onGuidesChange(snapped.guides);
-    onPositionChange(elementKey, { x: snapped.position.x / canvas.width * 100, y: snapped.position.y / canvas.height * 100 });
   };
   const endDrag = (event: React.PointerEvent<HTMLDivElement>) => {
     const drag = dragRef.current;
@@ -1352,8 +1379,10 @@ function FreeCanvasElement({ elementKey, position, canvasRef, canvas, editable, 
         lastTouchTapRef.current = { at: now, clientX: event.clientX, clientY: event.clientY };
       }
     }
+    if (drag.latestPosition) onPositionChange?.(elementKey, drag.latestPosition);
     dragRef.current = null;
     onGuidesChange([]);
+    onInteractionChange?.(false);
   };
   const startResize = (corner: ResizeCorner) => (event: React.PointerEvent<HTMLButtonElement>) => {
     if (!editable || !onResize || !resizeAspect || event.button !== 0) return;
@@ -1377,6 +1406,7 @@ function FreeCanvasElement({ elementKey, position, canvasRef, canvas, editable, 
       corner,
     };
     onGuidesChange([]);
+    onInteractionChange?.(true);
   };
   const moveResize = (event: React.PointerEvent<HTMLButtonElement>) => {
     const resize = resizeRef.current;
@@ -1398,6 +1428,7 @@ function FreeCanvasElement({ elementKey, position, canvasRef, canvas, editable, 
     event.preventDefault();
     event.stopPropagation();
     resizeRef.current = null;
+    onInteractionChange?.(false);
   };
   const handlePosition: Record<ResizeCorner, string> = {
     nw: "-left-9 -top-9 cursor-nwse-resize",

@@ -2,8 +2,9 @@ export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
-import { decryptToken } from "@/lib/crypto";
+import { decryptToken, encryptToken } from "@/lib/crypto";
 import { syncMetaAccount } from "@/lib/meta-sync";
+import { exchangeForLongLivedToken } from "@/lib/meta-api";
 import { format, startOfMonth, endOfToday } from "date-fns";
 
 // POST /api/meta/sync
@@ -39,16 +40,29 @@ export async function POST(req: NextRequest) {
 
     const { data: tokenRow, error: tokenErr } = await supabase
       .from("meta_tokens")
-      .select("encrypted_token, token_expires_at")
+      .select("id, encrypted_token, token_expires_at")
       .eq("platform_account_id", platformAccountId)
       .eq("user_id", user.id)
-      .single();
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
 
     if (tokenErr || !tokenRow?.encrypted_token) {
       return NextResponse.json({ error: "Token não encontrado — reconecte a conta" }, { status: 404 });
     }
 
-    // Check token expiry
+    // Heal duplicate credentials left by older reconnect flows.
+    await supabase
+      .from("meta_tokens")
+      .delete()
+      .eq("platform_account_id", platformAccountId)
+      .eq("user_id", user.id)
+      .neq("id", tokenRow.id);
+
+    let accessToken = decryptToken(tokenRow.encrypted_token as string);
+
+    // Check token expiry and try to extend a still-valid credential before it
+    // reaches the end of its long-lived window.
     if (tokenRow.token_expires_at) {
       const expiresAt = new Date(tokenRow.token_expires_at as string);
       if (expiresAt < new Date()) {
@@ -58,9 +72,27 @@ export async function POST(req: NextRequest) {
           .eq("id", platformAccountId);
         return NextResponse.json({ error: "Token expirado — reconecte a conta Meta Ads" }, { status: 401 });
       }
+      const refreshWindowMs = 7 * 24 * 60 * 60 * 1000;
+      if (expiresAt.getTime() - Date.now() <= refreshWindowMs) {
+        try {
+          const refreshed = await exchangeForLongLivedToken(accessToken);
+          if (refreshed.access_token && refreshed.expires_in) {
+            const refreshedExpiry = new Date(Date.now() + refreshed.expires_in * 1000).toISOString();
+            accessToken = refreshed.access_token;
+            await supabase
+              .from("meta_tokens")
+              .update({ encrypted_token: encryptToken(accessToken), token_expires_at: refreshedExpiry })
+              .eq("platform_account_id", platformAccountId)
+              .eq("user_id", user.id);
+          }
+        } catch (refreshError) {
+          // The current token is still valid; continue this sync and only ask
+          // for reconnection if Meta actually rejects or expires it.
+          console.warn("[meta/sync] preventive token renewal unavailable:", refreshError);
+        }
+      }
     }
 
-    const accessToken = decryptToken(tokenRow.encrypted_token as string);
     const result = await syncMetaAccount({
       supabase,
       userId:            user.id,

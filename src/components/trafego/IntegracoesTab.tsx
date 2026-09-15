@@ -470,7 +470,7 @@ function MetaAccountRow({
           {hasError && (
             <div className="flex items-center gap-1.5 mt-2 text-red-400 text-[11px]">
               <AlertTriangle size={10} />
-              Token expirado ou erro. Reconecte a conta.
+              Falha na última sincronização. Tente sincronizar; reconecte somente se a Meta informar que a autorização expirou.
             </div>
           )}
 
@@ -482,11 +482,13 @@ function MetaAccountRow({
               aria-label={`Incluir ${account.account_name} como despesa no Financeiro`}
               disabled={isDisconnected || isUpdatingExpense}
               onClick={() => onToggleExpense(!account.include_in_expenses)}
-              className="relative h-5 w-9 shrink-0 rounded-full disabled:cursor-not-allowed disabled:opacity-50"
+              className="relative h-5 w-9 shrink-0 overflow-hidden rounded-full disabled:cursor-not-allowed disabled:opacity-50"
             >
               <span
-                className="absolute top-0.5 h-4 w-4 rounded-full transition-transform"
-                style={{ transform: account.include_in_expenses ? "translateX(18px)" : "translateX(2px)" }}
+                className={cn(
+                  "absolute left-0.5 top-0.5 h-4 w-4 rounded-full transition-transform duration-200",
+                  account.include_in_expenses ? "translate-x-4" : "translate-x-0",
+                )}
               />
             </button>
             <button

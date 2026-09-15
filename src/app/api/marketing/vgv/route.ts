@@ -47,6 +47,8 @@ export async function GET(req: NextRequest) {
       ...row,
       sale_value: Number(row.sale_value),
       commission_percentage: Number(row.commission_percentage),
+      agency_share_percentage: Number(row.agency_share_percentage ?? 100),
+      custom_answers: row.custom_answers ?? {},
       can_delete: context.isAdmin || row.created_by === context.user.id,
     })) as MarketingVgvSale[];
     return NextResponse.json({ sales });
@@ -61,12 +63,17 @@ export async function POST(req: NextRequest) {
   try {
     const context = await getMarketingServerContext(supabase);
     const input = parseMarketingVgvSaleInput(await req.json().catch(() => null));
+    if (input.agency_client_id) {
+      const { data: client } = await supabase.from("agency_clients").select("id").eq("id", input.agency_client_id).maybeSingle();
+      if (!client) throw Object.assign(new Error("Cliente inválido"), { status: 400 });
+    }
     const { data, error } = await supabase
       .from("marketing_vgv_sales")
       .insert({
         ...input,
         organization_id: context.organizationId,
         created_by: context.user.id,
+        source: "manual",
       })
       .select("*")
       .single();
@@ -76,6 +83,8 @@ export async function POST(req: NextRequest) {
         ...data,
         sale_value: Number(data.sale_value),
         commission_percentage: Number(data.commission_percentage),
+        agency_share_percentage: Number(data.agency_share_percentage ?? 100),
+        custom_answers: data.custom_answers ?? {},
         can_delete: true,
       },
     }, { status: 201 });

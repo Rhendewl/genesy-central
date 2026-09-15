@@ -83,11 +83,20 @@ export async function getAdAccounts(token: string): Promise<MetaAdAccount[]> {
 export async function getCampaigns(adAccountId: string, token: string): Promise<MetaCampaign[]> {
   const cleanId = adAccountId.replace(/^act_/, "");
   const fields = "id,name,status,objective,created_time,daily_budget,lifetime_budget";
-  const data = await metaGet<{ data: MetaCampaign[] }>(
+  const first = await metaGet<{ data: MetaCampaign[]; paging?: { next?: string } }>(
     `/act_${cleanId}/campaigns?fields=${fields}&limit=200`,
     token
   );
-  return data.data ?? [];
+  const campaigns = [...(first.data ?? [])];
+  let nextUrl = first.paging?.next;
+  while (nextUrl) {
+    const response = await fetch(nextUrl, { next: { revalidate: 0 } });
+    if (!response.ok) throw new Error(`Meta API ${response.status} ao paginar campanhas`);
+    const page = await response.json() as { data?: MetaCampaign[]; paging?: { next?: string } };
+    campaigns.push(...(page.data ?? []));
+    nextUrl = page.paging?.next;
+  }
+  return campaigns;
 }
 
 // ── Insights (daily breakdown per campaign) ───────────────────────────────────
@@ -132,8 +141,10 @@ export async function getInsights(
   // Follow pagination
   let nextUrl = first.paging?.next;
   while (nextUrl) {
-    const page = await fetch(nextUrl).then(r => r.json()) as {
-      data: MetaInsightRow[];
+    const response = await fetch(nextUrl, { next: { revalidate: 0 } });
+    if (!response.ok) throw new Error(`Meta API ${response.status} ao paginar métricas`);
+    const page = await response.json() as {
+      data?: MetaInsightRow[];
       paging?: { next?: string };
     };
     rows.push(...(page.data ?? []));

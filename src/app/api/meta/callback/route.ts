@@ -36,18 +36,13 @@ export async function GET(req: NextRequest) {
     const { access_token: shortToken } = await exchangeCodeForToken(code, redirectUri);
 
     // Exchange short-lived token (~2h) for long-lived token (~60 days)
-    let finalToken = shortToken;
-    let expiresAt: string | null = null;
-    try {
-      const longLived = await exchangeForLongLivedToken(shortToken);
-      finalToken = longLived.access_token;
-      expiresAt  = longLived.expires_in
-        ? new Date(Date.now() + longLived.expires_in * 1000).toISOString()
-        : null;
-      console.log("[meta/callback] long-lived token obtained, expires:", expiresAt);
-    } catch (err) {
-      console.warn("[meta/callback] long-lived exchange failed, using short-lived token:", err);
-    }
+    // Never persist the ~2h fallback as if it were a durable connection.
+    const longLived = await exchangeForLongLivedToken(shortToken);
+    const finalToken = longLived.access_token;
+    const expiresAt = longLived.expires_in
+      ? new Date(Date.now() + longLived.expires_in * 1000).toISOString()
+      : null;
+    console.log("[meta/callback] long-lived token obtained, expires:", expiresAt);
 
     const adAccounts = await getAdAccounts(finalToken);
     const encrypted  = encryptToken(finalToken);

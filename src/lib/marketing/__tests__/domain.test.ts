@@ -64,6 +64,13 @@ describe("marketing domain validation", () => {
       client_name: "João e Ana",
       commission_percentage: 3.46,
       sale_date: "2026-07-28",
+      agency_client_id: null,
+      buyer_name: "João e Ana",
+      campaign_name: null,
+      development_name: null,
+      include_agency_commission: true,
+      agency_share_percentage: 100,
+      custom_answers: {},
     });
   });
 

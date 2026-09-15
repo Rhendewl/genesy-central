@@ -13,9 +13,13 @@ import {
   Activity, ChevronDown, TrendingUp,
   Zap,
 } from "lucide-react";
-import { subDays, format } from "date-fns";
 import { useTrafegoMetrics } from "@/hooks/useTrafegoMetrics";
 import { useTrafegoGeo } from "@/hooks/useTrafegoGeo";
+import {
+  getPreviousTrafficPeriodDates,
+  getTrafficPeriodDates,
+  type TrafficPeriodKey,
+} from "@/lib/traffic-period";
 import { cn } from "@/lib/utils";
 import { KpiReadingGuide, type KpiGuidanceItem } from "@/components/insights/KpiReadingGuide";
 import { privateFinancialValue, useFinancialPrivacyStore } from "@/store/financial-privacy";
@@ -30,31 +34,15 @@ const fmtPct = (v: number) => `${v.toFixed(2)}%`;
 
 // ── Period config ─────────────────────────────────────────────────────────────
 
-type PeriodKey = "7d" | "30d" | "90d";
+type PeriodKey = TrafficPeriodKey;
 
 const PERIODS: { key: PeriodKey; label: string }[] = [
+  { key: "month", label: "Mês" },
   { key: "7d",  label: "7 dias" },
+  { key: "14d", label: "14 dias" },
   { key: "30d", label: "30 dias" },
   { key: "90d", label: "3 meses" },
 ];
-
-function getPeriodDates(period: PeriodKey): { since: string; until: string } {
-  const today = new Date();
-  const until = format(today, "yyyy-MM-dd");
-  const days = period === "7d" ? 6 : period === "30d" ? 29 : 89;
-  const since = format(subDays(today, days), "yyyy-MM-dd");
-  return { since, until };
-}
-
-// Returns the equivalent window immediately before the current period.
-// e.g. "30d" current = today-29→today; prev = today-59→today-30
-function getPrevPeriodDates(period: PeriodKey): { since: string; until: string } {
-  const today = new Date();
-  const days = period === "7d" ? 7 : period === "30d" ? 30 : 90;
-  const until = format(subDays(today, days), "yyyy-MM-dd");
-  const since = format(subDays(today, days * 2 - 1), "yyyy-MM-dd");
-  return { since, until };
-}
 
 // ── Trend helpers ─────────────────────────────────────────────────────────────
 
@@ -475,8 +463,8 @@ interface FunnelBlockProps {
 }
 
 function FunnelBlock({ year, month, platformAccountId }: FunnelBlockProps) {
-  const [period, setPeriod] = useState<PeriodKey>("30d");
-  const { since, until } = useMemo(() => getPeriodDates(period), [period]);
+  const [period, setPeriod] = useState<PeriodKey>("month");
+  const { since, until } = useMemo(() => getTrafficPeriodDates(period, year, month), [period, year, month]);
   const { dashboard: data, isLoading } = useTrafegoMetrics(year, month, platformAccountId, since, until);
 
   const { steps, micros } = useMemo(() => {
@@ -987,13 +975,13 @@ interface Props {
 }
 
 export function DashboardTrafego({ year, month, platformAccountId }: Props) {
-  const [period, setPeriod] = useState<PeriodKey>("30d");
-  const [heroPeriod, setHeroPeriod] = useState<PeriodKey>("30d");
+  const [period, setPeriod] = useState<PeriodKey>("month");
+  const [heroPeriod, setHeroPeriod] = useState<PeriodKey>("month");
 
-  const { since, until } = useMemo(() => getPeriodDates(period), [period]);
-  const { since: heroSince, until: heroUntil } = useMemo(() => getPeriodDates(heroPeriod), [heroPeriod]);
+  const { since, until } = useMemo(() => getTrafficPeriodDates(period, year, month), [period, year, month]);
+  const { since: heroSince, until: heroUntil } = useMemo(() => getTrafficPeriodDates(heroPeriod, year, month), [heroPeriod, year, month]);
 
-  const { since: prevSince, until: prevUntil } = useMemo(() => getPrevPeriodDates(period), [period]);
+  const { since: prevSince, until: prevUntil } = useMemo(() => getPreviousTrafficPeriodDates(period, year, month), [period, year, month]);
 
   const { dashboard: data, isLoading } = useTrafegoMetrics(year, month, platformAccountId, since, until);
   const { dashboard: prevData }        = useTrafegoMetrics(year, month, platformAccountId, prevSince, prevUntil);

@@ -40,6 +40,21 @@ export function TrafficReportGenerator({ accounts, selectedAccountId, year, mont
     if (!clientId || !since || !until) return toast.error("Selecione o cliente e o período");
     setLoading(true);
     try {
+      const accountsToSync = accountId
+        ? clientAccounts.filter((account) => account.id === accountId)
+        : clientAccounts.filter((account) => account.status === "connected");
+      const syncResults = await Promise.all(accountsToSync.map(async (account) => {
+        const response = await fetch("/api/meta/sync", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ platformAccountId: account.id, since, until }),
+        });
+        const json = await response.json() as { error?: string };
+        return response.ok ? null : (json.error ?? `Falha ao atualizar ${account.account_name}`);
+      }));
+      const syncError = syncResults.find(Boolean);
+      if (syncError) throw new Error(`A Meta não pôde ser atualizada: ${syncError}`);
+
       const params = new URLSearchParams({ client_id: clientId, since, until });
       if (accountId) params.set("platform_account_id", accountId);
       const response = await fetch(`/api/trafego/report?${params}`);
@@ -65,7 +80,7 @@ export function TrafficReportGenerator({ accounts, selectedAccountId, year, mont
           <label><span className="mb-1.5 block text-xs font-medium">Conta de anúncios</span><select value={accountId} onChange={(event) => setAccountId(event.target.value)} className="lc-form-control crm-form-select"><option value="">Todas as contas do cliente</option>{clientAccounts.map((account) => <option key={account.id} value={account.id}>{account.account_name}</option>)}</select></label>
           <div className="grid grid-cols-2 gap-3"><label><span className="mb-1.5 flex items-center gap-1.5 text-xs font-medium"><CalendarDays size={13} />Início</span><input type="date" value={since} max={until || format(new Date(), "yyyy-MM-dd")} onChange={(event) => setSince(event.target.value)} className="lc-form-control" /></label><label><span className="mb-1.5 flex items-center gap-1.5 text-xs font-medium"><CalendarDays size={13} />Fim</span><input type="date" value={until} min={since} max={format(new Date(), "yyyy-MM-dd")} onChange={(event) => setUntil(event.target.value)} className="lc-form-control" /></label></div>
         </div>
-        <div className="mt-5 rounded-xl border border-sky-500/15 bg-sky-500/[.05] p-3 text-[11px] leading-5 text-[var(--muted-foreground)]">O PDF inclui capa Genesy, métricas em quadrantes, indicadores complementares, melhores campanhas e os criativos disponíveis na sincronização da Meta.</div>
+        <div className="mt-5 rounded-xl border border-sky-500/15 bg-sky-500/[.05] p-3 text-[11px] leading-5 text-[var(--muted-foreground)]">Antes de gerar, a plataforma atualiza na Meta somente a conta e o período selecionados. O PDF inclui capa Genesy, métricas, melhores campanhas e os criativos disponíveis.</div>
         <div className="mt-5 flex justify-end gap-2"><button type="button" disabled={loading} onClick={() => setOpen(false)} className="rounded-xl border px-4 py-2.5 text-xs">Cancelar</button><button type="button" disabled={loading || !clientId || !since || !until} onClick={() => void generate()} className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-[#4a8fd4] px-4 py-2.5 text-xs font-semibold text-white disabled:opacity-45">{loading ? <Loader2 size={14} className="animate-spin" /> : <FileDown size={14} />}{loading ? "Gerando PDF..." : "Gerar relatório"}</button></div>
       </motion.section>
     </motion.div>}</AnimatePresence>
