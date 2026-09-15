@@ -53,7 +53,7 @@ import { calculateCampaignRows, calculateSaleCommissions, calculateVgvCustomMetr
 import { privateFinancialValue, useFinancialPrivacyStore } from "@/store/financial-privacy";
 import { useAgencyClients } from "@/hooks/useAgencyClients";
 import { cn } from "@/lib/utils";
-import type { MarketingVgvCampaignPerformance, MarketingVgvCustomField, MarketingVgvForm, MarketingVgvSale, MarketingVgvSaleInput, MarketingVgvSyncedCampaign } from "@/types/marketing";
+import type { MarketingVgvCampaignPerformance, MarketingVgvCustomField, MarketingVgvForm, MarketingVgvSale, MarketingVgvSaleInput } from "@/types/marketing";
 
 const currency = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 const compactCurrency = new Intl.NumberFormat("pt-BR", {
@@ -101,7 +101,6 @@ export function MarketingVgvModule({ embedded = false }: { embedded?: boolean })
   const [periodMode, setPeriodMode] = useState<MarketingVgvPeriodMode>("month");
   const [sales, setSales] = useState<MarketingVgvSale[]>([]);
   const [performance, setPerformance] = useState<MarketingVgvCampaignPerformance[]>([]);
-  const [syncedCampaigns, setSyncedCampaigns] = useState<MarketingVgvSyncedCampaign[]>([]);
   const [forms, setForms] = useState<MarketingVgvForm[]>([]);
   const [activeView, setActiveView] = useState<"overview" | "sales" | "campaigns" | "forms">("overview");
   const [isLoading, setIsLoading] = useState(true);
@@ -127,16 +126,14 @@ export function MarketingVgvModule({ embedded = false }: { embedded?: boolean })
     setError(null);
     try {
       const params = new URLSearchParams({ start: rangeStart, end: rangeEnd });
-      const [salesData, performanceData, formsData, syncedData] = await Promise.all([
+      const [salesData, performanceData, formsData] = await Promise.all([
         request<{ sales: MarketingVgvSale[] }>(`/api/marketing/vgv?${params}`),
         request<{ performance: MarketingVgvCampaignPerformance[] }>(`/api/marketing/vgv/performance?${params}`),
         request<{ forms: MarketingVgvForm[] }>("/api/marketing/vgv/forms"),
-        request<{ campaigns: MarketingVgvSyncedCampaign[] }>(`/api/marketing/vgv/synced-campaigns?${params}`),
       ]);
       setSales(salesData.sales);
       setPerformance(performanceData.performance);
       setForms(formsData.forms);
-      setSyncedCampaigns(syncedData.campaigns);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "Erro ao carregar as vendas");
     } finally {
@@ -157,15 +154,11 @@ export function MarketingVgvModule({ embedded = false }: { embedded?: boolean })
   const analysisSales = useMemo(() => sales.filter((sale) => (selectedClientId === "all" || sale.agency_client_id === selectedClientId) && (selectedCampaignName === "all" || normalizeCampaignName(sale.campaign_name) === normalizeCampaignName(selectedCampaignName))), [sales, selectedCampaignName, selectedClientId]);
   const analysisPerformance = useMemo(() => {
     const clientManual = selectedClientId === "all" ? performance : performance.filter((row) => row.agency_client_id === selectedClientId);
-    const clientSynced = selectedClientId === "all" ? syncedCampaigns : syncedCampaigns.filter((row) => row.agency_client_id === selectedClientId);
     if (selectedCampaignName !== "all") {
-      const syncedMatch = clientSynced.filter((row) => normalizeCampaignName(row.campaign_name) === normalizeCampaignName(selectedCampaignName));
-      const source = syncedMatch.length ? syncedMatch : clientManual.filter((row) => normalizeCampaignName(row.campaign_name) === normalizeCampaignName(selectedCampaignName));
-      return source as MarketingVgvCampaignPerformance[];
+      return clientManual.filter((row) => normalizeCampaignName(row.campaign_name) === normalizeCampaignName(selectedCampaignName));
     }
-    const clientsWithSyncedData = new Set(clientSynced.map((row) => row.agency_client_id));
-    return [...clientSynced, ...clientManual.filter((row) => !clientsWithSyncedData.has(row.agency_client_id))] as MarketingVgvCampaignPerformance[];
-  }, [performance, selectedCampaignName, selectedClientId, syncedCampaigns]);
+    return clientManual;
+  }, [performance, selectedCampaignName, selectedClientId]);
   const metrics = useMemo(() => calculateVgvIntelligence(analysisSales, analysisPerformance), [analysisPerformance, analysisSales]);
   const campaignRows = useMemo(() => calculateCampaignRows(analysisSales, analysisPerformance), [analysisPerformance, analysisSales]);
   const customMetrics = useMemo(() => calculateVgvCustomMetrics(forms, analysisSales), [analysisSales, forms]);
@@ -281,7 +274,7 @@ export function MarketingVgvModule({ embedded = false }: { embedded?: boolean })
             <Field label="Campanhas cadastradas" id="vgv-campaign-filter">
               <select id="vgv-campaign-filter" value={selectedCampaignName} onChange={(event) => setSelectedCampaignName(event.target.value)} disabled={!registeredCampaignOptions.length} className="lc-form-control crm-form-select"><option value="all">Todas as campanhas do cliente</option>{registeredCampaignOptions.map((name) => <option key={name} value={name}>{name}</option>)}</select>
             </Field>
-            <p className="text-[11px] leading-5 text-[var(--muted-foreground)] sm:col-span-2">{selectedCampaignName !== "all" ? "Visão da campanha selecionada, usando os dados sincronizados da Meta quando o nome corresponde; caso contrário, usa o lançamento cadastrado." : selectedClientId !== "all" && syncedCampaigns.some((row) => row.agency_client_id === selectedClientId) ? "Visão geral do cliente com investimento e leads sincronizados da Meta Ads, cruzados com as vendas registradas." : "Visão consolidada com os dados disponíveis no período."}</p>
+            <p className="text-[11px] leading-5 text-[var(--muted-foreground)] sm:col-span-2">{selectedCampaignName !== "all" ? "Visão da campanha selecionada com investimento, leads e período cadastrados manualmente." : selectedClientId !== "all" ? "Visão geral do cliente cruzando as vendas com as campanhas cadastradas manualmente no período." : "Visão consolidada com os dados cadastrados manualmente no período."}</p>
           </section>
         </div>}
 
