@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminSupabaseClient } from "@/lib/supabase-admin";
 import { COMMERCIAL_LONG_TEXT_MIN_LENGTH, calculateCommercialScore, filterLeadGenerationDevelopments, isCommercialAnswerValid } from "@/lib/clientes/commercial-intelligence";
 import { commercialQuestionPath } from "@/lib/clientes/commercial-question-logic";
+import { notifyCommercialAnalysisResponse } from "@/lib/notifications/marketing-alerts";
 import type { CommercialDevelopment } from "@/types/commercial-intelligence";
 import type { FormStep, LogicRule } from "@/types";
 
@@ -56,7 +57,7 @@ export async function POST(request: NextRequest, context: Context) {
   if (!collection || collection.status !== "published") return NextResponse.json({ error: "Coleta encerrada" }, { status: 410 });
   const developments = await getEligibleDevelopments(supabase, collection);
   if (!developments.some((item) => item.name === body.development_name)) return NextResponse.json({ error: "Empreendimento inválido" }, { status: 400 });
-  const { data: broker } = await supabase.from("commercial_brokers").select("id").eq("id", body.broker_id).eq("client_id", collection.client_id).eq("is_active", true).maybeSingle();
+  const { data: broker } = await supabase.from("commercial_brokers").select("id,name").eq("id", body.broker_id).eq("client_id", collection.client_id).eq("is_active", true).maybeSingle();
   if (!broker) return NextResponse.json({ error: "Corretor inválido" }, { status: 400 });
 
   if (body.action === "skip") {
@@ -93,5 +94,20 @@ export async function POST(request: NextRequest, context: Context) {
   }, { onConflict: "collection_id,broker_id,development_name" }).select("id").single();
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
   await supabase.from("commercial_collection_skips").delete().eq("collection_id", collection.id).eq("broker_id", broker.id).eq("development_name", body.development_name);
+  const clientName = Array.isArray(collection.agency_clients)
+    ? collection.agency_clients[0]?.name
+    : (collection.agency_clients as { name?: string } | null)?.name;
+  try {
+    await notifyCommercialAnalysisResponse(supabase, {
+      ownerUserId: collection.user_id,
+      responseId: data.id,
+      brokerName: broker.name,
+      clientName: clientName ?? "Cliente",
+      clientId: collection.client_id,
+      developmentName: body.development_name,
+    });
+  } catch (notificationError) {
+    console.error("[commercial-collections] resposta salva, mas a notificação falhou", notificationError);
+  }
   return NextResponse.json({ response_id: data.id });
 }

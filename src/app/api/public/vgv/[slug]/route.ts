@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminSupabaseClient } from "@/lib/supabase-admin";
 import { normalizeVgvCustomFields } from "@/lib/marketing/vgv-intelligence";
+import { notifyVgvSale } from "@/lib/notifications/marketing-alerts";
 
 export const dynamic = "force-dynamic";
 
@@ -49,7 +50,7 @@ export async function POST(req: NextRequest, { params }: { params: { slug: strin
       } else customAnswers[field.id] = String(raw).trim().slice(0, 500);
     }
 
-    const { error } = await db.from("marketing_vgv_sales").insert({
+    const { data: sale, error } = await db.from("marketing_vgv_sales").insert({
       organization_id: form.organization_id,
       agency_client_id: form.agency_client_id,
       sale_value: Math.round(saleValue * 100) / 100,
@@ -66,8 +67,20 @@ export async function POST(req: NextRequest, { params }: { params: { slug: strin
       form_id: form.id,
       custom_answers: customAnswers,
       created_by: form.created_by,
-    });
+    }).select("id").single();
     if (error) throw error;
+    try {
+      await notifyVgvSale(db, {
+        ownerUserId: form.organization_id,
+        saleId: sale.id,
+        brokerName,
+        clientName: form.client?.name ?? "Cliente",
+        developmentName,
+        saleValue,
+      });
+    } catch (notificationError) {
+      console.error("[public/vgv] venda registrada, mas a notificação falhou", notificationError);
+    }
     return NextResponse.json({ success: true }, { status: 201 });
   } catch (error) {
     console.error("[public/vgv]", error);
