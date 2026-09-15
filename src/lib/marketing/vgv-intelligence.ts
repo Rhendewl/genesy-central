@@ -16,12 +16,18 @@ export function normalizeVgvCustomFields(value: unknown): MarketingVgvCustomFiel
   });
 }
 
+export function calculateSaleCommissions(sale: Pick<MarketingVgvSale, "sale_value" | "commission_percentage" | "include_agency_commission" | "agency_share_percentage">) {
+  const grossCommission = Number(sale.sale_value) * Number(sale.commission_percentage) / 100;
+  const genesyCommission = sale.include_agency_commission
+    ? grossCommission * Number(sale.agency_share_percentage) / 100
+    : 0;
+  return { grossCommission, genesyCommission };
+}
+
 export function calculateVgvIntelligence(sales: MarketingVgvSale[], performance: MarketingVgvCampaignPerformance[]) {
   const totalVgv = sales.reduce((sum, sale) => sum + Number(sale.sale_value), 0);
-  const grossCommission = sales.reduce((sum, sale) => sum + Number(sale.sale_value) * Number(sale.commission_percentage) / 100, 0);
-  const agencyCommission = sales.reduce((sum, sale) => sum + (sale.include_agency_commission
-    ? Number(sale.sale_value) * Number(sale.commission_percentage) / 100 * Number(sale.agency_share_percentage) / 100
-    : 0), 0);
+  const grossCommission = sales.reduce((sum, sale) => sum + calculateSaleCommissions(sale).grossCommission, 0);
+  const agencyCommission = sales.reduce((sum, sale) => sum + calculateSaleCommissions(sale).genesyCommission, 0);
   const spend = performance.reduce((sum, row) => sum + Number(row.spend), 0);
   const leads = performance.reduce((sum, row) => sum + Number(row.leads), 0);
   const count = sales.length;
@@ -52,7 +58,7 @@ export function calculateCampaignRows(sales: MarketingVgvSale[], performance: Ma
     const spend = campaignMedia.reduce((sum, row) => sum + row.spend, 0);
     const leads = campaignMedia.reduce((sum, row) => sum + row.leads, 0);
     const vgv = campaignSales.reduce((sum, sale) => sum + sale.sale_value, 0);
-    const grossCommission = campaignSales.reduce((sum, sale) => sum + sale.sale_value * sale.commission_percentage / 100, 0);
+    const grossCommission = campaignSales.reduce((sum, sale) => sum + calculateSaleCommissions(sale).grossCommission, 0);
     const salesCount = campaignSales.length;
     const campaignName = campaignMedia[0]?.campaign_name ?? campaignSales[0]?.campaign_name ?? normalizedCampaignName;
     return { key, clientId, clientName: campaignMedia[0]?.client_name ?? "Cliente", campaignName, spend, leads, sales: salesCount, vgv, grossCommission, cpl: leads ? spend / leads : 0, cac: salesCount ? spend / salesCount : 0, conversionRate: leads ? salesCount / leads * 100 : 0, roas: spend ? vgv / spend : 0, commercialRoi: spend ? (grossCommission - spend) / spend * 100 : 0 };

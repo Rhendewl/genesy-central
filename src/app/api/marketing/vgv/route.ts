@@ -49,6 +49,7 @@ export async function GET(req: NextRequest) {
       commission_percentage: Number(row.commission_percentage),
       agency_share_percentage: Number(row.agency_share_percentage ?? 100),
       custom_answers: row.custom_answers ?? {},
+      can_edit: context.isAdmin || row.created_by === context.user.id,
       can_delete: context.isAdmin || row.created_by === context.user.id,
     })) as MarketingVgvSale[];
     return NextResponse.json({ sales });
@@ -85,6 +86,7 @@ export async function POST(req: NextRequest) {
         commission_percentage: Number(data.commission_percentage),
         agency_share_percentage: Number(data.agency_share_percentage ?? 100),
         custom_answers: data.custom_answers ?? {},
+        can_edit: true,
         can_delete: true,
       },
     }, { status: 201 });

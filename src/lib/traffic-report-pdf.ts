@@ -9,14 +9,14 @@ const W = 108;
 const H = 192;
 const PAD = 8;
 const CW = W - PAD * 2;
-const INK: RGB = [16, 18, 20];
-const MUTED: RGB = [92, 96, 99];
-const LINE: RGB = [221, 218, 211];
-const SURFACE: RGB = [246, 244, 239];
-const NAVY: RGB = [30, 50, 63];
-const DEEP_NAVY: RGB = [19, 32, 40];
-const GOLD: RGB = [157, 126, 78];
-const IVORY: RGB = [251, 249, 244];
+const BLACK: RGB = [8, 9, 10];
+const WHITE: RGB = [255, 255, 255];
+const GRAY_DARK: RGB = [123, 135, 142];
+const GRAY_LIGHT: RGB = [175, 184, 192];
+const SURFACE: RGB = [241, 243, 244];
+const GOLD: RGB = [184, 145, 62];
+const SILVER: RGB = [154, 163, 171];
+const BRONZE: RGB = [166, 105, 63];
 
 const money = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 2 });
 const number = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 0 });
@@ -87,46 +87,46 @@ export function createTrafficReportPdf(data: TrafficReportData, assets: TrafficR
   const wrap = (value: unknown, width = CW) => pdf.splitTextToSize(clean(value), width) as string[];
   const addPage = () => { pdf.addPage([W, H], "portrait"); y = 8; };
   const header = (eyebrow: string, title: string) => {
-    pdf.addImage(assets.logoDark, "PNG", PAD, 7, 27, 5.9);
-    text(MUTED, 4.8, "bold"); pdf.text(clean(eyebrow).toUpperCase(), W - PAD, 10.8, { align: "right" });
-    pdf.setDrawColor(...LINE); pdf.line(PAD, 16, W - PAD, 16);
-    text(INK, 14, "bold"); pdf.text(wrap(title, CW), PAD, 25);
+    pdf.addImage(assets.logoDark, "PNG", PAD, 7, 29, 6.3);
+    text(BLACK, 5.7, "bold"); pdf.text(clean(eyebrow).toUpperCase(), W - PAD, 11.2, { align: "right" });
+    pdf.setDrawColor(...GRAY_LIGHT); pdf.setLineWidth(0.7); pdf.line(PAD, 16.5, W - PAD, 16.5);
+    text(BLACK, 14.5, "bold"); pdf.text(wrap(title, CW), PAD, 26);
     y = 34;
   };
   const section = (title: string, subtitle?: string) => {
-    text(INK, 9.5, "bold"); pdf.text(clean(title), PAD, y);
-    if (subtitle) { text(MUTED, 5.2); pdf.text(clean(subtitle), PAD, y + 4); y += 5; }
+    text(BLACK, 10.5, "bold"); pdf.text(clean(title), PAD, y);
+    if (subtitle) { text(BLACK, 6); pdf.text(clean(subtitle), PAD, y + 4.5); y += 5.5; }
     y += 6;
   };
 
   // Capa
-  pdf.setFillColor(11, 14, 16); pdf.rect(0, 0, W, H, "F");
-  pdf.setFillColor(20, 31, 37); pdf.circle(W + 8, 1, 55, "F");
-  pdf.setFillColor(15, 22, 26); pdf.circle(-8, H + 2, 52, "F");
+  pdf.setFillColor(...BLACK); pdf.rect(0, 0, W, H, "F");
+  pdf.setFillColor(...GRAY_DARK); pdf.roundedRect(W - 40, -10, 54, 62, 8, 8, "F");
+  pdf.setFillColor(25, 27, 29); pdf.roundedRect(-17, H - 47, 58, 62, 8, 8, "F");
   pdf.addImage(assets.logoLight, "PNG", PAD, 10, 29, 6.3);
-  text([166, 157, 143], 5.2, "bold"); pdf.text("RELATÓRIO EXECUTIVO", PAD, 62);
-  text([255, 255, 255], 22, "bold");
+  text(WHITE, 6.2, "bold"); pdf.text("RELATÓRIO EXECUTIVO", PAD, 62);
+  text(WHITE, 22, "bold");
   const coverTitle = wrap("Tráfego Pago", 78); pdf.text(coverTitle, PAD, 75);
-  text(GOLD, 12, "bold"); pdf.text(wrap(data.clientName, 88).slice(0, 2), PAD, 91);
-  text([190, 186, 178], 7); pdf.text(`${date(data.since)} a ${date(data.until)}`, PAD, 111);
-  if (data.accountName) { text([145, 148, 148], 5.7); pdf.text(wrap(data.accountName, 82), PAD, 119); }
-  pdf.setDrawColor(...GOLD); pdf.setLineWidth(1.1); pdf.line(PAD, 132, 34, 132);
-  text([137, 139, 137], 5.2); pdf.text("Performance de mídia, campanhas e criativos", PAD, 140);
-  text([91, 96, 97], 4.7); pdf.text(`Gerado em ${new Date(data.generatedAt).toLocaleDateString("pt-BR")}`, PAD, H - 10);
+  text(WHITE, 12, "bold"); pdf.text(wrap(data.clientName, 88).slice(0, 2), PAD, 91);
+  text(WHITE, 8); pdf.text(`${date(data.since)} a ${date(data.until)}`, PAD, 111);
+  if (data.accountName) { text(WHITE, 6.4); pdf.text(wrap(data.accountName, 82), PAD, 120); }
+  pdf.setDrawColor(...GRAY_LIGHT); pdf.setLineWidth(1.1); pdf.line(PAD, 133, 34, 133);
+  text(WHITE, 6); pdf.text("Performance de mídia, campanhas e criativos", PAD, 142);
+  text(WHITE, 5.5); pdf.text(`Gerado em ${new Date(data.generatedAt).toLocaleDateString("pt-BR")}`, PAD, H - 10);
 
   // Resumo em quadrantes
   addPage(); header("Performance do período", "Resumo executivo");
   const main = [
-    { label: "VALOR INVESTIDO", value: money.format(data.metrics.spend), fill: INK, color: [255, 255, 255] as RGB },
-    { label: "LEADS GERADOS", value: number.format(data.metrics.leads), fill: NAVY, color: [255, 255, 255] as RGB },
-    { label: "CUSTO POR LEAD", value: data.metrics.leads ? money.format(data.metrics.cpl) : "-", fill: DEEP_NAVY, color: [255, 255, 255] as RGB },
-    { label: "CTR (TAXA DE CLIQUES)", value: `${data.metrics.ctr.toFixed(2)}%`, fill: GOLD, color: [255, 255, 255] as RGB },
+    { label: "VALOR INVESTIDO", value: money.format(data.metrics.spend), fill: BLACK, color: WHITE },
+    { label: "LEADS GERADOS", value: number.format(data.metrics.leads), fill: GRAY_DARK, color: WHITE },
+    { label: "CUSTO POR LEAD", value: data.metrics.leads ? money.format(data.metrics.cpl) : "-", fill: GRAY_LIGHT, color: BLACK },
+    { label: "CTR (TAXA DE CLIQUES)", value: `${data.metrics.ctr.toFixed(2)}%`, fill: BLACK, color: WHITE },
   ];
   const boxW = (CW - 3) / 2; const boxH = 31;
   main.forEach((metric, index) => {
     const x = PAD + (index % 2) * (boxW + 3); const boxY = y + Math.floor(index / 2) * (boxH + 3);
-    pdf.setFillColor(...metric.fill); pdf.roundedRect(x, boxY, boxW, boxH, 3, 3, "F");
-    text(metric.color, 5, "bold"); pdf.text(metric.label, x + 4, boxY + 8);
+    pdf.setFillColor(...metric.fill); pdf.roundedRect(x, boxY, boxW, boxH, 2, 2, "F");
+    text(metric.color, 6.2, "bold"); pdf.text(metric.label, x + 4, boxY + 8);
     text(metric.color, metric.value.length > 14 ? 9.5 : 13, "bold"); pdf.text(metric.value, x + 4, boxY + 22);
   });
   y += 72;
@@ -139,31 +139,32 @@ export function createTrafficReportPdf(data: TrafficReportData, assets: TrafficR
   const smallW = (CW - 4) / 3;
   secondary.forEach(([label, value], index) => {
     const x = PAD + (index % 3) * (smallW + 2); const boxY = y + Math.floor(index / 3) * 20;
-    pdf.setFillColor(...SURFACE); pdf.setDrawColor(...LINE); pdf.roundedRect(x, boxY, smallW, 17, 2, 2, "FD");
-    text(MUTED, 4.4, "bold"); pdf.text(label, x + 3, boxY + 5);
-    text(INK, value.length > 12 ? 6.6 : 8.2, "bold"); pdf.text(value, x + 3, boxY + 12.2);
+    pdf.setFillColor(...SURFACE); pdf.setDrawColor(...GRAY_LIGHT); pdf.roundedRect(x, boxY, smallW, 18, 1.5, 1.5, "FD");
+    text(BLACK, 5.8, "bold"); pdf.text(label, x + 3, boxY + 5.5);
+    text(BLACK, value.length > 12 ? 7 : 8.6, "bold"); pdf.text(value, x + 3, boxY + 13);
   });
 
   // Campanhas
   addPage(); header("Ranking de performance", "Melhores campanhas");
-  if (!data.campaigns.length) { text(MUTED, 7); pdf.text("Nenhuma campanha com dados no período.", PAD, y); }
+  if (!data.campaigns.length) { text(BLACK, 7); pdf.text("Nenhuma campanha com dados no período.", PAD, y); }
   data.campaigns.slice(0, 6).forEach((campaign, index) => {
     const h = 22;
-    pdf.setFillColor(...(index === 0 ? IVORY : SURFACE)); pdf.setDrawColor(...(index === 0 ? [201, 188, 164] as RGB : LINE));
-    pdf.roundedRect(PAD, y, CW, h, 2.5, 2.5, "FD");
-    pdf.setFillColor(...(index === 0 ? GOLD : [205, 202, 195] as RGB)); pdf.circle(PAD + 5, y + 6, 2.6, "F");
-    text(index === 0 ? [255, 255, 255] : MUTED, 5.8, "bold"); pdf.text(String(index + 1), PAD + 5, y + 7.7, { align: "center" });
-    text(INK, 6.7, "bold"); pdf.text(wrap(campaign.name, 69).slice(0, 2), PAD + 10, y + 6);
-    text(NAVY, 6.2, "bold"); pdf.text(`${number.format(campaign.leads)} leads`, W - PAD - 3, y + 6, { align: "right" });
-    text(MUTED, 5.1); pdf.text(`${money.format(campaign.spend)}  |  CPL ${campaign.leads ? money.format(campaign.cpl) : "-"}  |  CTR ${campaign.ctr.toFixed(2)}%`, PAD + 10, y + 17);
+    pdf.setFillColor(...SURFACE); pdf.setDrawColor(...GRAY_LIGHT);
+    pdf.roundedRect(PAD, y, CW, h, 2, 2, "FD");
+    const podium = index === 0 ? GOLD : index === 1 ? SILVER : index === 2 ? BRONZE : GRAY_DARK;
+    pdf.setFillColor(...podium); pdf.roundedRect(PAD + 2.5, y + 2.5, 7, 7, 1.4, 1.4, "F");
+    text(index === 1 ? BLACK : WHITE, 6.2, "bold"); pdf.text(String(index + 1), PAD + 6, y + 7.45, { align: "center" });
+    text(BLACK, 7.2, "bold"); pdf.text(wrap(campaign.name, 67).slice(0, 2), PAD + 12, y + 6.5);
+    text(BLACK, 6.7, "bold"); pdf.text(`${number.format(campaign.leads)} leads`, W - PAD - 3, y + 6.5, { align: "right" });
+    text(BLACK, 6.2); pdf.text(`${money.format(campaign.spend)}  |  CPL ${campaign.leads ? money.format(campaign.cpl) : "-"}  |  CTR ${campaign.ctr.toFixed(2)}%`, PAD + 12, y + 17.5);
     y += h + 3;
   });
 
   // Criativos
-  const creatives = data.creatives.slice(0, 4);
+  const creatives = data.creatives;
   if (!creatives.length) {
     addPage(); header("Conteúdo visual", "Criativos em destaque");
-    text(MUTED, 7); pdf.text(wrap("As campanhas do período ainda não possuem miniaturas sincronizadas. Sincronize novamente a conta Meta para incluí-las no próximo relatório."), PAD, y);
+    text(BLACK, 7); pdf.text(wrap("As campanhas do período ainda não possuem miniaturas sincronizadas. Sincronize novamente a conta Meta para incluí-las no próximo relatório."), PAD, y);
   } else {
     creatives.forEach((creative, index) => {
       if (index % 2 === 0) { addPage(); header("Conteúdo visual", "Criativos em destaque"); }
@@ -174,8 +175,8 @@ export function createTrafficReportPdf(data: TrafficReportData, assets: TrafficR
 
   const pages = pdf.getNumberOfPages();
   for (let page = 2; page <= pages; page += 1) {
-    pdf.setPage(page); pdf.setDrawColor(...LINE); pdf.line(PAD, 183, W - PAD, 183);
-    text(MUTED, 4.5); pdf.text("GENESY · Relatório de tráfego pago", PAD, 188); pdf.text(`${page}/${pages}`, W - PAD, 188, { align: "right" });
+    pdf.setPage(page); pdf.setDrawColor(...GRAY_LIGHT); pdf.line(PAD, 183, W - PAD, 183);
+    text(BLACK, 5.3); pdf.text("GENESY · Relatório de tráfego pago", PAD, 188); pdf.text(`${page}/${pages}`, W - PAD, 188, { align: "right" });
   }
   return pdf;
 }
@@ -190,7 +191,7 @@ function drawCreative(
   wrap: (value: unknown, width?: number) => string[],
 ) {
   const imageH = 37;
-  pdf.setFillColor(...SURFACE); pdf.setDrawColor(...LINE); pdf.roundedRect(PAD, y, CW, 62, 3, 3, "FD");
+  pdf.setFillColor(...SURFACE); pdf.setDrawColor(...GRAY_LIGHT); pdf.roundedRect(PAD, y, CW, 62, 2, 2, "FD");
   if (creative.thumbnailDataUrl) {
     try {
       const boxX = PAD + 2; const boxY = y + 2; const boxW = CW - 4;
@@ -201,13 +202,19 @@ function drawCreative(
       const renderedH = imageRatio > boxRatio ? boxW / imageRatio : imageH;
       pdf.addImage(creative.thumbnailDataUrl, imageFormat(creative.thumbnailDataUrl), boxX + (boxW - imageW) / 2, boxY + (imageH - renderedH) / 2, imageW, renderedH, `creative-${creative.id}`, "FAST");
     }
-    catch { pdf.setFillColor(225, 230, 234); pdf.roundedRect(PAD + 2, y + 2, CW - 4, imageH, 2, 2, "F"); }
-  } else { pdf.setFillColor(225, 230, 234); pdf.roundedRect(PAD + 2, y + 2, CW - 4, imageH, 2, 2, "F"); }
-  pdf.setFillColor(...GOLD); pdf.circle(PAD + 7, y + 45, 3, "F");
-  setText([255, 255, 255], 6, "bold"); pdf.text(String(index + 1), PAD + 7, y + 47, { align: "center" });
-  setText(INK, 6.7, "bold"); pdf.text(wrap(creative.name, 67).slice(0, 2), PAD + 13, y + 44);
-  setText(NAVY, 6.2, "bold"); pdf.text(`${number.format(creative.leads)} leads`, W - PAD - 3, y + 45, { align: "right" });
-  setText(MUTED, 5); pdf.text(`${money.format(creative.spend)}  |  CPL ${creative.leads ? money.format(creative.cpl) : "-"}  |  CTR ${creative.ctr.toFixed(2)}%`, PAD + 13, y + 57);
+    catch { drawMissingThumbnail(pdf, y, setText); }
+  } else { drawMissingThumbnail(pdf, y, setText); }
+  const podium = index === 0 ? GOLD : index === 1 ? SILVER : index === 2 ? BRONZE : GRAY_DARK;
+  pdf.setFillColor(...podium); pdf.roundedRect(PAD + 3.5, y + 41.5, 7, 7, 1.4, 1.4, "F");
+  setText(index === 1 ? BLACK : WHITE, 6.2, "bold"); pdf.text(String(index + 1), PAD + 7, y + 46.45, { align: "center" });
+  setText(BLACK, 7.1, "bold"); pdf.text(wrap(creative.name, 65).slice(0, 2), PAD + 13, y + 44.5);
+  setText(BLACK, 6.7, "bold"); pdf.text(`${number.format(creative.leads)} leads`, W - PAD - 3, y + 45, { align: "right" });
+  setText(BLACK, 6.2); pdf.text(`${money.format(creative.spend)}  |  CPL ${creative.leads ? money.format(creative.cpl) : "-"}  |  CTR ${creative.ctr.toFixed(2)}%`, PAD + 13, y + 57.5);
+}
+
+function drawMissingThumbnail(pdf: jsPDF, y: number, setText: (color: RGB, size: number, style?: "normal" | "bold") => void) {
+  pdf.setFillColor(...GRAY_LIGHT); pdf.roundedRect(PAD + 2, y + 2, CW - 4, 37, 1.5, 1.5, "F");
+  setText(BLACK, 6, "bold"); pdf.text("MINIATURA INDISPONÍVEL", W / 2, y + 22, { align: "center" });
 }
 
 export async function saveTrafficReportPdf(data: TrafficReportData) {

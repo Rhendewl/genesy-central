@@ -86,7 +86,7 @@ export function parseMarketingVgvSaleInput(value: unknown): MarketingVgvSaleInpu
   if (!isValidSaleDate) throw new Error("Data da venda inválida");
 
   const agencyShare = body.agency_share_percentage === undefined ? 100 : Number(body.agency_share_percentage);
-  if (!Number.isFinite(agencyShare) || agencyShare < 0 || agencyShare > 100) throw new Error("A participação da agência deve estar entre 0% e 100%");
+  if (!Number.isFinite(agencyShare) || agencyShare < 0 || agencyShare > 100) throw new Error("A Comissão Genesy deve estar entre 0% e 100%");
   const customAnswers = body.custom_answers && typeof body.custom_answers === "object" && !Array.isArray(body.custom_answers)
     ? Object.fromEntries(Object.entries(body.custom_answers as Record<string, unknown>).slice(0, 30).flatMap(([key, answer]) => {
         const safeKey = cleanText(key, 80);

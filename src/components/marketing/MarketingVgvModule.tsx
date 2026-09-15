@@ -14,6 +14,7 @@ import {
   HandCoins,
   Link2,
   Megaphone,
+  Pencil,
   Plus,
   ReceiptText,
   Trash2,
@@ -48,7 +49,7 @@ import { Label } from "@/components/ui/label";
 import { MoneyInput } from "@/components/ui/MoneyInput";
 import { FinancialPrivacyButton } from "@/components/ui/FinancialPrivacyButton";
 import { getMarketingVgvPeriodRange, type MarketingVgvPeriodMode } from "@/lib/marketing/vgv-period";
-import { calculateCampaignRows, calculateVgvCustomMetrics, calculateVgvIntelligence } from "@/lib/marketing/vgv-intelligence";
+import { calculateCampaignRows, calculateSaleCommissions, calculateVgvCustomMetrics, calculateVgvIntelligence } from "@/lib/marketing/vgv-intelligence";
 import { privateFinancialValue, useFinancialPrivacyStore } from "@/store/financial-privacy";
 import { useAgencyClients } from "@/hooks/useAgencyClients";
 import { cn } from "@/lib/utils";
@@ -104,6 +105,7 @@ export function MarketingVgvModule({ embedded = false }: { embedded?: boolean })
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingSale, setEditingSale] = useState<MarketingVgvSale | null>(null);
   const [performanceDialogOpen, setPerformanceDialogOpen] = useState(false);
   const [formDialogOpen, setFormDialogOpen] = useState(false);
   const range = useMemo(() => getMarketingVgvPeriodRange(periodMode, period), [period, periodMode]);
@@ -257,7 +259,7 @@ export function MarketingVgvModule({ embedded = false }: { embedded?: boolean })
               <MetricCard label="Vendas registradas" value={metrics.count.toLocaleString("pt-BR")} icon={<ReceiptText />} accent="#27f2e6" />
               <MetricCard label="Ticket médio" value={formatCurrency(metrics.averageTicket)} icon={<CircleDollarSign />} accent="#a78bfa" />
               <MetricCard label="Comissão comercial gerada" value={formatCurrency(metrics.grossCommission)} icon={<HandCoins />} accent="#14b8a6" />
-              <MetricCard label="Comissão da agência" value={formatCurrency(metrics.agencyCommission)} icon={<HandCoins />} accent="#22c55e" />
+              <MetricCard label="Comissão Genesy" value={formatCurrency(metrics.agencyCommission)} icon={<HandCoins />} accent="#22c55e" />
               <MetricCard label="Investimento em mídia" value={formatCurrency(metrics.spend)} icon={<Megaphone />} accent="#f59e0b" />
               <MetricCard label="CPL" value={metrics.leads ? formatCurrency(metrics.cpl) : "—"} icon={<UsersRound />} accent="#38bdf8" />
               <MetricCard label="CAC" value={metrics.count && metrics.spend ? formatCurrency(metrics.cac) : "—"} icon={<CircleDollarSign />} accent="#fb7185" />
@@ -321,29 +323,39 @@ export function MarketingVgvModule({ embedded = false }: { embedded?: boolean })
                   <table className="w-full min-w-[980px] text-left text-sm">
                     <thead className="text-[11px] uppercase tracking-wide text-[var(--muted-foreground)]">
                       <tr>
-                        <th className="px-5 py-3 font-medium">Data</th>
-                        <th className="px-5 py-3 font-medium">Comprador</th>
                         <th className="px-5 py-3 font-medium">Corretor</th>
+                        <th className="px-5 py-3 font-medium">Comprador</th>
+                        <th className="px-5 py-3 font-medium">Data</th>
                         <th className="px-5 py-3 font-medium">Campanha</th>
                         <th className="px-5 py-3 text-right font-medium">Valor da venda</th>
                         <th className="px-5 py-3 text-right font-medium">Comissão comercial</th>
-                        <th className="px-5 py-3 text-right font-medium">Participação agência</th>
+                        <th className="px-5 py-3 text-right font-medium">Comissão Genesy</th>
                         <th className="w-14 px-3 py-3"><span className="sr-only">Ações</span></th>
                       </tr>
                     </thead>
                     <tbody>
                       {sales.map((sale) => (
                         <tr key={sale.id} className="border-t transition-colors hover:bg-[var(--hover)]" style={{ borderColor: "var(--border)" }}>
+                          <td className="px-5 py-3.5 font-medium">{sale.broker_name}</td>
+                          <td className="px-5 py-3.5 text-[var(--text-body)]">{sale.buyer_name || sale.client_name}</td>
                           <td className="whitespace-nowrap px-5 py-3.5 text-xs text-[var(--muted-foreground)]">{format(parseISO(sale.sale_date), "dd/MM/yyyy")}</td>
-                          <td className="px-5 py-3.5 font-medium">{sale.buyer_name || sale.client_name}</td>
-                          <td className="px-5 py-3.5 text-[var(--text-body)]">{sale.broker_name}</td>
                           <td className="max-w-[220px] truncate px-5 py-3.5 text-xs text-[var(--text-body)]">{sale.campaign_name || "—"}</td>
                           <td className="whitespace-nowrap px-5 py-3.5 text-right font-semibold">{formatCurrency(sale.sale_value)}</td>
-                          <td className="whitespace-nowrap px-5 py-3.5 text-right"><span className="block font-medium">{formatCurrency(sale.sale_value * sale.commission_percentage / 100)}</span><span className="text-[10px] text-[var(--muted-foreground)]">{sale.commission_percentage.toLocaleString("pt-BR")}% do VGV</span></td>
+                          <td className="whitespace-nowrap px-5 py-3.5 text-right"><span className="block font-medium">{formatCurrency(calculateSaleCommissions(sale).grossCommission)}</span><span className="text-[10px] text-[var(--muted-foreground)]">{sale.commission_percentage.toLocaleString("pt-BR")}% do VGV</span></td>
                           <td className="whitespace-nowrap px-5 py-3.5 text-right">
-                            <span className="text-xs text-[var(--muted-foreground)]">{sale.include_agency_commission ? formatCurrency(sale.sale_value * sale.commission_percentage / 100 * sale.agency_share_percentage / 100) : "Não incluída"}</span>
+                            <span className="block text-xs text-[var(--muted-foreground)]">{sale.include_agency_commission ? formatCurrency(calculateSaleCommissions(sale).genesyCommission) : "Não incluída"}</span>
+                            {sale.include_agency_commission && <span className="text-[10px] text-[var(--muted-foreground)]">{sale.agency_share_percentage.toLocaleString("pt-BR")}% da comissão</span>}
                           </td>
-                          <td className="px-3 py-3.5 text-right">
+                          <td className="px-3 py-3.5 text-right"><div className="flex justify-end gap-1">
+                            {sale.can_edit && (
+                              <button
+                                aria-label={`Editar venda de ${sale.client_name}`}
+                                onClick={() => { setEditingSale(sale); setDialogOpen(true); }}
+                                className="rounded-lg p-2 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--hover)] hover:text-[var(--text-title)]"
+                              >
+                                <Pencil size={15} />
+                              </button>
+                            )}
                             {sale.can_delete && (
                               <button
                                 aria-label={`Apagar venda de ${sale.client_name}`}
@@ -353,7 +365,7 @@ export function MarketingVgvModule({ embedded = false }: { embedded?: boolean })
                                 <Trash2 size={15} />
                               </button>
                             )}
-                          </td>
+                          </div></td>
                         </tr>
                       ))}
                     </tbody>
@@ -373,11 +385,13 @@ export function MarketingVgvModule({ embedded = false }: { embedded?: boolean })
 
       <SaleDialog
         open={dialogOpen}
-        onOpenChange={setDialogOpen}
+        onOpenChange={(nextOpen) => { setDialogOpen(nextOpen); if (!nextOpen) setEditingSale(null); }}
+        sale={editingSale}
         defaultDate={format(new Date(), "yyyy-MM-dd") >= rangeStart && format(new Date(), "yyyy-MM-dd") < rangeEnd ? format(new Date(), "yyyy-MM-dd") : rangeStart}
         onCreated={(sale) => {
           if (sale.sale_date >= rangeStart && sale.sale_date < rangeEnd) setSales((items) => [sale, ...items]);
         }}
+        onUpdated={(sale) => setSales((items) => sale.sale_date >= rangeStart && sale.sale_date < rangeEnd ? items.map((item) => item.id === sale.id ? sale : item) : items.filter((item) => item.id !== sale.id))}
         clients={assignableClients}
       />
       <PerformanceDialog open={performanceDialogOpen} onOpenChange={setPerformanceDialogOpen} clients={assignableClients} defaultStart={rangeStart} defaultEnd={format(subDays(range.end, 1), "yyyy-MM-dd")} onCreated={(row) => setPerformance((items) => [row, ...items])} />
@@ -386,12 +400,14 @@ export function MarketingVgvModule({ embedded = false }: { embedded?: boolean })
   );
 }
 
-function SaleDialog({ open, onOpenChange, defaultDate, onCreated, clients }: {
+function SaleDialog({ open, onOpenChange, defaultDate, onCreated, onUpdated, clients, sale }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   defaultDate: string;
   onCreated: (sale: MarketingVgvSale) => void;
+  onUpdated: (sale: MarketingVgvSale) => void;
   clients: Array<{ id: string; name: string }>;
+  sale: MarketingVgvSale | null;
 }) {
   const [form, setForm] = useState<MarketingVgvSaleInput>({
     sale_value: 0,
@@ -409,21 +425,34 @@ function SaleDialog({ open, onOpenChange, defaultDate, onCreated, clients }: {
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
-    if (open) setForm({ sale_value: 0, broker_name: "", client_name: "", commission_percentage: 0, sale_date: defaultDate, agency_client_id: null, buyer_name: "", campaign_name: "", development_name: "", include_agency_commission: true, agency_share_percentage: 100 });
-  }, [defaultDate, open]);
+    if (open) setForm(sale ? {
+      sale_value: sale.sale_value,
+      broker_name: sale.broker_name,
+      client_name: sale.client_name,
+      commission_percentage: sale.commission_percentage,
+      sale_date: sale.sale_date,
+      agency_client_id: sale.agency_client_id,
+      buyer_name: sale.buyer_name ?? sale.client_name,
+      campaign_name: sale.campaign_name ?? "",
+      development_name: sale.development_name ?? "",
+      include_agency_commission: sale.include_agency_commission,
+      agency_share_percentage: sale.agency_share_percentage,
+      custom_answers: sale.custom_answers,
+    } : { sale_value: 0, broker_name: "", client_name: "", commission_percentage: 0, sale_date: defaultDate, agency_client_id: null, buyer_name: "", campaign_name: "", development_name: "", include_agency_commission: true, agency_share_percentage: 100 });
+  }, [defaultDate, open, sale]);
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
     setIsSaving(true);
     try {
-      const data = await request<{ sale: MarketingVgvSale }>("/api/marketing/vgv", {
-        method: "POST",
+      const data = await request<{ sale: MarketingVgvSale }>(sale ? `/api/marketing/vgv/${sale.id}` : "/api/marketing/vgv", {
+        method: sale ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
       });
-      onCreated(data.sale);
+      if (sale) onUpdated(data.sale); else onCreated(data.sale);
       onOpenChange(false);
-      toast.success("Venda registrada");
+      toast.success(sale ? "Venda atualizada" : "Venda registrada");
     } catch (saveError) {
       toast.error(saveError instanceof Error ? saveError.message : "Erro ao registrar a venda");
     } finally {
@@ -436,8 +465,8 @@ function SaleDialog({ open, onOpenChange, defaultDate, onCreated, clients }: {
       <DialogContent className="sm:max-w-lg">
         <form onSubmit={submit}>
           <DialogHeader>
-            <DialogTitle>Registrar venda</DialogTitle>
-            <DialogDescription>Adicione uma venda atribuída ao trabalho de marketing.</DialogDescription>
+            <DialogTitle>{sale ? "Editar venda" : "Registrar venda"}</DialogTitle>
+            <DialogDescription>{sale ? "Atualize os dados comerciais, campanha e percentuais desta venda." : "Adicione uma venda atribuída ao trabalho de marketing."}</DialogDescription>
           </DialogHeader>
           <div className="mt-5 grid gap-4 sm:grid-cols-2">
             <Field label="Cliente da agência" id="vgv-agency-client" className="sm:col-span-2">
@@ -480,12 +509,12 @@ function SaleDialog({ open, onOpenChange, defaultDate, onCreated, clients }: {
                 </p>
               )}
             </Field>
-            <label className="flex items-center justify-between gap-3 rounded-xl border p-3 text-xs sm:col-span-2" style={{ borderColor: "var(--glass-border)" }}><span><strong className="block text-[var(--text-title)]">Incluir minha participação</strong><span className="text-[10px] text-[var(--muted-foreground)]">Calcula a parcela da agência sobre a comissão do cliente.</span></span><input type="checkbox" checked={form.include_agency_commission ?? false} onChange={(event) => setForm((current) => ({ ...current, include_agency_commission: event.target.checked }))} /></label>
-            {form.include_agency_commission && <Field label="Participação sobre a comissão (%)" id="vgv-agency-share" className="sm:col-span-2"><Input id="vgv-agency-share" type="number" min="0" max="100" step="0.01" value={form.agency_share_percentage ?? 0} onChange={(event) => setForm((current) => ({ ...current, agency_share_percentage: Number(event.target.value) }))} /></Field>}
+            <label className="flex items-center justify-between gap-3 rounded-xl border p-3 text-xs sm:col-span-2" style={{ borderColor: "var(--glass-border)" }}><span><strong className="block text-[var(--text-title)]">Incluir Comissão Genesy</strong><span className="text-[10px] text-[var(--muted-foreground)]">Calcula a parcela da Genesy sobre a comissão comercial.</span></span><input type="checkbox" checked={form.include_agency_commission ?? false} onChange={(event) => setForm((current) => ({ ...current, include_agency_commission: event.target.checked }))} /></label>
+            {form.include_agency_commission && <Field label="Comissão Genesy sobre a comissão comercial (%)" id="vgv-agency-share" className="sm:col-span-2"><Input id="vgv-agency-share" type="number" min="0" max="100" step="0.01" value={form.agency_share_percentage ?? 0} onChange={(event) => setForm((current) => ({ ...current, agency_share_percentage: Number(event.target.value) }))} /></Field>}
           </div>
           <DialogFooter className="mt-5">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-            <Button type="submit" loading={isSaving} loadingLabel="Salvando">Registrar venda</Button>
+            <Button type="submit" loading={isSaving} loadingLabel="Salvando">{sale ? "Salvar alterações" : "Registrar venda"}</Button>
           </DialogFooter>
         </form>
       </DialogContent>
@@ -521,7 +550,7 @@ function PerformanceDialog({ open, onOpenChange, clients, defaultStart, defaultE
 
 function VgvFormsSection({ forms, onCreate, onToggle }: { forms: MarketingVgvForm[]; onCreate: () => void; onToggle: (form: MarketingVgvForm) => Promise<void> }) {
   const copy = async (slug: string) => { const url = `${window.location.origin}/venda/${slug}`; await navigator.clipboard.writeText(url); toast.success("Link copiado"); };
-  return <section><div className="mb-4 flex flex-col gap-3 rounded-2xl border p-5 sm:flex-row sm:items-center sm:justify-between" style={{ background: "var(--glass-bg-soft)", borderColor: "var(--glass-border)" }}><div><h2 className="text-sm font-semibold">Formulários de registro de venda</h2><p className="mt-1 text-xs text-[var(--muted-foreground)]">Cada link já identifica o cliente. Regras de comissão permanecem privadas.</p></div><Button onClick={onCreate} icon={<Plus />} signature>Novo formulário</Button></div>{forms.length ? <div className="grid gap-3 md:grid-cols-2">{forms.map((form) => <article key={form.id} className="rounded-2xl border p-4" style={{ background: "var(--glass-bg-soft)", borderColor: "var(--glass-border)" }}><div className="flex items-start gap-3"><span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-sky-500/10 text-sky-400"><Link2 size={17} /></span><div className="min-w-0 flex-1"><h3 className="truncate text-sm font-semibold">{form.name}</h3><p className="mt-1 text-[10px] text-[var(--muted-foreground)]">{form.client_name} · {form.custom_fields.length} pergunta(s) extra(s)</p></div><span className={cn("rounded-full px-2 py-1 text-[9px]", form.status === "active" ? "bg-emerald-500/10 text-emerald-400" : "bg-amber-500/10 text-amber-400")}>{form.status === "active" ? "Ativo" : "Pausado"}</span></div><div className="mt-4 rounded-xl border p-3 text-[10px] text-[var(--muted-foreground)]" style={{ borderColor: "var(--border)" }}>Configuração privada: comissão-base {form.default_commission_percentage}%{form.include_agency_commission ? ` · participação da agência ${form.agency_share_percentage}%` : " · sem participação da agência"}</div><div className="mt-3 grid grid-cols-3 gap-2"><button onClick={() => void copy(form.slug)} className="flex items-center justify-center gap-1 rounded-xl border px-2 py-2 text-xs"><Copy size={13} />Copiar</button><a href={`/venda/${form.slug}`} target="_blank" className="flex items-center justify-center gap-1 rounded-xl border px-2 py-2 text-xs"><ExternalLink size={13} />Abrir</a><button onClick={() => void onToggle(form)} className="rounded-xl border px-2 py-2 text-xs">{form.status === "active" ? "Pausar" : "Ativar"}</button></div></article>)}</div> : <MarketingEmptyState title="Nenhum formulário de venda" description="Crie um link vinculado ao cliente para receber vendas automaticamente." action={<Button onClick={onCreate} icon={<Plus />}>Criar formulário</Button>} />}</section>;
+  return <section><div className="mb-4 flex flex-col gap-3 rounded-2xl border p-5 sm:flex-row sm:items-center sm:justify-between" style={{ background: "var(--glass-bg-soft)", borderColor: "var(--glass-border)" }}><div><h2 className="text-sm font-semibold">Formulários de registro de venda</h2><p className="mt-1 text-xs text-[var(--muted-foreground)]">Cada link já identifica o cliente. Regras de comissão permanecem privadas.</p></div><Button onClick={onCreate} icon={<Plus />} signature>Novo formulário</Button></div>{forms.length ? <div className="grid gap-3 md:grid-cols-2">{forms.map((form) => <article key={form.id} className="rounded-2xl border p-4" style={{ background: "var(--glass-bg-soft)", borderColor: "var(--glass-border)" }}><div className="flex items-start gap-3"><span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-sky-500/10 text-sky-400"><Link2 size={17} /></span><div className="min-w-0 flex-1"><h3 className="truncate text-sm font-semibold">{form.name}</h3><p className="mt-1 text-[10px] text-[var(--muted-foreground)]">{form.client_name} · {form.custom_fields.length} pergunta(s) extra(s)</p></div><span className={cn("rounded-full px-2 py-1 text-[9px]", form.status === "active" ? "bg-emerald-500/10 text-emerald-400" : "bg-amber-500/10 text-amber-400")}>{form.status === "active" ? "Ativo" : "Pausado"}</span></div><div className="mt-4 rounded-xl border p-3 text-[10px] text-[var(--muted-foreground)]" style={{ borderColor: "var(--border)" }}>Configuração privada: comissão-base {form.default_commission_percentage}%{form.include_agency_commission ? ` · Comissão Genesy ${form.agency_share_percentage}%` : " · sem Comissão Genesy"}</div><div className="mt-3 grid grid-cols-3 gap-2"><button onClick={() => void copy(form.slug)} className="flex items-center justify-center gap-1 rounded-xl border px-2 py-2 text-xs"><Copy size={13} />Copiar</button><a href={`/venda/${form.slug}`} target="_blank" className="flex items-center justify-center gap-1 rounded-xl border px-2 py-2 text-xs"><ExternalLink size={13} />Abrir</a><button onClick={() => void onToggle(form)} className="rounded-xl border px-2 py-2 text-xs">{form.status === "active" ? "Pausar" : "Ativar"}</button></div></article>)}</div> : <MarketingEmptyState title="Nenhum formulário de venda" description="Crie um link vinculado ao cliente para receber vendas automaticamente." action={<Button onClick={onCreate} icon={<Plus />}>Criar formulário</Button>} />}</section>;
 }
 
 function VgvFormDialog({ open, onOpenChange, clients, onCreated }: { open: boolean; onOpenChange: (open: boolean) => void; clients: Array<{ id: string; name: string }>; onCreated: (form: MarketingVgvForm) => void }) {
@@ -529,7 +558,7 @@ function VgvFormDialog({ open, onOpenChange, clients, onCreated }: { open: boole
   useEffect(() => { if (open) { setClientId(""); setName(""); setCommission(0); setIncludeShare(false); setShare(0); setFields([]); } }, [open]);
   const addField = () => setFields((items) => [...items, { id: `campo_${Date.now()}`, label: "", type: "text", required: false, include_in_dashboard: false }]);
   async function submit(event: React.FormEvent) { event.preventDefault(); setSaving(true); try { const data = await request<{ form: MarketingVgvForm }>("/api/marketing/vgv/forms", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ agency_client_id: clientId, name, default_commission_percentage: commission, include_agency_commission: includeShare, agency_share_percentage: share, custom_fields: fields }) }); onCreated(data.form); onOpenChange(false); toast.success("Formulário criado e vinculado ao cliente"); } catch (error) { toast.error(error instanceof Error ? error.message : "Erro ao criar formulário"); } finally { setSaving(false); } }
-  return <Dialog open={open} onOpenChange={onOpenChange}><DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-2xl"><form onSubmit={submit}><DialogHeader><DialogTitle>Novo formulário de venda</DialogTitle><DialogDescription>O cliente selecionado e as regras financeiras ficam vinculados internamente ao link.</DialogDescription></DialogHeader><div className="mt-5 grid gap-4 sm:grid-cols-2"><Field label="Cliente" id="form-client"><select id="form-client" required value={clientId} onChange={(event) => setClientId(event.target.value)} className="lc-form-control crm-form-select"><option value="">Selecionar cliente</option>{clients.map((client) => <option key={client.id} value={client.id}>{client.name}</option>)}</select></Field><Field label="Nome do formulário" id="form-name"><Input id="form-name" placeholder="Registro de venda" value={name} onChange={(event) => setName(event.target.value)} /></Field><Field label="Comissão do cliente sobre a venda (%)" id="form-commission"><Input id="form-commission" type="number" min="0" max="100" step="0.01" value={commission} onChange={(event) => setCommission(Number(event.target.value))} /></Field><label className="flex items-center justify-between rounded-xl border p-3 text-xs" style={{ borderColor: "var(--glass-border)" }}><span><strong className="block">Incluir minha participação</strong><span className="text-[10px] text-[var(--muted-foreground)]">Informação privada</span></span><input type="checkbox" checked={includeShare} onChange={(event) => setIncludeShare(event.target.checked)} /></label>{includeShare && <Field label="Minha participação sobre a comissão (%)" id="form-share" className="sm:col-span-2"><Input id="form-share" type="number" min="0" max="100" step="0.01" value={share} onChange={(event) => setShare(Number(event.target.value))} /></Field>}</div><div className="mt-6"><div className="flex items-center justify-between"><div><h3 className="text-xs font-semibold">Perguntas adicionais</h3><p className="text-[10px] text-[var(--muted-foreground)]">As perguntas essenciais já estão incluídas.</p></div><Button type="button" size="sm" variant="outline" onClick={addField} icon={<Plus />}>Adicionar</Button></div><div className="mt-3 space-y-2">{fields.map((field, index) => <div key={field.id} className="grid gap-2 rounded-xl border p-3 sm:grid-cols-[1fr_120px_auto]" style={{ borderColor: "var(--glass-border)" }}><Input aria-label={`Pergunta extra ${index + 1}`} required placeholder="Ex.: Renda familiar" value={field.label} onChange={(event) => setFields((items) => items.map((item) => item.id === field.id ? { ...item, label: event.target.value } : item))} /><select value={field.type} onChange={(event) => setFields((items) => items.map((item) => item.id === field.id ? { ...item, type: event.target.value as "text" | "number", include_in_dashboard: event.target.value === "number" && item.include_in_dashboard } : item))} className="lc-form-control crm-form-select"><option value="text">Texto</option><option value="number">Número</option></select><button type="button" onClick={() => setFields((items) => items.filter((item) => item.id !== field.id))} className="p-2 text-red-400"><Trash2 size={15} /></button><label className="text-[10px]"><input type="checkbox" checked={field.required} onChange={(event) => setFields((items) => items.map((item) => item.id === field.id ? { ...item, required: event.target.checked } : item))} /> Obrigatória</label>{field.type === "number" && <label className="text-[10px]"><input type="checkbox" checked={field.include_in_dashboard} onChange={(event) => setFields((items) => items.map((item) => item.id === field.id ? { ...item, include_in_dashboard: event.target.checked } : item))} /> Incluir no dashboard</label>}</div>)}</div></div><DialogFooter className="mt-6"><Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button><Button type="submit" loading={saving}>Criar formulário</Button></DialogFooter></form></DialogContent></Dialog>;
+  return <Dialog open={open} onOpenChange={onOpenChange}><DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-2xl"><form onSubmit={submit}><DialogHeader><DialogTitle>Novo formulário de venda</DialogTitle><DialogDescription>O cliente selecionado e as regras financeiras ficam vinculados internamente ao link.</DialogDescription></DialogHeader><div className="mt-5 grid gap-4 sm:grid-cols-2"><Field label="Cliente" id="form-client"><select id="form-client" required value={clientId} onChange={(event) => setClientId(event.target.value)} className="lc-form-control crm-form-select"><option value="">Selecionar cliente</option>{clients.map((client) => <option key={client.id} value={client.id}>{client.name}</option>)}</select></Field><Field label="Nome do formulário" id="form-name"><Input id="form-name" placeholder="Registro de venda" value={name} onChange={(event) => setName(event.target.value)} /></Field><Field label="Comissão do cliente sobre a venda (%)" id="form-commission"><Input id="form-commission" type="number" min="0" max="100" step="0.01" value={commission} onChange={(event) => setCommission(Number(event.target.value))} /></Field><label className="flex items-center justify-between rounded-xl border p-3 text-xs" style={{ borderColor: "var(--glass-border)" }}><span><strong className="block">Incluir Comissão Genesy</strong><span className="text-[10px] text-[var(--muted-foreground)]">Informação privada</span></span><input type="checkbox" checked={includeShare} onChange={(event) => setIncludeShare(event.target.checked)} /></label>{includeShare && <Field label="Comissão Genesy sobre a comissão comercial (%)" id="form-share" className="sm:col-span-2"><Input id="form-share" type="number" min="0" max="100" step="0.01" value={share} onChange={(event) => setShare(Number(event.target.value))} /></Field>}</div><div className="mt-6"><div className="flex items-center justify-between"><div><h3 className="text-xs font-semibold">Perguntas adicionais</h3><p className="text-[10px] text-[var(--muted-foreground)]">As perguntas essenciais já estão incluídas.</p></div><Button type="button" size="sm" variant="outline" onClick={addField} icon={<Plus />}>Adicionar</Button></div><div className="mt-3 space-y-2">{fields.map((field, index) => <div key={field.id} className="grid gap-2 rounded-xl border p-3 sm:grid-cols-[1fr_120px_auto]" style={{ borderColor: "var(--glass-border)" }}><Input aria-label={`Pergunta extra ${index + 1}`} required placeholder="Ex.: Renda familiar" value={field.label} onChange={(event) => setFields((items) => items.map((item) => item.id === field.id ? { ...item, label: event.target.value } : item))} /><select value={field.type} onChange={(event) => setFields((items) => items.map((item) => item.id === field.id ? { ...item, type: event.target.value as "text" | "number", include_in_dashboard: event.target.value === "number" && item.include_in_dashboard } : item))} className="lc-form-control crm-form-select"><option value="text">Texto</option><option value="number">Número</option></select><button type="button" onClick={() => setFields((items) => items.filter((item) => item.id !== field.id))} className="p-2 text-red-400"><Trash2 size={15} /></button><label className="text-[10px]"><input type="checkbox" checked={field.required} onChange={(event) => setFields((items) => items.map((item) => item.id === field.id ? { ...item, required: event.target.checked } : item))} /> Obrigatória</label>{field.type === "number" && <label className="text-[10px]"><input type="checkbox" checked={field.include_in_dashboard} onChange={(event) => setFields((items) => items.map((item) => item.id === field.id ? { ...item, include_in_dashboard: event.target.checked } : item))} /> Incluir no dashboard</label>}</div>)}</div></div><DialogFooter className="mt-6"><Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button><Button type="submit" loading={saving}>Criar formulário</Button></DialogFooter></form></DialogContent></Dialog>;
 }
 
 function Field({ label, id, className = "", children }: { label: string; id: string; className?: string; children: ReactNode }) {

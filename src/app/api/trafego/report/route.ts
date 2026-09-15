@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import sharp from "sharp";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { aggregateTrafficReport, type TrafficReportCampaignRow, type TrafficReportMetricRow } from "@/lib/traffic-report";
 
@@ -20,15 +21,20 @@ function allowedImageHost(value: string) {
 async function imageDataUrl(value?: string | null) {
   if (!value || !allowedImageHost(value)) return null;
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 4500);
+  const timer = setTimeout(() => controller.abort(), 9000);
   try {
-    const response = await fetch(value, { signal: controller.signal });
+    const response = await fetch(value, { signal: controller.signal, headers: { Accept: "image/avif,image/webp,image/png,image/jpeg,*/*", "User-Agent": "Genesy-Report/1.0" } });
     const type = response.headers.get("content-type")?.split(";")[0] ?? "";
     const length = Number(response.headers.get("content-length") ?? 0);
-    if (!response.ok || !["image/jpeg", "image/png", "image/webp"].includes(type) || length > 4_000_000) return null;
+    if (!response.ok || (type && !type.startsWith("image/")) || type === "image/svg+xml" || length > 8_000_000) return null;
     const bytes = Buffer.from(await response.arrayBuffer());
-    if (bytes.length > 4_000_000) return null;
-    return `data:${type};base64,${bytes.toString("base64")}`;
+    if (bytes.length > 8_000_000) return null;
+    const normalized = await sharp(bytes, { failOn: "none", animated: false })
+      .rotate()
+      .resize({ width: 1400, height: 1400, fit: "inside", withoutEnlargement: true })
+      .jpeg({ quality: 84, mozjpeg: true })
+      .toBuffer();
+    return `data:image/jpeg;base64,${normalized.toString("base64")}`;
   } catch {
     return null;
   } finally {

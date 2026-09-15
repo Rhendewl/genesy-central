@@ -21,4 +21,21 @@ describe("traffic report", () => {
   it("creates a safe stable filename", () => {
     expect(trafficReportFilename("Gênese Imóveis", "2026-09-01", "2026-09-10")).toBe("relatorio-trafego-pago-genese-imoveis-2026-09-01-a-2026-09-10.pdf");
   });
+
+  it("preserva campanhas diferentes mesmo quando compartilham a mesma miniatura", () => {
+    const report = aggregateTrafficReport({
+      clientName: "Cliente",
+      since: "2026-09-01",
+      until: "2026-09-30",
+      campaigns: [
+        { id: "a", name: "A", status: "ativa", thumbnail_url: "https://scontent.fbcdn.net/shared.jpg" },
+        { id: "b", name: "B", status: "ativa", thumbnail_url: "https://scontent.fbcdn.net/shared.jpg" },
+      ],
+      metrics: [
+        { campaign_id: "a", spend: 100, leads: 5, impressions: 1000, reach: 900, clicks: 20, conversions: 1 },
+        { campaign_id: "b", spend: 90, leads: 4, impressions: 900, reach: 800, clicks: 18, conversions: 1 },
+      ],
+    });
+    expect(report.creatives.map((campaign) => campaign.id)).toEqual(["a", "b"]);
+  });
 });

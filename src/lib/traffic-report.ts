@@ -66,12 +66,7 @@ export function aggregateTrafficReport(params: {
       thumbnailDataUrl: campaign?.thumbnail_url ?? null,
     };
   }).sort((a, b) => b.leads - a.leads || (a.cpl || Number.MAX_SAFE_INTEGER) - (b.cpl || Number.MAX_SAFE_INTEGER) || b.ctr - a.ctr);
-  const creativeThumbnails = new Set<string>();
-  const creatives = campaignSummaries.filter((campaign) => {
-    if (!campaign.thumbnailDataUrl || creativeThumbnails.has(campaign.thumbnailDataUrl)) return false;
-    creativeThumbnails.add(campaign.thumbnailDataUrl);
-    return true;
-  }).slice(0, 4);
+  const creatives = campaignSummaries.filter((campaign) => campaign.thumbnailDataUrl).slice(0, 8);
 
   return {
     clientName: params.clientName,
