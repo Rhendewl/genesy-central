@@ -7,7 +7,7 @@ describe("VGV intelligence", () => {
       { sale_value: 500000, commission_percentage: 5, agency_share_percentage: 20, include_agency_commission: true },
       { sale_value: 300000, commission_percentage: 5, agency_share_percentage: 20, include_agency_commission: false },
     ] as never, [{ spend: 4000, leads: 80 }] as never);
-    expect(result).toMatchObject({ totalVgv: 800000, grossCommission: 40000, agencyCommission: 5000, spend: 4000, leads: 80, cpl: 50, cac: 2000, conversionRate: 2.5, roas: 200, commercialRoi: 900 });
+    expect(result).toMatchObject({ totalVgv: 800000, grossCommission: 40000, agencyCommission: 5000, spend: 4000, leads: 80, cpl: 50, cac: 2000, conversionRate: 2.5, roas: 200, commercialRoas: 10 });
   });
 
   it("aplica a porcentagem da Comissão Genesy sobre a comissão comercial", () => {
@@ -22,13 +22,13 @@ describe("VGV intelligence", () => {
     ]);
   });
 
-  it("calcula o ROI por campanha sobre a comissão bruta e tolera diferenças de caixa", () => {
+  it("calcula o ROAS por campanha sobre a comissão bruta e tolera diferenças de caixa", () => {
     const rows = calculateCampaignRows([
       { agency_client_id: "client-1", campaign_name: "Campanha Verão", sale_value: 500000, commission_percentage: 5 },
     ] as never, [
       { agency_client_id: "client-1", campaign_name: " campanha verão ", client_name: "Cliente", spend: 5000, leads: 50 },
     ] as never);
-    expect(rows[0]).toMatchObject({ grossCommission: 25000, commercialRoi: 400, cpl: 100, cac: 5000, conversionRate: 2, roas: 100 });
+    expect(rows[0]).toMatchObject({ grossCommission: 25000, commercialRoas: 5, cpl: 100, cac: 5000, conversionRate: 2, roas: 100 });
   });
 
   it("não cria campanha a partir do texto livre informado pelo cliente", () => {
@@ -47,7 +47,7 @@ describe("VGV intelligence", () => {
       { agency_client_id: "client-1", campaign_name: " campanha verão " },
     ] as never);
     expect(related).toEqual([registered[0]]);
-    expect(calculateVgvIntelligence([{ sale_value: 500000, commission_percentage: 5 }] as never, related)).toMatchObject({ spend: 2500, leads: 50, cpl: 50, cac: 2500, conversionRate: 2, roas: 200, commercialRoi: 900 });
+    expect(calculateVgvIntelligence([{ sale_value: 500000, commission_percentage: 5 }] as never, related)).toMatchObject({ spend: 2500, leads: 50, cpl: 50, cac: 2500, conversionRate: 2, roas: 200, commercialRoas: 10 });
   });
 
   it("soma campos numéricos configurados para o dashboard", () => {

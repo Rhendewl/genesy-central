@@ -43,7 +43,7 @@ export function calculateVgvIntelligence(sales: MarketingVgvSale[], performance:
     cac: count ? spend / count : 0,
     conversionRate: leads ? count / leads * 100 : 0,
     roas: spend ? totalVgv / spend : 0,
-    commercialRoi: spend ? (grossCommission - spend) / spend * 100 : 0,
+    commercialRoas: spend ? grossCommission / spend : 0,
   };
 }
 
@@ -78,7 +78,7 @@ export function calculateCampaignRows(sales: MarketingVgvSale[], performance: Ma
     const grossCommission = campaignSales.reduce((sum, sale) => sum + calculateSaleCommissions(sale).grossCommission, 0);
     const salesCount = campaignSales.length;
     const campaignName = campaignMedia[0]?.campaign_name ?? campaignSales[0]?.campaign_name ?? normalizedCampaignName;
-    return { key, clientId, clientName: campaignMedia[0]?.client_name ?? "Cliente", campaignName, spend, leads, sales: salesCount, vgv, grossCommission, cpl: leads ? spend / leads : 0, cac: salesCount ? spend / salesCount : 0, conversionRate: leads ? salesCount / leads * 100 : 0, roas: spend ? vgv / spend : 0, commercialRoi: spend ? (grossCommission - spend) / spend * 100 : 0 };
+    return { key, clientId, clientName: campaignMedia[0]?.client_name ?? "Cliente", campaignName, spend, leads, sales: salesCount, vgv, grossCommission, cpl: leads ? spend / leads : 0, cac: salesCount ? spend / salesCount : 0, conversionRate: leads ? salesCount / leads * 100 : 0, roas: spend ? vgv / spend : 0, commercialRoas: spend ? grossCommission / spend : 0 };
   }).sort((a, b) => b.vgv - a.vgv || b.spend - a.spend);
 }
 
