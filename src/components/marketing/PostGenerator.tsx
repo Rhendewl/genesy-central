@@ -1250,12 +1250,12 @@ function TextToolbar({ editor, defaultColor, allowItalic, compact = false, visib
   const backdropActive = editor.isActive("textBackdrop");
   const backdropAttributes = editor.getAttributes("textBackdrop") as { backgroundColor?: string; color?: string };
   const show = (group: MobileInlineTool) => visibleGroups ? visibleGroups.includes(group) : !visibleGroup || visibleGroup === group;
-  const backdropChain = () => {
+  const selectionChain = () => {
     const command = chain();
     return hasSelection ? command : command.selectAll();
   };
   const setBackdrop = (backgroundColor: string) => {
-    backdropChain().setMark("textBackdrop", { backgroundColor, color: contrastColor(backgroundColor) }).run();
+    selectionChain().setMark("textBackdrop", { backgroundColor, color: contrastColor(backgroundColor) }).run();
     onToolUse?.("backdrop");
   };
   const cycleBackdrop = () => {
@@ -1264,16 +1264,16 @@ function TextToolbar({ editor, defaultColor, allowItalic, compact = false, visib
     } else {
       const background = (backdropAttributes.backgroundColor || "").replace(/\s/g, "").toLowerCase();
       if (background === "#000000" || background === "rgb(0,0,0)") setBackdrop("#ffffff");
-      else backdropChain().unsetMark("textBackdrop").run();
+      else selectionChain().unsetMark("textBackdrop").run();
     }
     if (backdropActive) onToolUse?.("backdrop");
   };
   return <div className={cn("flex min-h-11 items-center gap-1 border p-1.5", compact ? "sticky top-0 z-10 flex-nowrap overflow-x-auto border-x-0 border-t-0 px-3 py-2 shadow-sm [scrollbar-width:none]" : side ? "flex-col rounded-2xl px-2 py-2.5 shadow-lg" : "mx-auto mb-3 max-w-xl flex-wrap rounded-xl shadow-lg")} style={{ background: "var(--bg-modal)", borderColor: hasSelection ? "var(--accent-blue)" : "var(--glass-border)" }}>
     {sectionIcon && <div className="mb-1 grid h-8 w-8 place-items-center rounded-xl bg-[var(--hover)] text-sm font-bold text-[var(--text-title)]" aria-label={sectionIcon === "textColor" ? "Cor do texto" : "Fundo de destaque"} title={sectionIcon === "textColor" ? "Cor do texto" : "Fundo de destaque"}>{sectionIcon === "textColor" ? <span>A</span> : <span className="relative grid h-5 w-5 place-items-center"><span className="absolute inset-0 rounded-[4px] bg-[#66737c]" /><span className="relative text-[11px] font-bold text-white">A</span></span>}</div>}
     {show("format") && <>
-      <button onClick={() => { chain().toggleBold().run(); onToolUse?.("format"); }} disabled={!hasSelection} className={toolClass(editor.isActive("bold"))} title="Negrito"><Bold /></button>
-      {allowItalic && <button onClick={() => { chain().toggleItalic().run(); onToolUse?.("format"); }} disabled={!hasSelection} className={toolClass(editor.isActive("italic"))} title="Itálico" aria-label="Aplicar itálico ao trecho selecionado"><Italic /></button>}
-      <button onClick={() => { chain().toggleUnderline().run(); onToolUse?.("format"); }} disabled={!hasSelection} className={toolClass(editor.isActive("underline"))} title="Sublinhar"><Underline /></button>
+      <button onMouseDown={(event) => event.preventDefault()} onClick={() => { selectionChain().toggleBold().run(); onToolUse?.("format"); }} className={toolClass(editor.isActive("bold"))} title="Negrito"><Bold /></button>
+      {allowItalic && <button onMouseDown={(event) => event.preventDefault()} onClick={() => { selectionChain().toggleItalic().run(); onToolUse?.("format"); }} className={toolClass(editor.isActive("italic"))} title="Itálico" aria-label="Aplicar itálico ao texto"><Italic /></button>}
+      <button onMouseDown={(event) => event.preventDefault()} onClick={() => { selectionChain().toggleUnderline().run(); onToolUse?.("format"); }} className={toolClass(editor.isActive("underline"))} title="Sublinhar"><Underline /></button>
       <span className={cn("shrink-0 bg-[var(--border)]", side ? "my-1 h-px w-7" : "mx-1 h-6 w-px")} />
       <button onClick={() => { chain().setTextAlign("left").run(); onToolUse?.("format"); }} className={toolClass(editor.isActive({ textAlign: "left" }))} title="Alinhar à esquerda"><AlignLeft /></button>
       <button onClick={() => { chain().setTextAlign("center").run(); onToolUse?.("format"); }} className={toolClass(editor.isActive({ textAlign: "center" }))} title="Centralizar"><AlignCenter /></button>
@@ -1282,9 +1282,9 @@ function TextToolbar({ editor, defaultColor, allowItalic, compact = false, visib
       <button onClick={() => chain().undo().run()} disabled={!editor.can().undo()} className={toolClass(false)} title="Desfazer" aria-label="Desfazer"><Undo2 /></button>
       <button onClick={() => chain().redo().run()} disabled={!editor.can().redo()} className={toolClass(false)} title="Refazer" aria-label="Refazer"><Redo2 /></button>
     </>}
-    {show("textColor") && <TextColorTool vertical={Boolean(side)} disabled={!hasSelection} value={editor.getAttributes("textStyle").color || defaultColor} isAutomatic={!editor.getAttributes("textStyle").color} onAuto={() => { chain().unsetColor().run(); onToolUse?.("textColor"); }} onChange={(color) => { chain().setColor(color).run(); onToolUse?.("textColor"); }} />}
+    {show("textColor") && <TextColorTool vertical={Boolean(side)} disabled={false} value={editor.getAttributes("textStyle").color || defaultColor} isAutomatic={!editor.getAttributes("textStyle").color} onAuto={() => { selectionChain().unsetColor().run(); onToolUse?.("textColor"); }} onChange={(color) => { selectionChain().setColor(color).run(); onToolUse?.("textColor"); }} />}
     {show("backdrop") && <div className={cn("shrink-0 items-center gap-1", side ? "flex flex-col gap-2" : "flex")}><button type="button" onClick={cycleBackdrop} className={toolClass(backdropActive)} title="Texto destacado" aria-label="Alternar texto destacado"><Square fill={backdropActive ? backdropAttributes.backgroundColor || "#000000" : "none"} /></button>{QUICK_BACKDROP_COLORS.map((color) => <button key={color.value} type="button" onClick={() => setBackdrop(color.value)} title={`Fundo ${color.label}`} aria-label={`Aplicar fundo ${color.label}`} className={cn("h-6 w-6 shrink-0 rounded-full border border-white/25 shadow-sm", toHexColor(backdropAttributes.backgroundColor || "#000000").toLowerCase() === color.value && backdropActive && "ring-2 ring-[var(--accent-blue)] ring-offset-1 ring-offset-[var(--bg-modal)]")} style={{ backgroundColor: color.value }} />)}<label className="editor-tool relative shrink-0 cursor-pointer" title="Cor personalizada do fundo destacado" aria-label="Escolher cor personalizada do fundo destacado"><Palette /><input aria-label="Cor do fundo destacado" type="color" value={toHexColor(backdropAttributes.backgroundColor || "#000000")} className="absolute inset-0 cursor-pointer opacity-0" onChange={(event) => setBackdrop(event.target.value)} /></label></div>}
-    {!compact && !side && <span className="ml-auto pr-2 text-[9px] text-[var(--muted-foreground)]">{hasSelection ? "Formatação do trecho selecionado" : "Selecione um trecho para formatar"}</span>}
+    {!compact && !side && <span className="ml-auto pr-2 text-[9px] text-[var(--muted-foreground)]">{hasSelection ? "Formatação do trecho selecionado" : "Sem seleção, aplica ao texto inteiro"}</span>}
   </div>;
 }
 
