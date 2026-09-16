@@ -28,8 +28,9 @@ describe("numberedSlideFilename", () => {
 });
 
 describe("defaultPostLineHeight", () => {
-  it("inicia o Stories Plus com uma proporção confortável de 115%", () => {
-    expect(defaultPostLineHeight("stories")).toBe(1.15);
+  it("inicia todos os modelos com entrelinha de 120%", () => {
+    expect(defaultPostLineHeight("stories")).toBe(1.2);
+    expect(defaultPostLineHeight("tweet")).toBe(1.2);
   });
 
   it("converte os 115 pixels salvos pela versão anterior para 115%", () => {

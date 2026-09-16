@@ -76,8 +76,8 @@ export function numberedSlideFilename(index: number) {
   return `${index + 1}.png`;
 }
 
-export function defaultPostLineHeight(template: PostTemplate) {
-  return template === "stories" ? 1.15 : 1.18;
+export function defaultPostLineHeight(_template: PostTemplate) {
+  return 1.2;
 }
 
 export function normalizePostLineHeight(template: PostTemplate, value: number) {

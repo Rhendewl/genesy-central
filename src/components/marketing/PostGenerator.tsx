@@ -58,12 +58,12 @@ type Slide = {
 type MediaCrop = { x: number; y: number; zoom: number };
 type MediaAspect = "original" | "1:1" | "4:5" | "16:9" | "9:16";
 type CanvasPoint = { x: number; y: number };
-type TextBlock = { id: string; content: string; fontSize: number; textWidth: number; lineHeight: number };
+type TextBlock = { id: string; content: string; fontSize: number; textWidth: number; lineHeight: number; letterSpacing: number };
 type TweetProfile = { avatar: string; avatarCrop: MediaCrop; name: string; handle: string; verified: boolean };
-type PersistedPostProject = { version: 1; format: PostFormat; slides: Slide[]; activeId: string; tweetProfile: TweetProfile; updatedAt: number };
+type PersistedPostProject = { version: 1; typographyDefaultsVersion?: 2; format: PostFormat; slides: Slide[]; activeId: string; tweetProfile: TweetProfile; updatedAt: number };
 type MobileEditorPanel = "text" | "image" | "background" | "slide" | "export" | null;
 type MobileInlineTool = "format" | "textColor" | "backdrop";
-type MobileTextTool = MobileInlineTool | "fontSize" | "lineHeight" | "textWidth" | null;
+type MobileTextTool = MobileInlineTool | "fontSize" | "lineHeight" | "letterSpacing" | "textWidth" | null;
 type MobileVisualTool =
   | { kind: "backgroundColor" }
   | { kind: "backgroundDarkness" }
@@ -76,16 +76,12 @@ const ACTIVE_TEMPLATE_KEY = "genesy-post-generator-active-template";
 const QUICK_TEXT_COLORS = [
   { value: "#dd1c00", label: "Vermelho" },
   { value: "#f8ad1b", label: "Amarelo" },
-  { value: "#007ae6", label: "Azul" },
-  { value: "#07d140", label: "Verde" },
 ] as const;
 const QUICK_BACKDROP_COLORS = [
   { value: "#000000", label: "Preto" },
   { value: "#ffffff", label: "Branco" },
   { value: "#dd1c00", label: "Vermelho" },
   { value: "#f8ad1b", label: "Amarelo" },
-  { value: "#007ae6", label: "Azul" },
-  { value: "#07d140", label: "Verde" },
 ] as const;
 
 const DEFAULT_PROFILE: TweetProfile = {
@@ -132,7 +128,7 @@ function readImageAspect(url: string) {
     image.src = url;
   });
 }
-function makeTextBlock(template: PostTemplate, content: string): TextBlock { return { id: uid(), content, fontSize: template === "tweet" ? 45 : 70, textWidth: template === "tweet" ? 76 : 84, lineHeight: defaultPostLineHeight(template) }; }
+function makeTextBlock(template: PostTemplate, content: string): TextBlock { return { id: uid(), content, fontSize: template === "tweet" ? 45 : 70, textWidth: template === "tweet" ? 76 : 84, lineHeight: defaultPostLineHeight(template), letterSpacing: 0 }; }
 
 let postProjectDatabase: Promise<IDBDatabase> | null = null;
 
@@ -175,6 +171,11 @@ function contrastColor(background: string) {
   return luminance > 0.56 ? "#000000" : "#ffffff";
 }
 
+function postRangeStyle(value: number, min: number, max: number) {
+  const progress = Math.max(0, Math.min(100, ((value - min) / (max - min)) * 100));
+  return { "--post-range-progress": `${progress}%` } as React.CSSProperties;
+}
+
 function makeSlide(template: PostTemplate, index = 0): Slide {
   const content = template === "tweet"
     ? "<p>Escreva aqui uma ideia forte, simples e impossível de ignorar.</p>"
@@ -205,6 +206,45 @@ function makeSlide(template: PostTemplate, index = 0): Slide {
   };
 }
 
+function removeMediaFromSlide(slide: Slide, index: number): Partial<Slide> {
+  const freePositions = { ...slide.freePositions };
+  const freeSizes = { ...slide.freeSizes };
+  delete freePositions[`media:${index}`];
+  delete freeSizes[`media:${index}`];
+  for (let mediaIndex = index + 1; mediaIndex < slide.media.length; mediaIndex++) {
+    const previousKey = `media:${mediaIndex - 1}`;
+    const currentKey = `media:${mediaIndex}`;
+    if (freePositions[currentKey]) freePositions[previousKey] = freePositions[currentKey];
+    else delete freePositions[previousKey];
+    if (freeSizes[currentKey]) freeSizes[previousKey] = freeSizes[currentKey];
+    else delete freeSizes[previousKey];
+    delete freePositions[currentKey];
+    delete freeSizes[currentKey];
+  }
+  return {
+    media: slide.media.filter((_, mediaIndex) => mediaIndex !== index),
+    mediaCrops: slide.mediaCrops.filter((_, mediaIndex) => mediaIndex !== index),
+    mediaAspects: slide.mediaAspects.filter((_, mediaIndex) => mediaIndex !== index),
+    mediaNaturalAspects: slide.mediaNaturalAspects.filter((_, mediaIndex) => mediaIndex !== index),
+    freePositions,
+    freeSizes,
+  };
+}
+
+function migratePostProjectTypography(project: PersistedPostProject): PersistedPostProject {
+  if (project.typographyDefaultsVersion === 2) return project;
+  return {
+    ...project,
+    typographyDefaultsVersion: 2,
+    slides: project.slides.map((slide) => ({
+      ...slide,
+      textBlocks: Array.isArray(slide.textBlocks)
+        ? slide.textBlocks.map((block) => ({ ...block, lineHeight: 1.2, letterSpacing: 0 }))
+        : slide.textBlocks,
+    })),
+  };
+}
+
 function normalizePostProject(template: PostTemplate, project: PersistedPostProject) {
   const slides = project.slides.map((slide, index) => {
     const base = makeSlide(template, index);
@@ -221,6 +261,7 @@ function normalizePostProject(template: PostTemplate, project: PersistedPostProj
           ...block,
           id: block.id || uid(),
           lineHeight: normalizePostLineHeight(template, block.lineHeight),
+          letterSpacing: Number.isFinite(block.letterSpacing) ? Math.max(-0.08, Math.min(0.2, block.letterSpacing)) : 0,
           textWidth: normalizePostTextWidth(template, block.textWidth),
         }))
       : [{ ...makeTextBlock(template, slide.content || base.content), fontSize: slide.fontSize || base.fontSize, textWidth: normalizePostTextWidth(template, slide.textWidth) }];
@@ -433,7 +474,8 @@ function PostEditor({ template, onBack }: { template: PostTemplate; onBack: () =
       const local = localResult.status === "fulfilled" ? localResult.value : undefined;
       const remote = remoteResult.status === "fulfilled" ? remoteResult.value.project : undefined;
       if (remoteResult.status === "fulfilled") storageRevisionRef.current = remoteResult.value.storageUpdatedAt;
-      const project = newestPostProject(local, remote);
+      const newestProject = newestPostProject(local, remote);
+      const project = newestProject ? migratePostProjectTypography(newestProject) : undefined;
       if (project?.slides?.length) {
         restoreProject(project);
         await savePostProject(template, project).catch(() => undefined);
@@ -466,7 +508,7 @@ function PostEditor({ template, onBack }: { template: PostTemplate; onBack: () =
       applyingRemoteRef.current = false;
       return;
     }
-    const project: PersistedPostProject = { version: 1, format, slides, activeId, tweetProfile, updatedAt: Date.now() };
+    const project: PersistedPostProject = { version: 1, typographyDefaultsVersion: 2, format, slides, activeId, tweetProfile, updatedAt: Date.now() };
     lastProjectUpdatedAtRef.current = project.updatedAt;
     currentProjectRef.current = project;
     void savePostProject(template, project).catch((error) => console.error("Não foi possível salvar o Gerador de Posts localmente.", error));
@@ -583,6 +625,7 @@ function PostEditor({ template, onBack }: { template: PostTemplate; onBack: () =
     freePositions: { ...active.freePositions, [key]: position },
     freeSizes: { ...active.freeSizes, [key]: width },
   });
+  const removeActiveMedia = (index: number) => update(removeMediaFromSlide(active, index));
 
   const addTextBlock = () => {
     const block = makeTextBlock(template, "<p>Novo texto</p>");
@@ -749,11 +792,19 @@ function PostEditor({ template, onBack }: { template: PostTemplate; onBack: () =
 
         <main className="min-w-0 border-b p-4 lg:border-b-0 lg:border-x lg:p-6" style={{ borderColor: "var(--border)" }}>
           <div className="mb-4 flex items-center justify-between"><div><p className="text-xs font-semibold text-[var(--text-title)]">Pré-visualização</p><p className="text-[10px] text-[var(--muted-foreground)]">Um clique seleciona e permite mover; dois cliques liberam a edição do texto.</p></div><span className="rounded-full border px-2.5 py-1 text-[10px] text-[var(--muted-foreground)]">Slide {activeIndex + 1} de {slides.length}</span></div>
-          <TextToolbar editor={editor} defaultColor={active.foreground} allowItalic={template === "stories"} />
-          <ScaledCanvas width={dimensions.width} height={dimensions.height} format={format} profile={tweetProfile}>
-            <PostCanvas slide={active} profile={tweetProfile} template={template} width={dimensions.width} height={dimensions.height} editable={!isMobileEditor} editor={isMobileEditor ? undefined : editor} activeTextBlockId={activeTextBlockId} editingTextBlockId={editingTextBlockId} onSelectTextBlock={selectTextBlock} onEditTextBlock={editTextBlock} onReorderText={reorderLayout} onPositionChange={updateFreePosition} onResizeMedia={resizeFreeMedia} />
-          </ScaledCanvas>
-          <div className="mx-auto mt-4 flex max-w-xl items-center justify-center gap-1.5"><Button variant="outline" size="sm" onClick={() => move(-1)} disabled={activeIndex === 0} aria-label="Mover slide para cima"><ArrowUp /></Button><Button variant="outline" size="sm" onClick={() => move(1)} disabled={activeIndex === slides.length - 1} aria-label="Mover slide para baixo"><ArrowDown /></Button><Button variant="outline" size="sm" onClick={duplicate} icon={<Copy />}>Duplicar</Button><Button variant="danger" size="sm" onClick={remove} icon={<Trash2 />}>Excluir</Button></div>
+          <div className="grid grid-cols-[52px_minmax(0,1fr)_56px] items-start gap-3">
+            <div className="sticky top-4"><TextToolbar editor={editor} defaultColor={active.foreground} allowItalic={template === "stories"} visibleGroups={["format"]} side="left" /></div>
+            <div className="min-w-0">
+              <ScaledCanvas width={dimensions.width} height={dimensions.height} format={format} profile={tweetProfile}>
+                <PostCanvas slide={active} profile={tweetProfile} template={template} width={dimensions.width} height={dimensions.height} editable={!isMobileEditor} editor={isMobileEditor ? undefined : editor} activeTextBlockId={activeTextBlockId} editingTextBlockId={editingTextBlockId} onSelectTextBlock={selectTextBlock} onEditTextBlock={editTextBlock} onReorderText={reorderLayout} onPositionChange={updateFreePosition} onResizeMedia={resizeFreeMedia} onRemoveMedia={removeActiveMedia} />
+              </ScaledCanvas>
+              <div className="mx-auto mt-4 flex max-w-xl items-center justify-center gap-1.5"><Button variant="outline" size="sm" onClick={() => move(-1)} disabled={activeIndex === 0} aria-label="Mover slide para cima"><ArrowUp /></Button><Button variant="outline" size="sm" onClick={() => move(1)} disabled={activeIndex === slides.length - 1} aria-label="Mover slide para baixo"><ArrowDown /></Button><Button variant="outline" size="sm" onClick={duplicate} icon={<Copy />}>Duplicar</Button><Button variant="danger" size="sm" onClick={remove} icon={<Trash2 />}>Excluir</Button></div>
+            </div>
+            <div className="sticky top-4 space-y-3">
+              <TextToolbar editor={editor} defaultColor={active.foreground} allowItalic={template === "stories"} visibleGroups={["textColor"]} side="right" sectionIcon="textColor" />
+              <TextToolbar editor={editor} defaultColor={active.foreground} allowItalic={template === "stories"} visibleGroups={["backdrop"]} side="right" sectionIcon="backdrop" />
+            </div>
+          </div>
         </main>
 
         <PropertiesPanel template={template} format={format} setFormat={setFormat} slide={active} update={update} activeTextBlock={activeTextBlock} selectTextBlock={selectTextBlock} updateTextBlock={updateTextBlock} addTextBlock={addTextBlock} removeTextBlock={removeTextBlock} placeText={placeActiveText} profile={tweetProfile} setProfile={setTweetProfile} />
@@ -793,6 +844,7 @@ function PostEditor({ template, onBack }: { template: PostTemplate; onBack: () =
               onReorderText={reorderLayout}
               onPositionChange={updateFreePosition}
               onResizeMedia={resizeFreeMedia}
+              onRemoveMedia={removeActiveMedia}
             />
           </ScaledCanvas>
         </main>
@@ -1107,9 +1159,9 @@ function MobileVisualQuickPanel({ tool, slide, textBlockId, update, profile, set
       </div>
       <div className="px-4 py-4">
         {tool.kind === "backgroundColor" && <BackgroundColorRow value={slide.background} onChange={(background) => update({ background, foreground: contrastColor(background) })} />}
-        {tool.kind === "backgroundDarkness" && <input aria-label="Escurecer foto" type="range" min="0" max="90" value={slide.imageDarkness} onChange={(event) => update({ imageDarkness: Number(event.target.value) })} className="block h-8 w-full accent-[#27a3ff]" />}
-        {tool.kind === "mediaCrop" && mediaCrop && <input aria-label={`${axisLabel(tool.axis)} da imagem ${tool.index + 1}`} type="range" min={tool.axis === "zoom" ? 1 : 0} max={tool.axis === "zoom" ? 2.5 : 100} step={tool.axis === "zoom" ? 0.05 : 1} value={mediaCrop[tool.axis]} onChange={(event) => updateMediaCrop(Number(event.target.value))} className="block h-8 w-full accent-[#27a3ff]" />}
-        {tool.kind === "avatarCrop" && <input aria-label={`${axisLabel(tool.axis)} da foto do perfil`} type="range" min={tool.axis === "zoom" ? 1 : 0} max={tool.axis === "zoom" ? 4 : 100} step={tool.axis === "zoom" ? 0.05 : 1} value={avatarCrop[tool.axis]} onChange={(event) => updateAvatarCrop(Number(event.target.value))} className="block h-8 w-full accent-[#27a3ff]" />}
+        {tool.kind === "backgroundDarkness" && <input aria-label="Escurecer foto" type="range" min="0" max="90" value={slide.imageDarkness} onChange={(event) => update({ imageDarkness: Number(event.target.value) })} className="post-gradient-range block w-full" style={postRangeStyle(slide.imageDarkness, 0, 90)} />}
+        {tool.kind === "mediaCrop" && mediaCrop && <input aria-label={`${axisLabel(tool.axis)} da imagem ${tool.index + 1}`} type="range" min={tool.axis === "zoom" ? 1 : 0} max={tool.axis === "zoom" ? 2.5 : 100} step={tool.axis === "zoom" ? 0.05 : 1} value={mediaCrop[tool.axis]} onChange={(event) => updateMediaCrop(Number(event.target.value))} className="post-gradient-range block w-full" style={postRangeStyle(mediaCrop[tool.axis], tool.axis === "zoom" ? 1 : 0, tool.axis === "zoom" ? 2.5 : 100)} />}
+        {tool.kind === "avatarCrop" && <input aria-label={`${axisLabel(tool.axis)} da foto do perfil`} type="range" min={tool.axis === "zoom" ? 1 : 0} max={tool.axis === "zoom" ? 4 : 100} step={tool.axis === "zoom" ? 0.05 : 1} value={avatarCrop[tool.axis]} onChange={(event) => updateAvatarCrop(Number(event.target.value))} className="post-gradient-range block w-full" style={postRangeStyle(avatarCrop[tool.axis], tool.axis === "zoom" ? 1 : 0, tool.axis === "zoom" ? 4 : 100)} />}
         {tool.kind === "textPlacement" && <div className="grid grid-cols-2 gap-2"><button type="button" onClick={() => placeText("above")} className={cn("rounded-xl border px-3 py-2.5 text-xs", textPlacement === "above" && "border-[var(--accent-blue)] bg-[var(--hover)]")}>Acima da imagem</button><button type="button" onClick={() => placeText("below")} className={cn("rounded-xl border px-3 py-2.5 text-xs", textPlacement === "below" && "border-[var(--accent-blue)] bg-[var(--hover)]")}>Abaixo da imagem</button></div>}
       </div>
     </section>
@@ -1133,6 +1185,7 @@ function MobileTextQuickPanel({ tool, editor, defaultColor, allowItalic, templat
     backdrop: "Texto destacado",
     fontSize: `Tamanho · ${textBlock.fontSize}px`,
     lineHeight: `Espaçamento · ${Math.round(textBlock.lineHeight * 100)}%`,
+    letterSpacing: `Espaçamento entre letras · ${Math.round(textBlock.letterSpacing * 100)}%`,
     textWidth: `Largura · ${textBlock.textWidth}%`,
   };
 
@@ -1147,9 +1200,10 @@ function MobileTextQuickPanel({ tool, editor, defaultColor, allowItalic, templat
         <TextToolbar editor={editor} defaultColor={defaultColor} allowItalic={allowItalic} compact visibleGroup={tool as MobileInlineTool} preserveSelection />
       ) : (
         <div className="px-4 py-4">
-          {tool === "fontSize" && <input aria-label="Tamanho do texto" type="range" min={template === "tweet" ? 28 : 36} max={template === "tweet" ? 128 : 190} step="1" value={textBlock.fontSize} onChange={(event) => updateTextBlock({ fontSize: Number(event.target.value) })} className="block h-8 w-full accent-[#27a3ff]" />}
-          {tool === "lineHeight" && <input aria-label="Espaçamento entre linhas" type="range" min="0.75" max="1.8" step="0.05" value={textBlock.lineHeight} onChange={(event) => updateTextBlock({ lineHeight: Number(event.target.value) })} className="block h-8 w-full accent-[#27a3ff]" />}
-          {tool === "textWidth" && <input aria-label="Largura do texto" type="range" min="40" max={template === "tweet" ? 76 : 84} step="2" value={Math.min(textBlock.textWidth, template === "tweet" ? 76 : 84)} onChange={(event) => updateTextBlock({ textWidth: Number(event.target.value) })} className="block h-8 w-full accent-[#27a3ff]" />}
+          {tool === "fontSize" && <input aria-label="Tamanho do texto" type="range" min={template === "tweet" ? 28 : 36} max={template === "tweet" ? 128 : 190} step="1" value={textBlock.fontSize} onChange={(event) => updateTextBlock({ fontSize: Number(event.target.value) })} className="post-gradient-range block w-full" style={postRangeStyle(textBlock.fontSize, template === "tweet" ? 28 : 36, template === "tweet" ? 128 : 190)} />}
+          {tool === "lineHeight" && <input aria-label="Espaçamento entre linhas" type="range" min="0.75" max="1.8" step="0.05" value={textBlock.lineHeight} onChange={(event) => updateTextBlock({ lineHeight: Number(event.target.value) })} className="post-gradient-range block w-full" style={postRangeStyle(textBlock.lineHeight, 0.75, 1.8)} />}
+          {tool === "letterSpacing" && <input aria-label="Espaçamento entre letras" type="range" min="-0.08" max="0.2" step="0.01" value={textBlock.letterSpacing} onChange={(event) => updateTextBlock({ letterSpacing: Number(event.target.value) })} className="post-gradient-range block w-full" style={postRangeStyle(textBlock.letterSpacing, -0.08, 0.2)} />}
+          {tool === "textWidth" && <input aria-label="Largura do texto" type="range" min="40" max={template === "tweet" ? 76 : 84} step="2" value={Math.min(textBlock.textWidth, template === "tweet" ? 76 : 84)} onChange={(event) => updateTextBlock({ textWidth: Number(event.target.value) })} className="post-gradient-range block w-full" style={postRangeStyle(Math.min(textBlock.textWidth, template === "tweet" ? 76 : 84), 40, template === "tweet" ? 76 : 84)} />}
         </div>
       )}
     </section>
@@ -1180,7 +1234,7 @@ function MobileTextComposer({ editor }: { editor: Editor | null }) {
   );
 }
 
-function TextToolbar({ editor, defaultColor, allowItalic, compact = false, visibleGroup, preserveSelection = false, onToolUse }: { editor: Editor | null; defaultColor: string; allowItalic: boolean; compact?: boolean; visibleGroup?: MobileInlineTool; preserveSelection?: boolean; onToolUse?: (tool: MobileInlineTool) => void }) {
+function TextToolbar({ editor, defaultColor, allowItalic, compact = false, visibleGroup, visibleGroups, side, sectionIcon, preserveSelection = false, onToolUse }: { editor: Editor | null; defaultColor: string; allowItalic: boolean; compact?: boolean; visibleGroup?: MobileInlineTool; visibleGroups?: MobileInlineTool[]; side?: "left" | "right"; sectionIcon?: "textColor" | "backdrop"; preserveSelection?: boolean; onToolUse?: (tool: MobileInlineTool) => void }) {
   const [, setRevision] = useState(0);
   useEffect(() => {
     if (!editor) return;
@@ -1189,13 +1243,13 @@ function TextToolbar({ editor, defaultColor, allowItalic, compact = false, visib
     editor.on("transaction", refresh);
     return () => { editor.off("selectionUpdate", refresh); editor.off("transaction", refresh); };
   }, [editor]);
-  if (!editor) return <div className={cn("mx-auto h-11 max-w-xl rounded-xl border border-dashed", compact ? "m-3" : "mb-3")} />;
+  if (!editor) return <div className={cn("border border-dashed", side ? "min-h-11 rounded-2xl" : "mx-auto h-11 max-w-xl rounded-xl", compact ? "m-3" : !side && "mb-3")} />;
   const hasSelection = editor.state.selection.from !== editor.state.selection.to;
   const toolClass = (active: boolean) => cn("editor-tool shrink-0", active && "bg-[var(--hover)] text-[var(--accent-blue)]");
   const chain = () => preserveSelection ? editor.chain() : editor.chain().focus();
   const backdropActive = editor.isActive("textBackdrop");
   const backdropAttributes = editor.getAttributes("textBackdrop") as { backgroundColor?: string; color?: string };
-  const show = (group: MobileInlineTool) => !visibleGroup || visibleGroup === group;
+  const show = (group: MobileInlineTool) => visibleGroups ? visibleGroups.includes(group) : !visibleGroup || visibleGroup === group;
   const backdropChain = () => {
     const command = chain();
     return hasSelection ? command : command.selectAll();
@@ -1214,22 +1268,23 @@ function TextToolbar({ editor, defaultColor, allowItalic, compact = false, visib
     }
     if (backdropActive) onToolUse?.("backdrop");
   };
-  return <div className={cn("mx-auto flex min-h-11 max-w-xl items-center gap-1 border p-1.5", compact ? "sticky top-0 z-10 flex-nowrap overflow-x-auto border-x-0 border-t-0 px-3 py-2 shadow-sm [scrollbar-width:none]" : "mb-3 flex-wrap rounded-xl shadow-lg")} style={{ background: "var(--bg-modal)", borderColor: hasSelection ? "var(--accent-blue)" : "var(--glass-border)" }}>
+  return <div className={cn("flex min-h-11 items-center gap-1 border p-1.5", compact ? "sticky top-0 z-10 flex-nowrap overflow-x-auto border-x-0 border-t-0 px-3 py-2 shadow-sm [scrollbar-width:none]" : side ? "flex-col rounded-2xl px-2 py-2.5 shadow-lg" : "mx-auto mb-3 max-w-xl flex-wrap rounded-xl shadow-lg")} style={{ background: "var(--bg-modal)", borderColor: hasSelection ? "var(--accent-blue)" : "var(--glass-border)" }}>
+    {sectionIcon && <div className="mb-1 grid h-8 w-8 place-items-center rounded-xl bg-[var(--hover)] text-sm font-bold text-[var(--text-title)]" aria-label={sectionIcon === "textColor" ? "Cor do texto" : "Fundo de destaque"} title={sectionIcon === "textColor" ? "Cor do texto" : "Fundo de destaque"}>{sectionIcon === "textColor" ? <span>A</span> : <span className="relative grid h-5 w-5 place-items-center"><span className="absolute inset-0 rounded-[4px] bg-[#66737c]" /><span className="relative text-[11px] font-bold text-white">A</span></span>}</div>}
     {show("format") && <>
       <button onClick={() => { chain().toggleBold().run(); onToolUse?.("format"); }} disabled={!hasSelection} className={toolClass(editor.isActive("bold"))} title="Negrito"><Bold /></button>
       {allowItalic && <button onClick={() => { chain().toggleItalic().run(); onToolUse?.("format"); }} disabled={!hasSelection} className={toolClass(editor.isActive("italic"))} title="Itálico" aria-label="Aplicar itálico ao trecho selecionado"><Italic /></button>}
       <button onClick={() => { chain().toggleUnderline().run(); onToolUse?.("format"); }} disabled={!hasSelection} className={toolClass(editor.isActive("underline"))} title="Sublinhar"><Underline /></button>
-      <span className="mx-1 h-6 w-px shrink-0 bg-[var(--border)]" />
+      <span className={cn("shrink-0 bg-[var(--border)]", side ? "my-1 h-px w-7" : "mx-1 h-6 w-px")} />
       <button onClick={() => { chain().setTextAlign("left").run(); onToolUse?.("format"); }} className={toolClass(editor.isActive({ textAlign: "left" }))} title="Alinhar à esquerda"><AlignLeft /></button>
       <button onClick={() => { chain().setTextAlign("center").run(); onToolUse?.("format"); }} className={toolClass(editor.isActive({ textAlign: "center" }))} title="Centralizar"><AlignCenter /></button>
       <button onClick={() => { chain().setTextAlign("right").run(); onToolUse?.("format"); }} className={toolClass(editor.isActive({ textAlign: "right" }))} title="Alinhar à direita"><AlignRight /></button>
-      <span className="mx-1 h-6 w-px shrink-0 bg-[var(--border)]" />
+      <span className={cn("shrink-0 bg-[var(--border)]", side ? "my-1 h-px w-7" : "mx-1 h-6 w-px")} />
       <button onClick={() => chain().undo().run()} disabled={!editor.can().undo()} className={toolClass(false)} title="Desfazer" aria-label="Desfazer"><Undo2 /></button>
       <button onClick={() => chain().redo().run()} disabled={!editor.can().redo()} className={toolClass(false)} title="Refazer" aria-label="Refazer"><Redo2 /></button>
     </>}
-    {show("textColor") && <TextColorTool disabled={!hasSelection} value={editor.getAttributes("textStyle").color || defaultColor} isAutomatic={!editor.getAttributes("textStyle").color} onAuto={() => { chain().unsetColor().run(); onToolUse?.("textColor"); }} onChange={(color) => { chain().setColor(color).run(); onToolUse?.("textColor"); }} />}
-    {show("backdrop") && <div className="flex shrink-0 items-center gap-1"><button type="button" onClick={cycleBackdrop} className={toolClass(backdropActive)} title="Texto destacado" aria-label="Alternar texto destacado"><Square fill={backdropActive ? backdropAttributes.backgroundColor || "#000000" : "none"} /></button>{QUICK_BACKDROP_COLORS.map((color) => <button key={color.value} type="button" onClick={() => setBackdrop(color.value)} title={`Fundo ${color.label}`} aria-label={`Aplicar fundo ${color.label}`} className={cn("h-6 w-6 shrink-0 rounded-full border border-white/25 shadow-sm", toHexColor(backdropAttributes.backgroundColor || "#000000").toLowerCase() === color.value && backdropActive && "ring-2 ring-[var(--accent-blue)] ring-offset-1 ring-offset-[var(--bg-modal)]")} style={{ backgroundColor: color.value }} />)}<label className="editor-tool relative shrink-0 cursor-pointer" title="Cor personalizada do fundo destacado" aria-label="Escolher cor personalizada do fundo destacado"><Palette /><input aria-label="Cor do fundo destacado" type="color" value={toHexColor(backdropAttributes.backgroundColor || "#000000")} className="absolute inset-0 cursor-pointer opacity-0" onChange={(event) => setBackdrop(event.target.value)} /></label></div>}
-    {!compact && <span className="ml-auto pr-2 text-[9px] text-[var(--muted-foreground)]">{hasSelection ? "Formatação do trecho selecionado" : "Selecione um trecho para formatar"}</span>}
+    {show("textColor") && <TextColorTool vertical={Boolean(side)} disabled={!hasSelection} value={editor.getAttributes("textStyle").color || defaultColor} isAutomatic={!editor.getAttributes("textStyle").color} onAuto={() => { chain().unsetColor().run(); onToolUse?.("textColor"); }} onChange={(color) => { chain().setColor(color).run(); onToolUse?.("textColor"); }} />}
+    {show("backdrop") && <div className={cn("shrink-0 items-center gap-1", side ? "flex flex-col gap-2" : "flex")}><button type="button" onClick={cycleBackdrop} className={toolClass(backdropActive)} title="Texto destacado" aria-label="Alternar texto destacado"><Square fill={backdropActive ? backdropAttributes.backgroundColor || "#000000" : "none"} /></button>{QUICK_BACKDROP_COLORS.map((color) => <button key={color.value} type="button" onClick={() => setBackdrop(color.value)} title={`Fundo ${color.label}`} aria-label={`Aplicar fundo ${color.label}`} className={cn("h-6 w-6 shrink-0 rounded-full border border-white/25 shadow-sm", toHexColor(backdropAttributes.backgroundColor || "#000000").toLowerCase() === color.value && backdropActive && "ring-2 ring-[var(--accent-blue)] ring-offset-1 ring-offset-[var(--bg-modal)]")} style={{ backgroundColor: color.value }} />)}<label className="editor-tool relative shrink-0 cursor-pointer" title="Cor personalizada do fundo destacado" aria-label="Escolher cor personalizada do fundo destacado"><Palette /><input aria-label="Cor do fundo destacado" type="color" value={toHexColor(backdropAttributes.backgroundColor || "#000000")} className="absolute inset-0 cursor-pointer opacity-0" onChange={(event) => setBackdrop(event.target.value)} /></label></div>}
+    {!compact && !side && <span className="ml-auto pr-2 text-[9px] text-[var(--muted-foreground)]">{hasSelection ? "Formatação do trecho selecionado" : "Selecione um trecho para formatar"}</span>}
   </div>;
 }
 
@@ -1239,9 +1294,9 @@ function toHexColor(value: string) {
   return match ? `#${match.slice(1, 4).map((channel) => Number(channel).toString(16).padStart(2, "0")).join("")}` : "#000000";
 }
 
-function TextColorTool({ value, disabled, isAutomatic, onAuto, onChange }: { value: string; disabled: boolean; isAutomatic: boolean; onAuto: () => void; onChange: (value: string) => void }) {
+function TextColorTool({ value, disabled, isAutomatic, onAuto, onChange, vertical = false }: { value: string; disabled: boolean; isAutomatic: boolean; onAuto: () => void; onChange: (value: string) => void; vertical?: boolean }) {
   const selected = value.toLowerCase();
-  return <div role="group" aria-label="Cor do texto" className={cn("flex shrink-0 items-center gap-1 rounded-lg px-1", disabled && "pointer-events-none opacity-40")}>
+  return <div role="group" aria-label="Cor do texto" className={cn("shrink-0 items-center gap-1 rounded-lg px-1", vertical ? "flex flex-col gap-2" : "flex", disabled && "pointer-events-none opacity-40")}>
     <button type="button" disabled={disabled} title="Cor automática" aria-label="Usar cor automática do texto" aria-pressed={isAutomatic} onClick={onAuto} className={cn("grid h-7 w-7 place-items-center rounded-full border transition", isAutomatic ? "border-[var(--accent-blue)] text-[var(--accent-blue)]" : "border-[var(--glass-border)] text-[var(--muted-foreground)]")}><RotateCcw size={12} /></button>
     {QUICK_TEXT_COLORS.map((color) => <button key={color.value} type="button" disabled={disabled} title={color.label} aria-label={`Aplicar cor ${color.label}`} aria-pressed={selected === color.value} onClick={() => onChange(color.value)} className={cn("h-6 w-6 rounded-full border border-white/20 shadow-sm transition hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-blue)]", selected === color.value && "ring-2 ring-white ring-offset-1 ring-offset-[var(--bg-modal)]")} style={{ background: color.value }} />)}
     <label className="editor-tool relative shrink-0 cursor-pointer" title="Mais cores" aria-label="Abrir seletor de cores personalizado"><Palette /><input aria-label="Cor personalizada do texto" type="color" value={toHexColor(value)} disabled={disabled} className="absolute inset-0 cursor-pointer opacity-0" onChange={(event) => onChange(event.target.value)} /></label>
@@ -1274,7 +1329,7 @@ function ScaledCanvas({ width, height, format, profile, children, maxHeight = 68
   </div>;
 }
 
-function PostCanvas({ slide, profile, template, width, height, editable = false, editor, refCallback, activeTextBlockId, editingTextBlockId, onSelectTextBlock, onEditTextBlock, onReorderText, onPositionChange, onResizeMedia }: { slide: Slide; profile: TweetProfile; template: PostTemplate; width: number; height: number; editable?: boolean; editor?: Editor | null; refCallback?: (node: HTMLDivElement | null) => void; activeTextBlockId?: string; editingTextBlockId?: string | null; onSelectTextBlock?: (id: string) => void; onEditTextBlock?: (id: string) => void; onReorderText?: (sourceId: string, targetId: string, after: boolean) => void; onPositionChange?: (key: string, position: CanvasPoint) => void; onResizeMedia?: (key: string, position: CanvasPoint, width: number) => void }) {
+function PostCanvas({ slide, profile, template, width, height, editable = false, editor, refCallback, activeTextBlockId, editingTextBlockId, onSelectTextBlock, onEditTextBlock, onReorderText, onPositionChange, onResizeMedia, onRemoveMedia }: { slide: Slide; profile: TweetProfile; template: PostTemplate; width: number; height: number; editable?: boolean; editor?: Editor | null; refCallback?: (node: HTMLDivElement | null) => void; activeTextBlockId?: string; editingTextBlockId?: string | null; onSelectTextBlock?: (id: string) => void; onEditTextBlock?: (id: string) => void; onReorderText?: (sourceId: string, targetId: string, after: boolean) => void; onPositionChange?: (key: string, position: CanvasPoint) => void; onResizeMedia?: (key: string, position: CanvasPoint, width: number) => void; onRemoveMedia?: (index: number) => void }) {
   const safeLeft = template === "tweet" ? 12 : 8;
   const safeWidth = 100 - safeLeft * 2;
   const canvasRef = useRef<HTMLDivElement | null>(null);
@@ -1284,7 +1339,11 @@ function PostCanvas({ slide, profile, template, width, height, editable = false,
   const [dropTargetId, setDropTargetId] = useState<string | null>(null);
   const [selectedMediaKey, setSelectedMediaKey] = useState<string | null>(null);
   useEffect(() => setSelectedMediaKey(null), [slide.id, slide.layoutMode]);
-  const media = slide.media.length ? <HorizontalMedia media={slide.media} crops={slide.mediaCrops} aspects={slide.mediaAspects} naturalAspects={slide.mediaNaturalAspects} /> : null;
+  const removeMedia = (index: number) => {
+    setSelectedMediaKey(null);
+    onRemoveMedia?.(index);
+  };
+  const media = slide.media.length ? <HorizontalMedia media={slide.media} crops={slide.mediaCrops} aspects={slide.mediaAspects} naturalAspects={slide.mediaNaturalAspects} editable={editable} selectedIndex={selectedMediaKey?.startsWith("auto-media:") ? Number(selectedMediaKey.split(":")[1]) : null} onSelect={(index) => setSelectedMediaKey(`auto-media:${index}`)} onRemove={removeMedia} /> : null;
   const profileBlock = template === "tweet" ? <TweetProfileBlock profile={profile} foreground={slide.foreground} /> : null;
   const textMap = new Map(slide.textBlocks.map((block) => [block.id, block]));
   const layout = [...slide.layout, ...slide.textBlocks.map((block) => block.id).filter((id) => !slide.layout.includes(id)), ...(slide.layout.includes("media") ? [] : ["media"] )];
@@ -1310,11 +1369,11 @@ function PostCanvas({ slide, profile, template, width, height, editable = false,
       const baseWidth = slide.media.length > 1 ? 40 : 76;
       const defaultWidth = Math.max(24, Math.min(baseWidth, (height * .44 * aspect) / width * 100));
       const itemWidth = slide.freeSizes[key] || defaultWidth;
-      return <FreeCanvasElement key={key} elementKey={key} position={slide.freePositions[key] || defaultPosition(key, index)} canvasRef={canvasRef} canvas={{ width, height }} editable={editable} onPositionChange={onPositionChange} onGuidesChange={setGuides} onInteractionChange={setIsFreeDragging} selected={selectedMediaKey === key} onSelect={() => setSelectedMediaKey(key)} resizeAspect={aspect} onResize={onResizeMedia} media style={{ width: `${itemWidth}%` }}><MediaFrame image={image} crop={slide.mediaCrops[index]} aspect={aspect} /></FreeCanvasElement>;
+      return <FreeCanvasElement key={key} elementKey={key} position={slide.freePositions[key] || defaultPosition(key, index)} canvasRef={canvasRef} canvas={{ width, height }} editable={editable} onPositionChange={onPositionChange} onGuidesChange={setGuides} onInteractionChange={setIsFreeDragging} selected={selectedMediaKey === key} onSelect={() => setSelectedMediaKey(key)} onRemove={() => removeMedia(index)} resizeAspect={aspect} onResize={onResizeMedia} media style={{ width: `${itemWidth}%` }}><MediaFrame image={image} crop={slide.mediaCrops[index]} aspect={aspect} /></FreeCanvasElement>;
     })}
   </> : <BalancedContent safeLeft={safeLeft} safeWidth={safeWidth} gap={template === "tweet" ? 44 : 52}>{profileBlock}{layoutItems}</BalancedContent>;
 
-  return <div ref={setRefs} data-post-canvas={template} className="relative overflow-hidden" style={{ width, height, background: slide.background, color: slide.foreground, fontFamily: template === "tweet" ? "Arial, Helvetica, sans-serif" : "Advercase, Georgia, serif", fontWeight: 400 }} onPointerDown={(event) => { if (!(event.target as HTMLElement).closest("[data-free-media]")) setSelectedMediaKey(null); }}>
+  return <div ref={setRefs} data-post-canvas={template} className="relative overflow-hidden" style={{ width, height, background: slide.background, color: slide.foreground, fontFamily: template === "tweet" ? "Arial, Helvetica, sans-serif" : "Advercase, Georgia, serif", fontWeight: 400 }} onPointerDown={(event) => { if (!(event.target as HTMLElement).closest("[data-canvas-media]")) setSelectedMediaKey(null); }}>
     {template === "stories" && slide.backgroundImage && <><img src={slide.backgroundImage} alt="Fundo do slide" className="absolute inset-0 h-full w-full object-cover" /><span className="absolute inset-0 bg-black" style={{ opacity: slide.imageDarkness / 100 }} /></>}
     {freeContent}
     {editable && isFreeDragging && <><span aria-hidden className="pointer-events-none absolute inset-y-0 z-40 w-px bg-[#27a3ff]/55" style={{ left: width / 2 }} /><span aria-hidden className="pointer-events-none absolute inset-x-0 z-40 h-px bg-[#27a3ff]/55" style={{ top: height / 2 }} /></>}
@@ -1322,7 +1381,7 @@ function PostCanvas({ slide, profile, template, width, height, editable = false,
   </div>;
 }
 
-function FreeCanvasElement({ elementKey, position, canvasRef, canvas, editable, onPositionChange, onGuidesChange, onInteractionChange, onDoubleTap, selected = false, onSelect, resizeAspect, onResize, media = false, className, style, children }: { elementKey: string; position: CanvasPoint; canvasRef: React.RefObject<HTMLDivElement>; canvas: { width: number; height: number }; editable: boolean; onPositionChange?: (key: string, position: CanvasPoint) => void; onGuidesChange: (guides: AlignmentGuide[]) => void; onInteractionChange?: (active: boolean) => void; onDoubleTap?: () => void; selected?: boolean; onSelect?: () => void; resizeAspect?: number; onResize?: (key: string, position: CanvasPoint, width: number) => void; media?: boolean; className?: string; style?: React.CSSProperties; children: React.ReactNode }) {
+function FreeCanvasElement({ elementKey, position, canvasRef, canvas, editable, onPositionChange, onGuidesChange, onInteractionChange, onDoubleTap, selected = false, onSelect, onRemove, resizeAspect, onResize, media = false, className, style, children }: { elementKey: string; position: CanvasPoint; canvasRef: React.RefObject<HTMLDivElement>; canvas: { width: number; height: number }; editable: boolean; onPositionChange?: (key: string, position: CanvasPoint) => void; onGuidesChange: (guides: AlignmentGuide[]) => void; onInteractionChange?: (active: boolean) => void; onDoubleTap?: () => void; selected?: boolean; onSelect?: () => void; onRemove?: () => void; resizeAspect?: number; onResize?: (key: string, position: CanvasPoint, width: number) => void; media?: boolean; className?: string; style?: React.CSSProperties; children: React.ReactNode }) {
   const elementRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{ pointerId: number; clientX: number; clientY: number; start: CanvasPoint; size: { width: number; height: number }; siblings: Array<CanvasPoint & { width: number; height: number }>; scale: number; latestPosition: CanvasPoint | null } | null>(null);
   const resizeRef = useRef<{ pointerId: number; clientX: number; clientY: number; position: CanvasPoint; size: { width: number; height: number }; scale: number; corner: ResizeCorner } | null>(null);
@@ -1331,7 +1390,7 @@ function FreeCanvasElement({ elementKey, position, canvasRef, canvas, editable, 
     if (!editable || !onPositionChange || event.button !== 0) return;
     if (event.detail > 1) return;
     const target = event.target as HTMLElement;
-    if (target.closest("[data-resize-handle]")) return;
+    if (target.closest("[data-resize-handle], [data-media-action]")) return;
     if (target.closest("[contenteditable='true']") && !target.closest("[data-free-drag-handle]")) return;
     const canvasNode = canvasRef.current;
     const elementNode = elementRef.current;
@@ -1436,10 +1495,11 @@ function FreeCanvasElement({ elementKey, position, canvasRef, canvas, editable, 
     sw: "-bottom-9 -left-9 cursor-nesw-resize",
     se: "-bottom-9 -right-9 cursor-nwse-resize",
   };
-  return <div ref={elementRef} data-free-key={elementKey} data-free-media={media ? "true" : undefined} className={cn("absolute z-10 touch-none", editable && "cursor-move select-none", selected && "z-20", className)} style={{ ...style, left: `${position.x}%`, top: `${position.y}%` }} onPointerDown={startDrag} onPointerMove={moveDrag} onPointerUp={endDrag} onPointerCancel={endDrag}>
+  return <div ref={elementRef} data-free-key={elementKey} data-canvas-media={media ? "true" : undefined} className={cn("absolute z-10 touch-none", editable && "cursor-move select-none", selected && "z-20", className)} style={{ ...style, left: `${position.x}%`, top: `${position.y}%` }} onPointerDown={startDrag} onPointerMove={moveDrag} onPointerUp={endDrag} onPointerCancel={endDrag}>
     {children}
     {editable && selected && resizeAspect && onResize && <>
       <span aria-hidden className="pointer-events-none absolute inset-0 rounded-[36px] border-[5px] border-[#27a3ff] shadow-[0_0_0_3px_rgba(255,255,255,.9)]" />
+      {onRemove && <button type="button" data-media-action="remove" aria-label="Excluir imagem selecionada" title="Excluir imagem" className="absolute right-5 top-5 z-40 grid h-28 w-28 touch-manipulation place-items-center rounded-[28px] border-[5px] border-white bg-[#dc2626] text-white shadow-xl" onPointerDown={(event) => { event.preventDefault(); event.stopPropagation(); }} onClick={(event) => { event.preventDefault(); event.stopPropagation(); onRemove(); }}><Trash2 size={44} strokeWidth={2.4} /></button>}
       {(["nw", "ne", "sw", "se"] as ResizeCorner[]).map((corner) => <button key={corner} type="button" data-resize-handle={corner} aria-label={`Redimensionar imagem pelo canto ${corner}`} className={cn("absolute z-30 grid h-[72px] w-[72px] touch-none place-items-center", handlePosition[corner])} onPointerDown={startResize(corner)} onPointerMove={moveResize} onPointerUp={endResize} onPointerCancel={endResize}><span className="block h-7 w-7 rounded-full border-[5px] border-white bg-[#27a3ff] shadow-lg" /></button>)}
     </>}
   </div>;
@@ -1473,9 +1533,9 @@ function TweetProfileBlock({ profile, foreground }: { profile: TweetProfile; for
 
 function TextBlockItem({ block, editor, editable, active, editing, foreground, story, safeWidth, onSelect, onEdit, onDragStart, onDragEnd, free = false }: { block: TextBlock; editor?: Editor | null; editable: boolean; active: boolean; editing: boolean; foreground: string; story: boolean; safeWidth: number; onSelect: () => void; onEdit: () => void; onDragStart: (event: React.DragEvent<HTMLButtonElement>) => void; onDragEnd: () => void; free?: boolean }) {
   const width = free ? 100 : Math.min(block.textWidth, safeWidth) / safeWidth * 100;
-  return <div onPointerDown={editable && !editing ? onSelect : undefined} onDoubleClick={editable ? (event) => { event.stopPropagation(); onEdit(); } : undefined} className={cn("relative mx-auto min-w-0 max-w-full", editable && (editing ? "cursor-text select-text" : free ? "cursor-move select-none" : "cursor-text"), active && "z-10")} style={{ width: `${width}%`, color: foreground, fontSize: block.fontSize, fontWeight: 400, lineHeight: block.lineHeight, overflowWrap: "anywhere", wordBreak: "break-word" }}>
+  return <div onPointerDown={editable && !editing ? onSelect : undefined} onDoubleClick={editable ? (event) => { event.stopPropagation(); onEdit(); } : undefined} className={cn("relative mx-auto min-w-0 max-w-full", editable && (editing ? "cursor-text select-text" : free ? "cursor-move select-none" : "cursor-text"), active && "z-10")} style={{ width: `${width}%`, color: foreground, fontSize: block.fontSize, fontWeight: 400, lineHeight: block.lineHeight, letterSpacing: `${Number.isFinite(block.letterSpacing) ? block.letterSpacing : story ? -0.03 : 0}em`, overflowWrap: "anywhere", wordBreak: "break-word" }}>
     {editable && active && <button type="button" draggable={!free} data-free-drag-handle={free ? "true" : undefined} aria-label="Mover caixa de texto" title={free ? "Arraste para posicionar livremente" : "Arraste para reorganizar esta caixa"} className="absolute -bottom-14 left-1/2 hidden h-12 w-12 -translate-x-1/2 cursor-grab place-items-center rounded-full bg-[#27a3ff] text-white shadow-xl active:cursor-grabbing lg:grid" onDragStart={free ? undefined : onDragStart} onDragEnd={free ? undefined : onDragEnd}><Move size={24} /></button>}
-    <PostText block={block} editor={editing ? editor : undefined} editable={editable && editing} className={cn("w-full", story && "tracking-[-.03em]", editable && !active && "rounded-lg ring-[5px] ring-transparent hover:ring-[#27a3ff]/20", active && "rounded-lg ring-[5px] ring-[#27a3ff]/25", editing && "ring-[#27a3ff]/45")} />
+    <PostText block={block} editor={editing ? editor : undefined} editable={editable && editing} className={cn("w-full", editable && !active && "rounded-lg ring-[5px] ring-transparent hover:ring-[#27a3ff]/20", active && "rounded-lg ring-[5px] ring-[#27a3ff]/25", editing && "ring-[#27a3ff]/45")} />
   </div>;
 }
 
@@ -1489,9 +1549,15 @@ function MediaFrame({ image, crop: savedCrop, aspect }: { image: string; crop?: 
   return <div className="w-full overflow-hidden rounded-[36px] border border-black/10" style={{ aspectRatio: aspect }}><img src={image} alt="Mídia do post" className="h-full w-full object-cover" draggable={false} style={{ objectPosition: `${crop.x}% ${crop.y}%`, transform: `scale(${crop.zoom})`, transformOrigin: `${crop.x}% ${crop.y}%` }} /></div>;
 }
 
-function HorizontalMedia({ media, crops, aspects, naturalAspects, className }: { media: string[]; crops: MediaCrop[]; aspects: MediaAspect[]; naturalAspects: number[]; className?: string }) {
+function HorizontalMedia({ media, crops, aspects, naturalAspects, className, editable = false, selectedIndex, onSelect, onRemove }: { media: string[]; crops: MediaCrop[]; aspects: MediaAspect[]; naturalAspects: number[]; className?: string; editable?: boolean; selectedIndex?: number | null; onSelect?: (index: number) => void; onRemove?: (index: number) => void }) {
   if (!media.length) return null;
-  return <div className={cn("flex w-full items-center justify-center gap-2", className)}>{media.map((image, index) => <div key={`${image.slice(-20)}-${index}`} className="min-w-0 flex-1"><MediaFrame image={image} crop={crops[index]} aspect={mediaAspectValue(aspects[index] || "16:9", naturalAspects[index])} /></div>)}</div>;
+  return <div className={cn("flex w-full items-center justify-center gap-2", className)}>{media.map((image, index) => {
+    const selected = editable && selectedIndex === index;
+    return <div key={`${image.slice(-20)}-${index}`} data-canvas-media="true" className={cn("relative min-w-0 flex-1", editable && "cursor-pointer touch-manipulation")} onPointerDown={editable ? (event) => { event.stopPropagation(); onSelect?.(index); } : undefined}>
+      <MediaFrame image={image} crop={crops[index]} aspect={mediaAspectValue(aspects[index] || "16:9", naturalAspects[index])} />
+      {selected && <><span aria-hidden className="pointer-events-none absolute inset-0 rounded-[36px] border-[5px] border-[#27a3ff] shadow-[0_0_0_3px_rgba(255,255,255,.9)]" />{onRemove && <button type="button" data-media-action="remove" aria-label={`Excluir imagem ${index + 1}`} title="Excluir imagem" className="absolute right-5 top-5 z-20 grid h-28 w-28 touch-manipulation place-items-center rounded-[28px] border-[5px] border-white bg-[#dc2626] text-white shadow-xl" onPointerDown={(event) => { event.preventDefault(); event.stopPropagation(); }} onClick={(event) => { event.preventDefault(); event.stopPropagation(); onRemove(index); }}><Trash2 size={44} strokeWidth={2.4} /></button>}</>}
+    </div>;
+  })}</div>;
 }
 
 function Avatar({ src, size, crop = defaultMediaCrop() }: { src: string; size: number; crop?: MediaCrop }) {
@@ -1519,13 +1585,15 @@ function PropertiesPanel({ section, template, format, setFormat, slide, update, 
           <div className="grid gap-2">
             <MobileAdjustmentButton label="Tamanho" value={`${activeTextBlock.fontSize}px`} onClick={() => onFocusTextControl("fontSize")} />
             <MobileAdjustmentButton label="Espaçamento entre linhas" value={`${Math.round(activeTextBlock.lineHeight * 100)}%`} onClick={() => onFocusTextControl("lineHeight")} />
+            <MobileAdjustmentButton label="Espaçamento entre letras" value={`${Math.round(activeTextBlock.letterSpacing * 100)}%`} onClick={() => onFocusTextControl("letterSpacing")} />
             <MobileAdjustmentButton label="Largura do bloco" value={`${activeTextBlock.textWidth}%`} onClick={() => onFocusTextControl("textWidth")} />
           </div>
         ) : (
           <>
-            <Field label={`Tamanho · ${activeTextBlock.fontSize}px`}><input aria-label="Tamanho do texto" type="range" min={template === "tweet" ? 28 : 36} max={template === "tweet" ? 128 : 190} step="1" value={activeTextBlock.fontSize} onChange={(event) => updateTextBlock({ fontSize: Number(event.target.value) })} className="w-full accent-[#27a3ff]" /></Field>
-            <Field label={`Espaçamento entre linhas · ${Math.round(activeTextBlock.lineHeight * 100)}%`}><input aria-label="Espaçamento entre linhas" type="range" min="0.75" max="1.8" step="0.05" value={activeTextBlock.lineHeight} onChange={(event) => updateTextBlock({ lineHeight: Number(event.target.value) })} className="w-full accent-[#27a3ff]" /></Field>
-            <Field label={`Largura do bloco · ${activeTextBlock.textWidth}%`}><input aria-label="Largura do texto" type="range" min="40" max={template === "tweet" ? 76 : 84} step="2" value={Math.min(activeTextBlock.textWidth, template === "tweet" ? 76 : 84)} onChange={(event) => updateTextBlock({ textWidth: Number(event.target.value) })} className="w-full accent-[#27a3ff]" /></Field>
+            <Field label={`Tamanho · ${activeTextBlock.fontSize}px`}><input aria-label="Tamanho do texto" type="range" min={template === "tweet" ? 28 : 36} max={template === "tweet" ? 128 : 190} step="1" value={activeTextBlock.fontSize} onChange={(event) => updateTextBlock({ fontSize: Number(event.target.value) })} className="post-gradient-range w-full" style={postRangeStyle(activeTextBlock.fontSize, template === "tweet" ? 28 : 36, template === "tweet" ? 128 : 190)} /></Field>
+            <Field label={`Espaçamento entre linhas · ${Math.round(activeTextBlock.lineHeight * 100)}%`}><input aria-label="Espaçamento entre linhas" type="range" min="0.75" max="1.8" step="0.05" value={activeTextBlock.lineHeight} onChange={(event) => updateTextBlock({ lineHeight: Number(event.target.value) })} className="post-gradient-range w-full" style={postRangeStyle(activeTextBlock.lineHeight, 0.75, 1.8)} /></Field>
+            <Field label={`Espaçamento entre letras · ${Math.round(activeTextBlock.letterSpacing * 100)}%`}><input aria-label="Espaçamento entre letras" type="range" min="-0.08" max="0.2" step="0.01" value={activeTextBlock.letterSpacing} onChange={(event) => updateTextBlock({ letterSpacing: Number(event.target.value) })} className="post-gradient-range w-full" style={postRangeStyle(activeTextBlock.letterSpacing, -0.08, 0.2)} /></Field>
+            <Field label={`Largura do bloco · ${activeTextBlock.textWidth}%`}><input aria-label="Largura do texto" type="range" min="40" max={template === "tweet" ? 76 : 84} step="2" value={Math.min(activeTextBlock.textWidth, template === "tweet" ? 76 : 84)} onChange={(event) => updateTextBlock({ textWidth: Number(event.target.value) })} className="post-gradient-range w-full" style={postRangeStyle(Math.min(activeTextBlock.textWidth, template === "tweet" ? 76 : 84), 40, template === "tweet" ? 76 : 84)} /></Field>
           </>
         )}
         {slide.layoutMode === "auto" && <div className="grid grid-cols-2 gap-2"><button onClick={() => { placeText("above"); onFocusVisualControl?.({ kind: "textPlacement" }); }} className={cn("rounded-xl border px-3 py-2 text-xs", textPlacement === "above" && "border-[var(--accent-blue)] bg-[var(--hover)]")}>Acima da imagem</button><button onClick={() => { placeText("below"); onFocusVisualControl?.({ kind: "textPlacement" }); }} className={cn("rounded-xl border px-3 py-2 text-xs", textPlacement === "below" && "border-[var(--accent-blue)] bg-[var(--hover)]")}>Abaixo da imagem</button></div>}
@@ -1550,7 +1618,7 @@ function PropertiesPanel({ section, template, format, setFormat, slide, update, 
         {(!section || section === "image") && <MediaPanel slide={slide} update={update} addFile={addFile} title="Imagem do post" mobile={Boolean(section)} onFocusCrop={section ? (index, axis) => onFocusVisualControl?.({ kind: "mediaCrop", index, axis }) : undefined} />}
       </> : <>
         {(!section || section === "background") && <><PanelSection title="Cores">{section ? <MobileAdjustmentButton label="Cor de fundo" value={slide.background.toUpperCase()} onClick={() => onFocusVisualControl?.({ kind: "backgroundColor" })} /> : <BackgroundColorRow value={slide.background} onChange={updateBackground} />}<div className="flex items-center justify-between rounded-xl border px-3 py-2" style={{ borderColor: "var(--glass-border)" }}><span className="text-xs">Texto automático</span><span className="h-7 w-7 rounded-full border" style={{ background: slide.foreground, borderColor: "var(--glass-border)" }} /></div></PanelSection>
-        <PanelSection title="Imagem de fundo"><UploadField label="Imagem do slide" value={slide.backgroundImage} square onFile={(file) => addFile(file, (backgroundImage) => update({ backgroundImage }))} onRemove={() => update({ backgroundImage: "" })} />{slide.backgroundImage && (section ? <MobileAdjustmentButton label="Escurecer foto" value={`${slide.imageDarkness}%`} onClick={() => onFocusVisualControl?.({ kind: "backgroundDarkness" })} /> : <Field label={`Escurecer foto · ${slide.imageDarkness}%`}><input type="range" min="0" max="90" value={slide.imageDarkness} onChange={(event) => update({ imageDarkness: Number(event.target.value) })} className="w-full accent-[#27a3ff]" /></Field>)}</PanelSection></>}
+        <PanelSection title="Imagem de fundo"><UploadField label="Imagem do slide" value={slide.backgroundImage} square onFile={(file) => addFile(file, (backgroundImage) => update({ backgroundImage }))} onRemove={() => update({ backgroundImage: "" })} />{slide.backgroundImage && (section ? <MobileAdjustmentButton label="Escurecer foto" value={`${slide.imageDarkness}%`} onClick={() => onFocusVisualControl?.({ kind: "backgroundDarkness" })} /> : <Field label={`Escurecer foto · ${slide.imageDarkness}%`}><input type="range" min="0" max="90" value={slide.imageDarkness} onChange={(event) => update({ imageDarkness: Number(event.target.value) })} className="post-gradient-range w-full" style={postRangeStyle(slide.imageDarkness, 0, 90)} /></Field>)}</PanelSection></>}
         {(!section || section === "image") && <MediaPanel slide={slide} update={update} addFile={addFile} title="Imagem complementar" mobile={Boolean(section)} onFocusCrop={section ? (index, axis) => onFocusVisualControl?.({ kind: "mediaCrop", index, axis }) : undefined} />}
       </>}
     </div></aside>;
@@ -1610,4 +1678,4 @@ function UploadField({ label, value, onFile, onRemove, square = false }: { label
 
 function UploadTile({ label, value, crop, aspect, naturalAspect, onFile, onRemove, onCropChange, onAspectChange, compactControls = false, onFocusCrop }: { label: string; value?: string; crop: MediaCrop; aspect: MediaAspect; naturalAspect?: number; onFile: (file?: File) => void; onRemove: () => void; onCropChange: (crop: MediaCrop) => void; onAspectChange: (aspect: MediaAspect) => void; compactControls?: boolean; onFocusCrop?: (axis: keyof MediaCrop) => void }) { const previewAspect = mediaAspectValue(aspect, naturalAspect); return <div className="min-w-0 space-y-2"><div className="relative mx-auto w-full overflow-hidden rounded-xl border bg-[var(--hover)]" style={{ borderColor: "var(--glass-border)", aspectRatio: previewAspect }}>{value ? <><img src={value} alt={label} className="h-full w-full object-cover" style={{ objectPosition: `${crop.x}% ${crop.y}%`, transform: `scale(${crop.zoom})`, transformOrigin: `${crop.x}% ${crop.y}%` }} /><button onClick={onRemove} aria-label={`Remover ${label}`} className="absolute right-1.5 top-1.5 grid h-6 w-6 place-items-center rounded-full bg-black/70 text-white"><X size={12} /></button></> : <label className="grid h-full min-h-20 cursor-pointer place-items-center text-center text-[10px] text-[var(--muted-foreground)]"><span><ImagePlus size={18} className="mx-auto mb-1" />{label}</span><input type="file" accept="image/*" className="sr-only" onChange={(event) => onFile(event.target.files?.[0])} /></label>}</div>{value && <div className="space-y-2 rounded-lg border p-2" style={{ borderColor: "var(--glass-border)" }}><label className="block"><span className="mb-1 block text-[8px] text-[var(--muted-foreground)]">Proporção</span><select aria-label={`Proporção da ${label.toLowerCase()}`} value={aspect} onChange={(event) => onAspectChange(event.target.value as MediaAspect)} className="editor-input h-9 w-full py-1 text-[10px]"><option value="original">Original · travada</option><option value="1:1">Quadrada · 1:1</option><option value="4:5">Vertical · 4:5</option><option value="9:16">Story · 9:16</option><option value="16:9">Horizontal · 16:9</option></select></label>{compactControls ? <><MobileAdjustmentButton label="Horizontal" value={`${Math.round(crop.x)}%`} onClick={() => onFocusCrop?.("x")} /><MobileAdjustmentButton label="Vertical" value={`${Math.round(crop.y)}%`} onClick={() => onFocusCrop?.("y")} /><MobileAdjustmentButton label="Zoom" value={`${crop.zoom.toFixed(2)}×`} onClick={() => onFocusCrop?.("zoom")} /></> : <><CropSlider label="Horizontal" value={crop.x} min={0} max={100} onChange={(x) => onCropChange({ ...crop, x })} /><CropSlider label="Vertical" value={crop.y} min={0} max={100} onChange={(y) => onCropChange({ ...crop, y })} /><CropSlider label="Zoom" value={crop.zoom} min={1} max={2.5} step={0.05} onChange={(zoom) => onCropChange({ ...crop, zoom })} /></>}</div>}</div>; }
 
-function CropSlider({ label, value, min, max, step = 1, onChange }: { label: string; value: number; min: number; max: number; step?: number; onChange: (value: number) => void }) { return <label className="block"><span className="mb-0.5 flex justify-between text-[8px] text-[var(--muted-foreground)]"><span>{label}</span><span>{label === "Zoom" ? `${value.toFixed(2)}×` : `${Math.round(value)}%`}</span></span><input type="range" aria-label={`${label} da imagem`} min={min} max={max} step={step} value={value} onChange={(event) => onChange(Number(event.target.value))} className="block w-full accent-[#27a3ff]" /></label>; }
+function CropSlider({ label, value, min, max, step = 1, onChange }: { label: string; value: number; min: number; max: number; step?: number; onChange: (value: number) => void }) { return <label className="block"><span className="mb-0.5 flex justify-between text-[8px] text-[var(--muted-foreground)]"><span>{label}</span><span>{label === "Zoom" ? `${value.toFixed(2)}×` : `${Math.round(value)}%`}</span></span><input type="range" aria-label={`${label} da imagem`} min={min} max={max} step={step} value={value} onChange={(event) => onChange(Number(event.target.value))} className="post-gradient-range block w-full" style={postRangeStyle(value, min, max)} /></label>; }
