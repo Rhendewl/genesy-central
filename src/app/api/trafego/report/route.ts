@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import sharp from "sharp";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { aggregateTrafficReport, type TrafficReportCampaignRow, type TrafficReportMetricRow } from "@/lib/traffic-report";
 
@@ -7,39 +6,6 @@ export const dynamic = "force-dynamic";
 
 function validDate(value: string | null): value is string {
   return Boolean(value && /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(new Date(`${value}T12:00:00`).getTime()));
-}
-
-function allowedImageHost(value: string) {
-  try {
-    const url = new URL(value);
-    return url.protocol === "https:" && ["fbcdn.net", "facebook.com", "fbsbx.com", "cdninstagram.com"].some((domain) => url.hostname === domain || url.hostname.endsWith(`.${domain}`));
-  } catch {
-    return false;
-  }
-}
-
-async function imageDataUrl(value?: string | null) {
-  if (!value || !allowedImageHost(value)) return null;
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 9000);
-  try {
-    const response = await fetch(value, { signal: controller.signal, headers: { Accept: "image/avif,image/webp,image/png,image/jpeg,*/*", "User-Agent": "Genesy-Report/1.0" } });
-    const type = response.headers.get("content-type")?.split(";")[0] ?? "";
-    const length = Number(response.headers.get("content-length") ?? 0);
-    if (!response.ok || (type && !type.startsWith("image/")) || type === "image/svg+xml" || length > 8_000_000) return null;
-    const bytes = Buffer.from(await response.arrayBuffer());
-    if (bytes.length > 8_000_000) return null;
-    const normalized = await sharp(bytes, { failOn: "none", animated: false })
-      .rotate()
-      .resize({ width: 1400, height: 1400, fit: "inside", withoutEnlargement: true })
-      .jpeg({ quality: 84, mozjpeg: true })
-      .toBuffer();
-    return `data:image/jpeg;base64,${normalized.toString("base64")}`;
-  } catch {
-    return null;
-  } finally {
-    clearTimeout(timer);
-  }
 }
 
 export async function GET(request: NextRequest) {
@@ -67,7 +33,7 @@ export async function GET(request: NextRequest) {
 
   const { data: campaigns, error: campaignsError } = await supabase
     .from("campaigns")
-    .select("id,name,status,thumbnail_url")
+    .select("id,name,status")
     .in("platform_account_id", selectedAccounts.map((account) => account.id));
   if (campaignsError) return NextResponse.json({ error: campaignsError.message }, { status: 400 });
   const campaignIds = (campaigns ?? []).map((campaign) => campaign.id);
@@ -85,10 +51,5 @@ export async function GET(request: NextRequest) {
     campaigns: (campaigns ?? []) as TrafficReportCampaignRow[],
     metrics: (metrics ?? []) as TrafficReportMetricRow[],
   });
-  report.creatives = await Promise.all(report.creatives.map(async (creative) => ({
-    ...creative,
-    thumbnailDataUrl: await imageDataUrl(creative.thumbnailDataUrl),
-  })));
-
   return NextResponse.json({ report }, { headers: { "Cache-Control": "private, no-store" } });
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { calculateCampaignRows, calculateSaleCommissions, calculateVgvCustomMetrics, calculateVgvIntelligence, normalizeVgvCustomFields } from "@/lib/marketing/vgv-intelligence";
+import { calculateCampaignRows, calculateSaleCommissions, calculateVgvCustomMetrics, calculateVgvIntelligence, normalizeVgvCustomFields, relateCampaignPerformanceToSales } from "@/lib/marketing/vgv-intelligence";
 
 describe("VGV intelligence", () => {
   it("calcula funil comercial e participação sobre a comissão do cliente", () => {
@@ -36,6 +36,18 @@ describe("VGV intelligence", () => {
       { agency_client_id: "client-1", campaign_name: "Campanha lembrada pelo corretor", sale_value: 500000, commission_percentage: 5 },
     ] as never, []);
     expect(rows).toEqual([]);
+  });
+
+  it("relaciona os totais da campanha à venda mesmo quando a campanha terminou antes do mês da venda", () => {
+    const registered = [
+      { id: "campaign-1", agency_client_id: "client-1", campaign_name: "Campanha Verão", spend: 2500, leads: 50 },
+      { id: "campaign-2", agency_client_id: "client-1", campaign_name: "Outra campanha", spend: 900, leads: 10 },
+    ] as never;
+    const related = relateCampaignPerformanceToSales(registered, [], [
+      { agency_client_id: "client-1", campaign_name: " campanha verão " },
+    ] as never);
+    expect(related).toEqual([registered[0]]);
+    expect(calculateVgvIntelligence([{ sale_value: 500000, commission_percentage: 5 }] as never, related)).toMatchObject({ spend: 2500, leads: 50, cpl: 50, cac: 2500, conversionRate: 2, roas: 200, commercialRoi: 900 });
   });
 
   it("soma campos numéricos configurados para o dashboard", () => {

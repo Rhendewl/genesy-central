@@ -9,7 +9,6 @@ export interface TrafficReportCampaign {
   impressions: number;
   clicks: number;
   conversions: number;
-  thumbnailDataUrl?: string | null;
 }
 
 export interface TrafficReportData {
@@ -32,5 +31,4 @@ export interface TrafficReportData {
     activeCampaigns: number;
   };
   campaigns: TrafficReportCampaign[];
-  creatives: TrafficReportCampaign[];
 }

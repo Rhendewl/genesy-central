@@ -49,7 +49,7 @@ export async function notifyVgvSale(db: Db, input: {
     eventId: `vgv-sale:${input.saleId}`,
     source: "marketing_vgv_sale",
     ...content,
-    actionUrl: "/marketing/vgv",
+    actionUrl: "/clientes?tab=vgv",
   });
 }
 
@@ -68,6 +68,6 @@ export async function notifyCommercialAnalysisResponse(db: Db, input: {
     eventId: `commercial-analysis-response:${input.responseId}`,
     source: "commercial_analysis_response",
     ...content,
-    actionUrl: `/clientes?tab=area_clientes&area=analise_comercial&client_id=${input.clientId}`,
+    actionUrl: `/clientes?tab=analise_comercial&client_id=${input.clientId}`,
   });
 }

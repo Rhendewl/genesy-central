@@ -72,7 +72,7 @@ export async function runClientLifecycleAlerts(db: Db, now = new Date()): Promis
       source: "meta_token",
       title: remaining === 0 ? "Token da Meta vence hoje" : `Token da Meta vence em ${remaining} dia${remaining === 1 ? "" : "s"}`,
       body: `${account.account_name}${client?.name ? `, de ${client.name}` : ""}, precisará ser reconectada para manter a sincronização e as automações funcionando.`,
-      actionUrl: `/clientes?tab=area_clientes&area=analise_comercial${account.client_id ? `&meta_client=${account.client_id}` : ""}`,
+      actionUrl: `/clientes?tab=analise_comercial${account.client_id ? `&meta_client=${account.client_id}` : ""}`,
     });
   }
 

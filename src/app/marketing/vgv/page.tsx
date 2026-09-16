@@ -1,3 +1,5 @@
-import MarketingVgvPage from "@/components/marketing/MarketingVgvModule";
+import { redirect } from "next/navigation";
 
-export default MarketingVgvPage;
+export default function LegacyMarketingVgvPage() {
+  redirect("/clientes?tab=vgv");
+}

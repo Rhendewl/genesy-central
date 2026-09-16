@@ -1,9 +1,12 @@
 import { jsPDF } from "jspdf";
 import { trafficReportFilename } from "@/lib/traffic-report";
-import type { TrafficReportCampaign, TrafficReportData } from "@/types/traffic-report";
+import type { TrafficReportData } from "@/types/traffic-report";
 
 type RGB = [number, number, number];
 export type TrafficReportPdfAssets = { logoDark: string; logoLight: string; lightFont: string; mediumFont: string };
+export type TrafficReportFileHandle = {
+  createWritable: () => Promise<{ write: (data: Blob) => Promise<void>; close: () => Promise<void> }>;
+};
 
 const W = 108;
 const H = 192;
@@ -14,9 +17,6 @@ const WHITE: RGB = [255, 255, 255];
 const GRAY_DARK: RGB = [123, 135, 142];
 const GRAY_LIGHT: RGB = [175, 184, 192];
 const SURFACE: RGB = [241, 243, 244];
-const GOLD: RGB = [184, 145, 62];
-const SILVER: RGB = [154, 163, 171];
-const BRONZE: RGB = [166, 105, 63];
 
 const money = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 2 });
 const number = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 0 });
@@ -67,12 +67,6 @@ async function loadAssets(): Promise<TrafficReportPdfAssets> {
   return { logoDark, logoLight, lightFont: bufferToBase64(await light.arrayBuffer()), mediumFont: bufferToBase64(await medium.arrayBuffer()) };
 }
 
-function imageFormat(dataUrl: string) {
-  if (dataUrl.startsWith("data:image/png")) return "PNG";
-  if (dataUrl.startsWith("data:image/webp")) return "WEBP";
-  return "JPEG";
-}
-
 export function createTrafficReportPdf(data: TrafficReportData, assets: TrafficReportPdfAssets) {
   const pdf = new jsPDF({ unit: "mm", format: [W, H], orientation: "portrait" });
   pdf.addFileToVFS("tt-firs-light.ttf", assets.lightFont);
@@ -101,18 +95,15 @@ export function createTrafficReportPdf(data: TrafficReportData, assets: TrafficR
 
   // Capa
   pdf.setFillColor(...BLACK); pdf.rect(0, 0, W, H, "F");
-  pdf.setFillColor(...GRAY_DARK); pdf.roundedRect(W - 40, -10, 54, 62, 8, 8, "F");
-  pdf.setFillColor(25, 27, 29); pdf.roundedRect(-17, H - 47, 58, 62, 8, 8, "F");
   pdf.addImage(assets.logoLight, "PNG", PAD, 10, 29, 6.3);
-  text(WHITE, 6.2, "bold"); pdf.text("RELATÓRIO EXECUTIVO", PAD, 62);
-  text(WHITE, 22, "bold");
-  const coverTitle = wrap("Tráfego Pago", 78); pdf.text(coverTitle, PAD, 75);
-  text(WHITE, 12, "bold"); pdf.text(wrap(data.clientName, 88).slice(0, 2), PAD, 91);
-  text(WHITE, 8); pdf.text(`${date(data.since)} a ${date(data.until)}`, PAD, 111);
-  if (data.accountName) { text(WHITE, 6.4); pdf.text(wrap(data.accountName, 82), PAD, 120); }
-  pdf.setDrawColor(...GRAY_LIGHT); pdf.setLineWidth(1.1); pdf.line(PAD, 133, 34, 133);
-  text(WHITE, 6); pdf.text("Performance de mídia, campanhas e criativos", PAD, 142);
-  text(WHITE, 5.5); pdf.text(`Gerado em ${new Date(data.generatedAt).toLocaleDateString("pt-BR")}`, PAD, H - 10);
+  text(WHITE, 7.4, "bold"); pdf.text("RELATÓRIO EXECUTIVO", PAD, 58);
+  text(WHITE, 27, "bold"); pdf.text(wrap("Tráfego Pago", 88), PAD, 75);
+  text(WHITE, 15, "bold"); pdf.text(wrap(data.clientName, 90).slice(0, 2), PAD, 95);
+  text(WHITE, 9.5); pdf.text(`${date(data.since)} a ${date(data.until)}`, PAD, 119);
+  if (data.accountName) { text(WHITE, 7.5); pdf.text(wrap(data.accountName, 88), PAD, 129); }
+  pdf.setDrawColor(...GRAY_LIGHT); pdf.setLineWidth(1.1); pdf.line(PAD, 143, 38, 143);
+  text(WHITE, 7.2); pdf.text("Performance de mídia, campanhas e resultados", PAD, 153);
+  text(WHITE, 6.4); pdf.text(`Gerado em ${new Date(data.generatedAt).toLocaleDateString("pt-BR")}`, PAD, H - 10);
 
   // Resumo em quadrantes
   addPage(); header("Performance do período", "Resumo executivo");
@@ -148,30 +139,17 @@ export function createTrafficReportPdf(data: TrafficReportData, assets: TrafficR
   addPage(); header("Ranking de performance", "Melhores campanhas");
   if (!data.campaigns.length) { text(BLACK, 7); pdf.text("Nenhuma campanha com dados no período.", PAD, y); }
   data.campaigns.slice(0, 6).forEach((campaign, index) => {
-    const h = 22;
+    const h = 24;
     pdf.setFillColor(...SURFACE); pdf.setDrawColor(...GRAY_LIGHT);
     pdf.roundedRect(PAD, y, CW, h, 2, 2, "FD");
-    const podium = index === 0 ? GOLD : index === 1 ? SILVER : index === 2 ? BRONZE : GRAY_DARK;
-    pdf.setFillColor(...podium); pdf.roundedRect(PAD + 2.5, y + 2.5, 7, 7, 1.4, 1.4, "F");
-    text(index === 1 ? BLACK : WHITE, 6.2, "bold"); pdf.text(String(index + 1), PAD + 6, y + 7.45, { align: "center" });
-    text(BLACK, 7.2, "bold"); pdf.text(wrap(campaign.name, 67).slice(0, 2), PAD + 12, y + 6.5);
-    text(BLACK, 6.7, "bold"); pdf.text(`${number.format(campaign.leads)} leads`, W - PAD - 3, y + 6.5, { align: "right" });
-    text(BLACK, 6.2); pdf.text(`${money.format(campaign.spend)}  |  CPL ${campaign.leads ? money.format(campaign.cpl) : "-"}  |  CTR ${campaign.ctr.toFixed(2)}%`, PAD + 12, y + 17.5);
+    pdf.setFillColor(...GRAY_DARK); pdf.roundedRect(PAD + 2.5, y + 3, 8, 8, 1.4, 1.4, "F");
+    text(WHITE, 6.6, "bold"); pdf.text(String(index + 1), PAD + 6.5, y + 7, { align: "center", baseline: "middle" });
+    text(BLACK, 7.2, "bold"); pdf.text(wrap(campaign.name, 61).slice(0, 2), PAD + 13, y + 7);
+    pdf.setFillColor(...GRAY_LIGHT); pdf.roundedRect(W - PAD - 20, y + 3, 17, 8, 1.4, 1.4, "F");
+    text(BLACK, 7.3, "bold"); pdf.text(`${number.format(campaign.leads)} leads`, W - PAD - 11.5, y + 7, { align: "center", baseline: "middle" });
+    text(BLACK, 6.2); pdf.text(`${money.format(campaign.spend)}  |  CPL ${campaign.leads ? money.format(campaign.cpl) : "-"}  |  CTR ${campaign.ctr.toFixed(2)}%`, PAD + 13, y + 19.5);
     y += h + 3;
   });
-
-  // Criativos
-  const creatives = data.creatives;
-  if (!creatives.length) {
-    addPage(); header("Conteúdo visual", "Criativos em destaque");
-    text(BLACK, 7); pdf.text(wrap("As campanhas do período ainda não possuem miniaturas sincronizadas. Sincronize novamente a conta Meta para incluí-las no próximo relatório."), PAD, y);
-  } else {
-    creatives.forEach((creative, index) => {
-      if (index % 2 === 0) { addPage(); header("Conteúdo visual", "Criativos em destaque"); }
-      drawCreative(pdf, creative, index, assets, y, text, wrap);
-      y += 68;
-    });
-  }
 
   const pages = pdf.getNumberOfPages();
   for (let page = 2; page <= pages; page += 1) {
@@ -181,43 +159,14 @@ export function createTrafficReportPdf(data: TrafficReportData, assets: TrafficR
   return pdf;
 }
 
-function drawCreative(
-  pdf: jsPDF,
-  creative: TrafficReportCampaign,
-  index: number,
-  _assets: TrafficReportPdfAssets,
-  y: number,
-  setText: (color: RGB, size: number, style?: "normal" | "bold") => void,
-  wrap: (value: unknown, width?: number) => string[],
-) {
-  const imageH = 37;
-  pdf.setFillColor(...SURFACE); pdf.setDrawColor(...GRAY_LIGHT); pdf.roundedRect(PAD, y, CW, 62, 2, 2, "FD");
-  if (creative.thumbnailDataUrl) {
-    try {
-      const boxX = PAD + 2; const boxY = y + 2; const boxW = CW - 4;
-      const properties = pdf.getImageProperties(creative.thumbnailDataUrl);
-      const imageRatio = properties.width / properties.height;
-      const boxRatio = boxW / imageH;
-      const imageW = imageRatio > boxRatio ? boxW : imageH * imageRatio;
-      const renderedH = imageRatio > boxRatio ? boxW / imageRatio : imageH;
-      pdf.addImage(creative.thumbnailDataUrl, imageFormat(creative.thumbnailDataUrl), boxX + (boxW - imageW) / 2, boxY + (imageH - renderedH) / 2, imageW, renderedH, `creative-${creative.id}`, "FAST");
-    }
-    catch { drawMissingThumbnail(pdf, y, setText); }
-  } else { drawMissingThumbnail(pdf, y, setText); }
-  const podium = index === 0 ? GOLD : index === 1 ? SILVER : index === 2 ? BRONZE : GRAY_DARK;
-  pdf.setFillColor(...podium); pdf.roundedRect(PAD + 3.5, y + 41.5, 7, 7, 1.4, 1.4, "F");
-  setText(index === 1 ? BLACK : WHITE, 6.2, "bold"); pdf.text(String(index + 1), PAD + 7, y + 46.45, { align: "center" });
-  setText(BLACK, 7.1, "bold"); pdf.text(wrap(creative.name, 65).slice(0, 2), PAD + 13, y + 44.5);
-  setText(BLACK, 6.7, "bold"); pdf.text(`${number.format(creative.leads)} leads`, W - PAD - 3, y + 45, { align: "right" });
-  setText(BLACK, 6.2); pdf.text(`${money.format(creative.spend)}  |  CPL ${creative.leads ? money.format(creative.cpl) : "-"}  |  CTR ${creative.ctr.toFixed(2)}%`, PAD + 13, y + 57.5);
-}
-
-function drawMissingThumbnail(pdf: jsPDF, y: number, setText: (color: RGB, size: number, style?: "normal" | "bold") => void) {
-  pdf.setFillColor(...GRAY_LIGHT); pdf.roundedRect(PAD + 2, y + 2, CW - 4, 37, 1.5, 1.5, "F");
-  setText(BLACK, 6, "bold"); pdf.text("MINIATURA INDISPONÍVEL", W / 2, y + 22, { align: "center" });
-}
-
-export async function saveTrafficReportPdf(data: TrafficReportData) {
+export async function saveTrafficReportPdf(data: TrafficReportData, fileHandle?: TrafficReportFileHandle) {
   const assets = await loadAssets();
-  createTrafficReportPdf(data, assets).save(trafficReportFilename(data.clientName, data.since, data.until));
+  const pdf = createTrafficReportPdf(data, assets);
+  if (fileHandle) {
+    const writable = await fileHandle.createWritable();
+    await writable.write(pdf.output("blob"));
+    await writable.close();
+    return;
+  }
+  pdf.save(trafficReportFilename(data.clientName, data.since, data.until));
 }

@@ -47,6 +47,20 @@ export function calculateVgvIntelligence(sales: MarketingVgvSale[], performance:
   };
 }
 
+export function relateCampaignPerformanceToSales(
+  registered: MarketingVgvCampaignPerformance[],
+  performanceInPeriod: MarketingVgvCampaignPerformance[],
+  salesInPeriod: MarketingVgvSale[],
+) {
+  const normalize = (value: string) => value.trim().toLocaleLowerCase("pt-BR");
+  const keyFor = (clientId: string, campaignName: string) => `${clientId}\u0000${normalize(campaignName)}`;
+  const periodIds = new Set(performanceInPeriod.map((row) => row.id));
+  const campaignKeysWithSales = new Set(salesInPeriod.flatMap((sale) => sale.agency_client_id && sale.campaign_name
+    ? [keyFor(sale.agency_client_id, sale.campaign_name)]
+    : []));
+  return registered.filter((row) => periodIds.has(row.id) || campaignKeysWithSales.has(keyFor(row.agency_client_id, row.campaign_name)));
+}
+
 export function calculateCampaignRows(sales: MarketingVgvSale[], performance: MarketingVgvCampaignPerformance[]) {
   const normalizeCampaign = (value: string) => value.trim().toLocaleLowerCase("pt-BR");
   const keyFor = (clientId: string, campaignName: string) => `${clientId}\u0000${normalizeCampaign(campaignName)}`;

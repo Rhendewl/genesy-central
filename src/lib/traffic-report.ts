@@ -16,7 +16,6 @@ export type TrafficReportCampaignRow = {
   id: string;
   name: string;
   status: string;
-  thumbnail_url?: string | null;
 };
 
 const number = (value: unknown) => Number(value) || 0;
@@ -63,10 +62,8 @@ export function aggregateTrafficReport(params: {
       impressions: campaignImpressions,
       clicks: campaignClicks,
       conversions: campaignConversions,
-      thumbnailDataUrl: campaign?.thumbnail_url ?? null,
     };
   }).sort((a, b) => b.leads - a.leads || (a.cpl || Number.MAX_SAFE_INTEGER) - (b.cpl || Number.MAX_SAFE_INTEGER) || b.ctr - a.ctr);
-  const creatives = campaignSummaries.filter((campaign) => campaign.thumbnailDataUrl).slice(0, 8);
 
   return {
     clientName: params.clientName,
@@ -88,7 +85,6 @@ export function aggregateTrafficReport(params: {
       activeCampaigns: params.campaigns.filter((campaign) => campaign.status === "ativa").length,
     },
     campaigns: campaignSummaries.slice(0, 8),
-    creatives,
   };
 }
 
