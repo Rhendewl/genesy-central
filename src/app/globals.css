@@ -1698,9 +1698,10 @@
   font-weight: 700;
 }
 .post-rich-text .post-text-backdrop {
-  padding: 0.055em 0.24em 0.075em;
-  margin-inline: 0.018em;
-  border-radius: 0.22em;
+  padding: 0.045em 0.22em 0.065em;
+  margin-inline: 0.02em;
+  border-radius: 0.2em;
+  box-shadow: 0 0 0 0.075em var(--post-text-backdrop);
   -webkit-box-decoration-break: clone;
   box-decoration-break: clone;
 }

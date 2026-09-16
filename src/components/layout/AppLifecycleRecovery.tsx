@@ -6,23 +6,16 @@ import { getSupabaseClient } from "@/lib/supabase";
 import { useGlobalStore } from "@/store";
 import { canRemountAppForRecovery } from "@/lib/app-lifecycle-recovery";
 
-const LONG_SUSPEND_MS = 60_000;
 const RECOVERY_THROTTLE_MS = 5_000;
 
 /**
- * Recria apenas a árvore visual quando o PWA volta de uma suspensão longa,
- * do BFCache ou de uma queda de rede. O provider de perfil fica acima desta
- * árvore e preserva o último usuário válido enquanto páginas e subscriptions
- * realtime são abertas novamente.
+ * Recria apenas a árvore visual quando o documento volta do BFCache ou de uma
+ * queda de rede. Alternar entre abas não remonta a interface: assim filtros,
+ * edições e a posição atual da página permanecem intactos.
  */
 export function AppLifecycleRecovery({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const [generation, setGeneration] = useState(0);
-  const hiddenAtRef = useRef<number | null>(
-    typeof document !== "undefined" && document.visibilityState === "hidden"
-      ? Date.now()
-      : null,
-  );
   const lastRecoveryRef = useRef(0);
   const recoveringRef = useRef(false);
 
@@ -57,19 +50,6 @@ export function AppLifecycleRecovery({ children }: { children: ReactNode }) {
   }, [pathname]);
 
   useEffect(() => {
-    const onVisibilityChange = () => {
-      if (document.visibilityState === "hidden") {
-        hiddenAtRef.current = Date.now();
-        return;
-      }
-
-      const hiddenAt = hiddenAtRef.current;
-      hiddenAtRef.current = null;
-      if (hiddenAt !== null && Date.now() - hiddenAt >= LONG_SUSPEND_MS) {
-        window.setTimeout(() => { void recover(); }, 0);
-      }
-    };
-
     const onPageShow = (event: PageTransitionEvent) => {
       if (event.persisted) window.setTimeout(() => { void recover(); }, 0);
     };
@@ -78,12 +58,10 @@ export function AppLifecycleRecovery({ children }: { children: ReactNode }) {
       window.setTimeout(() => { void recover(); }, 0);
     };
 
-    document.addEventListener("visibilitychange", onVisibilityChange);
     window.addEventListener("pageshow", onPageShow);
     window.addEventListener("online", onOnline);
 
     return () => {
-      document.removeEventListener("visibilitychange", onVisibilityChange);
       window.removeEventListener("pageshow", onPageShow);
       window.removeEventListener("online", onOnline);
     };

@@ -12,7 +12,7 @@ import {
   AlignCenter, AlignLeft, AlignRight, ArrowDown, ArrowLeft, ArrowUp, AtSign,
   Bold, Bookmark, Check, ChevronRight, Copy, Download, GripVertical, Heart, ImagePlus,
   Italic, Layers3, MessageCircle, MoreHorizontal, Move, Moon, Palette, Plus, Redo2, RotateCcw, Send, Share2, Square, Sun, Trash2,
-  Type, Underline, Undo2, Upload, UserRound, X,
+  Type, Undo2, Upload, UserRound, X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -23,7 +23,6 @@ import {
 import { resizeCanvasElement, snapCanvasPosition, type AlignmentGuide, type ResizeCorner } from "@/lib/marketing/free-layout";
 import {
   getRemotePostProject,
-  getRemotePostProjectIfChanged,
   newestPostProject,
   postProjectHasUserContent,
   saveRemotePostProject,
@@ -108,7 +107,7 @@ const TextBackdrop = Mark.create({
     return ["span", mergeAttributes(attributes, {
       "data-text-backdrop": "true",
       class: "post-text-backdrop",
-      style: `background-color:${backgroundColor};color:${color}`,
+      style: `--post-text-backdrop:${backgroundColor};background-color:${backgroundColor};color:${color}`,
     }), 0];
   },
 });
@@ -382,9 +381,6 @@ function PostEditor({ template, onBack }: { template: PostTemplate; onBack: () =
   const exportRefs = useRef(new Map<string, HTMLDivElement>());
   const activeIdRef = useRef(activeId);
   const activeTextBlockIdRef = useRef(activeTextBlockId);
-  const lastProjectUpdatedAtRef = useRef(0);
-  const currentProjectRef = useRef<PersistedPostProject | undefined>(undefined);
-  const storageRevisionRef = useRef<string | null>(null);
   const applyingRemoteRef = useRef(false);
   const remoteSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   activeIdRef.current = activeId;
@@ -436,8 +432,6 @@ function PostEditor({ template, onBack }: { template: PostTemplate; onBack: () =
     if (!project.slides?.length) return;
     const restored = normalizePostProject(template, project);
     applyingRemoteRef.current = true;
-    lastProjectUpdatedAtRef.current = project.updatedAt;
-    currentProjectRef.current = project;
     setSlides(restored.slides);
     setActiveId(restored.activeId);
     setActiveTextBlockId(restored.activeTextBlockId);
@@ -456,13 +450,13 @@ function PostEditor({ template, onBack }: { template: PostTemplate; onBack: () =
       Color,
       TextAlign.configure({ types: ["paragraph"] }),
     ],
-    content: firstSlide.textBlocks[0].content,
+    content: activeTextBlock.content,
     onUpdate: ({ editor: currentEditor }) => {
       const id = activeIdRef.current;
       const blockId = activeTextBlockIdRef.current;
       setSlides((current) => current.map((slide) => slide.id === id ? { ...slide, textBlocks: slide.textBlocks.map((block) => block.id === blockId ? { ...block, content: currentEditor.getHTML() } : block) } : slide));
     },
-  });
+  }, [activeId, activeTextBlockId, template]);
 
   useEffect(() => {
     let mounted = true;
@@ -473,7 +467,6 @@ function PostEditor({ template, onBack }: { template: PostTemplate; onBack: () =
       if (!mounted) return;
       const local = localResult.status === "fulfilled" ? localResult.value : undefined;
       const remote = remoteResult.status === "fulfilled" ? remoteResult.value.project : undefined;
-      if (remoteResult.status === "fulfilled") storageRevisionRef.current = remoteResult.value.storageUpdatedAt;
       const newestProject = newestPostProject(local, remote);
       const project = newestProject ? migratePostProjectTypography(newestProject) : undefined;
       if (project?.slides?.length) {
@@ -482,7 +475,7 @@ function PostEditor({ template, onBack }: { template: PostTemplate; onBack: () =
       }
       if (project && postProjectHasUserContent(project) && (!remote || project !== remote)) {
         try {
-          storageRevisionRef.current = await saveRemotePostProject(template, project);
+          await saveRemotePostProject(template, project);
           if (mounted) setSyncState("synced");
         } catch (error) {
           console.error("Não foi possível migrar o projeto local para a nuvem.", error);
@@ -509,14 +502,11 @@ function PostEditor({ template, onBack }: { template: PostTemplate; onBack: () =
       return;
     }
     const project: PersistedPostProject = { version: 1, typographyDefaultsVersion: 2, format, slides, activeId, tweetProfile, updatedAt: Date.now() };
-    lastProjectUpdatedAtRef.current = project.updatedAt;
-    currentProjectRef.current = project;
     void savePostProject(template, project).catch((error) => console.error("Não foi possível salvar o Gerador de Posts localmente.", error));
     setSyncState("saving");
     if (remoteSaveTimerRef.current) clearTimeout(remoteSaveTimerRef.current);
     remoteSaveTimerRef.current = setTimeout(() => {
-      void saveRemotePostProject(template, project).then((storageUpdatedAt) => {
-        storageRevisionRef.current = storageUpdatedAt;
+      void saveRemotePostProject(template, project).then(() => {
         setSyncState("synced");
       }).catch((error) => {
         console.error("Não foi possível sincronizar o Gerador de Posts.", error);
@@ -527,42 +517,6 @@ function PostEditor({ template, onBack }: { template: PostTemplate; onBack: () =
       if (remoteSaveTimerRef.current) clearTimeout(remoteSaveTimerRef.current);
     };
   }, [activeId, format, slides, storageReady, template, tweetProfile]);
-
-  useEffect(() => {
-    if (!storageReady) return;
-    let checking = false;
-    const checkRemote = async () => {
-      if (checking || document.visibilityState === "hidden") return;
-      checking = true;
-      try {
-        const remote = await getRemotePostProjectIfChanged<PersistedPostProject>(template, storageRevisionRef.current);
-        storageRevisionRef.current = remote.storageUpdatedAt;
-        const preferred = remote.project?.slides?.length
-          ? newestPostProject(currentProjectRef.current, remote.project)
-          : currentProjectRef.current;
-        if (remote.changed && remote.project && preferred === remote.project && remote.project !== currentProjectRef.current) {
-          restoreProject(remote.project);
-          await savePostProject(template, remote.project);
-          setSyncState("synced");
-        }
-      } catch (error) {
-        console.error("Não foi possível verificar atualizações do Gerador de Posts.", error);
-        setSyncState((current) => current === "saving" ? current : "offline");
-      } finally {
-        checking = false;
-      }
-    };
-    const interval = window.setInterval(() => void checkRemote(), 5000);
-    const onFocus = () => void checkRemote();
-    const onVisibility = () => { if (document.visibilityState === "visible") void checkRemote(); };
-    window.addEventListener("focus", onFocus);
-    document.addEventListener("visibilitychange", onVisibility);
-    return () => {
-      window.clearInterval(interval);
-      window.removeEventListener("focus", onFocus);
-      document.removeEventListener("visibilitychange", onVisibility);
-    };
-  }, [restoreProject, storageReady, template]);
 
   useEffect(() => {
     const pasteImage = (event: ClipboardEvent) => {
@@ -589,7 +543,7 @@ function PostEditor({ template, onBack }: { template: PostTemplate; onBack: () =
   }, [active.media.length, activeId]);
 
   useEffect(() => {
-    if (!editor) return;
+    if (!editor || editor.isDestroyed) return;
     const next = slides.find((slide) => slide.id === activeId);
     const block = next?.textBlocks.find((item) => item.id === activeTextBlockId) || next?.textBlocks[0];
     if (block && editor.getHTML() !== block.content) editor.commands.setContent(block.content, { emitUpdate: false });
@@ -603,8 +557,10 @@ function PostEditor({ template, onBack }: { template: PostTemplate; onBack: () =
   useEffect(() => setEditingTextBlockId(null), [activeId]);
 
   useEffect(() => {
-    if (!editingTextBlockId || !editor) return;
-    const frame = window.requestAnimationFrame(() => editor.commands.focus("end"));
+    if (!editingTextBlockId || !editor || editor.isDestroyed) return;
+    const frame = window.requestAnimationFrame(() => {
+      if (!editor.isDestroyed) editor.commands.focus("end");
+    });
     return () => window.cancelAnimationFrame(frame);
   }, [editingTextBlockId, editor]);
 
@@ -629,11 +585,17 @@ function PostEditor({ template, onBack }: { template: PostTemplate; onBack: () =
 
   const addTextBlock = () => {
     const block = makeTextBlock(template, "<p>Novo texto</p>");
-    const activeLayoutIndex = active.layout.indexOf(activeTextBlockId);
-    const layout = [...active.layout];
-    layout.splice(activeLayoutIndex >= 0 ? activeLayoutIndex + 1 : layout.length, 0, block.id);
-    update({ textBlocks: [...active.textBlocks, block], layout });
+    const currentContent = editor && !editor.isDestroyed ? editor.getHTML() : undefined;
+    setSlides((current) => current.map((slide) => {
+      if (slide.id !== activeId) return slide;
+      const activeLayoutIndex = slide.layout.indexOf(activeTextBlockId);
+      const layout = [...slide.layout];
+      layout.splice(activeLayoutIndex >= 0 ? activeLayoutIndex + 1 : layout.length, 0, block.id);
+      const textBlocks = slide.textBlocks.map((item) => item.id === activeTextBlockId && currentContent ? { ...item, content: currentContent } : item);
+      return { ...slide, textBlocks: [...textBlocks, block], layout };
+    }));
     setActiveTextBlockId(block.id);
+    setEditingTextBlockId(null);
   };
 
   const removeTextBlock = () => {
@@ -1273,7 +1235,6 @@ function TextToolbar({ editor, defaultColor, allowItalic, compact = false, visib
     {show("format") && <>
       <button onMouseDown={(event) => event.preventDefault()} onClick={() => { selectionChain().toggleBold().run(); onToolUse?.("format"); }} className={toolClass(editor.isActive("bold"))} title="Negrito"><Bold /></button>
       {allowItalic && <button onMouseDown={(event) => event.preventDefault()} onClick={() => { selectionChain().toggleItalic().run(); onToolUse?.("format"); }} className={toolClass(editor.isActive("italic"))} title="Itálico" aria-label="Aplicar itálico ao texto"><Italic /></button>}
-      <button onMouseDown={(event) => event.preventDefault()} onClick={() => { selectionChain().toggleUnderline().run(); onToolUse?.("format"); }} className={toolClass(editor.isActive("underline"))} title="Sublinhar"><Underline /></button>
       <span className={cn("shrink-0 bg-[var(--border)]", side ? "my-1 h-px w-7" : "mx-1 h-6 w-px")} />
       <button onClick={() => { chain().setTextAlign("left").run(); onToolUse?.("format"); }} className={toolClass(editor.isActive({ textAlign: "left" }))} title="Alinhar à esquerda"><AlignLeft /></button>
       <button onClick={() => { chain().setTextAlign("center").run(); onToolUse?.("format"); }} className={toolClass(editor.isActive({ textAlign: "center" }))} title="Centralizar"><AlignCenter /></button>
@@ -1499,7 +1460,7 @@ function FreeCanvasElement({ elementKey, position, canvasRef, canvas, editable, 
     {children}
     {editable && selected && resizeAspect && onResize && <>
       <span aria-hidden className="pointer-events-none absolute inset-0 rounded-[36px] border-[5px] border-[#27a3ff] shadow-[0_0_0_3px_rgba(255,255,255,.9)]" />
-      {onRemove && <button type="button" data-media-action="remove" aria-label="Excluir imagem selecionada" title="Excluir imagem" className="absolute right-5 top-5 z-40 grid h-28 w-28 touch-manipulation place-items-center rounded-[28px] border-[5px] border-white bg-[#dc2626] text-white shadow-xl" onPointerDown={(event) => { event.preventDefault(); event.stopPropagation(); }} onClick={(event) => { event.preventDefault(); event.stopPropagation(); onRemove(); }}><Trash2 size={44} strokeWidth={2.4} /></button>}
+      {onRemove && <button type="button" data-media-action="remove" aria-label="Excluir imagem selecionada" title="Excluir imagem" className="absolute right-5 top-5 z-40 grid h-24 w-24 touch-manipulation place-items-center rounded-[26px] bg-black/80 text-[#ff6670] shadow-[0_12px_30px_rgba(0,0,0,.38)] backdrop-blur-md transition hover:bg-[#dc2626] hover:text-white" onPointerDown={(event) => { event.preventDefault(); event.stopPropagation(); }} onClick={(event) => { event.preventDefault(); event.stopPropagation(); onRemove(); }}><Trash2 size={40} strokeWidth={2.3} /></button>}
       {(["nw", "ne", "sw", "se"] as ResizeCorner[]).map((corner) => <button key={corner} type="button" data-resize-handle={corner} aria-label={`Redimensionar imagem pelo canto ${corner}`} className={cn("absolute z-30 grid h-[72px] w-[72px] touch-none place-items-center", handlePosition[corner])} onPointerDown={startResize(corner)} onPointerMove={moveResize} onPointerUp={endResize} onPointerCancel={endResize}><span className="block h-7 w-7 rounded-full border-[5px] border-white bg-[#27a3ff] shadow-lg" /></button>)}
     </>}
   </div>;
@@ -1555,7 +1516,7 @@ function HorizontalMedia({ media, crops, aspects, naturalAspects, className, edi
     const selected = editable && selectedIndex === index;
     return <div key={`${image.slice(-20)}-${index}`} data-canvas-media="true" className={cn("relative min-w-0 flex-1", editable && "cursor-pointer touch-manipulation")} onPointerDown={editable ? (event) => { event.stopPropagation(); onSelect?.(index); } : undefined}>
       <MediaFrame image={image} crop={crops[index]} aspect={mediaAspectValue(aspects[index] || "16:9", naturalAspects[index])} />
-      {selected && <><span aria-hidden className="pointer-events-none absolute inset-0 rounded-[36px] border-[5px] border-[#27a3ff] shadow-[0_0_0_3px_rgba(255,255,255,.9)]" />{onRemove && <button type="button" data-media-action="remove" aria-label={`Excluir imagem ${index + 1}`} title="Excluir imagem" className="absolute right-5 top-5 z-20 grid h-28 w-28 touch-manipulation place-items-center rounded-[28px] border-[5px] border-white bg-[#dc2626] text-white shadow-xl" onPointerDown={(event) => { event.preventDefault(); event.stopPropagation(); }} onClick={(event) => { event.preventDefault(); event.stopPropagation(); onRemove(index); }}><Trash2 size={44} strokeWidth={2.4} /></button>}</>}
+      {selected && <><span aria-hidden className="pointer-events-none absolute inset-0 rounded-[36px] border-[5px] border-[#27a3ff] shadow-[0_0_0_3px_rgba(255,255,255,.9)]" />{onRemove && <button type="button" data-media-action="remove" aria-label={`Excluir imagem ${index + 1}`} title="Excluir imagem" className="absolute right-5 top-5 z-20 grid h-24 w-24 touch-manipulation place-items-center rounded-[26px] bg-black/80 text-[#ff6670] shadow-[0_12px_30px_rgba(0,0,0,.38)] backdrop-blur-md transition hover:bg-[#dc2626] hover:text-white" onPointerDown={(event) => { event.preventDefault(); event.stopPropagation(); }} onClick={(event) => { event.preventDefault(); event.stopPropagation(); onRemove(index); }}><Trash2 size={40} strokeWidth={2.3} /></button>}</>}
     </div>;
   })}</div>;
 }
