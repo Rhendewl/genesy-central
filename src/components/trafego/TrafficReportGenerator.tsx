@@ -52,20 +52,22 @@ export function TrafficReportGenerator({ accounts, selectedAccountId, year, mont
 
   async function generate() {
     if (!clientId || !since || !until) return toast.error("Selecione o cliente e o período");
-    let fileHandle: TrafficReportFileHandle | undefined;
+    let fileHandle: TrafficReportFileHandle;
     const showSaveFilePicker = (window as Window & { showSaveFilePicker?: (options: { suggestedName: string; types: Array<{ description: string; accept: Record<string, string[]> }> }) => Promise<TrafficReportFileHandle> }).showSaveFilePicker;
-    if (showSaveFilePicker) {
-      try {
-        const clientName = clients.find((client) => client.id === clientId)?.name ?? "cliente";
-        fileHandle = await showSaveFilePicker.call(window, {
-          suggestedName: trafficReportFilename(clientName, since, until),
-          types: [{ description: "Relatório PDF", accept: { "application/pdf": [".pdf"] } }],
-        });
-      } catch (pickerError) {
-        if (pickerError instanceof DOMException && pickerError.name === "AbortError") return;
-        toast.error("Não foi possível abrir a escolha de pasta");
-        return;
-      }
+    if (!showSaveFilePicker) {
+      toast.error("Este navegador não permite escolher uma pasta. Abra a plataforma no Chrome ou Edge para salvar o relatório. Nenhum arquivo foi baixado.", { duration: 8000 });
+      return;
+    }
+    try {
+      const clientName = clients.find((client) => client.id === clientId)?.name ?? "cliente";
+      fileHandle = await showSaveFilePicker.call(window, {
+        suggestedName: trafficReportFilename(clientName, since, until),
+        types: [{ description: "Relatório PDF", accept: { "application/pdf": [".pdf"] } }],
+      });
+    } catch (pickerError) {
+      if (pickerError instanceof DOMException && pickerError.name === "AbortError") return;
+      toast.error("Não foi possível abrir a escolha de pasta");
+      return;
     }
     setLoading(true);
     try {
@@ -109,7 +111,7 @@ export function TrafficReportGenerator({ accounts, selectedAccountId, year, mont
           <label><span className="mb-1.5 block text-xs font-medium">Conta de anúncios</span><select value={accountId} onChange={(event) => setAccountId(event.target.value)} className="lc-form-control crm-form-select"><option value="">Todas as contas do cliente</option>{clientAccounts.map((account) => <option key={account.id} value={account.id}>{account.account_name}</option>)}</select></label>
           <div className="grid grid-cols-2 gap-3"><label><span className="mb-1.5 flex items-center gap-1.5 text-xs font-medium"><CalendarDays size={13} />Início</span><input type="date" value={since} max={until || format(new Date(), "yyyy-MM-dd")} onChange={(event) => setSince(event.target.value)} className="lc-form-control" /></label><label><span className="mb-1.5 flex items-center gap-1.5 text-xs font-medium"><CalendarDays size={13} />Fim</span><input type="date" value={until} min={since} max={format(new Date(), "yyyy-MM-dd")} onChange={(event) => setUntil(event.target.value)} className="lc-form-control" /></label></div>
         </div>
-        <div className="mt-5 rounded-xl border border-[#9d7e4e]/20 bg-[#9d7e4e]/[.06] p-3 text-[11px] leading-5 text-[var(--muted-foreground)]">Antes de gerar, a plataforma atualiza na Meta somente a conta e o período selecionados. O PDF inclui capa Genesy, métricas e melhores campanhas.</div>
+        <div className="mt-5 rounded-xl border border-[#9d7e4e]/20 bg-[#9d7e4e]/[.06] p-3 text-[11px] leading-5 text-[var(--muted-foreground)]">Antes de gerar, a plataforma atualiza na Meta somente a conta e o período selecionados. Ao continuar, você escolherá a pasta e o nome do PDF.</div>
         <div className="mt-5 flex justify-end gap-2"><button type="button" disabled={loading} onClick={() => setOpen(false)} className="rounded-xl border px-4 py-2.5 text-xs">Cancelar</button><Button type="button" size="lg" disabled={!clientId || !since || !until} loading={loading} loadingLabel="Gerando PDF..." onClick={() => void generate()} icon={<FileDown size={14} />}>Gerar relatório</Button></div>
       </motion.section>
     </motion.div>}</AnimatePresence>, document.body)}

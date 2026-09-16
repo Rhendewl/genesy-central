@@ -43,19 +43,21 @@ export function VgvCommercialReportGenerator({
     const client = sortedClients.find((item) => item.id === clientId);
     if (!client) return toast.error("Selecione o cliente do relatório");
 
-    let fileHandle: VgvCommercialReportFileHandle | undefined;
+    let fileHandle: VgvCommercialReportFileHandle;
     const showSaveFilePicker = (window as Window & { showSaveFilePicker?: (options: { suggestedName: string; types: Array<{ description: string; accept: Record<string, string[]> }> }) => Promise<VgvCommercialReportFileHandle> }).showSaveFilePicker;
-    if (showSaveFilePicker) {
-      try {
-        fileHandle = await showSaveFilePicker.call(window, {
-          suggestedName: vgvCommercialReportFilename(client.name, since, until),
-          types: [{ description: "Relatório PDF", accept: { "application/pdf": [".pdf"] } }],
-        });
-      } catch (pickerError) {
-        if (pickerError instanceof DOMException && pickerError.name === "AbortError") return;
-        toast.error("Não foi possível abrir a escolha de pasta");
-        return;
-      }
+    if (!showSaveFilePicker) {
+      toast.error("Este navegador não permite escolher uma pasta. Abra a plataforma no Chrome ou Edge para salvar o relatório. Nenhum arquivo foi baixado.", { duration: 8000 });
+      return;
+    }
+    try {
+      fileHandle = await showSaveFilePicker.call(window, {
+        suggestedName: vgvCommercialReportFilename(client.name, since, until),
+        types: [{ description: "Relatório PDF", accept: { "application/pdf": [".pdf"] } }],
+      });
+    } catch (pickerError) {
+      if (pickerError instanceof DOMException && pickerError.name === "AbortError") return;
+      toast.error("Não foi possível abrir a escolha de pasta");
+      return;
     }
 
     setLoading(true);
@@ -90,7 +92,7 @@ export function VgvCommercialReportGenerator({
           <label><span className="mb-1.5 flex items-center gap-1.5 text-xs font-medium"><Building2 size={13} />Cliente</span><select value={clientId} onChange={(event) => setClientId(event.target.value)} className="lc-form-control crm-form-select"><option value="">Selecionar cliente</option>{sortedClients.map((client) => <option key={client.id} value={client.id}>{client.name}</option>)}</select></label>
           <div className="rounded-xl border p-3" style={{ borderColor: "var(--glass-border)", background: "var(--glass-bg-soft)" }}><span className="flex items-center gap-1.5 text-xs font-medium"><CalendarDays size={13} />Período do relatório</span><p className="mt-1 text-xs text-[var(--muted-foreground)]">{new Date(`${since}T12:00:00`).toLocaleDateString("pt-BR")} a {new Date(`${until}T12:00:00`).toLocaleDateString("pt-BR")}</p></div>
         </div>
-        <div className="mt-5 rounded-xl border p-3 text-[11px] leading-5 text-[var(--muted-foreground)]" style={{ borderColor: "var(--glass-border)", background: "var(--glass-bg-soft)" }}>O arquivo terá duas páginas em fundo preto: capa e resumo com investimento, VGV, VGC, funil e ROAS.</div>
+        <div className="mt-5 rounded-xl border p-3 text-[11px] leading-5 text-[var(--muted-foreground)]" style={{ borderColor: "var(--glass-border)", background: "var(--glass-bg-soft)" }}>O arquivo terá duas páginas em fundo preto. Ao continuar, você escolherá a pasta e o nome do PDF.</div>
         <div className="mt-5 flex justify-end gap-2"><button type="button" disabled={loading} onClick={() => setOpen(false)} className="rounded-xl border px-4 py-2.5 text-xs">Cancelar</button><Button type="button" size="lg" disabled={!clientId} loading={loading} loadingLabel="Gerando PDF..." onClick={() => void generate()} icon={<FileDown size={14} />}>Gerar relatório</Button></div>
       </motion.section>
     </motion.div>}</AnimatePresence>, document.body)}

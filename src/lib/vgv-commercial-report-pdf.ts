@@ -169,14 +169,10 @@ export function createVgvCommercialReportPdf(data: VgvCommercialReportData, asse
   return pdf;
 }
 
-export async function saveVgvCommercialReportPdf(data: VgvCommercialReportData, fileHandle?: VgvCommercialReportFileHandle) {
+export async function saveVgvCommercialReportPdf(data: VgvCommercialReportData, fileHandle: VgvCommercialReportFileHandle) {
   const assets = await loadAssets();
   const pdf = createVgvCommercialReportPdf(data, assets);
-  if (fileHandle) {
-    const writable = await fileHandle.createWritable();
-    await writable.write(pdf.output("blob"));
-    await writable.close();
-    return;
-  }
-  pdf.save(vgvCommercialReportFilename(data.clientName, data.since, data.until));
+  const writable = await fileHandle.createWritable();
+  await writable.write(pdf.output("blob"));
+  await writable.close();
 }

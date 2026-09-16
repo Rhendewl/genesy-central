@@ -1,5 +1,4 @@
 import { jsPDF } from "jspdf";
-import { trafficReportFilename } from "@/lib/traffic-report";
 import type { TrafficReportData } from "@/types/traffic-report";
 
 type RGB = [number, number, number];
@@ -160,14 +159,10 @@ export function createTrafficReportPdf(data: TrafficReportData, assets: TrafficR
   return pdf;
 }
 
-export async function saveTrafficReportPdf(data: TrafficReportData, fileHandle?: TrafficReportFileHandle) {
+export async function saveTrafficReportPdf(data: TrafficReportData, fileHandle: TrafficReportFileHandle) {
   const assets = await loadAssets();
   const pdf = createTrafficReportPdf(data, assets);
-  if (fileHandle) {
-    const writable = await fileHandle.createWritable();
-    await writable.write(pdf.output("blob"));
-    await writable.close();
-    return;
-  }
-  pdf.save(trafficReportFilename(data.clientName, data.since, data.until));
+  const writable = await fileHandle.createWritable();
+  await writable.write(pdf.output("blob"));
+  await writable.close();
 }
