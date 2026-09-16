@@ -15,6 +15,7 @@ const CW = W - PAD * 2;
 const BLACK: RGB = [8, 9, 10];
 const WHITE: RGB = [255, 255, 255];
 const GRAY_DARK: RGB = [123, 135, 142];
+const GRAY_BADGE: RGB = [86, 96, 102];
 const GRAY_LIGHT: RGB = [175, 184, 192];
 const SURFACE: RGB = [241, 243, 244];
 
@@ -145,8 +146,8 @@ export function createTrafficReportPdf(data: TrafficReportData, assets: TrafficR
     pdf.setFillColor(...GRAY_DARK); pdf.roundedRect(PAD + 2.5, y + 3, 8, 8, 1.4, 1.4, "F");
     text(WHITE, 6.6, "bold"); pdf.text(String(index + 1), PAD + 6.5, y + 7, { align: "center", baseline: "middle" });
     text(BLACK, 7.2, "bold"); pdf.text(wrap(campaign.name, 61).slice(0, 2), PAD + 13, y + 7);
-    pdf.setFillColor(...GRAY_LIGHT); pdf.roundedRect(W - PAD - 20, y + 3, 17, 8, 1.4, 1.4, "F");
-    text(BLACK, 7.3, "bold"); pdf.text(`${number.format(campaign.leads)} leads`, W - PAD - 11.5, y + 7, { align: "center", baseline: "middle" });
+    pdf.setFillColor(...GRAY_BADGE); pdf.roundedRect(W - PAD - 18, y + 3.5, 15, 6.5, 1, 1, "F");
+    text(WHITE, 6.3, "bold"); pdf.text(`${number.format(campaign.leads)} leads`, W - PAD - 10.5, y + 6.75, { align: "center", baseline: "middle" });
     text(BLACK, 6.2); pdf.text(`${money.format(campaign.spend)}  |  CPL ${campaign.leads ? money.format(campaign.cpl) : "-"}  |  CTR ${campaign.ctr.toFixed(2)}%`, PAD + 13, y + 19.5);
     y += h + 3;
   });
