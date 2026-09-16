@@ -510,7 +510,7 @@ async function syncNpsResponse(
     const comment = commentLines.length ? commentLines.join("\n") : null;
     const referenceMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
 
-    const { error: upsertError } = await supabase
+    const { data: npsRecord, error: upsertError } = await supabase
       .from("nps_records")
       .upsert({
         user_id:         userId,
@@ -519,15 +519,18 @@ async function syncNpsResponse(
         score:            Math.round(score),
         comment,
         channel:         "formulario",
-      }, { onConflict: "user_id,client_id,reference_month" });
+      }, { onConflict: "user_id,client_id,reference_month" })
+      .select("id")
+      .single();
 
     if (upsertError) {
       console.error("[resposta/nps] Falha ao salvar registro de NPS:", upsertError.message);
       return;
     }
 
-    if (settings.notify_on_response) {
+    if (settings.notify_on_response && npsRecord?.id) {
       await getPlatformEventBus().publish("nps.response_received", {
+        responseId:     npsRecord.id,
         userId,
         clientId:       settings.client_id,
         clientName:     settings.client_name ?? "",

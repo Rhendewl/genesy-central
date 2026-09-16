@@ -10,7 +10,7 @@ import type { BusEvent }                    from "@/lib/event-bus/types";
 import type { NpsResponseReceivedPayload }  from "@/lib/event-bus/domain-events";
 import { ConsumerPriority }                 from "@/lib/event-bus/types";
 import type { EventConsumer }               from "@/lib/event-bus/types";
-import { dispatchPushToUser }               from "@/lib/notifications/push-dispatcher";
+import { persistOperationalAlert }          from "@/lib/notifications/operational-alert";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Db = SupabaseClient<any, any, any>;
@@ -43,7 +43,15 @@ export function createNpsResponseNotificationConsumer(db: Db): EventConsumer {
       const title = `Nova resposta de NPS — ${payload.clientName || "Cliente"}`;
       const body  = `Nota ${payload.score} · ${CLASSIFICATION_LABELS[classification]}${payload.comment ? ` — "${payload.comment}"` : ""}`;
 
-      await dispatchPushToUser(db, payload.userId, title, body);
+      await persistOperationalAlert(db, {
+        ownerUserId: payload.userId,
+        roles: ["admin"],
+        eventId: `nps-response:${payload.responseId}`,
+        source: "nps_response",
+        title,
+        body,
+        actionUrl: `/clientes?tab=nps&client_id=${payload.clientId}`,
+      });
     },
   };
 }

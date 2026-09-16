@@ -38,6 +38,7 @@ const GRAY_1: RGB = [25, 27, 29];
 const GRAY_2: RGB = [49, 53, 56];
 const GRAY_3: RGB = [93, 101, 106];
 const GRAY_4: RGB = [172, 178, 182];
+const GRAY_LIGHT: RGB = [203, 208, 211];
 
 const money = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 2 });
 const integer = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 0 });
@@ -129,13 +130,12 @@ export function createVgvCommercialReportPdf(data: VgvCommercialReportData, asse
     ["VGV", money.format(data.metrics.totalVgv)],
     ["VGC", money.format(data.metrics.grossCommission)],
   ];
-  const mainW = (CW - 4) / 3;
+  const mainH = 17;
   main.forEach(([label, value], index) => {
-    const x = PAD + index * (mainW + 2);
-    pdf.setFillColor(...(index === 1 ? GRAY_2 : GRAY_1));
-    pdf.setDrawColor(...GRAY_3); pdf.roundedRect(x, 45, mainW, 32, 2, 2, "FD");
-    text(GRAY_4, 5.5, "bold"); pdf.text(label, x + 3, 53);
-    text(WHITE, value.length > 10 ? 6.5 : 8.8, "bold"); pdf.text(value, x + 3, 65);
+    const y = 45 + index * (mainH + 2);
+    pdf.setFillColor(...GRAY_LIGHT); pdf.roundedRect(PAD, y, CW, mainH, 2, 2, "F");
+    text(BLACK, 5.8, "bold"); pdf.text(label, PAD + 4, y + 9, { baseline: "middle" });
+    text(BLACK, value.length > 16 ? 9 : 10.5, "bold"); pdf.text(value, W - PAD - 4, y + 8.7, { align: "right", baseline: "middle" });
   });
 
   const secondary = [
@@ -151,18 +151,18 @@ export function createVgvCommercialReportPdf(data: VgvCommercialReportData, asse
   const boxW = (CW - 3) / 2;
   secondary.forEach(([label, value], index) => {
     const x = PAD + (index % 2) * (boxW + 3);
-    const y = 83 + Math.floor(index / 2) * 19;
-    pdf.setFillColor(...GRAY_1); pdf.setDrawColor(...GRAY_2); pdf.roundedRect(x, y, boxW, 16, 1.5, 1.5, "FD");
-    text(GRAY_4, 5.2, "bold"); pdf.text(label, x + 3, y + 5.5);
-    text(WHITE, value.length > 15 ? 7.2 : 9, "bold"); pdf.text(value, x + 3, y + 12.3);
+    const y = 105 + Math.floor(index / 2) * 14.5;
+    pdf.setFillColor(...GRAY_1); pdf.roundedRect(x, y, boxW, 12.5, 1.5, 1.5, "F");
+    text(GRAY_4, 4.8, "bold"); pdf.text(label, x + 3, y + 4.5);
+    text(WHITE, value.length > 15 ? 6.8 : 8.2, "bold"); pdf.text(value, x + 3, y + 10);
   });
 
   const roasText = data.metrics.spend
     ? `A cada R$ 1 investido, voltaram ${money.format(data.metrics.commercialRoas)} em comissão.`
     : "Cadastre o investimento para visualizar o retorno sobre a comissão.";
-  pdf.setFillColor(...GRAY_2); pdf.roundedRect(PAD, 162, CW, 15, 1.8, 1.8, "F");
-  text(WHITE, 6.4, "bold"); pdf.text(wrap(roasText, CW - 8), PAD + 4, 168.5);
-  text(GRAY_4, 5.2); pdf.text("VGC: valor geral de comissão gerada no período.", PAD + 4, 174);
+  pdf.setFillColor(...GRAY_2); pdf.roundedRect(PAD, 166, CW, 13, 1.8, 1.8, "F");
+  text(WHITE, 6.1, "bold"); pdf.text(wrap(roasText, CW - 8), PAD + 4, 171.5);
+  text(GRAY_4, 4.9); pdf.text("VGC: valor geral de comissão gerada no período.", PAD + 4, 176.5);
 
   pdf.setDrawColor(...GRAY_2); pdf.line(PAD, 183, W - PAD, 183);
   text(GRAY_4, 5.3); pdf.text("GENESY · Relatório de performance comercial", PAD, 188); pdf.text("2/2", W - PAD, 188, { align: "right" });

@@ -301,17 +301,19 @@ export function MarketingVgvModule({ embedded = false }: { embedded?: boolean })
         ) : (
           <>
             {activeView === "overview" && <>
-            <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-              <MetricCard label={periodMode === "month" ? "VGV no mês" : "VGV no período"} value={formatCurrency(metrics.totalVgv)} icon={<TrendingUp />} accent="#27a3ff" />
+            <div className="grid gap-3 md:grid-cols-3">
+              <PrimaryMetricCard label="Investimento em mídia" value={formatCurrency(metrics.spend)} icon={<Megaphone />} />
+              <PrimaryMetricCard label={periodMode === "month" ? "VGV no mês" : "VGV no período"} value={formatCurrency(metrics.totalVgv)} icon={<TrendingUp />} />
+              <PrimaryMetricCard label="VGC · Comissão gerada" value={formatCurrency(metrics.grossCommission)} icon={<HandCoins />} />
+            </div>
+            <div className="mt-3 grid grid-cols-2 gap-3 xl:grid-cols-4">
               <MetricCard label="Vendas registradas" value={metrics.count.toLocaleString("pt-BR")} icon={<ReceiptText />} accent="#27f2e6" />
               <MetricCard label="Ticket médio" value={formatCurrency(metrics.averageTicket)} icon={<CircleDollarSign />} accent="#a78bfa" />
-              <MetricCard label="Comissão comercial gerada" value={formatCurrency(metrics.grossCommission)} icon={<HandCoins />} accent="#14b8a6" />
               <MetricCard label="Comissão Genesy" value={formatCurrency(metrics.agencyCommission)} icon={<HandCoins />} accent="#22c55e" />
-              <MetricCard label="Investimento em mídia" value={formatCurrency(metrics.spend)} icon={<Megaphone />} accent="#f59e0b" />
               <MetricCard label="CPL" value={metrics.leads ? formatCurrency(metrics.cpl) : "—"} icon={<UsersRound />} accent="#38bdf8" />
               <MetricCard label="CAC" value={metrics.count && metrics.spend ? formatCurrency(metrics.cac) : "—"} icon={<CircleDollarSign />} accent="#fb7185" />
               <MetricCard label="Conversão lead → venda" value={metrics.leads ? `${metrics.conversionRate.toFixed(2)}%` : "—"} icon={<ClipboardCheck />} accent="#34d399" />
-              <MetricCard label="ROAS sobre VGC" value={metrics.spend ? `${metrics.commercialRoas.toFixed(1)}x` : "—"} description={metrics.spend ? `A cada R$ 1 investido, voltaram ${currency.format(metrics.commercialRoas)} em comissão.` : undefined} icon={<TrendingUp />} accent="#22c55e" />
+              <MetricCard label="ROAS sobre VGC" value={metrics.spend ? `${metrics.commercialRoas.toFixed(1)}x` : "—"} description={metrics.spend ? `A cada R$ 1 investido, voltaram ${formatCurrency(metrics.commercialRoas)} em comissão.` : undefined} icon={<TrendingUp />} accent="#22c55e" />
             </div>
 
             {customMetrics.length > 0 && <div className="mt-3 grid grid-cols-2 gap-3 xl:grid-cols-4">{customMetrics.map((metric) => <MetricCard key={metric.id} label={`${metric.label} · total`} value={metric.value.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} icon={<ClipboardCheck />} accent="#818cf8" />)}</div>}
@@ -617,6 +619,20 @@ function VgvFormDialog({ open, onOpenChange, clients, onCreated }: { open: boole
 
 function Field({ label, id, className = "", children }: { label: string; id: string; className?: string; children: ReactNode }) {
   return <div className={className}><Label htmlFor={id} className="mb-2 text-xs">{label}</Label>{children}</div>;
+}
+
+function PrimaryMetricCard({ label, value, icon }: { label: string; value: string; icon: ReactNode }) {
+  return (
+    <div className="relative min-w-0 overflow-hidden rounded-2xl bg-[#c9ced1] p-5 text-[#08090a] shadow-[0_14px_34px_rgba(0,0,0,.16)] sm:p-6">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-[11px] font-semibold uppercase tracking-[.08em] text-[#454c50]">{label}</p>
+          <p className="mt-3 truncate text-2xl font-semibold tracking-tight sm:text-[28px]">{value}</p>
+        </div>
+        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-black/10 text-[#202427] [&_svg]:size-[18px]">{icon}</span>
+      </div>
+    </div>
+  );
 }
 
 function MetricCard({ label, value, description, icon, accent }: { label: string; value: string; description?: string; icon: ReactNode; accent: string }) {

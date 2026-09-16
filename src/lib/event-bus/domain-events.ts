@@ -225,6 +225,7 @@ export interface OnboardingCommentAddedPayload {
 // ── Clientes module — NPS ──────────────────────────────────────────────────────
 
 export interface NpsResponseReceivedPayload {
+  responseId:     string;
   userId:         string;
   clientId:       string;
   clientName:     string;

@@ -4,7 +4,7 @@ import { persistOperationalAlert } from "@/lib/notifications/operational-alert";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Db = SupabaseClient<any, any, any>;
 
-const MARKETING_NOTIFICATION_ROLES = ["admin", "comercial"];
+const MARKETING_NOTIFICATION_ROLES = ["admin"];
 const brl = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 
 export function firstName(name: string) {
