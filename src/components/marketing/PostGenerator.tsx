@@ -1528,7 +1528,7 @@ function PostText({ block, editor, editable, className }: { block: TextBlock; ed
             || styles.getPropertyValue("--post-text-backdrop").trim()
             || styles.backgroundColor;
           const fontSize = Number.parseFloat(styles.fontSize) || 16;
-          const verticalExpansion = fontSize * 0.055;
+          const verticalExpansion = fontSize * 0.075;
           const cornerRadius = fontSize * 0.24;
           const layer = grouped.get(color) || { radius: cornerRadius, blur: Math.max(1.5, cornerRadius * 0.52), rects: [] };
           Array.from(node.getClientRects()).forEach((rect) => {
