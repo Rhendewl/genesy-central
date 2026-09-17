@@ -1700,7 +1700,7 @@
 .post-rich-text .post-text-backdrop {
   padding: 0.045em 0.2em 0.065em;
   margin-inline: 0.015em;
-  border-radius: 0.16em;
+  border-radius: 0.24em;
   -webkit-box-decoration-break: clone;
   box-decoration-break: clone;
 }

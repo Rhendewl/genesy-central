@@ -1529,7 +1529,8 @@ function PostText({ block, editor, editable, className }: { block: TextBlock; ed
             || styles.backgroundColor;
           const fontSize = Number.parseFloat(styles.fontSize) || 16;
           const verticalExpansion = fontSize * 0.055;
-          const layer = grouped.get(color) || { radius: fontSize * 0.17, blur: Math.max(1.5, fontSize * 0.052), rects: [] };
+          const cornerRadius = fontSize * 0.24;
+          const layer = grouped.get(color) || { radius: cornerRadius, blur: Math.max(1.5, cornerRadius * 0.52), rects: [] };
           Array.from(node.getClientRects()).forEach((rect) => {
             if (!rect.width || !rect.height) return;
             layer.rects.push({
