@@ -1704,6 +1704,10 @@
   -webkit-box-decoration-break: clone;
   box-decoration-break: clone;
 }
+.post-text-exporting .post-rich-text {
+  outline: none !important;
+  box-shadow: none !important;
+}
 .post-rich-text-organic-ready .post-text-backdrop {
   background-color: transparent !important;
 }

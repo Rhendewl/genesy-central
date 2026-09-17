@@ -17,7 +17,7 @@ import {
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
-  createZip, defaultPostLineHeight, normalizePostLineHeight, normalizePostTextWidth, numberedSlideFilename, POST_FORMATS, postElementToPng, sanitizeDownloadName, saveBlob,
+  createZip, defaultPostLineHeight, normalizePostLineHeight, normalizePostTextWidth, numberedSlideFilename, POST_FORMATS, postElementToPng, postTextElementToPng, sanitizeDownloadName, saveBlob,
   type PostFormat, type PostTemplate,
 } from "@/lib/marketing/post-generator";
 import { resizeCanvasElement, snapCanvasPosition, type AlignmentGuide, type ResizeCorner } from "@/lib/marketing/free-layout";
@@ -1493,10 +1493,43 @@ function TweetProfileBlock({ profile, foreground }: { profile: TweetProfile; for
 }
 
 function TextBlockItem({ block, editor, editable, active, editing, foreground, story, safeWidth, onSelect, onEdit, onDragStart, onDragEnd, free = false }: { block: TextBlock; editor?: Editor | null; editable: boolean; active: boolean; editing: boolean; foreground: string; story: boolean; safeWidth: number; onSelect: () => void; onEdit: () => void; onDragStart: (event: React.DragEvent<HTMLButtonElement>) => void; onDragEnd: () => void; free?: boolean }) {
+  const exportRef = useRef<HTMLDivElement>(null);
+  const [copying, setCopying] = useState(false);
   const width = free ? 100 : Math.min(block.textWidth, safeWidth) / safeWidth * 100;
+  const copyAsTransparentPng = async (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const element = exportRef.current;
+    if (!element || copying) return;
+    setCopying(true);
+    element.classList.add("post-text-exporting");
+    try {
+      const pngPromise = postTextElementToPng(element);
+      if (navigator.clipboard?.write && typeof ClipboardItem !== "undefined") {
+        await navigator.clipboard.write([new ClipboardItem({ "image/png": pngPromise })]);
+        toast.success("Texto copiado como PNG transparente.");
+      } else {
+        const blob = await pngPromise;
+        await saveBlob(blob, "texto-transparente.png");
+        toast.success("Seu navegador não copia imagens diretamente; o PNG foi baixado.");
+      }
+    } catch (error) {
+      try {
+        const blob = await postTextElementToPng(element);
+        await saveBlob(blob, "texto-transparente.png");
+        toast.success("Não foi possível acessar a área de transferência; o PNG foi baixado.");
+      } catch {
+        toast.error(error instanceof Error ? error.message : "Falha ao copiar o texto como imagem.");
+      }
+    } finally {
+      element.classList.remove("post-text-exporting");
+      setCopying(false);
+    }
+  };
   return <div onPointerDown={editable && !editing ? onSelect : undefined} onDoubleClick={editable ? (event) => { event.stopPropagation(); onEdit(); } : undefined} className={cn("relative mx-auto min-w-0 max-w-full", editable && (editing ? "cursor-text select-text" : free ? "cursor-move select-none" : "cursor-text"), active && "z-10")} style={{ width: `${width}%`, color: foreground, fontSize: block.fontSize, fontWeight: 400, lineHeight: block.lineHeight, letterSpacing: `${Number.isFinite(block.letterSpacing) ? block.letterSpacing : story ? -0.03 : 0}em`, overflowWrap: "anywhere", wordBreak: "break-word" }}>
     {editable && active && <button type="button" draggable={!free} data-free-drag-handle={free ? "true" : undefined} aria-label="Mover caixa de texto" title={free ? "Arraste para posicionar livremente" : "Arraste para reorganizar esta caixa"} className="absolute -bottom-14 left-1/2 hidden h-12 w-12 -translate-x-1/2 cursor-grab place-items-center rounded-full bg-[#27a3ff] text-white shadow-xl active:cursor-grabbing lg:grid" onDragStart={free ? undefined : onDragStart} onDragEnd={free ? undefined : onDragEnd}><Move size={24} /></button>}
-    <PostText block={block} editor={editing ? editor : undefined} editable={editable && editing} className={cn("w-full", editable && !active && "rounded-lg ring-[5px] ring-transparent hover:ring-[#27a3ff]/20", active && "rounded-lg ring-[5px] ring-[#27a3ff]/25", editing && "ring-[#27a3ff]/45")} />
+    {editable && active && <button type="button" data-text-copy-action aria-label="Copiar texto como PNG transparente" title="Copiar como PNG transparente" disabled={copying} className="absolute right-3 top-3 z-30 grid h-16 w-16 touch-manipulation place-items-center rounded-2xl bg-[#27a3ff] text-white shadow-[0_10px_24px_rgba(0,0,0,.35)] transition hover:bg-[#168fe4] disabled:opacity-60" onPointerDown={(event) => { event.preventDefault(); event.stopPropagation(); }} onClick={(event) => void copyAsTransparentPng(event)}>{copying ? <span className="h-7 w-7 animate-spin rounded-full border-[3px] border-white/35 border-t-white" /> : <Copy size={30} strokeWidth={2.2} />}</button>}
+    <div ref={exportRef}><PostText block={block} editor={editing ? editor : undefined} editable={editable && editing} className={cn("w-full", editable && !active && "rounded-lg ring-[5px] ring-transparent hover:ring-[#27a3ff]/20", active && "rounded-lg ring-[5px] ring-[#27a3ff]/25", editing && "ring-[#27a3ff]/45")} /></div>
   </div>;
 }
 

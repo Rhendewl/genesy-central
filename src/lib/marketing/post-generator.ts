@@ -51,6 +51,79 @@ export async function postElementToPng(element: HTMLElement, width: number, heig
   return blob;
 }
 
+async function cropTransparentPng(blob: Blob) {
+  const imageUrl = URL.createObjectURL(blob);
+  try {
+    const image = new Image();
+    image.src = imageUrl;
+    await new Promise<void>((resolve, reject) => {
+      image.addEventListener("load", () => resolve(), { once: true });
+      image.addEventListener("error", () => reject(new Error("Falha ao preparar o texto para cópia.")), { once: true });
+    });
+
+    const source = document.createElement("canvas");
+    source.width = image.naturalWidth;
+    source.height = image.naturalHeight;
+    const sourceContext = source.getContext("2d", { willReadFrequently: true });
+    if (!sourceContext) return blob;
+    sourceContext.drawImage(image, 0, 0);
+
+    const pixels = sourceContext.getImageData(0, 0, source.width, source.height).data;
+    let left = source.width;
+    let top = source.height;
+    let right = -1;
+    let bottom = -1;
+    for (let y = 0; y < source.height; y++) {
+      for (let x = 0; x < source.width; x++) {
+        if (pixels[(y * source.width + x) * 4 + 3] === 0) continue;
+        left = Math.min(left, x);
+        top = Math.min(top, y);
+        right = Math.max(right, x);
+        bottom = Math.max(bottom, y);
+      }
+    }
+    if (right < left || bottom < top) return blob;
+
+    const margin = 4;
+    left = Math.max(0, left - margin);
+    top = Math.max(0, top - margin);
+    right = Math.min(source.width - 1, right + margin);
+    bottom = Math.min(source.height - 1, bottom + margin);
+    const width = right - left + 1;
+    const height = bottom - top + 1;
+    if (left === 0 && top === 0 && width === source.width && height === source.height) return blob;
+
+    const cropped = document.createElement("canvas");
+    cropped.width = width;
+    cropped.height = height;
+    const croppedContext = cropped.getContext("2d");
+    if (!croppedContext) return blob;
+    croppedContext.drawImage(source, left, top, width, height, 0, 0, width, height);
+    return await new Promise<Blob>((resolve, reject) => cropped.toBlob((result) => result ? resolve(result) : reject(new Error("Falha ao recortar o PNG do texto.")), "image/png"));
+  } finally {
+    URL.revokeObjectURL(imageUrl);
+  }
+}
+
+export async function postTextElementToPng(element: HTMLElement) {
+  await document.fonts.ready;
+  await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+  const width = Math.max(1, element.scrollWidth);
+  const height = Math.max(1, element.scrollHeight);
+  const blob = await toBlob(element, {
+    width,
+    height,
+    canvasWidth: width,
+    canvasHeight: height,
+    pixelRatio: 1,
+    cacheBust: false,
+    skipAutoScale: true,
+    backgroundColor: "transparent",
+  });
+  if (!blob) throw new Error("Falha ao gerar o PNG transparente do texto.");
+  return cropTransparentPng(blob);
+}
+
 export function downloadBlob(blob: Blob, filename: string) {
   const anchor = document.createElement("a");
   anchor.href = URL.createObjectURL(blob);
