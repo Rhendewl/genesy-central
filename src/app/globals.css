@@ -1698,16 +1698,18 @@
   font-weight: 700;
 }
 .post-rich-text .post-text-backdrop {
-  padding: 0.045em 0.22em 0.065em;
-  margin-inline: 0.02em;
-  border-radius: 0.2em;
-  box-shadow: 0 0 0 0.075em var(--post-text-backdrop);
+  padding: 0.045em 0.2em 0.065em;
+  margin-inline: 0.015em;
+  border-radius: 0.16em;
   -webkit-box-decoration-break: clone;
   box-decoration-break: clone;
 }
+.post-rich-text-organic-ready .post-text-backdrop {
+  background-color: transparent !important;
+}
 .post-rich-text .tiptap p + p,
-.post-rich-text > p + p {
-  margin-top: 0.3em;
+.post-rich-text-content > p + p {
+  margin-top: 0;
 }
 
 /* Área sem escala para digitação e seleção precisa em telas touch. */

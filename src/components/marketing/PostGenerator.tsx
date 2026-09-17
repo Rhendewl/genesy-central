@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { EditorContent, useEditor, type Editor } from "@tiptap/react";
 import { Mark, mergeAttributes } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
@@ -1501,8 +1501,81 @@ function TextBlockItem({ block, editor, editable, active, editing, foreground, s
 }
 
 function PostText({ block, editor, editable, className }: { block: TextBlock; editor?: Editor | null; editable: boolean; className: string }) {
-  if (editable && editor) return <EditorContent editor={editor} className={cn("post-rich-text min-w-0 max-w-full rounded-lg outline-none ring-[5px] ring-transparent transition focus-within:ring-[#27a3ff]/35", className)} />;
-  return <div className={cn("post-rich-text min-w-0 max-w-full", className)} dangerouslySetInnerHTML={{ __html: block.content }} />;
+  const rootRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const filterPrefix = useId().replace(/[^a-zA-Z0-9_-]/g, "");
+  const [backdropLayers, setBackdropLayers] = useState<Array<{ color: string; radius: number; blur: number; rects: Array<{ x: number; y: number; width: number; height: number }> }>>([]);
+
+  useLayoutEffect(() => {
+    const root = rootRef.current;
+    const content = contentRef.current;
+    if (!root || !content) return;
+    let frame = 0;
+
+    const measure = () => {
+      window.cancelAnimationFrame(frame);
+      frame = window.requestAnimationFrame(() => {
+        const rootRect = root.getBoundingClientRect();
+        if (!rootRect.width || !rootRect.height) return setBackdropLayers([]);
+        const scaleX = root.clientWidth / rootRect.width;
+        const scaleY = root.clientHeight / rootRect.height;
+        const grouped = new Map<string, { radius: number; blur: number; rects: Array<{ x: number; y: number; width: number; height: number }> }>();
+
+        root.querySelectorAll<HTMLElement>(".post-text-backdrop").forEach((node) => {
+          const styles = window.getComputedStyle(node);
+          const color = node.style.getPropertyValue("--post-text-backdrop").trim()
+            || node.style.backgroundColor
+            || styles.getPropertyValue("--post-text-backdrop").trim()
+            || styles.backgroundColor;
+          const fontSize = Number.parseFloat(styles.fontSize) || 16;
+          const verticalExpansion = fontSize * 0.055;
+          const layer = grouped.get(color) || { radius: fontSize * 0.17, blur: Math.max(1.5, fontSize * 0.052), rects: [] };
+          Array.from(node.getClientRects()).forEach((rect) => {
+            if (!rect.width || !rect.height) return;
+            layer.rects.push({
+              x: (rect.left - rootRect.left) * scaleX,
+              y: (rect.top - rootRect.top) * scaleY - verticalExpansion,
+              width: rect.width * scaleX,
+              height: rect.height * scaleY + verticalExpansion * 2,
+            });
+          });
+          grouped.set(color, layer);
+        });
+
+        setBackdropLayers(Array.from(grouped, ([color, layer]) => ({ color, ...layer })));
+      });
+    };
+
+    measure();
+    const resizeObserver = new ResizeObserver(measure);
+    resizeObserver.observe(root);
+    resizeObserver.observe(content);
+    const mutationObserver = new MutationObserver(measure);
+    mutationObserver.observe(content, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ["style", "class"] });
+    void document.fonts?.ready.then(measure);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      resizeObserver.disconnect();
+      mutationObserver.disconnect();
+    };
+  }, [block.content, editor, editable]);
+
+  return <div ref={rootRef} className={cn("post-rich-text relative min-w-0 max-w-full", backdropLayers.length > 0 && "post-rich-text-organic-ready", editable && "rounded-lg outline-none ring-[5px] ring-transparent transition focus-within:ring-[#27a3ff]/35", className)}>
+    {backdropLayers.length > 0 && <svg aria-hidden="true" className="pointer-events-none absolute inset-0 z-0 h-full w-full overflow-visible">
+      <defs>{backdropLayers.map((layer, index) => <filter key={`filter-${layer.color}-${index}`} id={`${filterPrefix}-backdrop-${index}`} x="-20%" y="-20%" width="140%" height="140%" colorInterpolationFilters="sRGB">
+        <feGaussianBlur in="SourceGraphic" stdDeviation={layer.blur} result="soft-union" />
+        <feColorMatrix in="soft-union" type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 24 -11" />
+      </filter>)}</defs>
+      {backdropLayers.map((layer, index) => <g key={`${layer.color}-${index}`} fill={layer.color} filter={`url(#${filterPrefix}-backdrop-${index})`}>
+        {layer.rects.map((rect, rectIndex) => <rect key={rectIndex} x={rect.x} y={rect.y} width={rect.width} height={rect.height} rx={layer.radius} ry={layer.radius} />)}
+      </g>)}
+    </svg>}
+    <div ref={contentRef} className="relative z-[1] min-w-0 max-w-full">
+      {editable && editor
+        ? <EditorContent editor={editor} />
+        : <div className="post-rich-text-content" dangerouslySetInnerHTML={{ __html: block.content }} />}
+    </div>
+  </div>;
 }
 
 function MediaFrame({ image, crop: savedCrop, aspect }: { image: string; crop?: MediaCrop; aspect: number }) {
