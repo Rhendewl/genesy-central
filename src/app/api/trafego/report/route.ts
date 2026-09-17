@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
+import { DEFAULT_CAMPAIGN_PARSER, extractDevelopmentName } from "@/lib/clientes/commercial-intelligence";
 import { aggregateTrafficReport, buildTrafficReportCampaignOptions, type TrafficReportCampaignRow, type TrafficReportMetricRow } from "@/lib/traffic-report";
 
 export const dynamic = "force-dynamic";
@@ -25,9 +26,10 @@ export async function GET(request: NextRequest) {
   const days = Math.round((end.getTime() - start.getTime()) / 86_400_000);
   if (days < 0 || days > 366) return NextResponse.json({ error: "Selecione um período de até 12 meses" }, { status: 400 });
 
-  const [{ data: client }, { data: accounts }] = await Promise.all([
+  const [{ data: client }, { data: accounts }, { data: commercialSettings }] = await Promise.all([
     supabase.from("agency_clients").select("id,name").eq("id", clientId).maybeSingle(),
     supabase.from("ad_platform_accounts").select("id,account_name").eq("client_id", clientId).eq("platform", "meta").eq("status", "connected"),
+    supabase.from("commercial_intelligence_settings").select("parser_pattern,parser_group").eq("client_id", clientId).maybeSingle(),
   ]);
   if (!client) return NextResponse.json({ error: "Cliente não encontrado" }, { status: 404 });
   const selectedAccounts = accountId ? (accounts ?? []).filter((account) => account.id === accountId) : (accounts ?? []);
@@ -59,6 +61,12 @@ export async function GET(request: NextRequest) {
   const selectedCampaigns = campaignRows.filter((campaign) => selectedCampaignIds.has(campaign.id));
   const selectedMetrics = metricRows.filter((metric) => selectedCampaignIds.has(metric.campaign_id));
   if (!selectedMetrics.length) return NextResponse.json({ error: "As campanhas selecionadas não possuem métricas no período" }, { status: 422 });
+  const parserPattern = commercialSettings?.parser_pattern || DEFAULT_CAMPAIGN_PARSER;
+  const parserGroup = commercialSettings?.parser_group ?? 1;
+  const campaignDisplayNames = Object.fromEntries(selectedCampaigns.map((campaign) => [
+    campaign.id,
+    extractDevelopmentName(campaign.name, parserPattern, parserGroup) ?? campaign.name,
+  ]));
 
   const report = aggregateTrafficReport({
     clientName: client.name,
@@ -67,6 +75,7 @@ export async function GET(request: NextRequest) {
     until,
     campaigns: selectedCampaigns,
     metrics: selectedMetrics,
+    campaignDisplayNames,
   });
   return NextResponse.json({ report }, { headers: { "Cache-Control": "private, no-store" } });
 }

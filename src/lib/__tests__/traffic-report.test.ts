@@ -52,4 +52,24 @@ describe("traffic report", () => {
     });
     expect(report.campaigns.map((campaign) => campaign.id)).toEqual(["a", "b"]);
   });
+
+  it("consolida variações técnicas pelo nome legível do imóvel no PDF", () => {
+    const report = aggregateTrafficReport({
+      clientName: "Cliente",
+      since: "2026-09-01",
+      until: "2026-09-30",
+      campaigns: [
+        { id: "a", name: "[VITA M. CATARINA] - [PORT] - [FORM EXT]", status: "ativa" },
+        { id: "b", name: "[VITA M. CATARINA] - [BN] - [FORM EXT]", status: "pausada" },
+      ],
+      metrics: [
+        { campaign_id: "a", spend: 400, leads: 10, impressions: 10000, reach: 8000, clicks: 200, conversions: 2 },
+        { campaign_id: "b", spend: 300, leads: 5, impressions: 5000, reach: 4000, clicks: 100, conversions: 1 },
+      ],
+      campaignDisplayNames: { a: "Vita M. Catarina", b: "Vita M. Catarina" },
+    });
+
+    expect(report.campaigns).toHaveLength(1);
+    expect(report.campaigns[0]).toMatchObject({ name: "Vita M. Catarina", spend: 700, leads: 15, cpl: 700 / 15, impressions: 15000, clicks: 300 });
+  });
 });

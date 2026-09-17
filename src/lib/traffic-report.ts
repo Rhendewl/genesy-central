@@ -54,6 +54,7 @@ export function aggregateTrafficReport(params: {
   generatedAt?: string;
   campaigns: TrafficReportCampaignRow[];
   metrics: TrafficReportMetricRow[];
+  campaignDisplayNames?: Record<string, string>;
 }): TrafficReportData {
   const campaignsById = new Map(params.campaigns.map((campaign) => [campaign.id, campaign]));
   const spend = params.metrics.reduce((sum, metric) => sum + number(metric.spend), 0);
@@ -69,7 +70,7 @@ export function aggregateTrafficReport(params: {
 
   const grouped = new Map<string, TrafficReportMetricRow[]>();
   params.metrics.forEach((metric) => grouped.set(metric.campaign_id, [...(grouped.get(metric.campaign_id) ?? []), metric]));
-  const campaignSummaries: TrafficReportCampaign[] = Array.from(grouped.entries()).map(([campaignId, rows]) => {
+  const rawCampaignSummaries: TrafficReportCampaign[] = Array.from(grouped.entries()).map(([campaignId, rows]) => {
     const campaign = campaignsById.get(campaignId);
     const campaignSpend = rows.reduce((sum, row) => sum + number(row.spend), 0);
     const campaignLeads = rows.reduce((sum, row) => sum + number(row.leads), 0);
@@ -78,7 +79,7 @@ export function aggregateTrafficReport(params: {
     const campaignConversions = rows.reduce((sum, row) => sum + number(row.conversions), 0);
     return {
       id: campaignId,
-      name: campaign?.name ?? campaignId,
+      name: params.campaignDisplayNames?.[campaignId] ?? campaign?.name ?? campaignId,
       status: campaign?.status ?? "desconhecido",
       spend: campaignSpend,
       leads: campaignLeads,
@@ -88,7 +89,31 @@ export function aggregateTrafficReport(params: {
       clicks: campaignClicks,
       conversions: campaignConversions,
     };
-  }).sort((a, b) => b.leads - a.leads || (a.cpl || Number.MAX_SAFE_INTEGER) - (b.cpl || Number.MAX_SAFE_INTEGER) || b.ctr - a.ctr);
+  });
+  const campaignSummaries = params.campaignDisplayNames
+    ? Array.from(rawCampaignSummaries.reduce((groups, campaign) => {
+      const key = campaign.name.toLocaleLowerCase("pt-BR");
+      const current = groups.get(key);
+      if (!current) groups.set(key, { ...campaign });
+      else groups.set(key, {
+        ...current,
+        status: current.status === "ativa" || campaign.status === "ativa" ? "ativa" : current.status,
+        spend: current.spend + campaign.spend,
+        leads: current.leads + campaign.leads,
+        impressions: current.impressions + campaign.impressions,
+        clicks: current.clicks + campaign.clicks,
+        conversions: current.conversions + campaign.conversions,
+        cpl: 0,
+        ctr: 0,
+      });
+      return groups;
+    }, new Map<string, TrafficReportCampaign>()).values()).map((campaign) => ({
+      ...campaign,
+      cpl: campaign.leads > 0 ? campaign.spend / campaign.leads : 0,
+      ctr: campaign.impressions > 0 ? campaign.clicks / campaign.impressions * 100 : 0,
+    }))
+    : rawCampaignSummaries;
+  campaignSummaries.sort((a, b) => b.leads - a.leads || (a.cpl || Number.MAX_SAFE_INTEGER) - (b.cpl || Number.MAX_SAFE_INTEGER) || b.ctr - a.ctr);
 
   return {
     clientName: params.clientName,
