@@ -1,7 +1,22 @@
 import { describe, expect, it } from "vitest";
-import { aggregateTrafficReport, trafficReportFilename } from "../traffic-report";
+import { aggregateTrafficReport, buildTrafficReportCampaignOptions, defaultTrafficReportCampaignIds, trafficReportFilename } from "../traffic-report";
 
 describe("traffic report", () => {
+  it("lists campaigns in the period and selects by default only those with leads", () => {
+    const campaigns = [
+      { id: "a", name: "Campanha A", status: "ativa" },
+      { id: "b", name: "Campanha B", status: "pausada" },
+      { id: "c", name: "Sem veiculação", status: "pausada" },
+    ];
+    const options = buildTrafficReportCampaignOptions(campaigns, [
+      { campaign_id: "a", spend: 500, leads: 8, impressions: 1000, reach: 800, clicks: 50, conversions: 0 },
+      { campaign_id: "b", spend: 200, leads: 0, impressions: 600, reach: 500, clicks: 10, conversions: 0 },
+    ]);
+
+    expect(options.map((campaign) => campaign.id)).toEqual(["a", "b"]);
+    expect(defaultTrafficReportCampaignIds(options)).toEqual(["a"]);
+  });
+
   it("aggregates primary metrics and ranks campaigns", () => {
     const report = aggregateTrafficReport({
       clientName: "Cliente",

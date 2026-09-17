@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
-import { aggregateTrafficReport, type TrafficReportCampaignRow, type TrafficReportMetricRow } from "@/lib/traffic-report";
+import { aggregateTrafficReport, buildTrafficReportCampaignOptions, type TrafficReportCampaignRow, type TrafficReportMetricRow } from "@/lib/traffic-report";
 
 export const dynamic = "force-dynamic";
 
@@ -15,6 +15,8 @@ export async function GET(request: NextRequest) {
 
   const clientId = request.nextUrl.searchParams.get("client_id");
   const accountId = request.nextUrl.searchParams.get("platform_account_id");
+  const campaignOptionsOnly = request.nextUrl.searchParams.get("campaign_options") === "1";
+  const requestedCampaignIds = request.nextUrl.searchParams.getAll("campaign_id").filter(Boolean);
   const since = request.nextUrl.searchParams.get("since");
   const until = request.nextUrl.searchParams.get("until");
   if (!clientId || !validDate(since) || !validDate(until)) return NextResponse.json({ error: "Cliente e período são obrigatórios" }, { status: 400 });
@@ -43,13 +45,28 @@ export async function GET(request: NextRequest) {
   if (metricsError) return NextResponse.json({ error: metricsError.message }, { status: 400 });
   if (!(metrics ?? []).length) return NextResponse.json({ error: "Não encontramos métricas para esta conta no período selecionado. Confirme se houve veiculação na Meta e tente sincronizar novamente." }, { status: 422 });
 
+  const campaignRows = (campaigns ?? []) as TrafficReportCampaignRow[];
+  const metricRows = (metrics ?? []) as TrafficReportMetricRow[];
+  if (campaignOptionsOnly) {
+    return NextResponse.json({ campaigns: buildTrafficReportCampaignOptions(campaignRows, metricRows) }, { headers: { "Cache-Control": "private, no-store" } });
+  }
+
+  const allowedCampaignIds = new Set(campaignRows.map((campaign) => campaign.id));
+  const selectedCampaignIds = requestedCampaignIds.length
+    ? new Set(requestedCampaignIds.filter((campaignId) => allowedCampaignIds.has(campaignId)))
+    : allowedCampaignIds;
+  if (!selectedCampaignIds.size) return NextResponse.json({ error: "Selecione ao menos uma campanha válida para o relatório" }, { status: 400 });
+  const selectedCampaigns = campaignRows.filter((campaign) => selectedCampaignIds.has(campaign.id));
+  const selectedMetrics = metricRows.filter((metric) => selectedCampaignIds.has(metric.campaign_id));
+  if (!selectedMetrics.length) return NextResponse.json({ error: "As campanhas selecionadas não possuem métricas no período" }, { status: 422 });
+
   const report = aggregateTrafficReport({
     clientName: client.name,
     accountName: selectedAccounts.length === 1 ? selectedAccounts[0].account_name : null,
     since,
     until,
-    campaigns: (campaigns ?? []) as TrafficReportCampaignRow[],
-    metrics: (metrics ?? []) as TrafficReportMetricRow[],
+    campaigns: selectedCampaigns,
+    metrics: selectedMetrics,
   });
   return NextResponse.json({ report }, { headers: { "Cache-Control": "private, no-store" } });
 }

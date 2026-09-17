@@ -18,8 +18,33 @@ export type TrafficReportCampaignRow = {
   status: string;
 };
 
+export type TrafficReportCampaignOption = {
+  id: string;
+  name: string;
+  leads: number;
+  spend: number;
+};
+
 const number = (value: unknown) => Number(value) || 0;
 const clickCount = (metric: TrafficReportMetricRow) => number(metric.link_clicks) > 0 ? number(metric.link_clicks) : number(metric.clicks);
+
+export function buildTrafficReportCampaignOptions(campaigns: TrafficReportCampaignRow[], metrics: TrafficReportMetricRow[]) {
+  const metricsByCampaign = new Map<string, { leads: number; spend: number }>();
+  metrics.forEach((metric) => {
+    const current = metricsByCampaign.get(metric.campaign_id) ?? { leads: 0, spend: 0 };
+    current.leads += number(metric.leads);
+    current.spend += number(metric.spend);
+    metricsByCampaign.set(metric.campaign_id, current);
+  });
+  return campaigns
+    .filter((campaign) => metricsByCampaign.has(campaign.id))
+    .map((campaign): TrafficReportCampaignOption => ({ id: campaign.id, name: campaign.name, ...(metricsByCampaign.get(campaign.id) ?? { leads: 0, spend: 0 }) }))
+    .sort((a, b) => b.leads - a.leads || b.spend - a.spend || a.name.localeCompare(b.name, "pt-BR"));
+}
+
+export function defaultTrafficReportCampaignIds(campaigns: TrafficReportCampaignOption[]) {
+  return campaigns.filter((campaign) => campaign.leads > 0).map((campaign) => campaign.id);
+}
 
 export function aggregateTrafficReport(params: {
   clientName: string;
