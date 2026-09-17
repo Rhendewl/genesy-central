@@ -160,9 +160,14 @@ export function createTrafficReportPdf(data: TrafficReportData, assets: TrafficR
 }
 
 export async function saveTrafficReportPdf(data: TrafficReportData, fileHandle: TrafficReportFileHandle) {
+  const blob = await createTrafficReportPdfBlob(data);
+  const writable = await fileHandle.createWritable();
+  await writable.write(blob);
+  await writable.close();
+}
+
+export async function createTrafficReportPdfBlob(data: TrafficReportData) {
   const assets = await loadAssets();
   const pdf = createTrafficReportPdf(data, assets);
-  const writable = await fileHandle.createWritable();
-  await writable.write(pdf.output("blob"));
-  await writable.close();
+  return pdf.output("blob");
 }

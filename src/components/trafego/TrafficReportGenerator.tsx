@@ -6,8 +6,9 @@ import { endOfMonth, format, startOfMonth } from "date-fns";
 import { AnimatePresence, motion } from "framer-motion";
 import { Building2, CalendarDays, Check, FileDown, LoaderCircle, Megaphone, Sparkles, X } from "lucide-react";
 import { toast } from "sonner";
-import { saveTrafficReportPdf } from "@/lib/traffic-report-pdf";
+import { createTrafficReportPdfBlob, saveTrafficReportPdf } from "@/lib/traffic-report-pdf";
 import type { TrafficReportFileHandle } from "@/lib/traffic-report-pdf";
+import { deliverPdfBlob } from "@/lib/pdf-delivery";
 import { defaultTrafficReportCampaignIds, trafficReportFilename, type TrafficReportCampaignOption } from "@/lib/traffic-report";
 import { Button } from "@/components/ui/button";
 import { useAgencyClients } from "@/hooks/useAgencyClients";
@@ -89,22 +90,20 @@ export function TrafficReportGenerator({ accounts, selectedAccountId, year, mont
 
   async function generate() {
     if (!clientId || !since || !until) return toast.error("Selecione o cliente e o período");
-    let fileHandle: TrafficReportFileHandle;
+    let fileHandle: TrafficReportFileHandle | null = null;
+    const clientName = clients.find((client) => client.id === clientId)?.name ?? "cliente";
+    const filename = trafficReportFilename(clientName, since, until);
     const showSaveFilePicker = (window as Window & { showSaveFilePicker?: (options: { suggestedName: string; types: Array<{ description: string; accept: Record<string, string[]> }> }) => Promise<TrafficReportFileHandle> }).showSaveFilePicker;
-    if (!showSaveFilePicker) {
-      toast.error("Este navegador não permite escolher uma pasta. Abra a plataforma no Chrome ou Edge para salvar o relatório. Nenhum arquivo foi baixado.", { duration: 8000 });
-      return;
-    }
-    try {
-      const clientName = clients.find((client) => client.id === clientId)?.name ?? "cliente";
-      fileHandle = await showSaveFilePicker.call(window, {
-        suggestedName: trafficReportFilename(clientName, since, until),
-        types: [{ description: "Relatório PDF", accept: { "application/pdf": [".pdf"] } }],
-      });
-    } catch (pickerError) {
-      if (pickerError instanceof DOMException && pickerError.name === "AbortError") return;
-      toast.error("Não foi possível abrir a escolha de pasta");
-      return;
+    if (showSaveFilePicker) {
+      try {
+        fileHandle = await showSaveFilePicker.call(window, {
+          suggestedName: filename,
+          types: [{ description: "Relatório PDF", accept: { "application/pdf": [".pdf"] } }],
+        });
+      } catch (pickerError) {
+        if (pickerError instanceof DOMException && pickerError.name === "AbortError") return;
+        fileHandle = null;
+      }
     }
     setLoading(true);
     try {
@@ -129,8 +128,14 @@ export function TrafficReportGenerator({ accounts, selectedAccountId, year, mont
       const response = await fetch(`/api/trafego/report?${params}`);
       const json = await response.json() as { report?: TrafficReportData; error?: string };
       if (!response.ok || !json.report) throw new Error(json.error ?? "Não foi possível gerar o relatório");
-      await saveTrafficReportPdf(json.report, fileHandle);
-      toast.success("Relatório de tráfego exportado em PDF");
+      if (fileHandle) {
+        await saveTrafficReportPdf(json.report, fileHandle);
+        toast.success("Relatório de tráfego salvo em PDF");
+      } else {
+        const result = await deliverPdfBlob(await createTrafficReportPdfBlob(json.report), filename, `Relatório de tráfego · ${clientName}`);
+        if (result === "cancelled") return;
+        toast.success(result === "shared" ? "Relatório pronto para salvar ou compartilhar" : "Relatório de tráfego baixado em PDF");
+      }
       setOpen(false);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Não foi possível gerar o relatório");
@@ -169,7 +174,7 @@ export function TrafficReportGenerator({ accounts, selectedAccountId, year, mont
             </div>
           </section>
         </div>
-        <div className="mt-5 rounded-xl border border-[#9d7e4e]/20 bg-[#9d7e4e]/[.06] p-3 text-[11px] leading-5 text-[var(--muted-foreground)]">Antes de gerar, a plataforma atualiza na Meta somente a conta e o período selecionados. Ao continuar, você escolherá a pasta e o nome do PDF.</div>
+        <div className="mt-5 rounded-xl border border-[#9d7e4e]/20 bg-[#9d7e4e]/[.06] p-3 text-[11px] leading-5 text-[var(--muted-foreground)]">Antes de gerar, a plataforma atualiza na Meta somente a conta e o período selecionados. No PWA e no celular, você poderá salvar em Arquivos ou compartilhar o PDF.</div>
         <div className="mt-5 flex justify-end gap-2"><button type="button" disabled={loading} onClick={() => setOpen(false)} className="rounded-xl border px-4 py-2.5 text-xs">Cancelar</button><Button type="button" size="lg" disabled={!clientId || !since || !until || campaignsLoading || selectedCampaignIds.length === 0} loading={loading} loadingLabel="Gerando PDF..." onClick={() => void generate()} icon={<FileDown size={14} />}>Gerar relatório</Button></div>
       </motion.section>
     </motion.div>}</AnimatePresence>, document.body)}

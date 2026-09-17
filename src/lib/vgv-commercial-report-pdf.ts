@@ -170,9 +170,14 @@ export function createVgvCommercialReportPdf(data: VgvCommercialReportData, asse
 }
 
 export async function saveVgvCommercialReportPdf(data: VgvCommercialReportData, fileHandle: VgvCommercialReportFileHandle) {
+  const blob = await createVgvCommercialReportPdfBlob(data);
+  const writable = await fileHandle.createWritable();
+  await writable.write(blob);
+  await writable.close();
+}
+
+export async function createVgvCommercialReportPdfBlob(data: VgvCommercialReportData) {
   const assets = await loadAssets();
   const pdf = createVgvCommercialReportPdf(data, assets);
-  const writable = await fileHandle.createWritable();
-  await writable.write(pdf.output("blob"));
-  await writable.close();
+  return pdf.output("blob");
 }
