@@ -1708,6 +1708,13 @@
   outline: none !important;
   box-shadow: none !important;
 }
+.post-text-exporting {
+  box-sizing: border-box;
+  width: calc(100% + 48px);
+  max-width: none;
+  margin: -24px;
+  padding: 24px;
+}
 .post-rich-text-organic-ready .post-text-backdrop {
   background-color: transparent !important;
 }

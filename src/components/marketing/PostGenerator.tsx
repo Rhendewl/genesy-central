@@ -1489,7 +1489,14 @@ function BalancedContent({ safeLeft, safeWidth, gap, children }: { safeLeft: num
 }
 
 function TweetProfileBlock({ profile, foreground }: { profile: TweetProfile; foreground: string }) {
-  return <div className="flex items-center gap-[24px]"><Avatar src={profile.avatar} crop={profile.avatarCrop} size={122} /><div><p className="flex items-center gap-[12px] text-[45px] font-bold leading-none">{profile.name}{profile.verified && <img src="/brand/verified-badge.png" alt="Perfil verificado" className="h-[38px] w-[38px] shrink-0 object-contain" />}</p><p className="mt-[14px] text-[34px]" style={{ color: foreground, opacity: .62 }}>{profile.handle}</p></div></div>;
+  return <div className="flex items-center gap-[24px]"><Avatar src={profile.avatar} crop={profile.avatarCrop} size={122} /><div><p className="flex items-center gap-[12px] text-[45px] font-bold leading-none">{profile.name}{profile.verified && <VerifiedBadge />}</p><p className="mt-[14px] text-[34px]" style={{ color: foreground, opacity: .62 }}>{profile.handle}</p></div></div>;
+}
+
+function VerifiedBadge() {
+  return <svg viewBox="0 0 24 24" role="img" aria-label="Perfil verificado" className="h-[38px] w-[38px] shrink-0 overflow-visible">
+    <path fill="#1d9bf0" d="M22.25 12c0-1.43-.88-2.67-2.14-3.19.2-1.37-.44-2.74-1.66-3.43-1.23-.71-2.75-.53-3.77.37C13.8 4.68 12.5 4 11 4s-2.8.68-3.68 1.75c-1.02-.9-2.54-1.08-3.77-.37-1.22.69-1.86 2.06-1.66 3.43C.63 9.33-.25 10.57-.25 12s.88 2.67 2.14 3.19c-.2 1.37.44 2.74 1.66 3.43 1.23.71 2.75.53 3.77-.37C8.2 19.32 9.5 20 11 20s2.8-.68 3.68-1.75c1.02.9 2.54 1.08 3.77.37 1.22-.69 1.86-2.06 1.66-3.43 1.26-.52 2.14-1.76 2.14-3.19Z" transform="translate(1)" />
+    <path fill="none" stroke="#fff" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.35" d="m7.25 12.2 3.1 3.05 6.4-6.5" />
+  </svg>;
 }
 
 function TextBlockItem({ block, editor, editable, active, editing, foreground, story, safeWidth, onSelect, onEdit, onDragStart, onDragEnd, free = false }: { block: TextBlock; editor?: Editor | null; editable: boolean; active: boolean; editing: boolean; foreground: string; story: boolean; safeWidth: number; onSelect: () => void; onEdit: () => void; onDragStart: (event: React.DragEvent<HTMLButtonElement>) => void; onDragEnd: () => void; free?: boolean }) {
