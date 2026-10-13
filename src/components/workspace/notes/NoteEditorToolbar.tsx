@@ -78,7 +78,7 @@ export function NoteEditorToolbar({ editor, onRequestImage, onRequestAttachment 
       >
         <TableIcon size={12} />
       </ToolbarBtn>
-      <ToolbarBtn onClick={() => editor.chain().focus().setHorizontalRule().run()} title="Divisor"><Minus size={12} /></ToolbarBtn>
+      <ToolbarBtn onClick={() => editor.chain().focus().setHorizontalRule().run()} title="Divisor (nova página no PDF)"><Minus size={12} /></ToolbarBtn>
       <ToolbarBtn
         active={editor.isActive("link")}
         onClick={() => {

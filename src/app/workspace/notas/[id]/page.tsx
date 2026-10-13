@@ -3,12 +3,14 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { ArrowLeft, Trash2, Loader2 } from "lucide-react";
+import { ArrowLeft, Trash2, Loader2, Download } from "lucide-react";
 import { useWorkspaceNote } from "@/hooks/useWorkspaceNote";
 import { useWorkspaceNoteFolders } from "@/hooks/useWorkspaceNoteFolders";
 import { useWorkspaceViewing } from "@/context/WorkspaceViewingContext";
 import { NoteEditor } from "@/components/workspace/notes/NoteEditor";
 import { NoteCoverUpload } from "@/components/workspace/notes/NoteCoverUpload";
+
+import { Button } from "@/components/ui/button";
 
 const COLOR_SWATCHES = ["#4a8fd4", "#6b9b6f", "#e0a344", "#e05c5c", "#9b7fe0", "#7c878e"];
 
@@ -21,6 +23,17 @@ export default function WorkspaceNoteEditorPage() {
     note, title, content, isLoading, isSaving, error,
     setTitle, setContent, saveImmediate, flush,
   } = useWorkspaceNote(id);
+
+  const [isExporting, setIsExporting] = useState(false);
+  async function exportPdf() {
+    setIsExporting(true);
+    try {
+      const { exportWorkspaceNotePDF } = await import("@/lib/workspace-note-pdf");
+      const result = await exportWorkspaceNotePDF(title, content);
+      if (result !== "cancelled") toast.success("PDF da nota exportado.");
+    } catch (error) { toast.error(error instanceof Error ? error.message : "Não foi possível exportar a nota."); }
+    finally { setIsExporting(false); }
+  }
 
   const [isDeleting, setIsDeleting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -83,6 +96,7 @@ export default function WorkspaceNoteEditorPage() {
           <span className="text-[11px]" style={{ color: "var(--muted-foreground)" }}>
             {isSaving ? "Salvando…" : "Salvo"}
           </span>
+          <Button onClick={exportPdf} loading={isExporting} variant="outline" size="sm" icon={<Download size={14} />}>PDF</Button>
           <button onClick={() => setConfirmDelete(true)} aria-label="Excluir nota">
             <Trash2 size={16} style={{ color: "var(--muted-foreground)" }} />
           </button>

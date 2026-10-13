@@ -21,6 +21,7 @@ import {
   Sun,
   Moon,
   Megaphone,
+  Calculator,
 } from "lucide-react";
 import { useGlobalStore } from "@/store";
 import { getSupabaseClient } from "@/lib/supabase";
@@ -46,6 +47,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/performance",   label: "Performance",  icon: BarChart3,      exactMatch: false, permKey: "performance"  },
   { href: "/formularios",   label: "Formulários",  icon: NotepadText,     exactMatch: false, permKey: "formularios"  },
   { href: "/agendamentos",  label: "Agenda",       icon: Calendar,        exactMatch: false, permKey: "agendamentos" },
+  { href: "/calculadora", label: "Calculadora de Fluxo de Pagamento", icon: Calculator, exactMatch: false, permKey: "calculadora" },
   { href: "/configuracoes", label: "Configurações",icon: Settings,        exactMatch: false, permKey: "configuracoes"},
 ];
 

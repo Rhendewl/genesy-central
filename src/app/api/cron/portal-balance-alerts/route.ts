@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminSupabaseClient } from "@/lib/supabase-admin";
-import { fetchPortalAccountBalances } from "@/lib/portal-account-balances";
+import { fetchAllAccountBalances } from "@/lib/portal-account-balances";
 import { processPortalBalanceAlerts } from "@/lib/portal-balance-alerts";
 
 export const dynamic = "force-dynamic";
@@ -15,30 +15,35 @@ async function handle(req: NextRequest) {
   }
 
   const db = createAdminSupabaseClient();
-  const { data: portals, error } = await db
-    .from("portals")
-    .select("id, user_id, name")
-    .eq("status", "ativo")
-    .order("updated_at", { ascending: false });
+  const { data: accounts, error } = await db
+    .from("ad_platform_accounts")
+    .select("user_id")
+    .eq("platform", "meta")
+    .eq("status", "connected")
+    .not("account_id", "is", null);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
+  const ownerUserIds = Array.from(new Set((accounts ?? []).map(account => account.user_id as string)));
   const results = [];
-  for (const portal of portals ?? []) {
+  for (const ownerUserId of ownerUserIds) {
     try {
-      const result = await fetchPortalAccountBalances(db, portal.id, portal.user_id);
-      if (result.error) throw new Error(result.error);
+      const result = await fetchAllAccountBalances(db, ownerUserId);
       const alerts = await processPortalBalanceAlerts(db, {
-        portalId: portal.id,
-        portalName: portal.name,
-        ownerUserId: portal.user_id,
+        ownerUserId,
         balances: result.balances,
       });
-      results.push({ portalId: portal.id, ok: true, accounts: result.balances.length, ...alerts });
-    } catch (portalError) {
       results.push({
-        portalId: portal.id,
+        ownerUserId,
+        ok: true,
+        accounts: result.balances.length,
+        accountErrors: result.errors,
+        ...alerts,
+      });
+    } catch (ownerError) {
+      results.push({
+        ownerUserId,
         ok: false,
-        error: portalError instanceof Error ? portalError.message : "Falha desconhecida",
+        error: ownerError instanceof Error ? ownerError.message : "Falha desconhecida",
       });
     }
   }

@@ -12,6 +12,8 @@ import { NextResponse, type NextRequest } from "next/server";
 // própria rota valida o header X-Cron-Secret, então fica de fora do
 // middleware de auth por sessão, como api/meta/webhook.
 const PUBLIC_ROUTES = [
+  "/simular/",
+  "/api/public/calculadora/",
   "/auth",
   "/data-deletion",
   "/privacy-policy",
@@ -38,8 +40,8 @@ const PUBLIC_ROUTES = [
 ];
 // Redirect authenticated users away from these (login page only)
 const AUTH_REDIRECT_ROUTES = ["/auth"];
-const PUBLIC_SHARE_ROUTES = ["/portal/", "/form/", "/analise-comercial/", "/coleta/", "/agendar/", "/venda/"];
-const PUBLIC_SHARE_API_ROUTES = ["/api/portal/", "/api/form/", "/api/commercial-collections/", "/api/agendar/", "/api/public/vgv/"];
+const PUBLIC_SHARE_ROUTES = ["/simular/", "/portal/", "/form/", "/analise-comercial/", "/coleta/", "/agendar/", "/venda/"];
+const PUBLIC_SHARE_API_ROUTES = ["/api/public/calculadora/", "/api/portal/", "/api/form/", "/api/commercial-collections/", "/api/agendar/", "/api/public/vgv/"];
 
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;

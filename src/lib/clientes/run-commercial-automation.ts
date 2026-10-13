@@ -3,7 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { decryptToken } from "@/lib/crypto";
 import { syncMetaAccount } from "@/lib/meta-sync";
 import { buildPublicUrl } from "@/lib/public-url";
-import { buildCommercialAnalysisEmail, getResendClient } from "@/lib/resend";
+import { sendCommercialEmail } from "@/lib/clientes/send-commercial-email";
 import { DEFAULT_COMMERCIAL_TEMPLATES, extractDevelopmentName } from "@/lib/clientes/commercial-intelligence";
 import {
   commercialAutomationWindow,
@@ -11,6 +11,7 @@ import {
   evaluateCommercialSample,
   inferCommercialAutomationSlot,
   nextCommercialAutomationSlot,
+  nextCommercialSendDate,
   type CommercialAutomationSlot,
 } from "@/lib/clientes/commercial-automation";
 import type { CommercialDevelopment, CommercialFrequency } from "@/types/commercial-intelligence";
@@ -26,6 +27,8 @@ type AutomationSettings = {
   public_slug: string | null;
   minimum_leads: number;
   minimum_active_days: number;
+  send_weekdays: number[];
+  last_manual_send_at: string | null;
 };
 
 type AutomationResult = {
@@ -64,19 +67,12 @@ async function sendPendingDeliveries(params: {
   let sent = 0;
   let failed = 0;
   for (const delivery of deliveries) {
-    const { error: sendError } = await getResendClient().emails.send({
-      from: process.env.RESEND_FROM_EMAIL ?? "onboarding@resend.dev",
-      to: delivery.recipient_email,
-      subject: `Análise Comercial · ${params.clientName}`,
-      html: buildCommercialAnalysisEmail({ clientName: params.clientName, collectionName: params.collection.name, analysisLink }),
-    }, { idempotencyKey: `commercial-${params.collection.id}-${delivery.broker_id ?? delivery.id}` });
-    if (sendError) {
-      failed++;
-      await params.db.from("commercial_collection_deliveries").update({ status: "failed", attempts: Number(delivery.attempts) + 1, last_error: sendError.message }).eq("id", delivery.id);
-    } else {
-      sent++;
-      await params.db.from("commercial_collection_deliveries").update({ status: "sent", attempts: Number(delivery.attempts) + 1, last_error: null, sent_at: new Date().toISOString() }).eq("id", delivery.id);
-    }
+    const result = await sendCommercialEmail(params.db, {
+      delivery, collectionId: params.collection.id, collectionName: params.collection.name,
+      clientName: params.clientName, analysisLink,
+    });
+    if (result.accepted) sent++;
+    else failed++;
   }
   return { attempted: deliveries.length, sent, failed };
 }
@@ -104,11 +100,12 @@ async function resolveTemplate(db: SupabaseClient, userId: string, slot: Commerc
 }
 
 async function processClient(db: SupabaseClient, settings: AutomationSettings, today: string): Promise<AutomationResult> {
-  const [{ data: client }, { data: brokers }, { data: lastCollection }] = await Promise.all([
+  const [{ data: client, error: clientError }, { data: brokers, error: brokersError }, { data: lastCollection, error: collectionQueryError }] = await Promise.all([
     db.from("agency_clients").select("name").eq("id", settings.client_id).maybeSingle(),
-    db.from("commercial_brokers").select("id,email").eq("client_id", settings.client_id).eq("is_active", true),
+    db.from("commercial_brokers").select("id,email,meta_account_ids").eq("client_id", settings.client_id).eq("is_active", true),
     db.from("commercial_collections").select("id,name,period_end,meta_snapshot").eq("client_id", settings.client_id).order("period_end", { ascending: false }).limit(1).maybeSingle(),
   ]);
+  if (clientError || brokersError || collectionQueryError) throw new Error((clientError ?? brokersError ?? collectionQueryError)!.message);
   if (!client) throw new Error("Cliente não encontrado");
   if (!settings.public_slug) return defer("Configure o link público antes de ativar a automação.");
   if (!brokers?.length) return defer("Cadastre ao menos um corretor ativo com e-mail.");
@@ -121,12 +118,13 @@ async function processClient(db: SupabaseClient, settings: AutomationSettings, t
       ))
       : [];
     if (snapshot?.automation === true && recipients.length) {
-      await db.from("commercial_collection_deliveries").upsert(recipients.map((recipient) => ({
+      const { error: recoveryError } = await db.from("commercial_collection_deliveries").upsert(recipients.map((recipient) => ({
         user_id: settings.user_id,
         collection_id: lastCollection.id,
         broker_id: recipient.broker_id,
         recipient_email: recipient.email,
       })), { onConflict: "collection_id,broker_id", ignoreDuplicates: true });
+      if (recoveryError) throw new Error(recoveryError.message);
     }
     const retry = await sendPendingDeliveries({ db, collection: lastCollection, clientName: client.name, publicSlug: settings.public_slug });
     if (retry.attempted) {
@@ -139,9 +137,15 @@ async function processClient(db: SupabaseClient, settings: AutomationSettings, t
     }
   }
 
-  const due = commercialCollectionDue(lastCollection?.period_end ?? null, today, settings.frequency);
-  if (!due.due) {
-    const reason = `Próxima coleta em ${due.daysRemaining} dia(s), se houver amostra suficiente.`;
+  const manualDate = settings.last_manual_send_at?.slice(0, 10) ?? null;
+  const lastCycleDate = [lastCollection?.period_end ?? null, manualDate]
+    .filter((value): value is string => Boolean(value))
+    .sort()
+    .at(-1) ?? null;
+  const due = commercialCollectionDue(lastCycleDate, today, settings.frequency);
+  const nextSendDate = nextCommercialSendDate(lastCycleDate, today, settings.frequency, settings.send_weekdays);
+  if (!due.due || nextSendDate !== today) {
+    const reason = `Próximo envio programado para ${format(new Date(`${nextSendDate}T12:00:00`), "dd/MM/yyyy")}, se houver amostra suficiente.`;
     await recordStatus(db, settings.id, "waiting", reason);
     return { clientId: settings.client_id, status: "waiting", reason };
   }
@@ -210,9 +214,10 @@ async function processClient(db: SupabaseClient, settings: AutomationSettings, t
   eligibleCampaigns.filter((campaign) => (leadTotals.get(campaign.id) ?? 0) > 0).forEach((campaign) => {
     const name = extractDevelopmentName(campaign.name, settings.parser_pattern, settings.parser_group);
     if (!name) return;
-    const current = groups.get(name) ?? { name, campaignIds: [], campaignNames: [], spend: 0, leads: 0, impressions: 0, clicks: 0 };
+    const current = groups.get(name) ?? { name, campaignIds: [], campaignNames: [], spend: 0, leads: 0, impressions: 0, clicks: 0, platformAccountIds: [] };
     current.campaignIds.push(campaign.id);
     current.campaignNames.push(campaign.name);
+    if (campaign.platform_account_id && !current.platformAccountIds?.includes(campaign.platform_account_id)) current.platformAccountIds?.push(campaign.platform_account_id);
     (metrics ?? []).filter((metric) => metric.campaign_id === campaign.id).forEach((metric) => {
       current.spend += Number(metric.spend);
       current.leads += Number(metric.leads);
@@ -223,6 +228,12 @@ async function processClient(db: SupabaseClient, settings: AutomationSettings, t
   });
   const developments = Array.from(groups.values()).sort((a, b) => b.leads - a.leads || a.name.localeCompare(b.name));
   if (!developments.length) return defer("Nenhum empreendimento com leads foi identificado pelo padrão configurado.");
+
+  const participatingBrokers = brokers.filter((broker) => {
+    const brokerAccountIds = broker.meta_account_ids?.length ? broker.meta_account_ids : accountIds;
+    return developments.some((development) => development.platformAccountIds?.some((accountId) => brokerAccountIds.includes(accountId)));
+  });
+  if (!participatingBrokers.length) return defer("Nenhum corretor está associado às contas que tiveram campanhas elegíveis.");
 
   const lastSlot = lastCollection ? inferCommercialAutomationSlot(lastCollection.name, lastCollection.meta_snapshot as Record<string, unknown>) : null;
   const slot = nextCommercialAutomationSlot(lastSlot);
@@ -242,7 +253,7 @@ async function processClient(db: SupabaseClient, settings: AutomationSettings, t
     status: "published",
     automation_key: automationKey,
     developments,
-    meta_snapshot: { accounts: accountIds, questions: template.questions, logic_rules: template.logicRules, generated_at: new Date().toISOString(), campaign_filter: "lead_generation_only", automation: true, automation_template_slot: slot, active_days: activeDays, minimum_active_days: settings.minimum_active_days, minimum_leads: settings.minimum_leads, broker_ids: brokers.map((broker) => broker.id), email_recipients: brokers.map((broker) => ({ broker_id: broker.id, email: broker.email })) },
+    meta_snapshot: { accounts: accountIds, questions: template.questions, logic_rules: template.logicRules, generated_at: new Date().toISOString(), campaign_filter: "lead_generation_only", automation: true, automation_template_slot: slot, active_days: activeDays, minimum_active_days: settings.minimum_active_days, minimum_leads: settings.minimum_leads, broker_ids: participatingBrokers.map((broker) => broker.id), broker_account_ids: Object.fromEntries(participatingBrokers.map((broker) => [broker.id, broker.meta_account_ids?.length ? broker.meta_account_ids : accountIds])), email_recipients: participatingBrokers.map((broker) => ({ broker_id: broker.id, email: broker.email })) },
   }).select("id,name").single();
   const { data: existingCollection } = collectionError?.code === "23505"
     ? await db.from("commercial_collections").select("id,name").eq("automation_key", automationKey).maybeSingle()
@@ -252,18 +263,19 @@ async function processClient(db: SupabaseClient, settings: AutomationSettings, t
 
   await db.from("commercial_collections").update({ status: "closed" }).eq("client_id", settings.client_id).eq("status", "published").neq("id", collection.id);
 
-  const { error: deliveryError } = await db.from("commercial_collection_deliveries").upsert(brokers.map((broker) => ({
+  const { error: deliveryError } = await db.from("commercial_collection_deliveries").upsert(participatingBrokers.map((broker) => ({
     user_id: settings.user_id,
     collection_id: collection.id,
     broker_id: broker.id,
     recipient_email: broker.email,
+    delivery_type: "automatic",
   })), { onConflict: "collection_id,broker_id", ignoreDuplicates: true });
   if (deliveryError) throw new Error(deliveryError.message);
   const delivery = await sendPendingDeliveries({ db, collection, clientName: client.name, publicSlug: settings.public_slug });
   const status = delivery.failed ? "partial" : "sent";
   const reason = delivery.failed
     ? `Coleta criada; ${delivery.sent} e-mail(s) enviado(s) e ${delivery.failed} pendente(s).`
-    : `Coleta criada automaticamente e enviada para ${delivery.sent} corretor(es).`;
+    : `Coleta criada automaticamente e enviada para ${delivery.sent} corretor(es) à fila do provedor.`;
   await recordStatus(db, settings.id, status, reason, true);
   return { clientId: settings.client_id, status, reason, collectionId: collection.id };
 

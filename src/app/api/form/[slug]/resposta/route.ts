@@ -6,6 +6,7 @@ import { extractContactFromAnswers } from "@/lib/forms/extract-contact";
 import { getPlatformEventBus } from "@/lib/event-bus/platform";
 import { processSubmissionWebhooks } from "@/lib/forms/webhook-delivery";
 import { duplicateSubmissionCutoff, findExactDuplicateSubmission } from "@/lib/forms/submission-dedup";
+import { detectSubmissionSpam } from "@/lib/forms/submission-spam";
 import { formatDateTimeInTimezone } from "@/lib/appointments/scheduling/timezone-resolver";
 import type { FormStep } from "@/types";
 
@@ -32,6 +33,7 @@ export async function POST(req: NextRequest, { params }: Params) {
     session_token: string;
     answers: Record<string, unknown>;
     status?: "partial" | "completed";
+    website?: string;
   } | null;
 
   if (!body?.session_token || !body?.answers) {
@@ -52,7 +54,7 @@ export async function POST(req: NextRequest, { params }: Params) {
   // Confirma que a sessão pertence ao formulário correto
   const { data: form } = await supabase
     .from("forms")
-    .select("id")
+    .select("id, steps")
     .eq("id", session.form_id)
     .eq("slug", slug)
     .single();
@@ -63,6 +65,25 @@ export async function POST(req: NextRequest, { params }: Params) {
 
   const now         = new Date().toISOString();
   const isCompleted = body.status !== "partial";
+
+  // Bots de preenchimento automático criam sessões válidas no navegador, então
+  // a proteção precisa acontecer no servidor antes de gravar resposta, gerar
+  // lead ou disparar webhook. Retornamos sucesso para não ensinar o robô a
+  // adaptar o payload.
+  const spamReason = detectSubmissionSpam({
+    steps: (form.steps ?? []) as FormStep[],
+    answers: body.answers,
+    website: body.website,
+  });
+  if (spamReason) {
+    await supabase
+      .from("form_sessions")
+      .update({ is_partial: false, finished_at: now })
+      .eq("id", session.id);
+
+    console.warn(`[form/resposta] submissão sintética descartada form=${session.form_id} session=${session.id} reason=${spamReason}`);
+    return NextResponse.json({ accepted: true, filtered: true }, { status: 202 });
+  }
 
   // ── Idempotência: verifica submissão existente para esta sessão ────────────
   const { data: existing } = await supabase

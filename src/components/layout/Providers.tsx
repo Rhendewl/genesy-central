@@ -7,7 +7,7 @@ const AuthenticatedProviders = dynamic(
   () => import("./AuthenticatedProviders").then(module => module.AuthenticatedProviders),
 );
 
-const PUBLIC_PREFIXES = ["/form/", "/agendar/", "/portal/", "/convite/", "/analise-comercial/", "/coleta/"];
+const PUBLIC_PREFIXES = ["/simular/", "/form/", "/agendar/", "/portal/", "/convite/", "/analise-comercial/", "/coleta/"];
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();

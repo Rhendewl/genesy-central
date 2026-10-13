@@ -1685,6 +1685,10 @@
 }
 .post-rich-text p {
   margin: 0;
+  min-height: 1em;
+}
+.post-rich-text-content > p:empty::before {
+  content: "\00a0";
 }
 .post-rich-text mark {
   color: inherit;

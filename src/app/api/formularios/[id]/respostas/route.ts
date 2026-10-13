@@ -30,6 +30,7 @@ export async function GET(req: NextRequest, { params }: Params) {
     .from("form_submissions")
     .select("*, session:form_sessions(device, browser, utm_source, utm_campaign, country)", { count: "exact" })
     .eq("form_id", id)
+    .neq("status", "spam")
     .order("created_at", { ascending: false })
     .range(from, to);
 

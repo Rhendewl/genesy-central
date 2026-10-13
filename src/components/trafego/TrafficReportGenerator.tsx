@@ -36,7 +36,8 @@ export function TrafficReportGenerator({ accounts, selectedAccountId, year, mont
     });
     return Array.from(available.values()).sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
   }, [accounts, agencyClients]);
-  const clientAccounts = accounts.filter((account) => account.client_id === clientId);
+  const connectedAccounts = accounts.filter((account) => account.platform === "meta" && account.status === "connected");
+  const clientAccounts = connectedAccounts.filter((account) => account.client_id === clientId);
 
   useEffect(() => {
     const monthDate = new Date(year, month - 1, 1);
@@ -48,18 +49,18 @@ export function TrafficReportGenerator({ accounts, selectedAccountId, year, mont
 
   useEffect(() => {
     if (!open) return;
-    const selected = accounts.find((account) => account.id === selectedAccountId);
-    const nextClient = selected?.client_id ?? clientId ?? clients[0]?.id ?? "";
-    setClientId(nextClient || clients[0]?.id || "");
-    setAccountId(selected?.client_id === nextClient ? selected.id : "");
+    const selected = connectedAccounts.find((account) => account.id === selectedAccountId) ?? connectedAccounts[0];
+    setClientId(selected?.client_id ?? "");
+    setAccountId(selected?.id ?? "");
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, selectedAccountId]);
 
   useEffect(() => {
-    if (!open || !clientId || !since || !until) {
+    if (!open || (!clientId && !accountId) || !since || !until) {
       setCampaignOptions([]);
       setSelectedCampaignIds([]);
       setCampaignsError("");
+      setCampaignsLoading(false);
       return;
     }
     const controller = new AbortController();
@@ -67,7 +68,8 @@ export function TrafficReportGenerator({ accounts, selectedAccountId, year, mont
       setCampaignsLoading(true);
       setCampaignsError("");
       try {
-        const params = new URLSearchParams({ client_id: clientId, since, until, campaign_options: "1" });
+        const params = new URLSearchParams({ since, until, campaign_options: "1" });
+        if (clientId) params.set("client_id", clientId);
         if (accountId) params.set("platform_account_id", accountId);
         const response = await fetch(`/api/trafego/report?${params}`, { signal: controller.signal });
         const json = await response.json() as { campaigns?: TrafficReportCampaignOption[]; error?: string };
@@ -89,9 +91,9 @@ export function TrafficReportGenerator({ accounts, selectedAccountId, year, mont
   }, [accountId, clientId, open, since, until]);
 
   async function generate() {
-    if (!clientId || !since || !until) return toast.error("Selecione o cliente e o período");
+    if ((!clientId && !accountId) || !since || !until) return toast.error("Selecione uma conta ou cliente e o período");
     let fileHandle: TrafficReportFileHandle | null = null;
-    const clientName = clients.find((client) => client.id === clientId)?.name ?? "cliente";
+    const clientName = clients.find((client) => client.id === clientId)?.name ?? connectedAccounts.find((account) => account.id === accountId)?.account_name ?? "Tráfego pago";
     const filename = trafficReportFilename(clientName, since, until);
     const showSaveFilePicker = (window as Window & { showSaveFilePicker?: (options: { suggestedName: string; types: Array<{ description: string; accept: Record<string, string[]> }> }) => Promise<TrafficReportFileHandle> }).showSaveFilePicker;
     if (showSaveFilePicker) {
@@ -108,7 +110,7 @@ export function TrafficReportGenerator({ accounts, selectedAccountId, year, mont
     setLoading(true);
     try {
       const accountsToSync = accountId
-        ? clientAccounts.filter((account) => account.id === accountId)
+        ? connectedAccounts.filter((account) => account.id === accountId)
         : clientAccounts.filter((account) => account.status === "connected");
       const syncResults = await Promise.all(accountsToSync.map(async (account) => {
         const response = await fetch("/api/meta/sync", {
@@ -122,7 +124,8 @@ export function TrafficReportGenerator({ accounts, selectedAccountId, year, mont
       const syncError = syncResults.find(Boolean);
       if (syncError) throw new Error(`A Meta não pôde ser atualizada: ${syncError}`);
 
-      const params = new URLSearchParams({ client_id: clientId, since, until });
+      const params = new URLSearchParams({ since, until });
+      if (clientId) params.set("client_id", clientId);
       if (accountId) params.set("platform_account_id", accountId);
       selectedCampaignIds.forEach((campaignId) => params.append("campaign_id", campaignId));
       const response = await fetch(`/api/trafego/report?${params}`);
@@ -148,10 +151,10 @@ export function TrafficReportGenerator({ accounts, selectedAccountId, year, mont
     <button type="button" onClick={() => setOpen(true)} className="lc-filter-control inline-flex h-9 items-center gap-2 rounded-xl px-3 text-xs font-semibold text-[var(--text-body)]" title="Gerar relatório de tráfego pago"><FileDown size={14} /><span className="hidden sm:inline">Gerar relatório</span><span className="sm:hidden">Relatório</span></button>
     {typeof document !== "undefined" && createPortal(<AnimatePresence>{open && <motion.div className="fixed inset-0 z-[10000] flex min-h-[100dvh] items-center justify-center overflow-y-auto bg-black/65 p-4 backdrop-blur-sm" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onMouseDown={(event) => { if (event.currentTarget === event.target && !loading) setOpen(false); }}>
       <motion.section role="dialog" aria-modal="true" aria-labelledby="traffic-report-title" initial={{ opacity: 0, y: 14, scale: .98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 8, scale: .98 }} className="my-auto w-full max-w-xl rounded-3xl border p-5 shadow-2xl sm:p-6" style={{ background: "var(--bg-modal)", borderColor: "var(--border-modal)" }}>
-        <div className="flex items-start justify-between gap-4"><div><p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[.16em] text-[#9d7e4e]"><Sparkles size={12} />Relatório executivo</p><h2 id="traffic-report-title" className="mt-1 text-lg font-semibold text-[var(--text-title)]">Relatório de tráfego pago</h2><p className="mt-1 text-xs leading-5 text-[var(--muted-foreground)]">Escolha o cliente e o intervalo que serão consolidados no relatório.</p></div><button type="button" disabled={loading} onClick={() => setOpen(false)} aria-label="Fechar" className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border text-[var(--icon)]"><X size={15} /></button></div>
+        <div className="flex items-start justify-between gap-4"><div><p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[.16em] text-[#9d7e4e]"><Sparkles size={12} />Relatório executivo</p><h2 id="traffic-report-title" className="mt-1 text-lg font-semibold text-[var(--text-title)]">Relatório de tráfego pago</h2><p className="mt-1 text-xs leading-5 text-[var(--muted-foreground)]">Escolha a conta e o período. O cliente é opcional e identifica o relatório.</p></div><button type="button" disabled={loading} onClick={() => setOpen(false)} aria-label="Fechar" className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border text-[var(--icon)]"><X size={15} /></button></div>
         <div className="mt-5 grid gap-4">
-          <label><span className="mb-1.5 flex items-center gap-1.5 text-xs font-medium"><Building2 size={13} className="text-[#355366]" />Cliente atribuído</span><select value={clientId} disabled={clientsLoading && !clients.length} onChange={(event) => { setClientId(event.target.value); setAccountId(""); }} className="lc-form-control crm-form-select"><option value="">{clientsLoading && !clients.length ? "Carregando clientes..." : "Selecionar cliente"}</option>{clients.map((client) => <option key={client.id} value={client.id}>{client.name}</option>)}</select></label>
-          <label><span className="mb-1.5 block text-xs font-medium">Conta de anúncios</span><select value={accountId} onChange={(event) => setAccountId(event.target.value)} className="lc-form-control crm-form-select"><option value="">Todas as contas do cliente</option>{clientAccounts.map((account) => <option key={account.id} value={account.id}>{account.account_name}</option>)}</select></label>
+          <label><span className="mb-1.5 flex items-center gap-1.5 text-xs font-medium"><Building2 size={13} className="text-[#355366]" />Cliente do relatório (opcional)</span><select value={clientId} disabled={clientsLoading && !clients.length} onChange={(event) => { setClientId(event.target.value); }} className="lc-form-control crm-form-select"><option value="">{clientsLoading && !clients.length ? "Carregando clientes..." : "Usar nome da conta"}</option>{clients.map((client) => <option key={client.id} value={client.id}>{client.name}</option>)}</select></label>
+          <label><span className="mb-1.5 block text-xs font-medium">Conta de anúncios</span><select value={accountId} onChange={(event) => setAccountId(event.target.value)} className="lc-form-control crm-form-select"><option value="">{clientId ? "Todas as contas vinculadas ao cliente" : "Selecionar conta"}</option>{connectedAccounts.map((account) => <option key={account.id} value={account.id}>{account.account_name}</option>)}</select></label>
           <div className="grid grid-cols-2 gap-3"><label><span className="mb-1.5 flex items-center gap-1.5 text-xs font-medium"><CalendarDays size={13} />Início</span><input type="date" value={since} max={until || format(new Date(), "yyyy-MM-dd")} onChange={(event) => setSince(event.target.value)} className="lc-form-control" /></label><label><span className="mb-1.5 flex items-center gap-1.5 text-xs font-medium"><CalendarDays size={13} />Fim</span><input type="date" value={until} min={since} max={format(new Date(), "yyyy-MM-dd")} onChange={(event) => setUntil(event.target.value)} className="lc-form-control" /></label></div>
           <section className="overflow-hidden rounded-2xl border" style={{ borderColor: "var(--glass-border)", background: "var(--glass-bg-soft)" }}>
             <div className="flex flex-wrap items-center gap-2 border-b px-3.5 py-3" style={{ borderColor: "var(--glass-border)" }}>
@@ -175,7 +178,7 @@ export function TrafficReportGenerator({ accounts, selectedAccountId, year, mont
           </section>
         </div>
         <div className="mt-5 rounded-xl border border-[#9d7e4e]/20 bg-[#9d7e4e]/[.06] p-3 text-[11px] leading-5 text-[var(--muted-foreground)]">Antes de gerar, a plataforma atualiza na Meta somente a conta e o período selecionados. No PWA e no celular, você poderá salvar em Arquivos ou compartilhar o PDF.</div>
-        <div className="mt-5 flex justify-end gap-2"><button type="button" disabled={loading} onClick={() => setOpen(false)} className="rounded-xl border px-4 py-2.5 text-xs">Cancelar</button><Button type="button" size="lg" disabled={!clientId || !since || !until || campaignsLoading || selectedCampaignIds.length === 0} loading={loading} loadingLabel="Gerando PDF..." onClick={() => void generate()} icon={<FileDown size={14} />}>Gerar relatório</Button></div>
+        <div className="mt-5 flex justify-end gap-2"><button type="button" disabled={loading} onClick={() => setOpen(false)} className="rounded-xl border px-4 py-2.5 text-xs">Cancelar</button><Button type="button" size="lg" disabled={(!clientId && !accountId) || !since || !until || campaignsLoading || selectedCampaignIds.length === 0} loading={loading} loadingLabel="Gerando PDF..." onClick={() => void generate()} icon={<FileDown size={14} />}>Gerar relatório</Button></div>
       </motion.section>
     </motion.div>}</AnimatePresence>, document.body)}
   </>;

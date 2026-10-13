@@ -11,14 +11,63 @@ export const POST_FORMATS: Record<PostFormat, { label: string; width: number; he
 async function waitForExportImages(element: HTMLElement) {
   const images = Array.from(element.querySelectorAll("img"));
   await Promise.all(images.map(async (image) => {
-    if (!image.complete) await new Promise<void>((resolve) => {
-      image.addEventListener("load", () => resolve(), { once: true });
-      image.addEventListener("error", () => resolve(), { once: true });
+    image.loading = "eager";
+    if (!image.complete) await new Promise<void>((resolve, reject) => {
+      const cleanup = () => {
+        clearTimeout(timeout);
+        image.removeEventListener("load", loaded);
+        image.removeEventListener("error", failed);
+      };
+      const loaded = () => { cleanup(); resolve(); };
+      const failed = () => { cleanup(); reject(new Error("Não foi possível carregar uma imagem do slide.")); };
+      const timeout = setTimeout(failed, 15_000);
+      image.addEventListener("load", loaded, { once: true });
+      image.addEventListener("error", failed, { once: true });
+      if (image.complete) loaded();
     });
-    if (!image.naturalWidth || !image.naturalHeight) throw new Error("Uma das imagens ainda não está pronta. Tente exportar novamente.");
-    if (image.decode) await image.decode().catch(() => undefined);
+    if (!image.naturalWidth || !image.naturalHeight) throw new Error("Uma das imagens não pôde ser carregada. Anexe-a novamente antes de exportar.");
+    if (image.decode) await image.decode();
   }));
   await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+}
+
+async function prepareExportClone(element: HTMLElement, width: number, height: number) {
+  const clone = element.cloneNode(true) as HTMLElement;
+  const originals = Array.from(element.querySelectorAll("img"));
+  const copies = Array.from(clone.querySelectorAll("img"));
+  // Rasterize decoded uploads (including SVG/WebP/blob URLs) before the SVG
+  // capture. The export becomes self-contained and cannot silently lose an
+  // image when the library re-fetches a remote or temporary URL.
+  originals.forEach((image, index) => {
+    const canvas = document.createElement("canvas");
+    const scale = Math.min(1, Math.max(width, height) / Math.max(image.naturalWidth, image.naturalHeight));
+    canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+    canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+    const context = canvas.getContext("2d");
+    if (!context) throw new Error("Não foi possível preparar as imagens para exportação.");
+    try {
+      context.drawImage(image, 0, 0, canvas.width, canvas.height);
+      copies[index].removeAttribute("srcset");
+      copies[index].removeAttribute("sizes");
+      copies[index].removeAttribute("crossorigin");
+      copies[index].src = canvas.toDataURL("image/png");
+      copies[index].loading = "eager";
+    } catch {
+      throw new Error("Não foi possível exportar uma imagem. Baixe-a e anexe o arquivo ao slide novamente.");
+    }
+  });
+  const host = document.createElement("div");
+  host.setAttribute("aria-hidden", "true");
+  host.style.cssText = "position:fixed;left:0;top:0;z-index:-10000;pointer-events:none;";
+  host.appendChild(clone);
+  document.body.appendChild(host);
+  try {
+    await waitForExportImages(clone);
+    return { clone, cleanup: () => host.remove() };
+  } catch (error) {
+    host.remove();
+    throw error;
+  }
 }
 
 const exportOptions = (width: number, height: number) => ({
@@ -34,21 +83,20 @@ const exportOptions = (width: number, height: number) => ({
 export async function postElementToPng(element: HTMLElement, width: number, height: number) {
   await document.fonts.ready;
   await waitForExportImages(element);
-  const options = exportOptions(width, height);
-
-  // Safari/iOS can finish decoding the original <img> but omit it from the
-  // first foreignObject-to-canvas paint. A first render primes that paint;
-  // the following frame produces the complete slide. This is especially
-  // visible when exporting a single slide, because batch export warmed the
-  // renderer while processing the preceding slides.
-  if (element.querySelector("img")) {
-    await toBlob(element, options);
-    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+  const { clone, cleanup } = await prepareExportClone(element, width, height);
+  try {
+    const options = exportOptions(width, height);
+    // Prime the rasterized clone for Safari/iOS before the final capture.
+    if (clone.querySelector("img")) {
+      await toBlob(clone, options);
+      await new Promise<void>((resolve) => setTimeout(resolve, 100));
+    }
+    const blob = await toBlob(clone, options);
+    if (!blob) throw new Error("Falha ao gerar o PNG.");
+    return blob;
+  } finally {
+    cleanup();
   }
-
-  const blob = await toBlob(element, options);
-  if (!blob) throw new Error("Falha ao gerar o PNG.");
-  return blob;
 }
 
 async function cropTransparentPng(blob: Blob) {
@@ -151,6 +199,10 @@ export function numberedSlideFilename(index: number) {
 
 export function defaultPostLineHeight(_template: PostTemplate) {
   return 1.2;
+}
+
+export function defaultPostLetterSpacing(template: PostTemplate) {
+  return template === "stories" ? 0.01 : 0;
 }
 
 export function normalizePostLineHeight(template: PostTemplate, value: number) {

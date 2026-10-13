@@ -191,6 +191,19 @@ export function FormPublicClient({ slug, initialForm }: { slug: string; initialF
       className="h-dvh flex flex-col overflow-hidden"
       style={{ background: bg }}
     >
+      <label
+        aria-hidden="true"
+        style={{ position: "absolute", left: "-10000px", width: 1, height: 1, overflow: "hidden" }}
+      >
+        Não preencha este campo
+        <input
+          data-form-honeypot="true"
+          name="website"
+          type="text"
+          tabIndex={-1}
+          autoComplete="off"
+        />
+      </label>
       {/* Banner de conexão perdida — visível durante o preenchimento */}
       {!isOnline && screen === "step" && (
         <div

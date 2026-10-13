@@ -7,7 +7,7 @@ const PUSH_REFRESH_THROTTLE_MS = 5 * 60_000;
 
 export function PwaRegistration() {
   const pathname = usePathname();
-  const isPublicPage = ["/form/", "/agendar/", "/analise-comercial/", "/coleta/"].some((prefix) => pathname?.startsWith(prefix));
+  const isPublicPage = ["/simular/", "/form/", "/agendar/", "/analise-comercial/", "/coleta/"].some((prefix) => pathname?.startsWith(prefix));
 
   useEffect(() => {
     if (isPublicPage) return;
@@ -28,6 +28,7 @@ export function PwaRegistration() {
         const { ensurePushSubscription } = await import("@/lib/notifications/push-client");
         await ensurePushSubscription();
       } catch (error) {
+        lastRefreshAt = 0;
         console.warn("[pwa] Não foi possível renovar a inscrição push:", error);
       }
     };
@@ -54,7 +55,7 @@ export function PwaRegistration() {
       window.removeEventListener("online", onOnline);
       navigator.serviceWorker.removeEventListener("controllerchange", onControllerChange);
     };
-  }, [isPublicPage]);
+  }, [isPublicPage, pathname]);
 
   return null;
 }

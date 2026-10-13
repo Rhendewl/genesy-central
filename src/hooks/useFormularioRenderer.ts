@@ -683,6 +683,9 @@ export function useFormularioRenderer(slug: string, initialForm: Form | null = n
           session_token: sessionTokenRef.current,
           answers:       answersRef.current,
           status:        "completed",
+          website:       typeof document !== "undefined"
+            ? document.querySelector<HTMLInputElement>("[data-form-honeypot='true']")?.value ?? ""
+            : "",
         }),
       }).catch(() => null);
 

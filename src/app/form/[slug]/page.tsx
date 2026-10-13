@@ -23,7 +23,10 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   return {
     title: `${form.name || "Formulário"} | Genesy`,
     description: form.description || "Preencha este formulário criado com Genesy.",
-    robots: { index: true, follow: true },
+    // Formulários de campanha não devem ser descobertos por crawlers. Além de
+    // não trazer benefício de SEO, a indexação expõe os links a bots de
+    // preenchimento automático.
+    robots: { index: false, follow: false, nocache: true },
   };
 }
 

@@ -334,16 +334,18 @@ export interface MetaAdAccountDetails {
   id: string;
   name: string;
   account_status: number;
-  // balance: NET available balance in minor currency units (centavos for BRL).
-  // For prepaid accounts this IS what Ads Manager shows as "Saldo disponível".
-  // Taxes/fees are deducted by Meta at the time of deposit, NOT at query time.
+  // Monetary amount in minor currency units. Its meaning varies by funding
+  // method; manual-payment accounts can expose the real available credit only
+  // in funding_source_details.display_string.
   balance: string;
   amount_spent: string;   // total spent in minor currency units (current billing period)
   spend_cap: string;      // postpaid account spending cap (0 = unlimited)
   currency: string;       // e.g. "BRL"
   funding_source_details?: {
     // type is returned as a numeric code by the Graph API:
-    // 1=credit_card 2=manual_pay 4=prepay_credit 8=extended_credit 9=tax_exempt 12=agency_credit_line
+    // Known values include 1=credit_card, 2=manual_pay, 4=prepay_credit,
+    // 8=extended_credit, 9=tax_exempt, 12=agency_credit_line and
+    // 20=manual funding with available credit in display_string.
     type: number | string;
     display_string?: string;
     id?: string;

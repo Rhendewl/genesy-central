@@ -22,9 +22,25 @@ async function getEligibleDevelopments(supabase: ReturnType<typeof createAdminSu
   const developments = collection.developments as CommercialDevelopment[];
   const campaignIds = Array.from(new Set(developments.flatMap((development) => development.campaignIds)));
   const { data: campaigns } = campaignIds.length
-    ? await supabase.from("campaigns").select("id,objective").in("id", campaignIds)
+    ? await supabase.from("campaigns").select("id,objective,platform_account_id").in("id", campaignIds)
     : { data: [] };
-  return filterLeadGenerationDevelopments(developments, new Map((campaigns ?? []).map((campaign) => [campaign.id, campaign.objective])));
+  const accountByCampaign = new Map((campaigns ?? []).map((campaign) => [campaign.id, campaign.platform_account_id as string | null]));
+  return filterLeadGenerationDevelopments(developments, new Map((campaigns ?? []).map((campaign) => [campaign.id, campaign.objective]))).map((development) => ({
+    ...development,
+    platformAccountIds: development.platformAccountIds?.length
+      ? development.platformAccountIds
+      : Array.from(new Set(development.campaignIds.flatMap((campaignId) => accountByCampaign.get(campaignId) ? [accountByCampaign.get(campaignId)!] : []))),
+  }));
+}
+
+function developmentsForBroker(collection: { meta_snapshot: unknown }, developments: CommercialDevelopment[], broker: { id: string; meta_account_ids?: string[] | null }) {
+  const snapshot = (collection.meta_snapshot ?? {}) as Record<string, unknown>;
+  const brokerAccounts = (snapshot.broker_account_ids ?? {}) as Record<string, string[]>;
+  const defaultAccounts = (snapshot.accounts ?? []) as string[];
+  const accountIds = brokerAccounts[broker.id]?.length
+    ? brokerAccounts[broker.id]
+    : broker.meta_account_ids?.length ? broker.meta_account_ids : defaultAccounts;
+  return developments.filter((development) => !accountIds.length || development.platformAccountIds?.some((accountId) => accountIds.includes(accountId)));
 }
 
 export async function GET(_request: NextRequest, context: Context) {
@@ -34,7 +50,7 @@ export async function GET(_request: NextRequest, context: Context) {
   if (!collection) return NextResponse.json({ error: "Coleta não encontrada ou encerrada" }, { status: 404 });
   const developments = await getEligibleDevelopments(supabase, collection);
   if (!developments.length) return NextResponse.json({ error: "Nenhuma campanha de captação com leads está disponível nesta coleta" }, { status: 404 });
-  const { data: brokers } = await supabase.from("commercial_brokers").select("id,name").eq("client_id", collection.client_id).eq("is_active", true).order("name");
+  const { data: brokers } = await supabase.from("commercial_brokers").select("id,name,meta_account_ids").eq("client_id", collection.client_id).eq("is_active", true).order("name");
   return NextResponse.json({
     collection: {
       id: collection.id, name: collection.name, period_start: collection.period_start, period_end: collection.period_end,
@@ -43,7 +59,7 @@ export async function GET(_request: NextRequest, context: Context) {
       logicRules: (collection.meta_snapshot as { logic_rules?: LogicRule[] })?.logic_rules ?? [],
       clientName: Array.isArray(collection.agency_clients) ? collection.agency_clients[0]?.name : (collection.agency_clients as { name?: string } | null)?.name,
     },
-    brokers: brokers ?? [],
+    brokers: (brokers ?? []).map((broker) => ({ id: broker.id, name: broker.name, developmentNames: developmentsForBroker(collection, developments, broker).map((development) => development.name) })).filter((broker) => broker.developmentNames.length),
   }, { headers: { "Cache-Control": "private, no-store" } });
 }
 
@@ -56,9 +72,9 @@ export async function POST(request: NextRequest, context: Context) {
   const collection = await resolveCollection(supabase, slug);
   if (!collection || collection.status !== "published") return NextResponse.json({ error: "Coleta encerrada" }, { status: 410 });
   const developments = await getEligibleDevelopments(supabase, collection);
-  if (!developments.some((item) => item.name === body.development_name)) return NextResponse.json({ error: "Empreendimento inválido" }, { status: 400 });
-  const { data: broker } = await supabase.from("commercial_brokers").select("id,name").eq("id", body.broker_id).eq("client_id", collection.client_id).eq("is_active", true).maybeSingle();
+  const { data: broker } = await supabase.from("commercial_brokers").select("id,name,meta_account_ids").eq("id", body.broker_id).eq("client_id", collection.client_id).eq("is_active", true).maybeSingle();
   if (!broker) return NextResponse.json({ error: "Corretor inválido" }, { status: 400 });
+  if (!developmentsForBroker(collection, developments, broker).some((item) => item.name === body.development_name)) return NextResponse.json({ error: "Empreendimento inválido para este corretor" }, { status: 400 });
 
   if (body.action === "skip") {
     const { error } = await supabase.from("commercial_collection_skips").upsert({
@@ -91,7 +107,7 @@ export async function POST(request: NextRequest, context: Context) {
     user_id: collection.user_id, collection_id: collection.id, broker_id: broker.id,
     development_name: body.development_name, answers: sanitizedAnswers, score, objection,
     respondent_key: body.respondent_key?.slice(0, 100) || null, completed_at: new Date().toISOString(),
-  }, { onConflict: "collection_id,broker_id,development_name" }).select("id").single();
+  }, { onConflict: "collection_id,broker_id,development_name" }).select("id,completed_at").single();
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
   await supabase.from("commercial_collection_skips").delete().eq("collection_id", collection.id).eq("broker_id", broker.id).eq("development_name", body.development_name);
   const clientName = Array.isArray(collection.agency_clients)
@@ -101,6 +117,7 @@ export async function POST(request: NextRequest, context: Context) {
     await notifyCommercialAnalysisResponse(supabase, {
       ownerUserId: collection.user_id,
       responseId: data.id,
+      completedAt: data.completed_at,
       brokerName: broker.name,
       clientName: clientName ?? "Cliente",
       clientId: collection.client_id,

@@ -1,9 +1,12 @@
+import { randomUUID } from "node:crypto";
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  distDir: process.env.NEXT_BUILD_DIR || ".next",
   env: {
-    NEXT_PUBLIC_APP_VERSION: process.env.VERCEL_GIT_COMMIT_SHA
-      ?? process.env.VERCEL_DEPLOYMENT_ID
-      ?? "development",
+    NEXT_PUBLIC_APP_VERSION: [process.env.VERCEL_DEPLOYMENT_ID, process.env.VERCEL_URL, process.env.VERCEL_GIT_COMMIT_SHA]
+      .map((value) => value?.trim()).find(Boolean)
+      || (process.env.NODE_ENV === "production" ? randomUUID() : "development"),
   },
   // lucide-react 1.x ships .mjs icon files; SWC loader needs .mjs support
   transpilePackages: ["lucide-react"],

@@ -1,3 +1,4 @@
+import { sendCommercialEmail } from "@/lib/clientes/send-commercial-email";
 import { NextRequest, NextResponse } from "next/server";
 import { buildPublicUrl } from "@/lib/public-url";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
@@ -11,6 +12,7 @@ import {
 } from "@/lib/clientes/commercial-intelligence";
 import { validateCommercialLogicRules } from "@/lib/clientes/commercial-question-logic";
 import type { CommercialCollection, CommercialDevelopment, CommercialResponse } from "@/types/commercial-intelligence";
+import { normalizeCommercialSendWeekdays } from "@/lib/clientes/commercial-automation";
 import type { FormStep, LogicRule } from "@/types";
 import { buildCommercialAnalysisEmail, getResendClient } from "@/lib/resend";
 
@@ -51,20 +53,28 @@ export async function GET(request: NextRequest) {
   const rawCollections = (collectionsResult.data ?? []) as CommercialCollection[];
   const historicalCampaignIds = Array.from(new Set(rawCollections.flatMap((collection) => collection.developments.flatMap((development) => development.campaignIds))));
   const { data: historicalCampaigns } = historicalCampaignIds.length
-    ? await supabase.from("campaigns").select("id,objective").in("id", historicalCampaignIds)
+    ? await supabase.from("campaigns").select("id,objective,platform_account_id").in("id", historicalCampaignIds)
     : { data: [] };
   const objectivesByCampaignId = new Map((historicalCampaigns ?? []).map((campaign) => [campaign.id, campaign.objective]));
+  const accountByCampaignId = new Map((historicalCampaigns ?? []).map((campaign) => [campaign.id, campaign.platform_account_id as string | null]));
   const collections = rawCollections.map((collection) => ({
     ...collection,
-    developments: filterLeadGenerationDevelopments(collection.developments, objectivesByCampaignId),
+    developments: filterLeadGenerationDevelopments(collection.developments, objectivesByCampaignId).map((development) => ({
+      ...development,
+      platformAccountIds: development.platformAccountIds?.length
+        ? development.platformAccountIds
+        : Array.from(new Set(development.campaignIds.flatMap((campaignId) => accountByCampaignId.get(campaignId) ? [accountByCampaignId.get(campaignId)!] : []))),
+    })),
   }));
   const collectionIds = collections.map((item) => item.id);
-  const [responsesResult, skipsResult] = collectionIds.length
+  const [responsesResult, skipsResult, deliveriesResult] = collectionIds.length
     ? await Promise.all([
       supabase.from("commercial_responses").select("*").in("collection_id", collectionIds).order("completed_at", { ascending: false }),
       supabase.from("commercial_collection_skips").select("collection_id,broker_id,development_name").in("collection_id", collectionIds),
+      supabase.from("commercial_collection_deliveries").select("id,collection_id,broker_id,recipient_email,status,attempts,last_error,sent_at,created_at,updated_at,delivery_type").in("collection_id", collectionIds).order("created_at", { ascending: false }).limit(100),
     ])
-    : [{ data: [], error: null }, { data: [], error: null }];
+    : [{ data: [], error: null }, { data: [], error: null }, { data: [], error: null }];
+  if (deliveriesResult.error) return NextResponse.json({ error: deliveriesResult.error.message }, { status: 500 });
   if (skipsResult.error?.code === "42P01") return NextResponse.json({ error: "A migração de participação por campanha ainda não foi aplicada.", migrationRequired: true }, { status: 503 });
   const responses = responsesResult.data;
   const skippedParticipations = new Set((skipsResult.data ?? []).map((row) => `${row.collection_id}:${row.broker_id}:${row.development_name}`));
@@ -87,11 +97,20 @@ export async function GET(request: NextRequest) {
       brokers,
       responseRows.filter((row) => row.collection_id === collection.id).map((row) => row.broker_id),
     );
+    const brokerAccountSnapshot = (collection.meta_snapshot?.broker_account_ids ?? {}) as Record<string, string[]>;
+    const settingsAccountIds = (collection.meta_snapshot?.accounts ?? []) as string[];
+    const developmentsForBroker = (brokerId: string) => {
+      const currentBroker = brokers.find((broker) => broker.id === brokerId);
+      const accountIds = brokerAccountSnapshot[brokerId]?.length
+        ? brokerAccountSnapshot[brokerId]
+        : currentBroker?.meta_account_ids?.length ? currentBroker.meta_account_ids : settingsAccountIds;
+      return collection.developments.filter((development) => !accountIds.length || development.platformAccountIds?.some((accountId) => accountIds.includes(accountId)));
+    };
     return {
       ...collection,
       response_count: responseCount.get(collection.id) ?? 0,
-      expected_by_broker: Object.fromEntries(participantIds.map((brokerId) => [brokerId, collection.developments.filter((development) => !skippedParticipations.has(`${collection.id}:${brokerId}:${development.name}`)).length])),
-      expected_responses: participantIds.reduce((sum, brokerId) => sum + collection.developments.filter((development) => !skippedParticipations.has(`${collection.id}:${brokerId}:${development.name}`)).length, 0),
+      expected_by_broker: Object.fromEntries(participantIds.map((brokerId) => [brokerId, developmentsForBroker(brokerId).filter((development) => !skippedParticipations.has(`${collection.id}:${brokerId}:${development.name}`)).length])),
+      expected_responses: participantIds.reduce((sum, brokerId) => sum + developmentsForBroker(brokerId).filter((development) => !skippedParticipations.has(`${collection.id}:${brokerId}:${development.name}`)).length, 0),
     };
   });
 
@@ -110,6 +129,11 @@ export async function GET(request: NextRequest) {
     collections: enrichedCollections,
     dashboard: buildDashboard(enrichedCollections, brokers, responseRows),
     responses: responseRows,
+    deliveries: (deliveriesResult.data ?? []).map((delivery) => ({
+      ...delivery,
+      broker_name: delivery.broker_id ? brokerNames.get(delivery.broker_id) ?? "Corretor removido" : "Corretor removido",
+      collection_name: collectionNames.get(delivery.collection_id) ?? "Coleta",
+    })),
     legacyAnalyses: legacyResult.data ?? [],
   });
 }
@@ -126,7 +150,8 @@ export async function PUT(request: NextRequest) {
     automation_enabled?: boolean;
     minimum_leads?: number;
     minimum_active_days?: number;
-    brokers?: Array<{ id?: string; name: string; email: string; phone?: string | null }>;
+    send_weekdays?: number[];
+    brokers?: Array<{ id?: string; name: string; email: string; phone?: string | null; meta_account_ids?: string[] }>;
   } | null;
   if (!body?.client_id) return NextResponse.json({ error: "Cliente obrigatório" }, { status: 400 });
   if (!['weekly', 'biweekly', 'monthly'].includes(body.frequency ?? "")) return NextResponse.json({ error: "Frequência inválida" }, { status: 400 });
@@ -134,7 +159,7 @@ export async function PUT(request: NextRequest) {
   if (!Number.isInteger(body.minimum_active_days) || Number(body.minimum_active_days) < 1 || Number(body.minimum_active_days) > 31) return NextResponse.json({ error: "Informe entre 1 e 31 dias com atividade" }, { status: 400 });
   try { new RegExp(body.parser_pattern || DEFAULT_CAMPAIGN_PARSER); } catch { return NextResponse.json({ error: "Expressão do parser inválida" }, { status: 400 }); }
 
-  const { data: existingSettings } = await supabase.from("commercial_intelligence_settings").select("public_slug").eq("client_id", body.client_id).maybeSingle();
+  const { data: existingSettings } = await supabase.from("commercial_intelligence_settings").select("public_slug,send_weekdays").eq("client_id", body.client_id).maybeSingle();
   const { data: client } = await supabase.from("agency_clients").select("name").eq("id", body.client_id).maybeSingle();
   if (!client) return NextResponse.json({ error: "Cliente não encontrado" }, { status: 404 });
   const publicSlug = existingSettings?.public_slug || `${normalizeSlug(client.name) || "cliente"}-${body.client_id.slice(0, 6)}`;
@@ -150,6 +175,7 @@ export async function PUT(request: NextRequest) {
     automation_enabled: Boolean(body.automation_enabled),
     minimum_leads: body.minimum_leads,
     minimum_active_days: body.minimum_active_days,
+    send_weekdays: normalizeCommercialSendWeekdays(body.send_weekdays ?? existingSettings?.send_weekdays),
   }, { onConflict: "user_id,client_id" });
   if (settingsError) return NextResponse.json({ error: settingsError.message }, { status: 400 });
 
@@ -161,7 +187,7 @@ export async function PUT(request: NextRequest) {
     await supabase.from("commercial_brokers").update({ is_active: false }).eq("client_id", body.client_id);
   }
   for (const broker of brokers) {
-    const payload = { user_id: user.id, client_id: body.client_id, name: broker.name.trim(), email: broker.email.trim().toLowerCase(), phone: broker.phone?.trim() || null, is_active: true };
+    const payload = { user_id: user.id, client_id: body.client_id, name: broker.name.trim(), email: broker.email.trim().toLowerCase(), phone: broker.phone?.trim() || null, meta_account_ids: (broker.meta_account_ids ?? []).filter((id) => (body.meta_account_ids ?? []).includes(id)), is_active: true };
     const query = broker.id
       ? supabase.from("commercial_brokers").update(payload).eq("id", broker.id)
       : supabase.from("commercial_brokers").upsert(payload, { onConflict: "client_id,email" });
@@ -176,6 +202,97 @@ export async function POST(request: NextRequest) {
   if (!user) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
   const body = await request.json().catch(() => null) as Record<string, unknown> | null;
   const action = String(body?.action ?? "");
+
+  if (action === "update_email_schedule") {
+    const clientId = String(body?.client_id ?? "");
+    const frequency = String(body?.frequency ?? "");
+    const sendWeekdays = normalizeCommercialSendWeekdays(body?.send_weekdays);
+    if (!clientId || !["weekly", "biweekly", "monthly"].includes(frequency)) {
+      return NextResponse.json({ error: "Programação de envio inválida" }, { status: 400 });
+    }
+    if (!Array.isArray(body?.send_weekdays) || !body.send_weekdays.length) {
+      return NextResponse.json({ error: "Selecione ao menos um dia para o envio" }, { status: 400 });
+    }
+    const { data, error } = await supabase
+      .from("commercial_intelligence_settings")
+      .update({
+        frequency,
+        send_weekdays: sendWeekdays,
+        automation_enabled: Boolean(body?.automation_enabled),
+      })
+      .eq("client_id", clientId)
+      .eq("user_id", user.id)
+      .select("frequency,send_weekdays,automation_enabled")
+      .maybeSingle();
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+    if (!data) return NextResponse.json({ error: "Salve as configurações do cliente antes de programar os envios" }, { status: 404 });
+    return NextResponse.json({ schedule: data });
+  }
+
+  if (action === "send_manual_collection") {
+    const clientId = String(body?.client_id ?? "");
+    if (!clientId) return NextResponse.json({ error: "Cliente obrigatório" }, { status: 400 });
+    const [{ data: settings }, { data: client }, { data: collection }, { data: brokers }] = await Promise.all([
+      supabase.from("commercial_intelligence_settings").select("id,public_slug,meta_account_ids").eq("client_id", clientId).eq("user_id", user.id).maybeSingle(),
+      supabase.from("agency_clients").select("name").eq("id", clientId).maybeSingle(),
+      supabase.from("commercial_collections").select("id,name,developments,meta_snapshot").eq("client_id", clientId).eq("status", "published").order("period_end", { ascending: false }).limit(1).maybeSingle(),
+      supabase.from("commercial_brokers").select("id,email,meta_account_ids").eq("client_id", clientId).eq("is_active", true),
+    ]);
+    if (!settings?.public_slug) return NextResponse.json({ error: "Configure o link público antes de enviar" }, { status: 400 });
+    if (!client || !collection) return NextResponse.json({ error: "Crie ou ative uma coleta antes de enviar" }, { status: 400 });
+
+    const developments = collection.developments as CommercialDevelopment[];
+    const campaignIds = Array.from(new Set(developments.flatMap((development) => development.campaignIds)));
+    const { data: campaigns } = campaignIds.length
+      ? await supabase.from("campaigns").select("id,platform_account_id").in("id", campaignIds)
+      : { data: [] };
+    const accountByCampaign = new Map((campaigns ?? []).map((campaign) => [campaign.id, campaign.platform_account_id as string | null]));
+    const brokerAccountSnapshot = ((collection.meta_snapshot as Record<string, unknown> | null)?.broker_account_ids ?? {}) as Record<string, string[]>;
+    const defaultAccountIds = settings.meta_account_ids as string[] ?? [];
+    const recipients = (brokers ?? []).filter((broker) => {
+      const accountIds = brokerAccountSnapshot[broker.id]?.length
+        ? brokerAccountSnapshot[broker.id]
+        : broker.meta_account_ids?.length ? broker.meta_account_ids : defaultAccountIds;
+      return developments.some((development) => development.campaignIds.some((campaignId) => {
+        const accountId = accountByCampaign.get(campaignId);
+        return accountId ? accountIds.includes(accountId) : true;
+      }));
+    });
+    if (!recipients.length) return NextResponse.json({ error: "Nenhum corretor possui campanhas nesta coleta" }, { status: 400 });
+
+    const recipientIds = recipients.map((broker) => broker.id);
+    const { data: alreadySentRows } = await supabase.from("commercial_collection_deliveries").select("broker_id").eq("collection_id", collection.id).eq("status", "sent").in("broker_id", recipientIds);
+    const alreadySentIds = new Set((alreadySentRows ?? []).map((row) => row.broker_id));
+    const pendingRecipients = recipients.filter((broker) => !alreadySentIds.has(broker.id));
+    const { error: deliveryError } = pendingRecipients.length ? await supabase.from("commercial_collection_deliveries").upsert(pendingRecipients.map((broker) => ({
+      user_id: user.id,
+      collection_id: collection.id,
+      broker_id: broker.id,
+      recipient_email: broker.email,
+      delivery_type: "manual",
+    })), { onConflict: "collection_id,broker_id" }) : { error: null };
+    if (deliveryError) return NextResponse.json({ error: deliveryError.message }, { status: 400 });
+
+    const { data: deliveries, error: pendingError } = await supabase.from("commercial_collection_deliveries")
+      .select("id,broker_id,recipient_email,status,attempts")
+      .eq("collection_id", collection.id)
+      .in("broker_id", recipientIds)
+      .neq("status", "sent");
+    if (pendingError) return NextResponse.json({ error: pendingError.message }, { status: 400 });
+    const analysisLink = buildPublicUrl(`/analise-comercial/${settings.public_slug}`);
+    let sent = 0;
+    let failed = 0;
+    for (const delivery of deliveries ?? []) {
+      const result = await sendCommercialEmail(supabase, {
+        delivery, collectionId: collection.id, collectionName: collection.name,
+        clientName: client.name, analysisLink, deliveryType: "manual",
+      });
+      if (result.accepted) sent++;
+      else failed++;
+    }
+    if (sent) await supabase.from("commercial_intelligence_settings").update({ last_manual_send_at: new Date().toISOString(), last_automation_status: "sent", last_automation_reason: `Envio manual realizado para ${sent} corretor(es).` }).eq("id", settings.id);
+    return NextResponse.json({ ok: failed === 0, sent, failed, already_sent: alreadySentIds.size });
+  }
 
   if (action === "attach_meta_account") {
     const clientId = String(body?.client_id ?? "");
@@ -284,9 +401,11 @@ export async function POST(request: NextRequest) {
 
   if (action === "save_broker") {
     const clientId = String(body?.client_id ?? "");
-    const broker = body?.broker as { id?: string; name?: string; email?: string; phone?: string } | undefined;
+    const broker = body?.broker as { id?: string; name?: string; email?: string; phone?: string; meta_account_ids?: string[] } | undefined;
     if (!clientId || !broker?.name?.trim() || !broker.email?.trim()) return NextResponse.json({ error: "Nome e e-mail são obrigatórios" }, { status: 400 });
-    const payload = { user_id: user.id, client_id: clientId, name: broker.name.trim(), email: broker.email.trim().toLowerCase(), phone: broker.phone?.trim() || null, is_active: true };
+    const { data: settings } = await supabase.from("commercial_intelligence_settings").select("meta_account_ids").eq("client_id", clientId).eq("user_id", user.id).maybeSingle();
+    const allowedAccountIds = settings?.meta_account_ids as string[] ?? [];
+    const payload = { user_id: user.id, client_id: clientId, name: broker.name.trim(), email: broker.email.trim().toLowerCase(), phone: broker.phone?.trim() || null, meta_account_ids: (broker.meta_account_ids ?? []).filter((id) => allowedAccountIds.includes(id)), is_active: true };
     const query = broker.id
       ? supabase.from("commercial_brokers").update(payload).eq("id", broker.id).select().single()
       : supabase.from("commercial_brokers").upsert(payload, { onConflict: "client_id,email" }).select().single();
@@ -381,7 +500,7 @@ export async function POST(request: NextRequest) {
 
     const [{ data: settings }, { data: collectionBrokers }] = await Promise.all([
       supabase.from("commercial_intelligence_settings").select("*").eq("client_id", clientId).maybeSingle(),
-      supabase.from("commercial_brokers").select("id").eq("client_id", clientId).eq("is_active", true),
+      supabase.from("commercial_brokers").select("id,meta_account_ids").eq("client_id", clientId).eq("is_active", true),
     ]);
     if (!settings) return NextResponse.json({ error: "Configure o cliente antes de gerar a coleta" }, { status: 400 });
     const accountIds = settings.meta_account_ids as string[];
@@ -406,8 +525,9 @@ export async function POST(request: NextRequest) {
     sourceCampaigns.forEach((campaign) => {
       const name = extractDevelopmentName(campaign.name, settings.parser_pattern, settings.parser_group);
       if (!name) return;
-      const current = groups.get(name) ?? { name, campaignIds: [], campaignNames: [], spend: 0, leads: 0, impressions: 0, clicks: 0 };
+      const current = groups.get(name) ?? { name, campaignIds: [], campaignNames: [], spend: 0, leads: 0, impressions: 0, clicks: 0, platformAccountIds: [] };
       current.campaignIds.push(campaign.id); current.campaignNames.push(campaign.name);
+      if (campaign.platform_account_id && !current.platformAccountIds?.includes(campaign.platform_account_id)) current.platformAccountIds?.push(campaign.platform_account_id);
       (metrics ?? []).filter((metric) => metric.campaign_id === campaign.id).forEach((metric) => {
         current.spend += Number(metric.spend); current.leads += Number(metric.leads); current.impressions += Number(metric.impressions); current.clicks += Number(metric.clicks);
       });
@@ -438,7 +558,7 @@ export async function POST(request: NextRequest) {
       user_id: user.id, client_id: clientId, template_id: templateDbId,
       name: `${template.name} · ${new Date(`${end}T12:00:00`).toLocaleDateString("pt-BR")}`,
       slug, period_start: start, period_end: end, status: "published", developments,
-      meta_snapshot: { accounts: accountIds, questions: template.questions, logic_rules: template.logic_rules ?? [], generated_at: new Date().toISOString(), metrics_pending: metricsUnavailable, campaign_filter: "lead_generation_only", broker_ids: (collectionBrokers ?? []).map((broker) => broker.id) },
+      meta_snapshot: { accounts: accountIds, questions: template.questions, logic_rules: template.logic_rules ?? [], generated_at: new Date().toISOString(), metrics_pending: metricsUnavailable, campaign_filter: "lead_generation_only", broker_ids: (collectionBrokers ?? []).map((broker) => broker.id), broker_account_ids: Object.fromEntries((collectionBrokers ?? []).map((broker) => [broker.id, broker.meta_account_ids?.length ? broker.meta_account_ids : accountIds])) },
     }).select().single();
     if (error) return NextResponse.json({ error: error.message }, { status: 400 });
     return NextResponse.json({ collection, metrics_pending: metricsUnavailable }, { status: 201 });

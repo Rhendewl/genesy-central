@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { format, subDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { AlertTriangle, ArrowDown, ArrowRight, ArrowUp, BarChart3, Bot, Building2, CalendarDays, Check, ChevronDown, ClipboardList, Copy, Download, ExternalLink, FileText, GitBranch, Loader2, Mail, MessageSquareText, Pencil, Plus, Settings2, Sparkles, Target, Trash2, TrendingUp, Users } from "lucide-react";
+import { AlertTriangle, ArrowDown, ArrowRight, ArrowUp, BarChart3, Bot, Building2, CalendarDays, Check, CheckCircle2, ChevronDown, ClipboardList, Clock3, Copy, Download, ExternalLink, FileText, GitBranch, Loader2, Mail, MessageSquareText, Pencil, Plus, Send, Settings2, Sparkles, Target, Trash2, TrendingUp, Users, X, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { AnimatePresence } from "framer-motion";
 import { useAgencyClients } from "@/hooks/useAgencyClients";
@@ -13,17 +13,18 @@ import { ConfirmActionModal } from "@/components/ui/ConfirmActionModal";
 import { AccountPickerModal } from "@/components/trafego/IntegracoesTab";
 import { cn } from "@/lib/utils";
 import { DEFAULT_CAMPAIGN_PARSER, extractDevelopmentName } from "@/lib/clientes/commercial-intelligence";
+import { DEFAULT_COMMERCIAL_SEND_WEEKDAYS, nextCommercialSendDate, normalizeCommercialSendWeekdays } from "@/lib/clientes/commercial-automation";
 import { validateCommercialLogicRules } from "@/lib/clientes/commercial-question-logic";
 import { saveCommercialIntelligenceSummaryPdf } from "@/lib/commercial-intelligence-summary-pdf";
 import { buildPublicUrl, PUBLIC_SITE_ORIGIN } from "@/lib/public-url";
 import type { FormStep, FormStepType, LogicRule, MetaAdAccount, QuestionWeight } from "@/types";
-import type { CommercialBroker, CommercialCollection, CommercialDashboard, CommercialIntelligenceSettings, CommercialResponse, CommercialTemplate } from "@/types/commercial-intelligence";
+import type { CommercialBroker, CommercialCollection, CommercialDashboard, CommercialEmailDelivery, CommercialIntelligenceSettings, CommercialResponse, CommercialTemplate } from "@/types/commercial-intelligence";
 
-type Tab = "dashboard" | "responses" | "settings" | "templates" | "collections" | "ai";
+type Tab = "dashboard" | "deliveries" | "responses" | "settings" | "templates" | "collections" | "ai";
 type Account = { id: string; account_name: string; account_id: string | null; status: string };
-type ModuleData = { settings: CommercialIntelligenceSettings | null; brokers: CommercialBroker[]; accounts: Account[]; templates: CommercialTemplate[]; collections: CommercialCollection[]; responses?: CommercialResponse[]; dashboard: CommercialDashboard; legacyAnalyses?: Array<{ id: string; meeting_date: string }> };
+type ModuleData = { settings: CommercialIntelligenceSettings | null; brokers: CommercialBroker[]; accounts: Account[]; templates: CommercialTemplate[]; collections: CommercialCollection[]; deliveries?: CommercialEmailDelivery[]; responses?: CommercialResponse[]; dashboard: CommercialDashboard; legacyAnalyses?: Array<{ id: string; meeting_date: string }> };
 const emptyDashboard: CommercialDashboard = { responseRate: 0, totalResponses: 0, expectedResponses: 0, byBroker: [], byDevelopment: [], weeklyEvolution: [], objections: [] };
-const tabItems: Array<[Tab, string, React.ReactNode]> = [["dashboard", "Dashboard", <BarChart3 key="d" size={14} />], ["responses", "Respostas", <MessageSquareText key="r" size={14} />], ["settings", "Configurações", <Settings2 key="s" size={14} />], ["templates", "Templates", <FileText key="t" size={14} />], ["collections", "Coletas", <ClipboardList key="c" size={14} />], ["ai", "IA", <Sparkles key="i" size={14} />]];
+const tabItems: Array<[Tab, string, React.ReactNode]> = [["dashboard", "Dashboard", <BarChart3 key="d" size={14} />], ["deliveries", "Envios", <Mail key="e" size={14} />], ["responses", "Respostas", <MessageSquareText key="r" size={14} />], ["settings", "Configurações", <Settings2 key="s" size={14} />], ["templates", "Templates", <FileText key="t" size={14} />], ["collections", "Coletas", <ClipboardList key="c" size={14} />], ["ai", "IA", <Sparkles key="i" size={14} />]];
 
 export function CommercialAnalysisModule() {
   const { clients, isLoading: clientsLoading } = useAgencyClients();
@@ -54,7 +55,7 @@ export function CommercialAnalysisModule() {
   return <div className="space-y-5">
     <section className="flex flex-col gap-4 rounded-2xl border p-4 sm:flex-row sm:items-center sm:justify-between" style={{ background: "var(--glass-bg-soft)", borderColor: "var(--glass-border)" }}><div><p className="text-[10px] font-semibold uppercase tracking-[.18em] text-[var(--primary)]">Inteligência comercial</p><h2 className="mt-1 text-lg font-semibold text-[var(--text-title)]">Marketing e vendas na mesma leitura</h2><p className="mt-1 text-xs text-[var(--muted-foreground)]">Somente campanhas de captação com leads entram nas coletas.</p></div><label className="relative flex min-w-0 items-center gap-3 rounded-xl border px-3 py-2.5 sm:min-w-[290px]" style={{ background: "var(--glass-bg)", borderColor: "var(--glass-border)" }}><span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[var(--hover)] text-[var(--primary)]"><Building2 size={16} /></span><span className="min-w-0 flex-1"><span className="block text-[9px] font-semibold uppercase tracking-[.14em] text-[var(--muted-foreground)]">Cliente em análise</span><select aria-label="Cliente em análise" value={clientId} onChange={(event) => setClientId(event.target.value)} className="w-full appearance-none bg-transparent pr-6 text-sm font-semibold text-[var(--text-title)] outline-none"><option value="">Selecionar cliente</option>{activeClients.map((client) => <option key={client.id} value={client.id}>{client.name}</option>)}</select></span><ChevronDown size={15} className="pointer-events-none absolute right-3 bottom-4 text-[var(--muted-foreground)]" /></label></section>
     <nav className="overflow-x-auto rounded-2xl border p-1.5" style={{ background: "var(--glass-bg-soft)" }}><div className="flex min-w-max gap-1">{tabItems.map(([id, label, icon]) => <button key={id} onClick={() => setTab(id)} className={cn("flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-medium transition", tab === id ? "text-[var(--text-title)]" : "text-[var(--muted-foreground)] hover:text-[var(--text-title)]")} style={tab === id ? { background: "var(--segment-active-bg)" } : {}}>{icon}{label}</button>)}</div></nav>
-    {!clientId ? <Empty title="Selecione um cliente" text="A inteligência comercial é configurada por cliente." /> : migrationRequired ? <MigrationNotice /> : loading ? <Loading /> : <>{tab === "dashboard" && <Dashboard dashboard={data.dashboard} hasCollections={data.collections.length > 0} />}{(data.legacyAnalyses?.length ?? 0) > 0 && tab === "dashboard" && <p className="rounded-xl border border-sky-500/15 bg-sky-500/[.05] px-4 py-3 text-xs text-[var(--muted-foreground)]">{data.legacyAnalyses?.length} diagnóstico(s) da versão anterior preservado(s) e disponível(is) pela API compatível.</p>}{tab === "responses" && <Responses clientId={clientId} clientName={activeClientName} responses={data.responses ?? []} collections={data.collections} onSaved={load} />}{tab === "settings" && <Settings clientId={clientId} data={data} onSaved={load} onConnectMeta={beginMetaConnection} />}{tab === "templates" && <Templates templates={data.templates} onSaved={load} />}{tab === "collections" && <Collections clientId={clientId} data={data} onSaved={load} />}{tab === "ai" && <Intelligence collections={data.collections} onSaved={load} />}</>}
+    {!clientId ? <Empty title="Selecione um cliente" text="A inteligência comercial é configurada por cliente." /> : migrationRequired ? <MigrationNotice /> : loading ? <Loading /> : <>{tab === "dashboard" && <Dashboard dashboard={data.dashboard} hasCollections={data.collections.length > 0} />}{(data.legacyAnalyses?.length ?? 0) > 0 && tab === "dashboard" && <p className="rounded-xl border border-sky-500/15 bg-sky-500/[.05] px-4 py-3 text-xs text-[var(--muted-foreground)]">{data.legacyAnalyses?.length} diagnóstico(s) da versão anterior preservado(s) e disponível(is) pela API compatível.</p>}{tab === "deliveries" && <EmailDeliveryCenter clientId={clientId} data={data} onSaved={load} />}{tab === "responses" && <Responses clientId={clientId} clientName={activeClientName} responses={data.responses ?? []} collections={data.collections} onSaved={load} />}{tab === "settings" && <Settings clientId={clientId} data={data} onSaved={load} onConnectMeta={beginMetaConnection} />}{tab === "templates" && <Templates templates={data.templates} onSaved={load} />}{tab === "collections" && <Collections clientId={clientId} data={data} onSaved={load} />}{tab === "ai" && <Intelligence collections={data.collections} onSaved={load} />}</>}
     <AnimatePresence>{pendingMetaId && <AccountPickerModal pendingId={pendingMetaId} defaultClientId={clientId} onClose={closeMetaPicker} onConnect={connectPendingAccount} fetchPending={fetchPendingAccounts} clients={activeClients.map((client) => ({ id: client.id, name: client.name }))} />}</AnimatePresence>
   </div>;
 }
@@ -182,32 +183,156 @@ function formatCommercialAnswer(value: unknown, question?: FormStep): string {
   return choice?.label ?? String(value);
 }
 
+const COMMERCIAL_WEEKDAYS = [
+  { value: 1, short: "Seg", label: "Segunda" },
+  { value: 2, short: "Ter", label: "Terça" },
+  { value: 3, short: "Qua", label: "Quarta" },
+  { value: 4, short: "Qui", label: "Quinta" },
+  { value: 5, short: "Sex", label: "Sexta" },
+  { value: 6, short: "Sáb", label: "Sábado" },
+  { value: 0, short: "Dom", label: "Domingo" },
+];
+
+function EmailDeliveryCenter({ clientId, data, onSaved }: { clientId: string; data: ModuleData; onSaved: () => Promise<void> }) {
+  const [enabled, setEnabled] = useState(data.settings?.automation_enabled ?? false);
+  const [frequency, setFrequency] = useState<CommercialIntelligenceSettings["frequency"]>(data.settings?.frequency ?? "weekly");
+  const [weekdays, setWeekdays] = useState<number[]>(normalizeCommercialSendWeekdays(data.settings?.send_weekdays ?? DEFAULT_COMMERCIAL_SEND_WEEKDAYS));
+  const [saving, setSaving] = useState(false);
+  const [sending, setSending] = useState(false);
+  const deliveries = data.deliveries ?? [];
+
+  useEffect(() => {
+    setEnabled(data.settings?.automation_enabled ?? false);
+    setFrequency(data.settings?.frequency ?? "weekly");
+    setWeekdays(normalizeCommercialSendWeekdays(data.settings?.send_weekdays ?? DEFAULT_COMMERCIAL_SEND_WEEKDAYS));
+  }, [data.settings]);
+
+  const today = format(new Date(), "yyyy-MM-dd");
+  const lastCollection = data.collections[0];
+  const lastCycleDate = [lastCollection?.period_end ?? null, data.settings?.last_manual_send_at?.slice(0, 10) ?? null].filter((value): value is string => Boolean(value)).sort().at(-1) ?? null;
+  const nextDate = nextCommercialSendDate(lastCycleDate, today, frequency, weekdays);
+  const nextDateLabel = new Date(`${nextDate}T12:00:00`).toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long" });
+  const sentCount = deliveries.filter((delivery) => delivery.status === "sent").length;
+  const pendingCount = deliveries.filter((delivery) => delivery.status === "pending").length;
+  const failedCount = deliveries.filter((delivery) => delivery.status === "failed").length;
+
+  function toggleWeekday(day: number) {
+    setWeekdays((current) => current.includes(day)
+      ? current.length === 1 ? current : current.filter((item) => item !== day)
+      : [...current, day].sort((left, right) => left - right));
+  }
+
+  async function saveSchedule() {
+    setSaving(true);
+    const response = await fetch("/api/clientes/commercial-intelligence", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "update_email_schedule",
+        client_id: clientId,
+        automation_enabled: enabled,
+        frequency,
+        send_weekdays: weekdays,
+      }),
+    });
+    const json = await response.json() as { error?: string };
+    setSaving(false);
+    if (!response.ok) return toast.error(json.error ?? "Não foi possível salvar a programação");
+    toast.success("Programação de e-mails atualizada");
+    await onSaved();
+  }
+
+  async function sendNow() {
+    setSending(true);
+    const response = await fetch("/api/clientes/commercial-intelligence", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "send_manual_collection", client_id: clientId }) });
+    const json = await response.json() as { error?: string; sent?: number; failed?: number; already_sent?: number };
+    setSending(false);
+    if (!response.ok && !json.sent) return toast.error(json.error ?? "Não foi possível realizar o envio manual");
+    if (json.failed) toast.warning(`${json.sent ?? 0} enviado(s) e ${json.failed} com falha.`);
+    else if (json.sent) toast.success(`Envio manual concluído para ${json.sent} corretor(es).`);
+    else toast.info("Os e-mails desta coleta já foram aceitos pelo provedor.");
+    await onSaved();
+  }
+
+  return <div className="space-y-4">
+    <section className="overflow-hidden rounded-2xl border" style={{ background: "var(--glass-bg-soft)" }}>
+      <div className="flex flex-col gap-4 border-b p-5 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-start gap-3">
+          <span className={cn("grid h-10 w-10 shrink-0 place-items-center rounded-xl", enabled ? "bg-emerald-500/10 text-emerald-400" : "bg-[var(--hover)] text-[var(--muted-foreground)]")}><Send size={18} /></span>
+          <div><div className="flex flex-wrap items-center gap-2"><h3 className="text-sm font-semibold text-[var(--text-title)]">Programação dos e-mails</h3><span className={cn("rounded-full px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide", enabled ? "bg-emerald-500/10 text-emerald-400" : "bg-[var(--hover)] text-[var(--muted-foreground)]")}>{enabled ? "Ativa" : "Pausada"}</span></div><p className="mt-1 text-xs text-[var(--muted-foreground)]">Escolha quando a análise poderá ser criada e enviada aos corretores.</p></div>
+        </div>
+        <label className="flex cursor-pointer items-center gap-3 rounded-xl border px-3 py-2.5"><span className="text-xs font-medium">Envio automático</span><input type="checkbox" checked={enabled} onChange={(event) => setEnabled(event.target.checked)} className="h-4 w-4" /></label>
+      </div>
+      <div className="grid gap-5 p-5 lg:grid-cols-[.8fr_1.2fr]">
+        <div><p className="text-[10px] font-semibold uppercase tracking-[.12em] text-[var(--muted-foreground)]">Frequência</p><div className="mt-2 grid grid-cols-3 gap-2">{([['weekly', 'Semanal'], ['biweekly', 'Quinzenal'], ['monthly', 'Mensal']] as const).map(([value, label]) => <button type="button" key={value} onClick={() => setFrequency(value)} className={cn("rounded-xl border px-3 py-3 text-[11px] font-semibold transition", frequency === value ? "border-sky-500/40 bg-sky-500/10 text-sky-400" : "text-[var(--muted-foreground)] hover:bg-[var(--hover)]")}>{label}</button>)}</div></div>
+        <div><p className="text-[10px] font-semibold uppercase tracking-[.12em] text-[var(--muted-foreground)]">Dias permitidos para envio</p><div className="mt-2 grid grid-cols-4 gap-2 sm:grid-cols-7">{COMMERCIAL_WEEKDAYS.map((day) => <button type="button" key={day.value} title={day.label} aria-pressed={weekdays.includes(day.value)} onClick={() => toggleWeekday(day.value)} className={cn("rounded-xl border px-2 py-3 text-[11px] font-semibold transition", weekdays.includes(day.value) ? "border-sky-500/40 bg-sky-500/10 text-sky-400" : "text-[var(--muted-foreground)] hover:bg-[var(--hover)]")}>{day.short}</button>)}</div></div>
+      </div>
+      <div className="mx-5 mb-5 grid gap-3 sm:grid-cols-[1fr_auto] sm:items-center"><div className="rounded-xl border border-sky-500/15 bg-sky-500/[.05] p-4"><div className="flex items-start gap-3"><CalendarDays size={17} className="mt-0.5 shrink-0 text-sky-400" /><div><p className="text-xs font-semibold text-[var(--text-title)]">{enabled ? `Próximo envio: ${nextDateLabel}` : "Os próximos envios estão pausados"}</p><div className="mt-2 inline-flex items-center gap-2 rounded-lg border border-sky-500/15 bg-black/10 px-2.5 py-1.5 text-[11px] font-semibold text-sky-300"><Clock3 size={13} />11h15 · horário de Fortaleza</div><p className="mt-2 text-[10px] leading-4 text-[var(--muted-foreground)]">O envio depende da amostra mínima. Um envio manual concluído substitui o automático dentro do mesmo ciclo.</p></div></div></div><div className="flex flex-col gap-2"><Button onClick={() => void saveSchedule()} loading={saving} icon={<Check />} signature>Salvar programação</Button><Button onClick={() => void sendNow()} loading={sending} loadingLabel="Enviando…" icon={<Send />}>Enviar agora</Button></div></div>
+    </section>
+
+    <div className="grid gap-4 sm:grid-cols-3"><Kpi label="E-mails enviados" value={String(sentCount)} sub="Aceitos pelo provedor de e-mail" /><Kpi label="Aguardando envio" value={String(pendingCount)} sub="Entrarão na próxima tentativa" /><Kpi label="Falhas de envio" value={String(failedCount)} sub={failedCount ? "A automação tentará novamente" : "Nenhuma falha registrada"} /></div>
+
+    <div className="grid gap-4 lg:grid-cols-[.8fr_1.2fr]">
+      <Panel title="Próximos destinatários" subtitle={enabled ? `Programados para ${nextDateLabel}` : "Envio automático pausado"}>
+        <div className="space-y-2">{data.brokers.length ? data.brokers.map((broker) => <div key={broker.id} className="flex items-center gap-3 rounded-xl border p-3"><span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-sky-500/10 text-sky-400"><Mail size={13} /></span><div className="min-w-0 flex-1"><p className="truncate text-xs font-semibold">{broker.name}</p><p className="truncate text-[10px] text-[var(--muted-foreground)]">{broker.email}</p></div><span className={cn("shrink-0 rounded-full px-2 py-1 text-[9px] font-semibold", enabled ? "bg-amber-500/10 text-amber-300" : "bg-[var(--hover)] text-[var(--muted-foreground)]")}>{enabled ? "Programado" : "Pausado"}</span></div>) : <Muted>Nenhum corretor com e-mail cadastrado.</Muted>}</div>
+      </Panel>
+      <Panel title="Histórico de envios" subtitle="Aceite pelo provedor por corretor e coleta. Não confirma a chegada à caixa de entrada.">
+        <div className="max-h-[520px] space-y-2 overflow-y-auto pr-1">{deliveries.length ? deliveries.map((delivery) => {
+          const status = delivery.status === "sent" ? { label: "Aceito pelo provedor", icon: <CheckCircle2 size={14} />, className: "text-emerald-400 bg-emerald-500/10" } : delivery.status === "failed" ? { label: "Falhou", icon: <XCircle size={14} />, className: "text-rose-400 bg-rose-500/10" } : { label: "Pendente", icon: <Clock3 size={14} />, className: "text-amber-300 bg-amber-500/10" };
+          const timestamp = delivery.sent_at ?? delivery.updated_at ?? delivery.created_at;
+          return <article key={delivery.id} className="rounded-xl border p-3"><div className="flex items-start gap-3"><span className={cn("grid h-8 w-8 shrink-0 place-items-center rounded-lg", status.className)}>{status.icon}</span><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><p className="truncate text-xs font-semibold">{delivery.broker_name ?? delivery.recipient_email}</p><span className={cn("rounded-full px-2 py-0.5 text-[9px] font-semibold", status.className)}>{status.label}</span><span className="rounded-full bg-[var(--hover)] px-2 py-0.5 text-[9px] text-[var(--muted-foreground)]">{delivery.delivery_type === "manual" ? "Manual" : "Automático"}</span></div><p className="mt-0.5 truncate text-[10px] text-[var(--muted-foreground)]">{delivery.recipient_email}</p><p className="mt-1 text-[10px] text-[var(--muted-foreground)]">{delivery.collection_name} · {new Date(timestamp).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}</p>{delivery.last_error && <p className="mt-2 rounded-lg bg-rose-500/[.06] px-2 py-1.5 text-[9px] leading-4 text-rose-300">{delivery.last_error}</p>}</div>{delivery.attempts > 1 && <span className="shrink-0 text-[9px] text-[var(--muted-foreground)]">{delivery.attempts} tentativas</span>}</div></article>;
+        }) : <Muted>Nenhum envio automático registrado ainda. Quando a primeira coleta elegível for enviada, a confirmação aparecerá aqui.</Muted>}</div>
+      </Panel>
+    </div>
+  </div>;
+}
+
 function Settings({ clientId, data, onSaved, onConnectMeta }: { clientId: string; data: ModuleData; onSaved: () => Promise<void>; onConnectMeta: () => void }) {
-  const [frequency, setFrequency] = useState(data.settings?.frequency ?? "weekly"); const [automationEnabled, setAutomationEnabled] = useState(data.settings?.automation_enabled ?? false); const [minimumLeads, setMinimumLeads] = useState(data.settings?.minimum_leads ?? 5); const [minimumActiveDays, setMinimumActiveDays] = useState(data.settings?.minimum_active_days ?? 3); const [accounts, setAccounts] = useState<string[]>(data.settings?.meta_account_ids ?? []); const [pattern, setPattern] = useState(data.settings?.parser_pattern ?? DEFAULT_CAMPAIGN_PARSER); const [brokers, setBrokers] = useState<Array<Partial<CommercialBroker> & { name: string; email: string }>>(data.brokers.length ? data.brokers : [{ name: "", email: "" }]); const [saving, setSaving] = useState(false); const [savingBroker, setSavingBroker] = useState<number | null>(null); const [deletingBroker, setDeletingBroker] = useState<number | null>(null);
-  useEffect(() => { setFrequency(data.settings?.frequency ?? "weekly"); setAutomationEnabled(data.settings?.automation_enabled ?? false); setMinimumLeads(data.settings?.minimum_leads ?? 5); setMinimumActiveDays(data.settings?.minimum_active_days ?? 3); setAccounts(data.settings?.meta_account_ids ?? []); setPattern(data.settings?.parser_pattern ?? DEFAULT_CAMPAIGN_PARSER); setBrokers(data.brokers.length ? data.brokers : [{ name: "", email: "" }]); }, [data]);
-  async function save() { setSaving(true); const response = await fetch("/api/clientes/commercial-intelligence", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ client_id: clientId, frequency, automation_enabled: automationEnabled, minimum_leads: minimumLeads, minimum_active_days: minimumActiveDays, meta_account_ids: accounts, parser_pattern: pattern, parser_group: 1, brokers }) }); const json = await response.json(); setSaving(false); if (!response.ok) return toast.error(json.error); toast.success(automationEnabled ? "Automação ativada e configurações salvas" : "Configurações salvas"); await onSaved(); }
-  async function saveBroker(index: number) { const broker = brokers[index]; setSavingBroker(index); const response = await fetch("/api/clientes/commercial-intelligence", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "save_broker", client_id: clientId, broker }) }); const json = await response.json(); setSavingBroker(null); if (!response.ok) return toast.error(json.error); toast.success(broker.id ? "Corretor atualizado" : "Corretor cadastrado"); await onSaved(); }
+  type BrokerDraft = Partial<CommercialBroker> & { name: string; email: string };
+  const [frequency, setFrequency] = useState(data.settings?.frequency ?? "weekly"); const [automationEnabled, setAutomationEnabled] = useState(data.settings?.automation_enabled ?? false); const [minimumLeads, setMinimumLeads] = useState(data.settings?.minimum_leads ?? 5); const [minimumActiveDays, setMinimumActiveDays] = useState(data.settings?.minimum_active_days ?? 3); const [accounts, setAccounts] = useState<string[]>(data.settings?.meta_account_ids ?? []); const [pattern, setPattern] = useState(data.settings?.parser_pattern ?? DEFAULT_CAMPAIGN_PARSER); const [brokers, setBrokers] = useState<BrokerDraft[]>(data.brokers); const [brokerEditor, setBrokerEditor] = useState<{ index: number | null; draft: BrokerDraft } | null>(null); const [saving, setSaving] = useState(false); const [savingBroker, setSavingBroker] = useState<number | null>(null); const [deletingBroker, setDeletingBroker] = useState<number | null>(null);
+  useEffect(() => { setFrequency(data.settings?.frequency ?? "weekly"); setAutomationEnabled(data.settings?.automation_enabled ?? false); setMinimumLeads(data.settings?.minimum_leads ?? 5); setMinimumActiveDays(data.settings?.minimum_active_days ?? 3); setAccounts(data.settings?.meta_account_ids ?? []); setPattern(data.settings?.parser_pattern ?? DEFAULT_CAMPAIGN_PARSER); setBrokers(data.brokers); }, [data]);
+  async function save() { setSaving(true); const response = await fetch("/api/clientes/commercial-intelligence", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ client_id: clientId, frequency, automation_enabled: automationEnabled, minimum_leads: minimumLeads, minimum_active_days: minimumActiveDays, meta_account_ids: accounts, parser_pattern: pattern, parser_group: 1, brokers }) }); const json = await response.json(); setSaving(false); if (!response.ok) return toast.error(json.error); toast.success("Critérios da automação salvos"); await onSaved(); }
+  async function saveBroker() { if (!brokerEditor) return; const broker = brokerEditor.draft; const loadingIndex = brokerEditor.index ?? -1; setSavingBroker(loadingIndex); const response = await fetch("/api/clientes/commercial-intelligence", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "save_broker", client_id: clientId, broker }) }); const json = await response.json(); setSavingBroker(null); if (!response.ok) return toast.error(json.error); setBrokerEditor(null); toast.success(broker.id ? "Corretor atualizado" : "Corretor cadastrado"); await onSaved(); }
   async function removeBroker(index: number) { const broker = brokers[index]; if (!broker.id) { setBrokers((rows) => rows.filter((_, i) => i !== index)); return; } setDeletingBroker(index); const response = await fetch("/api/clientes/commercial-intelligence", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "delete_broker", client_id: clientId, broker_id: broker.id }) }); const json = await response.json(); setDeletingBroker(null); if (!response.ok) return toast.error(json.error); setBrokers((rows) => rows.filter((row) => row.id !== broker.id)); toast.success("Corretor removido do formulário"); await onSaved(); }
+  function toggleBrokerAccount(accountId: string) { setBrokerEditor((current) => current ? { ...current, draft: { ...current.draft, meta_account_ids: (current.draft.meta_account_ids ?? []).includes(accountId) ? (current.draft.meta_account_ids ?? []).filter((id) => id !== accountId) : [...(current.draft.meta_account_ids ?? []), accountId] } } : current); }
+  const availableBrokerAccounts = data.accounts.filter((account) => accounts.includes(account.id));
   const sample = "[Áurea] - [01/09/2026] - [FORM EXT] - Estático";
   return <div className="grid gap-4 lg:grid-cols-2">
-    <Panel title="Automação" subtitle="A plataforma verifica diariamente e só envia quando houver uma amostra válida">
+    <Panel title="Critérios da automação" subtitle="A plataforma só cria a análise quando houver uma amostra válida">
       <div className="space-y-5">
-        <label className="flex cursor-pointer items-center justify-between gap-4 rounded-xl border p-4">
-          <span><span className="block text-xs font-semibold">Envio automático</span><span className="mt-1 block text-[10px] text-[var(--muted-foreground)]">Alterna os templates das Semanas 1 e 3 com o das Semanas 2 e 4.</span></span>
-          <input type="checkbox" checked={automationEnabled} onChange={(event) => setAutomationEnabled(event.target.checked)} className="h-4 w-4" />
-        </label>
+        <div className="flex items-start gap-3 rounded-xl border border-sky-500/15 bg-sky-500/[.05] p-3"><Mail size={15} className="mt-0.5 shrink-0 text-sky-400" /><div><p className="text-[11px] font-semibold text-[var(--text-title)]">Dias, frequência e histórico agora ficam em Envios</p><p className="mt-1 text-[10px] leading-4 text-[var(--muted-foreground)]">Use a aba “Envios” para ativar a programação e acompanhar cada e-mail por corretor.</p></div></div>
         {data.settings?.last_automation_reason && <div className={cn("rounded-xl border p-3 text-[11px] leading-5", data.settings.last_automation_status === "error" ? "border-rose-500/20 bg-rose-500/[.06] text-rose-300" : data.settings.last_automation_status === "sent" ? "border-emerald-500/20 bg-emerald-500/[.06] text-emerald-300" : "border-amber-500/20 bg-amber-500/[.06] text-amber-200")}><p className="font-semibold">Última verificação automática</p><p className="mt-1">{data.settings.last_automation_reason}</p>{data.settings.last_automation_check_at && <p className="mt-1 opacity-60">{new Date(data.settings.last_automation_check_at).toLocaleString("pt-BR")}</p>}</div>}
-        <div className="grid gap-3 sm:grid-cols-3">
-          <Field label="Frequência"><select value={frequency} onChange={(event) => setFrequency(event.target.value as CommercialIntelligenceSettings["frequency"])} className="lc-form-control crm-form-select"><option value="weekly">Semanal</option><option value="biweekly">Quinzenal</option><option value="monthly">Mensal</option></select></Field>
+        <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Mínimo de leads" hint="Evita pedir avaliação de uma amostra pequena."><input type="number" min={1} value={minimumLeads} onChange={(event) => setMinimumLeads(Math.max(1, Number(event.target.value)))} className="lc-form-control" /></Field>
           <Field label="Dias com atividade" hint="Dias com entrega, investimento ou leads."><input type="number" min={1} max={31} value={minimumActiveDays} onChange={(event) => setMinimumActiveDays(Math.min(31, Math.max(1, Number(event.target.value))))} className="lc-form-control" /></Field>
         </div>
         <div><div className="mb-2 flex items-center justify-between gap-3"><p className="text-xs font-medium">Contas Meta deste cliente</p><button onClick={onConnectMeta} className="inline-flex items-center gap-1.5 rounded-lg bg-sky-500/10 px-3 py-2 text-[11px] font-semibold text-sky-400 hover:bg-sky-500/15"><Plus size={13} />Conectar conta Meta</button></div><div className="space-y-2">{data.accounts.length ? data.accounts.map((account) => <label key={account.id} className="flex cursor-pointer items-center gap-3 rounded-xl border p-3"><input type="checkbox" checked={accounts.includes(account.id)} onChange={() => setAccounts((current) => current.includes(account.id) ? current.filter((id) => id !== account.id) : [...current, account.id])} /><div><p className="text-xs font-medium">{account.account_name}</p><p className="text-[10px] text-[var(--muted-foreground)]">{account.account_id} · {account.status}</p></div></label>) : <Muted>Nenhuma conta vinculada. Use “Conectar conta Meta”.</Muted>}</div></div>
         <Field label="Parser das campanhas" hint="O primeiro bloco é o empreendimento; os seguintes representam data e destino."><input value={pattern} onChange={(event) => setPattern(event.target.value)} className="lc-form-control font-mono text-xs" /><div className="mt-2 rounded-xl bg-[var(--hover)] p-3 text-[10px]"><p className="text-[var(--muted-foreground)]">{sample}</p><div className="mt-2 grid grid-cols-2 gap-2"><span>Empreendimento: <b>{extractDevelopmentName(sample, pattern) ?? "não detectado"}</b></span><span>Data: <b>01/09/2026</b></span><span>Destino: <b>FORM EXT</b></span><span>Formato: <b>Estático</b></span></div></div></Field>
-        <Button onClick={() => void save()} loading={saving} icon={<Check />} signature>Salvar automação</Button>
+        <Button onClick={() => void save()} loading={saving} icon={<Check />} signature>Salvar critérios</Button>
       </div>
     </Panel>
-    <Panel title="Corretores" subtitle="Cadastre cada profissional que aparecerá no início do formulário"><div className="space-y-3">{brokers.map((broker, index) => <div key={broker.id ?? index} className="rounded-xl border p-3"><div className="grid gap-2 sm:grid-cols-3"><input placeholder="Nome" value={broker.name} onChange={(event) => setBrokers((rows) => rows.map((row, i) => i === index ? { ...row, name: event.target.value } : row))} className="lc-form-control text-xs" /><input type="email" placeholder="E-mail" value={broker.email} onChange={(event) => setBrokers((rows) => rows.map((row, i) => i === index ? { ...row, email: event.target.value } : row))} className="lc-form-control text-xs" /><input placeholder="Telefone (opcional)" value={broker.phone ?? ""} onChange={(event) => setBrokers((rows) => rows.map((row, i) => i === index ? { ...row, phone: event.target.value } : row))} className="lc-form-control text-xs" /></div><div className="mt-3 flex items-center justify-between"><span className={cn("inline-flex items-center gap-1 text-[10px]", broker.id ? "text-emerald-400" : "text-amber-400")}>{broker.id && <Check size={11} />}{broker.id ? "Cadastrado" : "Ainda não cadastrado"}</span><div className="flex gap-2"><button onClick={() => void saveBroker(index)} disabled={savingBroker === index || deletingBroker === index} className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--primary)] px-3 py-2 text-[11px] font-semibold text-[var(--primary-foreground)] disabled:opacity-50">{savingBroker === index ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}{broker.id ? "Atualizar" : "Cadastrar corretor"}</button><button title={broker.id ? "Remover corretor do formulário" : "Descartar linha"} disabled={deletingBroker === index || savingBroker === index} onClick={() => void removeBroker(index)} className="grid h-8 w-8 place-items-center rounded-lg text-rose-400 hover:bg-rose-500/10 disabled:opacity-40">{deletingBroker === index ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}</button></div></div></div>)}<button onClick={() => setBrokers((rows) => [...rows, { name: "", email: "" }])} className="inline-flex items-center gap-2 text-xs text-[var(--primary)]"><Plus size={14} />Adicionar outro corretor</button></div></Panel>
+    <Panel title="Corretores" subtitle="Equipe e distribuição das contas de anúncios">
+      <div className="space-y-3">
+        <Button onClick={() => setBrokerEditor({ index: null, draft: { name: "", email: "", phone: "", meta_account_ids: accounts } })} icon={<Plus />} fullWidth signature>Adicionar corretor</Button>
+        {brokers.length ? brokers.map((broker, index) => {
+          const brokerAccounts = availableBrokerAccounts.filter((account) => (broker.meta_account_ids ?? []).includes(account.id));
+          const initials = broker.name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase();
+          return <article key={broker.id ?? index} className="group rounded-2xl border p-4 transition hover:border-sky-500/20 hover:bg-[var(--hover)]/30">
+            <div className="flex items-start gap-3"><span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-sky-500/15 bg-sky-500/[.08] text-xs font-semibold text-sky-500">{initials || <Users size={16} />}</span><div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold text-[var(--text-title)]">{broker.name}</p><p className="mt-0.5 truncate text-[11px] text-[var(--muted-foreground)]">{broker.email}</p>{broker.phone && <p className="mt-0.5 text-[10px] text-[var(--muted-foreground)]">{broker.phone}</p>}</div><div className="flex shrink-0 gap-1"><Button type="button" variant="ghost" size="icon-sm" title={`Editar ${broker.name}`} aria-label={`Editar ${broker.name}`} onClick={() => setBrokerEditor({ index, draft: { ...broker, meta_account_ids: [...(broker.meta_account_ids ?? [])] } })}><Pencil /></Button><Button type="button" variant="danger" size="icon-sm" title={`Excluir ${broker.name}`} aria-label={`Excluir ${broker.name}`} disabled={deletingBroker === index} onClick={() => void removeBroker(index)}>{deletingBroker === index ? <Loader2 className="animate-spin" /> : <Trash2 />}</Button></div></div>
+            <div className="mt-3 flex flex-wrap gap-1.5">{brokerAccounts.length ? brokerAccounts.map((account) => <span key={account.id} className="rounded-full border border-sky-500/15 bg-sky-500/[.06] px-2.5 py-1 text-[9px] font-medium text-sky-500">{account.account_name}</span>) : <span className="rounded-full bg-[var(--hover)] px-2.5 py-1 text-[9px] text-[var(--muted-foreground)]">Nenhuma conta atribuída</span>}</div>
+          </article>;
+        }) : <div className="rounded-2xl border border-dashed p-6 text-center"><span className="mx-auto grid h-10 w-10 place-items-center rounded-xl bg-[var(--hover)] text-[var(--muted-foreground)]"><Users size={17} /></span><p className="mt-3 text-xs font-semibold text-[var(--text-title)]">Nenhum corretor cadastrado</p><p className="mt-1 text-[10px] text-[var(--muted-foreground)]">Adicione o primeiro corretor para começar.</p></div>}
+      </div>
+    </Panel>
+    {brokerEditor && <div className="lc-modal-backdrop fixed inset-0 z-[70] flex items-center justify-center p-4" onClick={(event) => { if (event.target === event.currentTarget && savingBroker === null) setBrokerEditor(null); }}>
+      <div role="dialog" aria-modal="true" aria-labelledby="broker-editor-title" className="lc-modal-panel max-h-[90dvh] w-full max-w-lg overflow-y-auto rounded-2xl text-[var(--text-title)]">
+        <div className="flex items-start justify-between gap-4 border-b border-[var(--border)] px-5 py-4"><div className="flex items-start gap-3"><span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-sky-500/15 bg-sky-500/10 text-sky-500"><Users size={16} /></span><div><h2 id="broker-editor-title" className="text-sm font-semibold">{brokerEditor.draft.id ? "Editar corretor" : "Novo corretor"}</h2><p className="mt-1 text-[11px] text-[var(--muted-foreground)]">Dados de contato e contas que aparecerão no formulário.</p></div></div><Button type="button" variant="ghost" size="icon-sm" aria-label="Fechar" disabled={savingBroker !== null} onClick={() => setBrokerEditor(null)}><X /></Button></div>
+        <div className="space-y-4 px-5 py-5"><div className="grid gap-3 sm:grid-cols-2"><Field label="Nome"><input autoFocus placeholder="Nome do corretor" value={brokerEditor.draft.name} onChange={(event) => setBrokerEditor((current) => current ? { ...current, draft: { ...current.draft, name: event.target.value } } : current)} className="lc-form-control" /></Field><Field label="E-mail"><input type="email" placeholder="corretor@empresa.com" value={brokerEditor.draft.email} onChange={(event) => setBrokerEditor((current) => current ? { ...current, draft: { ...current.draft, email: event.target.value } } : current)} className="lc-form-control" /></Field></div><Field label="Telefone" hint="Opcional"><input placeholder="(85) 99999-9999" value={brokerEditor.draft.phone ?? ""} onChange={(event) => setBrokerEditor((current) => current ? { ...current, draft: { ...current.draft, phone: event.target.value } } : current)} className="lc-form-control" /></Field>
+          <div><p className="text-xs font-medium">Contas de anúncios</p><p className="mt-1 text-[10px] leading-4 text-[var(--muted-foreground)]">Marque todas as contas cujas campanhas este corretor deve avaliar.</p><div className="mt-3 grid gap-2 sm:grid-cols-2">{availableBrokerAccounts.map((account) => { const checked = (brokerEditor.draft.meta_account_ids ?? []).includes(account.id); return <label key={account.id} className={cn("flex cursor-pointer items-center gap-3 rounded-xl border p-3 text-[11px] transition", checked ? "border-sky-500/35 bg-sky-500/[.08] text-[var(--text-title)]" : "text-[var(--muted-foreground)] hover:bg-[var(--hover)]")}><input type="checkbox" checked={checked} onChange={() => toggleBrokerAccount(account.id)} /><span className="min-w-0"><span className="block truncate font-medium">{account.account_name}</span><span className="mt-0.5 block truncate text-[9px] opacity-70">{account.account_id}</span></span></label>; })}{!availableBrokerAccounts.length && <div className="rounded-xl border border-amber-500/15 bg-amber-500/[.05] p-3 text-[10px] text-amber-500 sm:col-span-2">Selecione e salve uma conta Meta nos critérios antes de cadastrar o corretor.</div>}</div></div>
+        </div>
+        <div className="flex justify-end gap-2 border-t border-[var(--border)] px-5 py-4"><Button type="button" variant="outline" onClick={() => setBrokerEditor(null)} disabled={savingBroker !== null}>Cancelar</Button><Button type="button" onClick={() => void saveBroker()} loading={savingBroker !== null} loadingLabel="Salvando…" disabled={!brokerEditor.draft.name.trim() || !brokerEditor.draft.email.trim()} icon={<Check />} signature>{brokerEditor.draft.id ? "Salvar alterações" : "Cadastrar corretor"}</Button></div>
+      </div>
+    </div>}
   </div>;
 }
 

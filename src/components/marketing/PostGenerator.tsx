@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { usePostTextGesture } from "@/hooks/usePostTextGesture";
 import { EditorContent, useEditor, type Editor } from "@tiptap/react";
 import { Mark, mergeAttributes } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
@@ -10,14 +11,14 @@ import TextAlign from "@tiptap/extension-text-align";
 import { Color, TextStyle } from "@tiptap/extension-text-style";
 import {
   AlignCenter, AlignLeft, AlignRight, ArrowDown, ArrowLeft, ArrowUp, AtSign,
-  Bold, Bookmark, Check, ChevronRight, Copy, Download, GripVertical, Heart, ImagePlus,
-  Italic, Layers3, MessageCircle, MoreHorizontal, Move, Moon, Palette, Plus, Redo2, RotateCcw, Send, Share2, Square, Sun, Trash2,
+  Bold, Bookmark, Check, ChevronRight, Copy, Download, GripVertical, Heart, Image as ImageIcon, ImagePlus,
+  Italic, Layers3, MessageCircle, MoreHorizontal, Move, Moon, Palette, Pencil, Plus, Redo2, RotateCcw, Send, Share2, Square, Sun, Trash2,
   Type, Undo2, Upload, UserRound, X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
-  createZip, defaultPostLineHeight, normalizePostLineHeight, normalizePostTextWidth, numberedSlideFilename, POST_FORMATS, postElementToPng, postTextElementToPng, sanitizeDownloadName, saveBlob,
+  createZip, defaultPostLetterSpacing, defaultPostLineHeight, normalizePostLineHeight, normalizePostTextWidth, numberedSlideFilename, POST_FORMATS, postElementToPng, postTextElementToPng, sanitizeDownloadName, saveBlob,
   type PostFormat, type PostTemplate,
 } from "@/lib/marketing/post-generator";
 import { resizeCanvasElement, snapCanvasPosition, type AlignmentGuide, type ResizeCorner } from "@/lib/marketing/free-layout";
@@ -59,7 +60,7 @@ type MediaAspect = "original" | "1:1" | "4:5" | "16:9" | "9:16";
 type CanvasPoint = { x: number; y: number };
 type TextBlock = { id: string; content: string; fontSize: number; textWidth: number; lineHeight: number; letterSpacing: number };
 type TweetProfile = { avatar: string; avatarCrop: MediaCrop; name: string; handle: string; verified: boolean };
-type PersistedPostProject = { version: 1; typographyDefaultsVersion?: 2; format: PostFormat; slides: Slide[]; activeId: string; tweetProfile: TweetProfile; updatedAt: number };
+type PersistedPostProject = { version: 1; typographyDefaultsVersion?: 2 | 3; format: PostFormat; slides: Slide[]; activeId: string; tweetProfile: TweetProfile; updatedAt: number };
 type MobileEditorPanel = "text" | "image" | "background" | "slide" | "export" | null;
 type MobileInlineTool = "format" | "textColor" | "backdrop";
 type MobileTextTool = MobileInlineTool | "fontSize" | "lineHeight" | "letterSpacing" | "textWidth" | null;
@@ -127,7 +128,7 @@ function readImageAspect(url: string) {
     image.src = url;
   });
 }
-function makeTextBlock(template: PostTemplate, content: string): TextBlock { return { id: uid(), content, fontSize: template === "tweet" ? 45 : 70, textWidth: template === "tweet" ? 76 : 84, lineHeight: defaultPostLineHeight(template), letterSpacing: 0 }; }
+function makeTextBlock(template: PostTemplate, content: string): TextBlock { return { id: uid(), content, fontSize: template === "tweet" ? 45 : 70, textWidth: template === "tweet" ? 76 : 84, lineHeight: defaultPostLineHeight(template), letterSpacing: defaultPostLetterSpacing(template) }; }
 
 let postProjectDatabase: Promise<IDBDatabase> | null = null;
 
@@ -230,15 +231,21 @@ function removeMediaFromSlide(slide: Slide, index: number): Partial<Slide> {
   };
 }
 
-function migratePostProjectTypography(project: PersistedPostProject): PersistedPostProject {
-  if (project.typographyDefaultsVersion === 2) return project;
+function migratePostProjectTypography(project: PersistedPostProject, template: PostTemplate): PersistedPostProject {
+  if (project.typographyDefaultsVersion === 3) return project;
+  const needsLegacyLineHeightMigration = !project.typographyDefaultsVersion;
+  const needsStoryLetterSpacingMigration = template === "stories";
   return {
     ...project,
-    typographyDefaultsVersion: 2,
+    typographyDefaultsVersion: 3,
     slides: project.slides.map((slide) => ({
       ...slide,
       textBlocks: Array.isArray(slide.textBlocks)
-        ? slide.textBlocks.map((block) => ({ ...block, lineHeight: 1.2, letterSpacing: 0 }))
+        ? slide.textBlocks.map((block) => ({
+            ...block,
+            lineHeight: needsLegacyLineHeightMigration ? 1.2 : block.lineHeight,
+            letterSpacing: (Number.isFinite(block.letterSpacing) ? block.letterSpacing : 0) + (needsStoryLetterSpacingMigration ? 0.01 : 0),
+          }))
         : slide.textBlocks,
     })),
   };
@@ -255,14 +262,17 @@ function normalizePostProject(template: PostTemplate, project: PersistedPostProj
     });
     const mediaNaturalAspects = media.map((_, mediaIndex) => Number.isFinite(slide.mediaNaturalAspects?.[mediaIndex]) ? slide.mediaNaturalAspects[mediaIndex] : 16 / 9);
     const textBlocks = Array.isArray(slide.textBlocks) && slide.textBlocks.length
-      ? slide.textBlocks.map((block) => ({
-          ...makeTextBlock(template, block.content || "<p>Novo texto</p>"),
-          ...block,
-          id: block.id || uid(),
-          lineHeight: normalizePostLineHeight(template, block.lineHeight),
-          letterSpacing: Number.isFinite(block.letterSpacing) ? Math.max(-0.08, Math.min(0.2, block.letterSpacing)) : 0,
-          textWidth: normalizePostTextWidth(template, block.textWidth),
-        }))
+      ? slide.textBlocks.map((savedBlock) => {
+          const { fontFamily: _removedFontFamily, ...block } = savedBlock as TextBlock & { fontFamily?: unknown };
+          return {
+            ...makeTextBlock(template, block.content || "<p>Novo texto</p>"),
+            ...block,
+            id: block.id || uid(),
+            lineHeight: normalizePostLineHeight(template, block.lineHeight),
+            letterSpacing: Number.isFinite(block.letterSpacing) ? Math.max(-0.08, Math.min(0.2, block.letterSpacing)) : defaultPostLetterSpacing(template),
+            textWidth: normalizePostTextWidth(template, block.textWidth),
+          };
+        })
       : [{ ...makeTextBlock(template, slide.content || base.content), fontSize: slide.fontSize || base.fontSize, textWidth: normalizePostTextWidth(template, slide.textWidth) }];
     const validKeys = new Set(["media", ...textBlocks.map((block) => block.id)]);
     const savedLayout = Array.isArray(slide.layout) ? slide.layout.filter((key) => validKeys.has(key)) : [];
@@ -364,6 +374,7 @@ function PostEditor({ template, onBack }: { template: PostTemplate; onBack: () =
   const [slides, setSlides] = useState<Slide[]>([firstSlide]);
   const [activeId, setActiveId] = useState(firstSlide.id);
   const [activeTextBlockId, setActiveTextBlockId] = useState(firstSlide.textBlocks[0].id);
+  const [textSelectionVisible, setTextSelectionVisible] = useState(true);
   const [editingTextBlockId, setEditingTextBlockId] = useState<string | null>(null);
   const [tweetProfile, setTweetProfile] = useState<TweetProfile>(DEFAULT_PROFILE);
   const [storageReady, setStorageReady] = useState(false);
@@ -375,6 +386,9 @@ function PostEditor({ template, onBack }: { template: PostTemplate; onBack: () =
   const [mobileCanvasMaxHeight, setMobileCanvasMaxHeight] = useState(560);
   const [mobileKeyboardInset, setMobileKeyboardInset] = useState(0);
   const [isMobileEditor, setIsMobileEditor] = useState(false);
+  const [mobileTextDockVisible, setMobileTextDockVisible] = useState(false);
+  const [copyingMobileText, setCopyingMobileText] = useState(false);
+  const [downloadingMobileText, setDownloadingMobileText] = useState(false);
   const defaultExportName = template === "tweet" ? "posts-tweet" : "stories-plus";
   const [exportName, setExportName] = useState(defaultExportName);
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
@@ -389,6 +403,7 @@ function PostEditor({ template, onBack }: { template: PostTemplate; onBack: () =
   const active = slides[activeIndex];
   const activeTextBlock = active.textBlocks.find((block) => block.id === activeTextBlockId) || active.textBlocks[0];
   const dimensions = POST_FORMATS[format];
+  const activeLayoutIndex = active.layout.filter((key) => active.textBlocks.some((block) => block.id === key)).indexOf(activeTextBlock.id);
 
   useEffect(() => {
     preserveState();
@@ -411,6 +426,53 @@ function PostEditor({ template, onBack }: { template: PostTemplate; onBack: () =
       setCanvasMode(false);
     };
   }, [setCanvasMode]);
+
+  useEffect(() => setMobileTextDockVisible(false), [activeId]);
+
+  const copyActiveTextAsImage = async () => {
+    if (copyingMobileText) return;
+    const element = document.querySelector<HTMLElement>(`[data-mobile-post-canvas] [data-text-export-id="${activeTextBlock.id}"]`);
+    if (!element) return toast.error("Não foi possível localizar a caixa de texto selecionada.");
+    setCopyingMobileText(true);
+    element.classList.add("post-text-exporting");
+    try {
+      const pngPromise = postTextElementToPng(element);
+      if (navigator.clipboard?.write && typeof ClipboardItem !== "undefined") {
+        await navigator.clipboard.write([new ClipboardItem({ "image/png": pngPromise })]);
+        toast.success("Texto copiado como PNG transparente.");
+      } else {
+        await saveBlob(await pngPromise, "texto-transparente.png");
+        toast.success("O PNG do texto foi baixado.");
+      }
+    } catch {
+      try {
+        await saveBlob(await postTextElementToPng(element), "texto-transparente.png");
+        toast.success("O PNG do texto foi baixado.");
+      } catch {
+        toast.error("Não foi possível copiar o texto como imagem.");
+      }
+    } finally {
+      element.classList.remove("post-text-exporting");
+      setCopyingMobileText(false);
+    }
+  };
+
+  const downloadActiveTextAsImage = async () => {
+    if (downloadingMobileText) return;
+    const element = document.querySelector<HTMLElement>(`[data-mobile-post-canvas] [data-text-export-id="${activeTextBlock.id}"]`);
+    if (!element) return toast.error("Não foi possível localizar a caixa de texto selecionada.");
+    setDownloadingMobileText(true);
+    element.classList.add("post-text-exporting");
+    try {
+      await saveBlob(await postTextElementToPng(element), "texto-transparente.png");
+      toast.success("Texto baixado como PNG transparente.");
+    } catch {
+      toast.error("Não foi possível baixar o texto como imagem.");
+    } finally {
+      element.classList.remove("post-text-exporting");
+      setDownloadingMobileText(false);
+    }
+  };
 
   useEffect(() => {
     const viewport = window.visualViewport;
@@ -468,7 +530,7 @@ function PostEditor({ template, onBack }: { template: PostTemplate; onBack: () =
       const local = localResult.status === "fulfilled" ? localResult.value : undefined;
       const remote = remoteResult.status === "fulfilled" ? remoteResult.value.project : undefined;
       const newestProject = newestPostProject(local, remote);
-      const project = newestProject ? migratePostProjectTypography(newestProject) : undefined;
+      const project = newestProject ? migratePostProjectTypography(newestProject, template) : undefined;
       if (project?.slides?.length) {
         restoreProject(project);
         await savePostProject(template, project).catch(() => undefined);
@@ -501,7 +563,7 @@ function PostEditor({ template, onBack }: { template: PostTemplate; onBack: () =
       applyingRemoteRef.current = false;
       return;
     }
-    const project: PersistedPostProject = { version: 1, typographyDefaultsVersion: 2, format, slides, activeId, tweetProfile, updatedAt: Date.now() };
+    const project: PersistedPostProject = { version: 1, typographyDefaultsVersion: 3, format, slides, activeId, tweetProfile, updatedAt: Date.now() };
     void savePostProject(template, project).catch((error) => console.error("Não foi possível salvar o Gerador de Posts localmente.", error));
     setSyncState("saving");
     if (remoteSaveTimerRef.current) clearTimeout(remoteSaveTimerRef.current);
@@ -554,6 +616,10 @@ function PostEditor({ template, onBack }: { template: PostTemplate; onBack: () =
     if (!active.textBlocks.some((block) => block.id === activeTextBlockId)) setActiveTextBlockId(active.textBlocks[0].id);
   }, [active, activeTextBlockId]);
 
+  useEffect(() => {
+    setTextSelectionVisible(true);
+  }, [activeId, activeTextBlockId]);
+
   useEffect(() => setEditingTextBlockId(null), [activeId]);
 
   useEffect(() => {
@@ -565,13 +631,24 @@ function PostEditor({ template, onBack }: { template: PostTemplate; onBack: () =
   }, [editingTextBlockId, editor]);
 
   const selectTextBlock = (id: string) => {
+    setTextSelectionVisible(true);
     setActiveTextBlockId(id);
     setEditingTextBlockId(null);
   };
 
   const editTextBlock = (id: string) => {
+    setTextSelectionVisible(true);
     setActiveTextBlockId(id);
     setEditingTextBlockId(id);
+  };
+
+  const deselectTextBlock = () => {
+    setTextSelectionVisible(false);
+    setEditingTextBlockId(null);
+    setMobileTextDockVisible(false);
+    setMobileTextTool(null);
+    setMobilePanel((panel) => panel === "text" ? null : panel);
+    if (editor && !editor.isDestroyed) editor.commands.blur();
   };
 
   const update = (patch: Partial<Slide>) => setSlides((current) => current.map((slide) => slide.id === activeId ? { ...slide, ...patch } : slide));
@@ -598,11 +675,33 @@ function PostEditor({ template, onBack }: { template: PostTemplate; onBack: () =
     setEditingTextBlockId(null);
   };
 
-  const removeTextBlock = () => {
+  const duplicateTextBlock = (sourceId: string) => {
+    const duplicateId = uid();
+    setSlides((current) => current.map((slide) => {
+      if (slide.id !== activeId) return slide;
+      const sourceIndex = slide.textBlocks.findIndex((block) => block.id === sourceId);
+      if (sourceIndex < 0) return slide;
+      const duplicateBlock = { ...slide.textBlocks[sourceIndex], id: duplicateId };
+      const textBlocks = [...slide.textBlocks];
+      textBlocks.splice(sourceIndex + 1, 0, duplicateBlock);
+      const layout = slide.layout.filter((key) => key !== duplicateId);
+      const layoutIndex = layout.indexOf(sourceId);
+      layout.splice(layoutIndex >= 0 ? layoutIndex + 1 : layout.length, 0, duplicateId);
+      const sourcePosition = slide.freePositions[sourceId];
+      const freePositions = sourcePosition
+        ? { ...slide.freePositions, [duplicateId]: { ...sourcePosition, y: Math.min(92, sourcePosition.y + 10) } }
+        : slide.freePositions;
+      return { ...slide, textBlocks, layout, freePositions };
+    }));
+    setActiveTextBlockId(duplicateId);
+    setEditingTextBlockId(null);
+  };
+
+  const removeTextBlock = (blockId = activeTextBlockId) => {
     if (active.textBlocks.length === 1) return toast.error("O slide precisa ter pelo menos uma caixa de texto.");
-    const index = active.textBlocks.findIndex((block) => block.id === activeTextBlockId);
-    const textBlocks = active.textBlocks.filter((block) => block.id !== activeTextBlockId);
-    update({ textBlocks, layout: active.layout.filter((key) => key !== activeTextBlockId) });
+    const index = active.textBlocks.findIndex((block) => block.id === blockId);
+    const textBlocks = active.textBlocks.filter((block) => block.id !== blockId);
+    update({ textBlocks, layout: active.layout.filter((key) => key !== blockId) });
     setActiveTextBlockId(textBlocks[Math.min(Math.max(index, 0), textBlocks.length - 1)].id);
   };
 
@@ -612,6 +711,23 @@ function PostEditor({ template, onBack }: { template: PostTemplate; onBack: () =
     const targetIndex = layout.indexOf(targetId);
     layout.splice(targetIndex < 0 ? layout.length : targetIndex + (after ? 1 : 0), 0, sourceId);
     update({ layout, textPlacement: "above" });
+  };
+
+  const moveTextBlock = (sourceId: string, direction: -1 | 1) => {
+    setSlides((current) => current.map((slide) => {
+      if (slide.id !== activeId) return slide;
+      const completeLayout = [...slide.layout, ...slide.textBlocks.map((block) => block.id).filter((id) => !slide.layout.includes(id))];
+      const visibleLayout = completeLayout.filter((key) => key !== "media" || slide.media.length > 0);
+      const sourceIndex = visibleLayout.indexOf(sourceId);
+      const targetId = visibleLayout[sourceIndex + direction];
+      if (sourceIndex < 0 || !targetId) return slide;
+      const layout = completeLayout.filter((key) => key !== sourceId);
+      const targetIndex = layout.indexOf(targetId);
+      layout.splice(targetIndex + (direction > 0 ? 1 : 0), 0, sourceId);
+      const mediaIndex = layout.indexOf("media");
+      const nextTextPlacement = mediaIndex >= 0 && layout.indexOf(sourceId) > mediaIndex ? "below" as const : "above" as const;
+      return { ...slide, layout, textPlacement: nextTextPlacement, mediaPosition: nextTextPlacement === "above" ? "bottom" as const : "top" as const };
+    }));
   };
 
   const placeActiveText = (placement: "above" | "below") => {
@@ -694,7 +810,7 @@ function PostEditor({ template, onBack }: { template: PostTemplate; onBack: () =
       const files: Array<{ name: string; data: Uint8Array }> = [];
       for (let index = 0; index < slides.length; index++) {
         const element = exportRefs.current.get(slides[index].id);
-        if (!element) continue;
+        if (!element) throw new Error(`O slide ${index + 1} ainda não está pronto para exportação.`);
         const blob = await postElementToPng(element, dimensions.width, dimensions.height);
         files.push({ name: numberedSlideFilename(index), data: new Uint8Array(await blob.arrayBuffer()) });
       }
@@ -755,10 +871,13 @@ function PostEditor({ template, onBack }: { template: PostTemplate; onBack: () =
         <main className="min-w-0 border-b p-4 lg:border-b-0 lg:border-x lg:p-6" style={{ borderColor: "var(--border)" }}>
           <div className="mb-4 flex items-center justify-between"><div><p className="text-xs font-semibold text-[var(--text-title)]">Pré-visualização</p><p className="text-[10px] text-[var(--muted-foreground)]">Um clique seleciona e permite mover; dois cliques liberam a edição do texto.</p></div><span className="rounded-full border px-2.5 py-1 text-[10px] text-[var(--muted-foreground)]">Slide {activeIndex + 1} de {slides.length}</span></div>
           <div className="grid grid-cols-[52px_minmax(0,1fr)_56px] items-start gap-3">
-            <div className="sticky top-4"><TextToolbar editor={editor} defaultColor={active.foreground} allowItalic={template === "stories"} visibleGroups={["format"]} side="left" /></div>
+            <div className="sticky top-4 space-y-3">
+              <button type="button" onClick={addTextBlock} aria-label="Adicionar nova caixa de texto" title="Adicionar nova caixa de texto" className="grid h-11 w-full place-items-center rounded-xl border border-[#27a3ff]/70 bg-[#27a3ff] text-white shadow-[0_8px_20px_rgba(39,163,255,.28)] transition hover:bg-[#168fe0] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#27a3ff]/60"><span className="flex items-center text-sm font-bold"><Plus size={14} strokeWidth={2.6} /><span>A</span></span></button>
+              <TextToolbar editor={editor} defaultColor={active.foreground} allowItalic={template === "stories"} visibleGroups={["format"]} side="left" />
+            </div>
             <div className="min-w-0">
               <ScaledCanvas width={dimensions.width} height={dimensions.height} format={format} profile={tweetProfile}>
-                <PostCanvas slide={active} profile={tweetProfile} template={template} width={dimensions.width} height={dimensions.height} editable={!isMobileEditor} editor={isMobileEditor ? undefined : editor} activeTextBlockId={activeTextBlockId} editingTextBlockId={editingTextBlockId} onSelectTextBlock={selectTextBlock} onEditTextBlock={editTextBlock} onReorderText={reorderLayout} onPositionChange={updateFreePosition} onResizeMedia={resizeFreeMedia} onRemoveMedia={removeActiveMedia} />
+                <PostCanvas slide={active} profile={tweetProfile} template={template} width={dimensions.width} height={dimensions.height} editable={!isMobileEditor} editor={isMobileEditor ? undefined : editor} activeTextBlockId={textSelectionVisible ? activeTextBlockId : undefined} editingTextBlockId={editingTextBlockId} onDeselectTextBlock={deselectTextBlock} onSelectTextBlock={selectTextBlock} onEditTextBlock={editTextBlock} onReorderText={reorderLayout} onMoveTextBlock={moveTextBlock} onDuplicateTextBlock={duplicateTextBlock} onRemoveTextBlock={removeTextBlock} onPositionChange={updateFreePosition} onResizeMedia={resizeFreeMedia} onRemoveMedia={removeActiveMedia} />
               </ScaledCanvas>
               <div className="mx-auto mt-4 flex max-w-xl items-center justify-center gap-1.5"><Button variant="outline" size="sm" onClick={() => move(-1)} disabled={activeIndex === 0} aria-label="Mover slide para cima"><ArrowUp /></Button><Button variant="outline" size="sm" onClick={() => move(1)} disabled={activeIndex === slides.length - 1} aria-label="Mover slide para baixo"><ArrowDown /></Button><Button variant="outline" size="sm" onClick={duplicate} icon={<Copy />}>Duplicar</Button><Button variant="danger" size="sm" onClick={remove} icon={<Trash2 />}>Excluir</Button></div>
             </div>
@@ -769,7 +888,7 @@ function PostEditor({ template, onBack }: { template: PostTemplate; onBack: () =
           </div>
         </main>
 
-        <PropertiesPanel template={template} format={format} setFormat={setFormat} slide={active} update={update} activeTextBlock={activeTextBlock} selectTextBlock={selectTextBlock} updateTextBlock={updateTextBlock} addTextBlock={addTextBlock} removeTextBlock={removeTextBlock} placeText={placeActiveText} profile={tweetProfile} setProfile={setTweetProfile} />
+        <PropertiesPanel template={template} format={format} setFormat={setFormat} slide={active} update={update} activeTextBlock={activeTextBlock} selectTextBlock={selectTextBlock} updateTextBlock={updateTextBlock} addTextBlock={addTextBlock} removeTextBlock={() => removeTextBlock()} placeText={placeActiveText} profile={tweetProfile} setProfile={setTweetProfile} />
       </div>
 
       <div className="fixed inset-0 z-40 flex min-h-0 flex-col bg-[var(--background)] lg:hidden">
@@ -783,7 +902,16 @@ function PostEditor({ template, onBack }: { template: PostTemplate; onBack: () =
         </header>
 
         <main className="flex min-h-0 flex-1 items-center overflow-auto px-3 py-2">
-          <ScaledCanvas width={dimensions.width} height={dimensions.height} format={format} profile={tweetProfile} maxHeight={mobileCanvasMaxHeight}>
+          <div className="relative mx-auto w-full" data-mobile-post-canvas>
+          {mobileTextDockVisible && activeTextBlock && <div className="absolute left-1/2 top-2 z-[120] flex max-w-[calc(100%-16px)] -translate-x-1/2 items-center gap-0.5 overflow-x-auto rounded-2xl border border-white/15 bg-[#111820]/92 p-1.5 text-white shadow-[0_16px_38px_rgba(0,0,0,.42)] backdrop-blur-xl">
+            <button type="button" onClick={() => { editTextBlock(activeTextBlock.id); setMobilePanel("text"); }} className="grid h-9 w-9 shrink-0 place-items-center rounded-xl transition active:bg-white/15" aria-label="Editar texto" title="Editar texto"><Pencil size={16} /></button>
+            {active.layoutMode !== "free" && <><button type="button" onClick={() => moveTextBlock(activeTextBlock.id, -1)} disabled={activeLayoutIndex <= 0} className="grid h-9 w-9 shrink-0 place-items-center rounded-xl transition active:bg-white/15 disabled:opacity-30" aria-label="Mover texto para cima" title="Mover para cima"><ArrowUp size={16} /></button><button type="button" onClick={() => moveTextBlock(activeTextBlock.id, 1)} disabled={activeLayoutIndex < 0 || activeLayoutIndex >= active.layout.filter((key) => active.textBlocks.some((block) => block.id === key)).length - 1} className="grid h-9 w-9 shrink-0 place-items-center rounded-xl transition active:bg-white/15 disabled:opacity-30" aria-label="Mover texto para baixo" title="Mover para baixo"><ArrowDown size={16} /></button></>}
+            <button type="button" onClick={() => void copyActiveTextAsImage()} disabled={copyingMobileText} className="grid h-9 w-9 shrink-0 place-items-center rounded-xl transition active:bg-white/15 disabled:opacity-40" aria-label="Copiar texto como imagem" title="Copiar como imagem">{copyingMobileText ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" /> : <ImageIcon size={16} />}</button>
+            <button type="button" onClick={() => void downloadActiveTextAsImage()} disabled={downloadingMobileText} className="grid h-9 w-9 shrink-0 place-items-center rounded-xl transition active:bg-white/15 disabled:opacity-40" aria-label="Baixar texto como imagem" title="Baixar PNG transparente">{downloadingMobileText ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" /> : <Download size={16} />}</button>
+            <button type="button" onClick={() => duplicateTextBlock(activeTextBlock.id)} className="grid h-9 w-9 shrink-0 place-items-center rounded-xl transition active:bg-white/15" aria-label="Duplicar caixa de texto" title="Duplicar"><Copy size={16} /></button>
+            <button type="button" onClick={() => { removeTextBlock(activeTextBlock.id); setMobileTextDockVisible(false); }} disabled={active.textBlocks.length === 1} className="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-[#ff6570] transition active:bg-red-500/20 disabled:opacity-30" aria-label="Excluir caixa de texto" title="Excluir"><Trash2 size={16} /></button>
+          </div>}
+          <ScaledCanvas width={dimensions.width} height={dimensions.height} format={format} profile={tweetProfile} maxHeight={mobileCanvasMaxHeight} contentOnly>
             <PostCanvas
               slide={active}
               profile={tweetProfile}
@@ -791,24 +919,31 @@ function PostEditor({ template, onBack }: { template: PostTemplate; onBack: () =
               width={dimensions.width}
               height={dimensions.height}
               editable
-              activeTextBlockId={activeTextBlockId}
+              activeTextBlockId={textSelectionVisible ? activeTextBlockId : undefined}
+              onDeselectTextBlock={deselectTextBlock}
               onSelectTextBlock={(id) => {
                 selectTextBlock(id);
+                setMobileTextDockVisible(true);
                 setMobileTextTool(null);
                 setMobileVisualTool(null);
               }}
               onEditTextBlock={(id) => {
                 editTextBlock(id);
+                setMobileTextDockVisible(true);
                 setMobileTextTool(null);
                 setMobileVisualTool(null);
                 setMobilePanel("text");
               }}
               onReorderText={reorderLayout}
+              onMoveTextBlock={moveTextBlock}
+              onDuplicateTextBlock={duplicateTextBlock}
+              onRemoveTextBlock={removeTextBlock}
               onPositionChange={updateFreePosition}
               onResizeMedia={resizeFreeMedia}
               onRemoveMedia={removeActiveMedia}
             />
           </ScaledCanvas>
+          </div>
         </main>
 
         <MobileSlidesRail
@@ -831,6 +966,7 @@ function PostEditor({ template, onBack }: { template: PostTemplate; onBack: () =
           <MobilePanelSheet
             title={mobilePanel === "text" ? "Texto" : mobilePanel === "image" ? "Imagens" : mobilePanel === "background" ? "Aparência" : mobilePanel === "slide" ? "Slide" : "Exportar"}
             keyboardInset={mobilePanel === "text" ? mobileKeyboardInset : 0}
+            onBackdropClose={mobilePanel === "text" ? deselectTextBlock : undefined}
             onClose={() => {
               setMobileTextTool(null);
               setMobileVisualTool(null);
@@ -862,7 +998,7 @@ function PostEditor({ template, onBack }: { template: PostTemplate; onBack: () =
                   selectTextBlock={setActiveTextBlockId}
                   updateTextBlock={updateTextBlock}
                   addTextBlock={addTextBlock}
-                  removeTextBlock={removeTextBlock}
+                  removeTextBlock={() => removeTextBlock()}
                   placeText={placeActiveText}
                   profile={tweetProfile}
                   setProfile={setTweetProfile}
@@ -1044,10 +1180,10 @@ function MobileEditorDock({ active, onChange }: { active: MobileEditorPanel; onC
   );
 }
 
-function MobilePanelSheet({ title, keyboardInset = 0, onClose, children }: { title: string; keyboardInset?: number; onClose: () => void; children: React.ReactNode }) {
+function MobilePanelSheet({ title, keyboardInset = 0, onClose, onBackdropClose, children }: { title: string; keyboardInset?: number; onClose: () => void; onBackdropClose?: () => void; children: React.ReactNode }) {
   return (
     <div className="fixed inset-0 z-40 lg:hidden" role="dialog" aria-modal="true" aria-label={`Configurações de ${title.toLowerCase()}`}>
-      <button type="button" onClick={onClose} className="absolute inset-0 bg-black/35" aria-label="Fechar painel" />
+      <button type="button" onClick={onBackdropClose ?? onClose} className="absolute inset-0 bg-black/35" aria-label="Fechar painel" />
       <section className="absolute inset-x-0 flex flex-col overflow-hidden rounded-t-[24px] border-t shadow-2xl transition-[bottom,max-height] duration-200" style={{ background: "var(--bg-modal)", borderColor: "var(--glass-border)", bottom: `calc(4rem + env(safe-area-inset-bottom) + ${keyboardInset}px)`, maxHeight: keyboardInset ? `calc(100dvh - ${keyboardInset}px - 5rem - env(safe-area-inset-top))` : "68dvh" }}>
         <div className="mx-auto mt-2 h-1 w-10 rounded-full bg-[var(--glass-border)]" />
         <div className="flex items-center justify-between border-b px-4 py-3" style={{ borderColor: "var(--border)" }}>
@@ -1264,33 +1400,33 @@ function TextColorTool({ value, disabled, isAutomatic, onAuto, onChange, vertica
   </div>;
 }
 
-function ScaledCanvas({ width, height, format, profile, children, maxHeight = 680 }: { width: number; height: number; format: PostFormat; profile: TweetProfile; children: React.ReactNode; maxHeight?: number }) {
+function ScaledCanvas({ width, height, format, profile, children, maxHeight = 680, contentOnly = false }: { width: number; height: number; format: PostFormat; profile: TweetProfile; children: React.ReactNode; maxHeight?: number; contentOnly?: boolean }) {
   const host = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(.42);
   useEffect(() => {
     const node = host.current;
     if (!node) return;
-    const chromeHeight = format === "portrait" ? 154 : 0;
+    const chromeHeight = !contentOnly && format === "portrait" ? 154 : 0;
     const update = () => setScale(Math.min(node.clientWidth / width, (maxHeight - chromeHeight) / height));
     update();
     const observer = new ResizeObserver(update); observer.observe(node);
     return () => observer.disconnect();
-  }, [format, height, maxHeight, width]);
+  }, [contentOnly, format, height, maxHeight, width]);
   const canvasWidth = width * scale;
   const canvasHeight = height * scale;
   return <div ref={host} className="mx-auto w-full max-w-3xl">
     <div className="mx-auto overflow-hidden border border-black/10 bg-white text-[#0f1419] shadow-2xl dark:border-white/15 dark:bg-[#090909] dark:text-white" style={{ width: canvasWidth, borderRadius: format === "story" ? 28 : 16 }}>
-      {format === "portrait" && <div className="flex h-[58px] items-center gap-2.5 px-3"><Avatar src={profile.avatar} crop={profile.avatarCrop} size={32} /><div className="min-w-0 flex-1"><p className="truncate text-[11px] font-semibold">{profile.handle.replace(/^@/, "") || "seu_perfil"}</p><p className="text-[9px] opacity-55">Publicação</p></div><MoreHorizontal size={17} /></div>}
+      {!contentOnly && format === "portrait" && <div className="flex h-[58px] items-center gap-2.5 px-3"><Avatar src={profile.avatar} crop={profile.avatarCrop} size={32} /><div className="min-w-0 flex-1"><p className="truncate text-[11px] font-semibold">{profile.handle.replace(/^@/, "") || "seu_perfil"}</p><p className="text-[9px] opacity-55">Publicação</p></div><MoreHorizontal size={17} /></div>}
       <div className="relative overflow-hidden" style={{ width: canvasWidth, height: canvasHeight }}>
         <div style={{ width, height, transform: `scale(${scale})`, transformOrigin: "top left" }}>{children}</div>
-        {format === "story" && <div className="pointer-events-none absolute inset-0 flex flex-col justify-between p-3 text-white [text-shadow:0_1px_4px_rgba(0,0,0,.65)]"><div><div className="mb-2 flex gap-1">{[0, 1, 2, 3].map((item) => <span key={item} className="h-[2px] flex-1 rounded-full bg-white/75" />)}</div><div className="flex items-center gap-2"><Avatar src={profile.avatar} crop={profile.avatarCrop} size={28} /><span className="text-[10px] font-semibold">Seu story</span><span className="text-[9px] opacity-70">agora</span><MoreHorizontal className="ml-auto" size={16} /></div></div><div className="mx-auto mb-1 flex h-9 w-[82%] items-center rounded-full border border-white/65 px-3 text-[10px]">Enviar mensagem…<Heart className="ml-auto" size={16} /><Send className="ml-2" size={15} /></div></div>}
+        {!contentOnly && format === "story" && <div className="pointer-events-none absolute inset-0 flex flex-col justify-between p-3 text-white [text-shadow:0_1px_4px_rgba(0,0,0,.65)]"><div><div className="mb-2 flex gap-1">{[0, 1, 2, 3].map((item) => <span key={item} className="h-[2px] flex-1 rounded-full bg-white/75" />)}</div><div className="flex items-center gap-2"><Avatar src={profile.avatar} crop={profile.avatarCrop} size={28} /><span className="text-[10px] font-semibold">Seu story</span><span className="text-[9px] opacity-70">agora</span><MoreHorizontal className="ml-auto" size={16} /></div></div><div className="mx-auto mb-1 flex h-9 w-[82%] items-center rounded-full border border-white/65 px-3 text-[10px]">Enviar mensagem…<Heart className="ml-auto" size={16} /><Send className="ml-2" size={15} /></div></div>}
       </div>
-      {format === "portrait" && <div className="px-3 py-2.5"><div className="flex items-center gap-3"><Heart size={20} /><MessageCircle size={19} /><Send size={19} /><Bookmark className="ml-auto" size={19} /></div><p className="mt-2 text-[9px] font-semibold">Prévia do post no feed</p><p className="mt-1 text-[9px] opacity-55">Veja como o enquadramento será percebido no Instagram.</p></div>}
+      {!contentOnly && format === "portrait" && <div className="px-3 py-2.5"><div className="flex items-center gap-3"><Heart size={20} /><MessageCircle size={19} /><Send size={19} /><Bookmark className="ml-auto" size={19} /></div><p className="mt-2 text-[9px] font-semibold">Prévia do post no feed</p><p className="mt-1 text-[9px] opacity-55">Veja como o enquadramento será percebido no Instagram.</p></div>}
     </div>
   </div>;
 }
 
-function PostCanvas({ slide, profile, template, width, height, editable = false, editor, refCallback, activeTextBlockId, editingTextBlockId, onSelectTextBlock, onEditTextBlock, onReorderText, onPositionChange, onResizeMedia, onRemoveMedia }: { slide: Slide; profile: TweetProfile; template: PostTemplate; width: number; height: number; editable?: boolean; editor?: Editor | null; refCallback?: (node: HTMLDivElement | null) => void; activeTextBlockId?: string; editingTextBlockId?: string | null; onSelectTextBlock?: (id: string) => void; onEditTextBlock?: (id: string) => void; onReorderText?: (sourceId: string, targetId: string, after: boolean) => void; onPositionChange?: (key: string, position: CanvasPoint) => void; onResizeMedia?: (key: string, position: CanvasPoint, width: number) => void; onRemoveMedia?: (index: number) => void }) {
+function PostCanvas({ slide, profile, template, width, height, editable = false, editor, refCallback, activeTextBlockId, editingTextBlockId, onDeselectTextBlock, onSelectTextBlock, onEditTextBlock, onReorderText, onMoveTextBlock, onDuplicateTextBlock, onRemoveTextBlock, onPositionChange, onResizeMedia, onRemoveMedia }: { slide: Slide; profile: TweetProfile; template: PostTemplate; width: number; height: number; editable?: boolean; editor?: Editor | null; refCallback?: (node: HTMLDivElement | null) => void; activeTextBlockId?: string; editingTextBlockId?: string | null; onDeselectTextBlock?: () => void; onSelectTextBlock?: (id: string) => void; onEditTextBlock?: (id: string) => void; onReorderText?: (sourceId: string, targetId: string, after: boolean) => void; onMoveTextBlock?: (id: string, direction: -1 | 1) => void; onDuplicateTextBlock?: (id: string) => void; onRemoveTextBlock?: (id: string) => void; onPositionChange?: (key: string, position: CanvasPoint) => void; onResizeMedia?: (key: string, position: CanvasPoint, width: number) => void; onRemoveMedia?: (index: number) => void }) {
   const safeLeft = template === "tweet" ? 12 : 8;
   const safeWidth = 100 - safeLeft * 2;
   const canvasRef = useRef<HTMLDivElement | null>(null);
@@ -1298,6 +1434,7 @@ function PostCanvas({ slide, profile, template, width, height, editable = false,
   const [isFreeDragging, setIsFreeDragging] = useState(false);
   const [draggedTextId, setDraggedTextId] = useState<string | null>(null);
   const [dropTargetId, setDropTargetId] = useState<string | null>(null);
+  const textReorderRef = useRef<{ sourceId: string; targetId: string | null; after: boolean }>({ sourceId: "", targetId: null, after: false });
   const [selectedMediaKey, setSelectedMediaKey] = useState<string | null>(null);
   useEffect(() => setSelectedMediaKey(null), [slide.id, slide.layoutMode]);
   const removeMedia = (index: number) => {
@@ -1308,11 +1445,46 @@ function PostCanvas({ slide, profile, template, width, height, editable = false,
   const profileBlock = template === "tweet" ? <TweetProfileBlock profile={profile} foreground={slide.foreground} /> : null;
   const textMap = new Map(slide.textBlocks.map((block) => [block.id, block]));
   const layout = [...slide.layout, ...slide.textBlocks.map((block) => block.id).filter((id) => !slide.layout.includes(id)), ...(slide.layout.includes("media") ? [] : ["media"] )];
+  const visibleLayout = layout.filter((key) => key !== "media" || slide.media.length > 0);
+  const startTextReorder = (sourceId: string, event: React.PointerEvent<HTMLButtonElement>) => {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    event.stopPropagation();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    textReorderRef.current = { sourceId, targetId: null, after: false };
+    setDraggedTextId(sourceId);
+  };
+  const moveTextReorder = (event: React.PointerEvent<HTMLButtonElement>) => {
+    const drag = textReorderRef.current;
+    if (!drag.sourceId) return;
+    event.preventDefault();
+    const target = document.elementsFromPoint(event.clientX, event.clientY)
+      .map((element) => element.closest<HTMLElement>("[data-layout-key]"))
+      .find((element) => element?.dataset.layoutKey && element.dataset.layoutKey !== drag.sourceId);
+    if (!target?.dataset.layoutKey) {
+      drag.targetId = null;
+      setDropTargetId(null);
+      return;
+    }
+    const rect = target.getBoundingClientRect();
+    drag.targetId = target.dataset.layoutKey;
+    drag.after = event.clientY >= rect.top + rect.height / 2;
+    setDropTargetId(target.dataset.layoutKey);
+  };
+  const endTextReorder = (event: React.PointerEvent<HTMLButtonElement>) => {
+    const drag = textReorderRef.current;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+    if (drag.sourceId && drag.targetId) onReorderText?.(drag.sourceId, drag.targetId, drag.after);
+    textReorderRef.current = { sourceId: "", targetId: null, after: false };
+    setDraggedTextId(null);
+    setDropTargetId(null);
+  };
   const layoutItems = layout.map((key) => {
     const block = textMap.get(key);
-    const child = key === "media" ? media : block ? <TextBlockItem block={block} editor={editor} editable={editable} active={activeTextBlockId === block.id} editing={editingTextBlockId === block.id} foreground={slide.foreground} story={template === "stories"} safeWidth={safeWidth} onSelect={() => onSelectTextBlock?.(block.id)} onEdit={() => onEditTextBlock?.(block.id)} onDragStart={(event) => { event.dataTransfer.effectAllowed = "move"; event.dataTransfer.setData("text/plain", block.id); setDraggedTextId(block.id); }} onDragEnd={() => { setDraggedTextId(null); setDropTargetId(null); }} /> : null;
+    const visibleIndex = visibleLayout.indexOf(key);
+    const child = key === "media" ? media : block ? <TextBlockItem block={block} editor={editor} editable={editable} active={activeTextBlockId === block.id} editing={editingTextBlockId === block.id} foreground={slide.foreground} story={template === "stories"} safeWidth={safeWidth} onSelect={() => onSelectTextBlock?.(block.id)} onEdit={() => onEditTextBlock?.(block.id)} onMoveUp={() => onMoveTextBlock?.(block.id, -1)} onMoveDown={() => onMoveTextBlock?.(block.id, 1)} canMoveUp={visibleIndex > 0} canMoveDown={visibleIndex >= 0 && visibleIndex < visibleLayout.length - 1} onDuplicate={() => onDuplicateTextBlock?.(block.id)} onRemove={() => onRemoveTextBlock?.(block.id)} canRemove={slide.textBlocks.length > 1} onReorderStart={(event) => startTextReorder(block.id, event)} onReorderMove={moveTextReorder} onReorderEnd={endTextReorder} /> : null;
     if (!child) return null;
-    return <div key={key} className={cn("relative w-full min-w-0 max-w-full transition", dropTargetId === key && draggedTextId !== key && "rounded-[28px] ring-[8px] ring-[#27a3ff]/35")} onDragOver={editable ? (event) => { event.preventDefault(); event.dataTransfer.dropEffect = "move"; setDropTargetId(key); } : undefined} onDragLeave={editable ? () => setDropTargetId((current) => current === key ? null : current) : undefined} onDrop={editable ? (event) => { event.preventDefault(); const sourceId = draggedTextId || event.dataTransfer.getData("text/plain"); if (sourceId && sourceId !== key) { const rect = event.currentTarget.getBoundingClientRect(); onReorderText?.(sourceId, key, event.clientY >= rect.top + rect.height / 2); } setDraggedTextId(null); setDropTargetId(null); } : undefined}>{child}</div>;
+    return <div key={key} data-layout-key={key} className={cn("relative w-full min-w-0 max-w-full overflow-visible transition", activeTextBlockId === key && "z-[70]", dropTargetId === key && draggedTextId !== key && "rounded-[28px] ring-[8px] ring-[#27a3ff]/35")}>{child}</div>;
   });
 
   const defaultPosition = (key: string, index = 0): CanvasPoint => {
@@ -1323,7 +1495,7 @@ function PostCanvas({ slide, profile, template, width, height, editable = false,
   const setRefs = (node: HTMLDivElement | null) => { canvasRef.current = node; refCallback?.(node); };
   const freeContent = slide.layoutMode === "free" ? <>
     {profileBlock && <FreeCanvasElement elementKey="profile" position={slide.freePositions.profile || defaultPosition("profile")} canvasRef={canvasRef} canvas={{ width, height }} editable={editable} onPositionChange={onPositionChange} onGuidesChange={setGuides} onInteractionChange={setIsFreeDragging}>{profileBlock}</FreeCanvasElement>}
-    {slide.textBlocks.map((block, index) => <FreeCanvasElement key={block.id} elementKey={block.id} position={slide.freePositions[block.id] || defaultPosition(block.id, index)} canvasRef={canvasRef} canvas={{ width, height }} editable={editable} onPositionChange={onPositionChange} onGuidesChange={setGuides} onInteractionChange={setIsFreeDragging} onDoubleTap={() => onEditTextBlock?.(block.id)} className="max-w-full" style={{ width: `${block.textWidth}%` }}><TextBlockItem block={block} editor={editor} editable={editable} active={activeTextBlockId === block.id} editing={editingTextBlockId === block.id} foreground={slide.foreground} story={template === "stories"} safeWidth={100} onSelect={() => onSelectTextBlock?.(block.id)} onEdit={() => onEditTextBlock?.(block.id)} onDragStart={() => undefined} onDragEnd={() => undefined} free /></FreeCanvasElement>)}
+    {slide.textBlocks.map((block, index) => <FreeCanvasElement key={block.id} elementKey={block.id} position={slide.freePositions[block.id] || defaultPosition(block.id, index)} canvasRef={canvasRef} canvas={{ width, height }} editable={editable} onPositionChange={onPositionChange} onGuidesChange={setGuides} onInteractionChange={setIsFreeDragging} onDoubleTap={editingTextBlockId === block.id ? undefined : () => onEditTextBlock?.(block.id)} onSelect={editingTextBlockId === block.id ? undefined : () => onSelectTextBlock?.(block.id)} selected={activeTextBlockId === block.id} className="max-w-full" style={{ width: `${block.textWidth}%` }}><TextBlockItem block={block} editor={editor} editable={editable} active={activeTextBlockId === block.id} editing={editingTextBlockId === block.id} foreground={slide.foreground} story={template === "stories"} safeWidth={100} onSelect={() => onSelectTextBlock?.(block.id)} onEdit={() => onEditTextBlock?.(block.id)} onDuplicate={() => onDuplicateTextBlock?.(block.id)} onRemove={() => onRemoveTextBlock?.(block.id)} canRemove={slide.textBlocks.length > 1} free /></FreeCanvasElement>)}
     {slide.media.map((image, index) => {
       const key = `media:${index}`;
       const aspect = mediaAspectValue(slide.mediaAspects[index] || "16:9", slide.mediaNaturalAspects[index]);
@@ -1334,7 +1506,12 @@ function PostCanvas({ slide, profile, template, width, height, editable = false,
     })}
   </> : <BalancedContent safeLeft={safeLeft} safeWidth={safeWidth} gap={template === "tweet" ? 44 : 52}>{profileBlock}{layoutItems}</BalancedContent>;
 
-  return <div ref={setRefs} data-post-canvas={template} className="relative overflow-hidden" style={{ width, height, background: slide.background, color: slide.foreground, fontFamily: template === "tweet" ? "Arial, Helvetica, sans-serif" : "Advercase, Georgia, serif", fontWeight: 400 }} onPointerDown={(event) => { if (!(event.target as HTMLElement).closest("[data-canvas-media]")) setSelectedMediaKey(null); }}>
+  return <div ref={setRefs} data-post-canvas={template} className="relative overflow-hidden" style={{ width, height, background: slide.background, color: slide.foreground, fontFamily: template === "tweet" ? "Arial, Helvetica, sans-serif" : "Advercase, Georgia, serif", fontWeight: 400 }} onPointerDown={(event) => {
+    if (!editable || event.button !== 0) return;
+    const target = event.target as Element;
+    if (!target.closest("[data-canvas-media]")) setSelectedMediaKey(null);
+    if (!target.closest("[data-text-block-id], [data-free-key], [data-canvas-media], [data-post-profile]")) onDeselectTextBlock?.();
+  }}>
     {template === "stories" && slide.backgroundImage && <><img src={slide.backgroundImage} alt="Fundo do slide" className="absolute inset-0 h-full w-full object-cover" /><span className="absolute inset-0 bg-black" style={{ opacity: slide.imageDarkness / 100 }} /></>}
     {freeContent}
     {editable && isFreeDragging && <><span aria-hidden className="pointer-events-none absolute inset-y-0 z-40 w-px bg-[#27a3ff]/55" style={{ left: width / 2 }} /><span aria-hidden className="pointer-events-none absolute inset-x-0 z-40 h-px bg-[#27a3ff]/55" style={{ top: height / 2 }} /></>}
@@ -1346,7 +1523,7 @@ function FreeCanvasElement({ elementKey, position, canvasRef, canvas, editable, 
   const elementRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{ pointerId: number; clientX: number; clientY: number; start: CanvasPoint; size: { width: number; height: number }; siblings: Array<CanvasPoint & { width: number; height: number }>; scale: number; latestPosition: CanvasPoint | null } | null>(null);
   const resizeRef = useRef<{ pointerId: number; clientX: number; clientY: number; position: CanvasPoint; size: { width: number; height: number }; scale: number; corner: ResizeCorner } | null>(null);
-  const lastTouchTapRef = useRef<{ at: number; clientX: number; clientY: number } | null>(null);
+  const textGesture = usePostTextGesture(editable && Boolean(onDoubleTap), onSelect, onDoubleTap, selected);
   const startDrag = (event: React.PointerEvent<HTMLDivElement>) => {
     if (!editable || !onPositionChange || event.button !== 0) return;
     if (event.detail > 1) return;
@@ -1356,7 +1533,7 @@ function FreeCanvasElement({ elementKey, position, canvasRef, canvas, editable, 
     const canvasNode = canvasRef.current;
     const elementNode = elementRef.current;
     if (!canvasNode || !elementNode) return;
-    onSelect?.();
+    if (!onDoubleTap) onSelect?.();
     event.preventDefault();
     event.currentTarget.setPointerCapture(event.pointerId);
     const canvasRect = canvasNode.getBoundingClientRect();
@@ -1388,17 +1565,6 @@ function FreeCanvasElement({ elementKey, position, canvasRef, canvas, editable, 
   const endDrag = (event: React.PointerEvent<HTMLDivElement>) => {
     const drag = dragRef.current;
     if (drag?.pointerId !== event.pointerId) return;
-    const distance = Math.hypot(event.clientX - drag.clientX, event.clientY - drag.clientY);
-    if (event.pointerType !== "mouse" && distance <= 8 && onDoubleTap) {
-      const previous = lastTouchTapRef.current;
-      const now = Date.now();
-      if (previous && now - previous.at <= 350 && Math.hypot(event.clientX - previous.clientX, event.clientY - previous.clientY) <= 24) {
-        lastTouchTapRef.current = null;
-        onDoubleTap();
-      } else {
-        lastTouchTapRef.current = { at: now, clientX: event.clientX, clientY: event.clientY };
-      }
-    }
     if (drag.latestPosition) onPositionChange?.(elementKey, drag.latestPosition);
     dragRef.current = null;
     onGuidesChange([]);
@@ -1456,7 +1622,7 @@ function FreeCanvasElement({ elementKey, position, canvasRef, canvas, editable, 
     sw: "-bottom-9 -left-9 cursor-nesw-resize",
     se: "-bottom-9 -right-9 cursor-nwse-resize",
   };
-  return <div ref={elementRef} data-free-key={elementKey} data-canvas-media={media ? "true" : undefined} className={cn("absolute z-10 touch-none", editable && "cursor-move select-none", selected && "z-20", className)} style={{ ...style, left: `${position.x}%`, top: `${position.y}%` }} onPointerDown={startDrag} onPointerMove={moveDrag} onPointerUp={endDrag} onPointerCancel={endDrag}>
+  return <div ref={elementRef} {...textGesture} data-free-key={elementKey} data-canvas-media={media ? "true" : undefined} className={cn("absolute z-10 touch-none", editable && "cursor-move select-none", selected && "z-20", className)} style={{ ...style, left: `${position.x}%`, top: `${position.y}%` }} onPointerDown={startDrag} onPointerMove={moveDrag} onPointerUp={endDrag} onPointerCancel={endDrag}>
     {children}
     {editable && selected && resizeAspect && onResize && <>
       <span aria-hidden className="pointer-events-none absolute inset-0 rounded-[36px] border-[5px] border-[#27a3ff] shadow-[0_0_0_3px_rgba(255,255,255,.9)]" />
@@ -1485,11 +1651,13 @@ function BalancedContent({ safeLeft, safeWidth, gap, children }: { safeLeft: num
     observer.observe(contentNode);
     return () => observer.disconnect();
   }, []);
-  return <div ref={host} className="absolute grid min-w-0 max-w-full place-items-center overflow-x-clip" style={{ left: `${safeLeft}%`, top: "7%", width: `${safeWidth}%`, height: "86%" }}><div ref={content} className="flex w-full min-w-0 max-w-full flex-col" style={{ gap, transform: `scale(${fitScale})`, transformOrigin: "center center" }}>{children}</div></div>;
+  // Keep the group's center fixed even when its intrinsic height exceeds the
+  // safe area. Grid's implicit track can grow before scaling and shift the group.
+  return <div ref={host} data-auto-layout className="absolute min-w-0 max-w-full" style={{ left: `${safeLeft}%`, top: "7%", width: `${safeWidth}%`, height: "86%" }}><div ref={content} data-auto-layout-content className="absolute flex w-full min-w-0 max-w-full flex-col" style={{ top: "50%", gap, transform: `translateY(-50%) scale(${fitScale})`, transformOrigin: "center center" }}>{children}</div></div>;
 }
 
 function TweetProfileBlock({ profile, foreground }: { profile: TweetProfile; foreground: string }) {
-  return <div className="flex items-center gap-[24px]"><Avatar src={profile.avatar} crop={profile.avatarCrop} size={122} /><div><p className="flex items-center gap-[12px] text-[45px] font-bold leading-none">{profile.name}{profile.verified && <VerifiedBadge />}</p><p className="mt-[14px] text-[34px]" style={{ color: foreground, opacity: .62 }}>{profile.handle}</p></div></div>;
+  return <div data-post-profile className="flex items-center gap-[24px]"><Avatar src={profile.avatar} crop={profile.avatarCrop} size={122} /><div><p className="flex items-center gap-[12px] text-[45px] font-bold leading-none">{profile.name}{profile.verified && <VerifiedBadge />}</p><p className="mt-[14px] text-[34px]" style={{ color: foreground, opacity: .62 }}>{profile.handle}</p></div></div>;
 }
 
 function VerifiedBadge() {
@@ -1499,9 +1667,10 @@ function VerifiedBadge() {
   </svg>;
 }
 
-function TextBlockItem({ block, editor, editable, active, editing, foreground, story, safeWidth, onSelect, onEdit, onDragStart, onDragEnd, free = false }: { block: TextBlock; editor?: Editor | null; editable: boolean; active: boolean; editing: boolean; foreground: string; story: boolean; safeWidth: number; onSelect: () => void; onEdit: () => void; onDragStart: (event: React.DragEvent<HTMLButtonElement>) => void; onDragEnd: () => void; free?: boolean }) {
+function TextBlockItem({ block, editor, editable, active, editing, foreground, story, safeWidth, onSelect, onEdit, onMoveUp, onMoveDown, canMoveUp = false, canMoveDown = false, onDuplicate, onRemove, canRemove = false, onReorderStart, onReorderMove, onReorderEnd, free = false }: { block: TextBlock; editor?: Editor | null; editable: boolean; active: boolean; editing: boolean; foreground: string; story: boolean; safeWidth: number; onSelect: () => void; onEdit: () => void; onMoveUp?: () => void; onMoveDown?: () => void; canMoveUp?: boolean; canMoveDown?: boolean; onDuplicate?: () => void; onRemove?: () => void; canRemove?: boolean; onReorderStart?: (event: React.PointerEvent<HTMLButtonElement>) => void; onReorderMove?: (event: React.PointerEvent<HTMLButtonElement>) => void; onReorderEnd?: (event: React.PointerEvent<HTMLButtonElement>) => void; free?: boolean }) {
   const exportRef = useRef<HTMLDivElement>(null);
   const [copying, setCopying] = useState(false);
+  const [downloading, setDownloading] = useState(false);
   const width = free ? 100 : Math.min(block.textWidth, safeWidth) / safeWidth * 100;
   const copyAsTransparentPng = async (event: React.MouseEvent<HTMLButtonElement>) => {
     event.preventDefault();
@@ -1533,10 +1702,39 @@ function TextBlockItem({ block, editor, editable, active, editing, foreground, s
       setCopying(false);
     }
   };
-  return <div onPointerDown={editable && !editing ? onSelect : undefined} onDoubleClick={editable ? (event) => { event.stopPropagation(); onEdit(); } : undefined} className={cn("relative mx-auto min-w-0 max-w-full", editable && (editing ? "cursor-text select-text" : free ? "cursor-move select-none" : "cursor-text"), active && "z-10")} style={{ width: `${width}%`, color: foreground, fontSize: block.fontSize, fontWeight: 400, lineHeight: block.lineHeight, letterSpacing: `${Number.isFinite(block.letterSpacing) ? block.letterSpacing : story ? -0.03 : 0}em`, overflowWrap: "anywhere", wordBreak: "break-word" }}>
-    {editable && active && <button type="button" draggable={!free} data-free-drag-handle={free ? "true" : undefined} aria-label="Mover caixa de texto" title={free ? "Arraste para posicionar livremente" : "Arraste para reorganizar esta caixa"} className="absolute -bottom-14 left-1/2 hidden h-12 w-12 -translate-x-1/2 cursor-grab place-items-center rounded-full bg-[#27a3ff] text-white shadow-xl active:cursor-grabbing lg:grid" onDragStart={free ? undefined : onDragStart} onDragEnd={free ? undefined : onDragEnd}><Move size={24} /></button>}
-    {editable && active && <button type="button" data-text-copy-action aria-label="Copiar texto como PNG transparente" title="Copiar como PNG transparente" disabled={copying} className="absolute right-3 top-3 z-30 grid h-16 w-16 touch-manipulation place-items-center rounded-2xl bg-[#27a3ff] text-white shadow-[0_10px_24px_rgba(0,0,0,.35)] transition hover:bg-[#168fe4] disabled:opacity-60" onPointerDown={(event) => { event.preventDefault(); event.stopPropagation(); }} onClick={(event) => void copyAsTransparentPng(event)}>{copying ? <span className="h-7 w-7 animate-spin rounded-full border-[3px] border-white/35 border-t-white" /> : <Copy size={30} strokeWidth={2.2} />}</button>}
-    <div ref={exportRef}><PostText block={block} editor={editing ? editor : undefined} editable={editable && editing} className={cn("w-full", editable && !active && "rounded-lg ring-[5px] ring-transparent hover:ring-[#27a3ff]/20", active && "rounded-lg ring-[5px] ring-[#27a3ff]/25", editing && "ring-[#27a3ff]/45")} /></div>
+  const downloadAsTransparentPng = async (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const element = exportRef.current;
+    if (!element || downloading) return;
+    setDownloading(true);
+    element.classList.add("post-text-exporting");
+    try {
+      await saveBlob(await postTextElementToPng(element), "texto-transparente.png");
+      toast.success("Texto baixado como PNG transparente.");
+    } catch {
+      toast.error("Não foi possível baixar o texto como imagem.");
+    } finally {
+      element.classList.remove("post-text-exporting");
+      setDownloading(false);
+    }
+  };
+  const stopToolbarPointer = (event: React.PointerEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+  };
+  const textGesture = usePostTextGesture(editable && !editing && !free, onSelect, onEdit, active);
+  const toolbarButtonClass = "grid h-14 w-14 shrink-0 place-items-center rounded-xl text-white/90 transition hover:bg-white/15 hover:text-white disabled:cursor-not-allowed disabled:opacity-30";
+  return <div {...(free ? {} : textGesture)} data-text-block-id={block.id} className={cn("relative mx-auto min-w-0 max-w-full", editable && (editing ? "cursor-text select-text" : free ? "cursor-move select-none" : "cursor-text"), active && "z-[80]")} style={{ width: `${width}%`, color: foreground, fontFamily: story ? "Advercase, Georgia, serif" : "Arial, Helvetica, sans-serif", fontSize: block.fontSize, fontWeight: 400, lineHeight: block.lineHeight, letterSpacing: `${Number.isFinite(block.letterSpacing) ? block.letterSpacing : defaultPostLetterSpacing(story ? "stories" : "tweet")}em`, overflowWrap: "anywhere", wordBreak: "break-word" }}>
+    {editable && active && !editing && <div data-text-action className="absolute bottom-[calc(100%+18px)] right-0 z-[100] hidden items-center gap-1 rounded-[18px] border border-white/20 bg-[#168fe0] p-1.5 shadow-[0_14px_32px_rgba(0,0,0,.42)] lg:flex">
+      <button type="button" data-text-action data-text-drag-handle data-free-drag-handle={free ? "true" : undefined} aria-label="Mover caixa de texto" title={free ? "Arraste para posicionar livremente" : "Arraste para reorganizar"} className={cn(toolbarButtonClass, "touch-none cursor-grab active:cursor-grabbing")} onPointerDown={free ? undefined : onReorderStart} onPointerMove={free ? undefined : onReorderMove} onPointerUp={free ? undefined : onReorderEnd} onPointerCancel={free ? undefined : onReorderEnd}><Move size={25} /></button>
+      {!free && <><button type="button" data-text-action aria-label="Mover caixa de texto para cima" title="Mover para cima" disabled={!canMoveUp} className={toolbarButtonClass} onPointerDown={stopToolbarPointer} onClick={(event) => { event.stopPropagation(); onMoveUp?.(); }}><ArrowUp size={25} /></button><button type="button" data-text-action aria-label="Mover caixa de texto para baixo" title="Mover para baixo" disabled={!canMoveDown} className={toolbarButtonClass} onPointerDown={stopToolbarPointer} onClick={(event) => { event.stopPropagation(); onMoveDown?.(); }}><ArrowDown size={25} /></button></>}
+      <button type="button" data-text-action aria-label="Copiar texto como imagem" title="Copiar como imagem PNG" disabled={copying} className={toolbarButtonClass} onPointerDown={stopToolbarPointer} onClick={(event) => void copyAsTransparentPng(event)}>{copying ? <span className="h-6 w-6 animate-spin rounded-full border-[3px] border-white/35 border-t-white" /> : <ImageIcon size={25} />}</button>
+      <button type="button" data-text-action aria-label="Baixar texto como imagem" title="Baixar PNG transparente" disabled={downloading} className={toolbarButtonClass} onPointerDown={stopToolbarPointer} onClick={(event) => void downloadAsTransparentPng(event)}>{downloading ? <span className="h-6 w-6 animate-spin rounded-full border-[3px] border-white/35 border-t-white" /> : <Download size={25} />}</button>
+      <button type="button" data-text-action aria-label="Duplicar caixa de texto" title="Duplicar caixa abaixo" className={toolbarButtonClass} onPointerDown={stopToolbarPointer} onClick={(event) => { event.stopPropagation(); onDuplicate?.(); }}><Copy size={25} /></button>
+      <button type="button" data-text-action aria-label="Excluir caixa de texto" title={canRemove ? "Excluir caixa de texto" : "O slide precisa ter pelo menos uma caixa de texto"} disabled={!canRemove} className={cn(toolbarButtonClass, "text-[#ff5c68] hover:bg-red-500/20 hover:text-[#ff7b84]")} onPointerDown={stopToolbarPointer} onClick={(event) => { event.stopPropagation(); onRemove?.(); }}><Trash2 size={25} /></button>
+    </div>}
+    <div ref={exportRef} data-text-export-id={block.id}><PostText block={block} editor={editing ? editor : undefined} editable={editable && editing} className={cn("w-full", editable && !active && "rounded-lg ring-[5px] ring-transparent hover:ring-[#27a3ff]/20", active && "rounded-lg ring-[5px] ring-[#27a3ff]/25", editing && "ring-[#27a3ff]/45")} /></div>
   </div>;
 }
 
@@ -1649,13 +1847,12 @@ function PropertiesPanel({ section, template, format, setFormat, slide, update, 
   return <aside className="p-4 lg:p-5"><div className="space-y-6">{(!section || section === "slide") && <><PanelSection title="Documento"><div className="grid grid-cols-2 gap-2">{(Object.entries(POST_FORMATS) as Array<[PostFormat, { label: string; width: number; height: number }]>).map(([value, item]) => <button key={value} onClick={() => setFormat(value)} className={cn("min-h-14 rounded-xl border p-3 text-left transition", format === value ? "border-[var(--accent-blue)] bg-[var(--hover)]" : "border-[var(--glass-border)]")}><span className="block text-xs font-semibold text-[var(--text-title)]">{item.label}</span><span className="text-[9px] text-[var(--muted-foreground)]">{value === "story" ? "Story" : "Feed 4:5"}</span>{format === value && <Check size={13} className="float-right -mt-5 text-[var(--accent-blue)]" />}</button>)}</div></PanelSection><PanelSection title="Composição"><div className="grid grid-cols-2 gap-2"><button type="button" onClick={() => update({ layoutMode: "auto" })} className={cn("rounded-xl border px-3 py-2.5 text-xs", slide.layoutMode === "auto" ? "border-[var(--accent-blue)] bg-[var(--hover)] text-[var(--text-title)]" : "border-[var(--glass-border)] text-[var(--muted-foreground)]")}>Automático</button><button type="button" onClick={() => update({ layoutMode: "free" })} className={cn("rounded-xl border px-3 py-2.5 text-xs", slide.layoutMode === "free" ? "border-[var(--accent-blue)] bg-[var(--hover)] text-[var(--text-title)]" : "border-[var(--glass-border)] text-[var(--muted-foreground)]")}><Move size={13} className="mr-1 inline" />Livre</button></div><p className="text-[10px] leading-relaxed text-[var(--muted-foreground)]">No modo livre, arraste textos e imagens. Guias magnéticas aparecem ao alinhar centros e bordas.</p></PanelSection></>}
 
       {(!section || section === "text") && <PanelSection title="Caixas de texto">
-        <div className="flex flex-wrap gap-1.5">
+        {section && <><div className="flex flex-wrap gap-1.5">
           {slide.textBlocks.map((block, index) => <button key={block.id} type="button" onClick={() => selectTextBlock(block.id)} className={cn("rounded-lg border px-2.5 py-1.5 text-[10px]", activeTextBlock.id === block.id ? "border-[var(--accent-blue)] bg-[var(--hover)] text-[var(--text-title)]" : "border-[var(--glass-border)] text-[var(--muted-foreground)]")}>Texto {index + 1}</button>)}
-        </div>
-        <div className="grid grid-cols-2 gap-2">
+        </div><div className="grid grid-cols-2 gap-2">
           <Button variant="outline" size="sm" className="h-9 rounded-xl" onClick={addTextBlock} icon={<Plus />}>Novo texto</Button>
           <Button variant="danger" size="sm" className="h-9 rounded-xl" onClick={removeTextBlock} disabled={slide.textBlocks.length === 1} icon={<Trash2 />}>Remover</Button>
-        </div>
+        </div></>}
         {section && onFocusTextControl ? (
           <div className="grid gap-2">
             <MobileAdjustmentButton label="Tamanho" value={`${activeTextBlock.fontSize}px`} onClick={() => onFocusTextControl("fontSize")} />
@@ -1671,8 +1868,8 @@ function PropertiesPanel({ section, template, format, setFormat, slide, update, 
             <Field label={`Largura do bloco · ${activeTextBlock.textWidth}%`}><input aria-label="Largura do texto" type="range" min="40" max={template === "tweet" ? 76 : 84} step="2" value={Math.min(activeTextBlock.textWidth, template === "tweet" ? 76 : 84)} onChange={(event) => updateTextBlock({ textWidth: Number(event.target.value) })} className="post-gradient-range w-full" style={postRangeStyle(Math.min(activeTextBlock.textWidth, template === "tweet" ? 76 : 84), 40, template === "tweet" ? 76 : 84)} /></Field>
           </>
         )}
-        {slide.layoutMode === "auto" && <div className="grid grid-cols-2 gap-2"><button onClick={() => { placeText("above"); onFocusVisualControl?.({ kind: "textPlacement" }); }} className={cn("rounded-xl border px-3 py-2 text-xs", textPlacement === "above" && "border-[var(--accent-blue)] bg-[var(--hover)]")}>Acima da imagem</button><button onClick={() => { placeText("below"); onFocusVisualControl?.({ kind: "textPlacement" }); }} className={cn("rounded-xl border px-3 py-2 text-xs", textPlacement === "below" && "border-[var(--accent-blue)] bg-[var(--hover)]")}>Abaixo da imagem</button></div>}
-        <p className="text-[10px] leading-relaxed text-[var(--muted-foreground)]"><Move size={11} className="mr-1 inline" />{slide.layoutMode === "free" ? "Arraste a caixa diretamente no slide. Toque em uma imagem para mover ou redimensionar pelos cantos, sempre na proporção escolhida." : section ? "Use os botões acima para posicionar a caixa em relação à imagem." : "Selecione uma caixa e arraste o controle azul. Ela se encaixa na sequência sem alterar margens ou distâncias."}</p>
+        {section && slide.layoutMode === "auto" && <div className="grid grid-cols-2 gap-2"><button onClick={() => { placeText("above"); onFocusVisualControl?.({ kind: "textPlacement" }); }} className={cn("rounded-xl border px-3 py-2 text-xs", textPlacement === "above" && "border-[var(--accent-blue)] bg-[var(--hover)]")}>Acima da imagem</button><button onClick={() => { placeText("below"); onFocusVisualControl?.({ kind: "textPlacement" }); }} className={cn("rounded-xl border px-3 py-2 text-xs", textPlacement === "below" && "border-[var(--accent-blue)] bg-[var(--hover)]")}>Abaixo da imagem</button></div>}
+        <p className="text-[10px] leading-relaxed text-[var(--muted-foreground)]"><Move size={11} className="mr-1 inline" />{slide.layoutMode === "free" ? "Arraste a caixa diretamente no slide. Toque em uma imagem para mover ou redimensionar pelos cantos, sempre na proporção escolhida." : section ? "Use os botões acima para posicionar a caixa em relação à imagem." : "Selecione o texto e use a barra de ícones acima da caixa para mover, copiar ou duplicar."}</p>
       </PanelSection>}
 
       {template === "tweet" ? <>

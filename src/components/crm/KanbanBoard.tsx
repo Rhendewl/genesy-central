@@ -102,6 +102,17 @@ export function KanbanBoard() {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
+  const openedFromLink = useRef<string | null>(null);
+  useEffect(() => {
+    const leadId = new URLSearchParams(window.location.search).get("lead");
+    if (!leadId || openedFromLink.current === leadId || leadsLoading || pipelinesLoading) return;
+    const lead = leads.find(item => item.id === leadId);
+    if (!lead || !activePipelines.some(p => p.id === lead.pipeline_id)) return;
+    openedFromLink.current = leadId;
+    setSelectedPipelineId(lead.pipeline_id ?? null);
+    setEditingLead(lead); setIsModalOpen(true);
+  }, [leads, leadsLoading, pipelinesLoading, activePipelines]);
+
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   // ── require_note dialog state ──────────────────────────────────────────────

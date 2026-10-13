@@ -20,20 +20,25 @@ export async function GET(request: NextRequest) {
   const requestedCampaignIds = request.nextUrl.searchParams.getAll("campaign_id").filter(Boolean);
   const since = request.nextUrl.searchParams.get("since");
   const until = request.nextUrl.searchParams.get("until");
-  if (!clientId || !validDate(since) || !validDate(until)) return NextResponse.json({ error: "Cliente e período são obrigatórios" }, { status: 400 });
+  if ((!clientId && !accountId) || !validDate(since) || !validDate(until)) return NextResponse.json({ error: "Selecione uma conta ou cliente e o período" }, { status: 400 });
   const start = new Date(`${since}T12:00:00`);
   const end = new Date(`${until}T12:00:00`);
   const days = Math.round((end.getTime() - start.getTime()) / 86_400_000);
   if (days < 0 || days > 366) return NextResponse.json({ error: "Selecione um período de até 12 meses" }, { status: 400 });
 
-  const [{ data: client }, { data: accounts }, { data: commercialSettings }] = await Promise.all([
-    supabase.from("agency_clients").select("id,name").eq("id", clientId).maybeSingle(),
-    supabase.from("ad_platform_accounts").select("id,account_name").eq("client_id", clientId).eq("platform", "meta").eq("status", "connected"),
-    supabase.from("commercial_intelligence_settings").select("parser_pattern,parser_group").eq("client_id", clientId).maybeSingle(),
+  // A selected account defines the data scope. The optional client only names
+  // the report; generating it never changes the account's persistent linkage.
+  let accountsQuery = supabase.from("ad_platform_accounts").select("id,account_name")
+    .eq("user_id", user.id).eq("platform", "meta").eq("status", "connected");
+  accountsQuery = accountId ? accountsQuery.eq("id", accountId) : accountsQuery.eq("client_id", clientId!);
+  const [{ data: client, error: clientError }, { data: accounts, error: accountsError }] = await Promise.all([
+    clientId ? supabase.from("agency_clients").select("id,name").eq("id", clientId).maybeSingle() : Promise.resolve({ data: null, error: null }),
+    accountsQuery,
   ]);
-  if (!client) return NextResponse.json({ error: "Cliente não encontrado" }, { status: 404 });
-  const selectedAccounts = accountId ? (accounts ?? []).filter((account) => account.id === accountId) : (accounts ?? []);
-  if (!selectedAccounts.length) return NextResponse.json({ error: "Nenhuma conta Meta conectada para este cliente" }, { status: 400 });
+  if (clientError || accountsError) return NextResponse.json({ error: "Não foi possível carregar o cliente ou as contas" }, { status: 400 });
+  if (clientId && !client) return NextResponse.json({ error: "Cliente não encontrado" }, { status: 404 });
+  const selectedAccounts = accounts ?? [];
+  if (!selectedAccounts.length) return NextResponse.json({ error: "Nenhuma conta Meta conectada disponível para esta seleção" }, { status: 400 });
 
   const { data: campaigns, error: campaignsError } = await supabase
     .from("campaigns")
@@ -61,15 +66,15 @@ export async function GET(request: NextRequest) {
   const selectedCampaigns = campaignRows.filter((campaign) => selectedCampaignIds.has(campaign.id));
   const selectedMetrics = metricRows.filter((metric) => selectedCampaignIds.has(metric.campaign_id));
   if (!selectedMetrics.length) return NextResponse.json({ error: "As campanhas selecionadas não possuem métricas no período" }, { status: 422 });
-  const parserPattern = commercialSettings?.parser_pattern || DEFAULT_CAMPAIGN_PARSER;
-  const parserGroup = commercialSettings?.parser_group ?? 1;
+  const parserPattern = DEFAULT_CAMPAIGN_PARSER;
+  const parserGroup = 1;
   const campaignDisplayNames = Object.fromEntries(selectedCampaigns.map((campaign) => [
     campaign.id,
     extractDevelopmentName(campaign.name, parserPattern, parserGroup) ?? campaign.name,
   ]));
 
   const report = aggregateTrafficReport({
-    clientName: client.name,
+    clientName: client?.name ?? selectedAccounts[0].account_name,
     accountName: selectedAccounts.length === 1 ? selectedAccounts[0].account_name : null,
     since,
     until,

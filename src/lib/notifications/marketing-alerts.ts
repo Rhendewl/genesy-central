@@ -56,6 +56,7 @@ export async function notifyVgvSale(db: Db, input: {
 export async function notifyCommercialAnalysisResponse(db: Db, input: {
   ownerUserId: string;
   responseId: string;
+  completedAt?: string;
   brokerName: string;
   clientName: string;
   clientId: string;
@@ -65,7 +66,7 @@ export async function notifyCommercialAnalysisResponse(db: Db, input: {
   return persistOperationalAlert(db, {
     ownerUserId: input.ownerUserId,
     roles: MARKETING_NOTIFICATION_ROLES,
-    eventId: `commercial-analysis-response:${input.responseId}`,
+    eventId: `commercial-analysis-response:${input.responseId}${input.completedAt ? `:${input.completedAt}` : ""}`,
     source: "commercial_analysis_response",
     ...content,
     actionUrl: `/clientes?tab=analise_comercial&client_id=${input.clientId}`,

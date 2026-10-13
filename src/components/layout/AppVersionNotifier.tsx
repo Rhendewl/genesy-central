@@ -8,7 +8,7 @@ import { useGlobalStore } from "@/store";
 
 const VERSION_CHECK_INTERVAL_MS = 60_000;
 const DISMISSED_VERSION_KEY = "genesy-dismissed-app-version";
-const loadedVersion = process.env.NEXT_PUBLIC_APP_VERSION ?? DEVELOPMENT_APP_VERSION;
+const loadedVersion = process.env.NEXT_PUBLIC_APP_VERSION?.trim() || DEVELOPMENT_APP_VERSION;
 
 function getDismissedVersion() {
   try {

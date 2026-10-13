@@ -20,6 +20,7 @@ import {
   Sun,
   Moon,
   Megaphone,
+  Calculator,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useGlobalStore } from "@/store";
@@ -37,6 +38,7 @@ const NAV_ITEMS = [
   { href: "/performance",   label: "Performance", icon: BarChart3,     exactMatch: false, permKey: "performance" },
   { href: "/formularios",   label: "Formulários", icon: NotepadText,  exactMatch: false, permKey: "formularios" },
   { href: "/agendamentos",  label: "Agenda",      icon: Calendar,  exactMatch: false, permKey: "agendamentos" },
+  { href: "/calculadora", label: "Calculadora de Fluxo de Pagamento", icon: Calculator, exactMatch: false, permKey: "calculadora" },
   { href: "/configuracoes", label: "Config",      icon: Settings,  exactMatch: false, permKey: "configuracoes" },
 ];
 

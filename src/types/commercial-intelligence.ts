@@ -12,12 +12,30 @@ export interface CommercialIntelligenceSettings {
   public_slug: string | null;
   is_active: boolean;
   automation_enabled: boolean;
+  send_weekdays: number[];
   minimum_leads: number;
   minimum_active_days: number;
   last_automation_check_at: string | null;
   last_automation_status: "waiting" | "deferred" | "sent" | "partial" | "error" | null;
   last_automation_reason: string | null;
   last_automatic_collection_at: string | null;
+  last_manual_send_at: string | null;
+}
+
+export interface CommercialEmailDelivery {
+  id: string;
+  collection_id: string;
+  broker_id: string | null;
+  recipient_email: string;
+  status: "pending" | "sent" | "failed";
+  attempts: number;
+  last_error: string | null;
+  sent_at: string | null;
+  created_at: string;
+  updated_at: string;
+  delivery_type: "automatic" | "manual";
+  broker_name?: string;
+  collection_name?: string;
 }
 
 export interface CommercialBroker {
@@ -26,6 +44,7 @@ export interface CommercialBroker {
   name: string;
   email: string;
   phone: string | null;
+  meta_account_ids: string[];
   is_active: boolean;
   created_at: string;
 }
@@ -48,6 +67,7 @@ export interface CommercialDevelopment {
   leads: number;
   impressions: number;
   clicks: number;
+  platformAccountIds?: string[];
 }
 
 export interface CommercialCollection {

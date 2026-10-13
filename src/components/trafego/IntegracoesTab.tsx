@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { useSearchParams, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -104,8 +105,10 @@ export function AccountPickerModal({
 
   const selectedAcc = accounts.find(a => a.id === selected);
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom, 0px))" }}>
+  if (typeof document === "undefined") return null;
+
+  return createPortal(
+    <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4" style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom, 0px))" }}>
       {/* Backdrop */}
       <div className="lc-modal-backdrop absolute inset-0" onClick={onClose} />
 
@@ -114,6 +117,9 @@ export function AccountPickerModal({
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.97, y: 8 }}
         transition={{ duration: 0.2, ease: [0.25, 0.46, 0.45, 0.94] }}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Selecionar conta de anúncio"
         className="lc-modal-panel relative z-10 flex w-full max-w-lg flex-col overflow-hidden rounded-2xl"
         style={{
           maxHeight: "min(86dvh, 720px)",
@@ -368,7 +374,8 @@ export function AccountPickerModal({
         .picker-scroll::-webkit-scrollbar-thumb:hover { background: var(--glass-border); }
         .picker-scroll { scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
       `}</style>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

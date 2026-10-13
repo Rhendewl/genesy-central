@@ -31,6 +31,14 @@ describe("marketing notification content", () => {
     });
   });
 
+  it("creates a new event when the same saved response is resubmitted", async () => {
+    const input = { ownerUserId: "owner", responseId: "response", brokerName: "Maria", clientName: "Cliente", clientId: "client", developmentName: "Residencial" };
+    await notifyCommercialAnalysisResponse({} as never, { ...input, completedAt: "2026-10-13T12:00:00Z" });
+    await notifyCommercialAnalysisResponse({} as never, { ...input, completedAt: "2026-10-13T13:00:00Z" });
+    const events = vi.mocked(persistOperationalAlert).mock.calls.map((call) => call[1].eventId);
+    expect(events[0]).not.toBe(events[1]);
+  });
+
   it("targets only administrators for VGV and commercial analysis notifications", async () => {
     vi.mocked(persistOperationalAlert).mockResolvedValue({ recipients: 1, created: 1, accepted: 1, failed: 0, noSubscription: 0 });
 

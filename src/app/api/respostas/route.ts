@@ -57,6 +57,7 @@ export async function GET(req: NextRequest) {
 
   if (formId)                dataQuery = dataQuery.eq("form_id", formId);
   if (status)                dataQuery = dataQuery.eq("status", status);
+  else                       dataQuery = dataQuery.neq("status", "spam");
   if (starred !== undefined) dataQuery = dataQuery.eq("starred", starred);
   if (since)                 dataQuery = dataQuery.gte("created_at", since);
   if (until)                 dataQuery = dataQuery.lte("created_at", until);

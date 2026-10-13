@@ -36,17 +36,18 @@ export const ROLE_COLORS: Record<UserRole, string> = {
 };
 
 export const ROLE_DEFAULT_PERMISSIONS: Record<UserRole, string[]> = {
-  admin:            ["dashboard", "workspace", "crm", "clientes", "financeiro", "trafego", "marketing", "performance", "portais", "formularios", "configuracoes"],
-  comercial:        ["dashboard", "crm", "clientes", "formularios"],
+  admin:            ["calculadora", "dashboard", "workspace", "crm", "clientes", "financeiro", "trafego", "marketing", "performance", "portais", "formularios", "configuracoes"],
+  comercial:        ["calculadora", "dashboard", "crm", "clientes", "formularios"],
   trafego:          ["dashboard", "trafego"],
   financeiro:       ["dashboard", "financeiro", "clientes"],
-  operacional:      ["dashboard", "workspace", "crm", "clientes", "financeiro", "trafego", "marketing", "portais", "formularios"],
+  operacional:      ["calculadora", "dashboard", "workspace", "crm", "clientes", "financeiro", "trafego", "marketing", "portais", "formularios"],
   viewer:           ["dashboard", "crm"],
   designer:         ["dashboard", "workspace", "formularios"],
-  gestor_comercial: ["dashboard", "crm", "clientes", "formularios"],
+  gestor_comercial: ["calculadora", "dashboard", "crm", "clientes", "formularios"],
 };
 
 export const ALL_MODULES = [
+  { key: "calculadora", label: "Calculadora de Fluxo de Pagamento" },
   { key: "dashboard",     label: "Dashboard" },
   { key: "workspace",     label: "Workspace" },
   { key: "crm",           label: "CRM" },

@@ -1,0 +1,157 @@
+/* Scoped to this module: platform tokens support both existing themes. */
+.calculator {
+  color: var(--text-title);
+  --lc-flow-track-edge: #202020;
+  --lc-flow-track-hi: #ebebeb;
+  --lc-flow-track-empty: var(--input);
+}
+:global(.light) .calculator {
+  --lc-flow-track-edge: #b3b3b3;
+  --lc-flow-track-hi: #595959;
+}
+.calculator :global(.gradient-silver) {
+  color: var(--text-title);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  text-transform: none;
+}
+.calculator :global(.flow-card) {
+  position: relative;
+  overflow: hidden;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  backdrop-filter: blur(20px) saturate(160%);
+  border-radius: 20px;
+}
+.calculator :global(.flow-card)::before {
+  content: '';
+  position: absolute;
+  top: -60px;
+  right: -60px;
+  width: 140px;
+  height: 140px;
+  background: radial-gradient(circle, rgba(255,255,255,.18), transparent 70%);
+  opacity: 0;
+  transition: opacity .4s ease;
+  pointer-events: none;
+}
+.calculator :global(.flow-card):hover::before { opacity: 1; }
+.calculator :global(.flow-card-hover) { transition: transform .3s ease, box-shadow .3s ease; }
+.calculator :global(.flow-card-hover):hover { transform: translateY(-2px); }
+.calculator :global(.flow-input) {
+  min-width: 0;
+  border: 1px solid var(--glass-border);
+  border-radius: 8px;
+  background: var(--input);
+  padding: 12px 16px;
+  color: var(--text-title);
+  transition: border-color .2s;
+}
+.calculator :global(.flow-input.pl-10) { padding-left: 40px; }
+.calculator :global(.flow-input.pl-12) { padding-left: 48px; }
+.calculator :global(.flow-input)::placeholder { color: var(--text-placeholder); }
+.calculator :global(.flow-input):focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+.calculator :global(.lc-flow-slider) {
+  --lc-flow-fill: 0%;
+  --lc-flow-track-h: 6px;
+  background: transparent;
+}
+.calculator :global(.lc-flow-slider):focus-visible { outline: 2px solid var(--ring); outline-offset: 4px; }
+.calculator :global(.lc-flow-slider)::-webkit-slider-runnable-track {
+  height: var(--lc-flow-track-h);
+  border-radius: 9999px;
+  background-image: linear-gradient(to right, var(--lc-flow-track-edge), var(--lc-flow-track-hi)), linear-gradient(var(--lc-flow-track-empty), var(--lc-flow-track-empty));
+  background-size: var(--lc-flow-fill) 100%, 100% 100%;
+  background-repeat: no-repeat;
+}
+.calculator :global(.lc-flow-slider)::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  margin-top: -6px;
+  border-radius: 50%;
+  border: none;
+  background: var(--foreground);
+  box-shadow: 0 0 0 1px rgba(255,255,255,.2), 0 0 12px rgba(255,255,255,.35);
+  cursor: pointer;
+}
+.calculator :global(.lc-flow-slider):disabled::-webkit-slider-thumb { cursor: not-allowed; opacity: .6; }
+.calculator :global(.lc-flow-slider)::-moz-range-track {
+  height: 6px;
+  border-radius: 9999px;
+  background: var(--lc-flow-track-empty);
+}
+.calculator :global(.lc-flow-slider)::-moz-range-progress {
+  height: 6px;
+  border-radius: 9999px;
+  background: linear-gradient(to right, var(--lc-flow-track-edge), var(--lc-flow-track-hi));
+}
+.calculator :global(.lc-flow-slider)::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border: none;
+  border-radius: 50%;
+  background: var(--foreground);
+  box-shadow: 0 0 12px rgba(255,255,255,.35);
+}
+.calculator :global(.lc-flow-slider):disabled::-moz-range-thumb { cursor: not-allowed; opacity: .6; }
+:global(.light) .calculator :global(.text-yellow-400) { color: #a16207; }
+@media (prefers-reduced-motion: reduce) {
+  .calculator :global(.flow-card-hover) { transition: none; }
+  .calculator :global(.flow-card-hover):hover { transform: none; }
+}
+
+.calculator .defineButton {
+  min-height: 36px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: #101010;
+  color: #facc15;
+  border: 1px solid #eab308;
+  font-weight: 700;
+  animation: definePulse 2.8s ease-in-out infinite;
+}
+.calculator .defineButton:hover { background: #201c0a; color: #fde047; }
+.calculator .defineButton:focus-visible { outline: 2px solid #facc15; outline-offset: 3px; }
+@keyframes definePulse {
+  0%, 100% { box-shadow: 0 0 7px rgba(250, 204, 21, .12); }
+  50% { box-shadow: 0 0 22px rgba(250, 204, 21, .35), 0 0 0 3px rgba(250, 204, 21, .06); }
+}
+@media (prefers-reduced-motion: reduce) { .calculator .defineButton { animation: none; } }
+.result { scroll-margin-top: calc(env(safe-area-inset-top, 0px) + 90px); }
+.whatsappButton {
+  display: flex;
+  min-height: 48px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid #b6c2cc;
+  border-radius: 8px;
+  padding: 12px 16px;
+  background: #d8e2e9;
+  color: #101820;
+  font-size: 14px;
+  font-weight: 700;
+}
+.whatsappButton:hover { background: #eef4f8; }
+.whatsappButton:focus-visible { outline: 2px solid var(--ring); outline-offset: 3px; }
+@media (max-width: 767px) {
+  .calculator { padding-bottom: calc(30px + env(safe-area-inset-bottom, 0px)); }
+  .actions {
+    position: fixed;
+    left: 12px;
+    right: 12px;
+    bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+    z-index: 40;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
+    padding: 10px;
+    border: 1px solid var(--glass-border);
+    border-radius: 18px;
+    background: var(--background);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, .35);
+  }
+}

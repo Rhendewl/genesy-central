@@ -128,8 +128,8 @@ async function persistNotification(
 export async function processPortalBalanceAlerts(
   db: Db,
   input: {
-    portalId: string;
-    portalName: string;
+    portalId?: string;
+    portalName?: string;
     ownerUserId: string;
     balances: PortalAccountBalance[];
     threshold?: number;
@@ -143,9 +143,9 @@ export async function processPortalBalanceAlerts(
 
   const accountIds = eligibleBalances.map(balance => balance.account_id);
   const { data: stateRows, error: stateError } = await db
-    .from("portal_balance_alert_states")
+    .from("account_balance_alert_states")
     .select("ad_account_id, is_below_threshold, alert_sequence, last_alerted_at")
-    .eq("portal_id", input.portalId)
+    .eq("owner_user_id", input.ownerUserId)
     .in("ad_account_id", accountIds);
   if (stateError) throw new Error(`Erro ao consultar estado do saldo: ${stateError.message}`);
 
@@ -195,9 +195,10 @@ export async function processPortalBalanceAlerts(
       : item.previous?.alert_sequence ?? 0;
 
     if (item.shouldAlert && recipients.length > 0) {
-      const eventId = `portal-balance-low:${input.portalId}:${item.balance.account_id}:${nextSequence}`;
+      const eventId = `account-balance-low:${input.ownerUserId}:${item.balance.account_id}:${nextSequence}`;
       const title = `Saldo de mídia abaixo de ${formatBRL(threshold)}`;
-      const body = `${item.balance.account_name}, no portal ${input.portalName}, está com ${formatBRL(item.balance.balance_net)} disponíveis. Faça uma recarga para evitar a interrupção dos anúncios.`;
+      const location = input.portalName ? `, no portal ${input.portalName},` : "";
+      const body = `${item.balance.account_name}${location} está com ${formatBRL(item.balance.balance_net)} disponíveis. Faça uma recarga para evitar a interrupção dos anúncios.`;
 
       await Promise.all(recipients.map(recipient =>
         persistNotification(db, recipient, eventId, title, body),
@@ -206,7 +207,7 @@ export async function processPortalBalanceAlerts(
     }
 
     const stateUpdate = {
-      portal_id: input.portalId,
+      owner_user_id: input.ownerUserId,
       ad_account_id: item.balance.account_id,
       last_balance: item.balance.balance_net,
       is_below_threshold: isBelow,
@@ -214,9 +215,9 @@ export async function processPortalBalanceAlerts(
       ...(item.shouldAlert ? { last_alerted_at: new Date().toISOString() } : {}),
       updated_at: new Date().toISOString(),
     };
-    const { error: upsertError } = await db.from("portal_balance_alert_states").upsert(
+    const { error: upsertError } = await db.from("account_balance_alert_states").upsert(
       stateUpdate,
-      { onConflict: "portal_id,ad_account_id" },
+      { onConflict: "owner_user_id,ad_account_id" },
     );
     if (upsertError) throw new Error(`Erro ao atualizar estado do saldo: ${upsertError.message}`);
   }

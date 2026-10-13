@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computePortalAccountBalance } from "../portal-account-balances";
+import { computePortalAccountBalance, parseFundingDisplayBalance } from "../portal-account-balances";
 import {
   getBalanceAlertTransition,
   isLowBalanceReminderDue,
@@ -83,5 +83,27 @@ describe("computePortalAccountBalance", () => {
   it("mantém uma conta pré-paga identificável mesmo quando chega a zero", () => {
     expect(computePortalAccountBalance("0", "0", "0", "PREPAY", "BRL"))
       .toMatchObject({ balance_net: 0, is_prepay: true });
+  });
+
+  it("lê o saldo disponível das contas de pagamento manual tipo 20", () => {
+    expect(computePortalAccountBalance(
+      "347",
+      "0",
+      "1880697",
+      20,
+      "BRL",
+      "Saldo disponível (R$882,81 BRL)",
+    )).toMatchObject({ balance_net: 882.81, is_prepay: true });
+  });
+
+  it("não classifica saldo de cartão como crédito pré-pago", () => {
+    expect(computePortalAccountBalance("23733", "3040918", "0", 1, "BRL"))
+      .toMatchObject({ balance_net: 0, is_prepay: false });
+  });
+});
+
+describe("parseFundingDisplayBalance", () => {
+  it("converte o formato monetário brasileiro retornado pela Meta", () => {
+    expect(parseFundingDisplayBalance("Saldo disponível (R$1.234,56 BRL)")).toBe(1234.56);
   });
 });

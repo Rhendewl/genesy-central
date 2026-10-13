@@ -5,6 +5,8 @@ import {
   evaluateCommercialSample,
   inferCommercialAutomationSlot,
   nextCommercialAutomationSlot,
+  nextCommercialSendDate,
+  normalizeCommercialSendWeekdays,
 } from "../commercial-automation";
 
 describe("commercial collection automation", () => {
@@ -32,5 +34,15 @@ describe("commercial collection automation", () => {
     expect(inferCommercialAutomationSlot("Semana 1 e 3 · Leads", null)).toBe("A");
     expect(inferCommercialAutomationSlot("Semana 2 e 4 · Mercado", null)).toBe("B");
     expect(inferCommercialAutomationSlot("Personalizado", { automation_template_slot: "B" })).toBe("B");
+  });
+
+  it("schedules the next eligible configured weekday after the cadence", () => {
+    expect(nextCommercialSendDate("2026-09-21", "2026-09-28", "weekly", [1]))
+      .toBe("2026-09-28");
+    expect(nextCommercialSendDate("2026-09-21", "2026-09-28", "weekly", [3]))
+      .toBe("2026-09-30");
+    expect(nextCommercialSendDate(null, "2026-09-28", "weekly", [2, 4]))
+      .toBe("2026-09-29");
+    expect(normalizeCommercialSendWeekdays([5, 1, 5, 9])).toEqual([1, 5]);
   });
 });

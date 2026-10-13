@@ -183,6 +183,7 @@ function NotificationBell() {
   const [isClearing, setIsClearing] = useState(false);
   const [pushPermission, setPushPermission] = useState<NotificationPermission | "unsupported">("unsupported");
   const [isEnablingPush, setIsEnablingPush] = useState(false);
+  const [pushRegistered, setPushRegistered] = useState(false);
   const [pushError, setPushError] = useState("");
   const [pos, setPos] = useState({ top: 0, left: 0 });
   const btnRef = useRef<HTMLButtonElement>(null);
@@ -200,16 +201,24 @@ function NotificationBell() {
     try {
       const subscription = await ensurePushSubscription({ requestPermission: true });
       setPushPermission(Notification.permission);
+      setPushRegistered(Boolean(subscription));
       if (!subscription && Notification.permission !== "granted") {
         setPushError("Permissão não concedida. Libere as notificações nos ajustes do celular.");
       }
     } catch (error) {
+      setPushRegistered(false);
       setPushPermission(typeof window !== "undefined" && "Notification" in window ? Notification.permission : "unsupported");
       setPushError(error instanceof Error ? error.message : "Não foi possível ativar as notificações.");
     } finally {
       setIsEnablingPush(false);
     }
   }, []);
+
+  useEffect(() => {
+    if (open && "Notification" in window && Notification.permission === "granted") {
+      void enableMobilePush();
+    }
+  }, [open, enableMobilePush]);
 
   const positionPanel = useCallback(() => {
     if (!btnRef.current) return;
@@ -400,7 +409,7 @@ function NotificationBell() {
                   </div>
 
                   <div className="border-b p-2" style={{ borderColor: "var(--glass-border)" }}>
-                    {pushPermission === "granted" ? (
+                    {pushPermission === "granted" && pushRegistered ? (
                       <div className="flex items-center gap-2 rounded-xl bg-emerald-500/10 px-3 py-2 text-xs text-emerald-500">
                         <BellRing size={15} />
                         <span>Alertas no celular estão ativos neste dispositivo.</span>
@@ -414,9 +423,9 @@ function NotificationBell() {
                       <div className="rounded-xl bg-[var(--hover)] px-3 py-2.5">
                         <div className="flex items-center gap-2">
                           <Smartphone size={15} className="shrink-0 text-[var(--accent-blue)]" />
-                          <p className="min-w-0 flex-1 text-xs text-[var(--text-title)]">Receba alertas de saldo mesmo com o app fechado.</p>
+                          <p className="min-w-0 flex-1 text-xs text-[var(--text-title)]">Receba notificações mesmo com o app fechado.</p>
                           <button type="button" onClick={() => void enableMobilePush()} disabled={isEnablingPush || pushPermission === "denied"} className="shrink-0 rounded-lg bg-[var(--accent-blue)] px-2.5 py-1.5 text-[10px] font-semibold text-white disabled:opacity-50">
-                            {isEnablingPush ? <Loader2 size={13} className="animate-spin" /> : pushPermission === "denied" ? "Bloqueado" : "Ativar"}
+                            {isEnablingPush ? <Loader2 size={13} className="animate-spin" /> : pushPermission === "denied" ? "Bloqueado" : pushPermission === "granted" ? "Reconectar" : "Ativar"}
                           </button>
                         </div>
                         {(pushError || pushPermission === "denied") && (
