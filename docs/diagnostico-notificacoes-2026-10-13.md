@@ -22,6 +22,10 @@
 - Erros de consulta e gravação deixam de produzir resultados silenciosamente vazios em pontos do histórico e da automação.
 - Histórico diferencia aceite pelo provedor de recebimento na caixa de entrada. O ID retornado pelo Resend é registrado nos logs, junto ao ID interno do envio.
 
+## Migração de saldo pendente
+
+A consulta final confirmou que `account_balance_alert_states` ainda não existe. O agendador e a consulta de saldo do portal preservam o armazenamento anterior enquanto isso. Para ativar alertas também de contas sem portal, executar separadamente `supabase/migrations/20260929080000_account_balance_alert_states.sql`. A calculadora não depende dessa migração.
+
 ## Limitações da verificação
 
 A chave disponível do Resend permite somente enviar. As consultas de domínios e de entrega retornaram `restricted_api_key`, impedindo confirmar bounce, spam ou recebimento. Nenhum e-mail real foi disparado durante o diagnóstico. Para concluir essa investigação, conferir o painel Resend para os corretores e datas relatados.

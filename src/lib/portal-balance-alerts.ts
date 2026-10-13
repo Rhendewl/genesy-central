@@ -5,6 +5,10 @@ import type { PortalAccountBalance } from "@/types";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Db = SupabaseClient<any, any, any>;
 
+export function isAccountBalanceMigrationMissing(error: { code?: string } | null) {
+  return error?.code === "42P01" || error?.code === "PGRST205";
+}
+
 export const PORTAL_LOW_BALANCE_THRESHOLD_BRL = 200;
 export const PORTAL_LOW_BALANCE_REMINDER_INTERVAL_MS = 20 * 60 * 60 * 1000;
 
@@ -142,11 +146,20 @@ export async function processPortalBalanceAlerts(
   if (eligibleBalances.length === 0) return { alertsCreated: 0 };
 
   const accountIds = eligibleBalances.map(balance => balance.account_id);
-  const { data: stateRows, error: stateError } = await db
-    .from("account_balance_alert_states")
+  let stateTable = "account_balance_alert_states";
+  let scopeColumn = "owner_user_id";
+  let scopeId = input.ownerUserId;
+  const readStates = () => db.from(stateTable)
     .select("ad_account_id, is_below_threshold, alert_sequence, last_alerted_at")
-    .eq("owner_user_id", input.ownerUserId)
-    .in("ad_account_id", accountIds);
+    .eq(scopeColumn, scopeId).in("ad_account_id", accountIds);
+  let stateResult = await readStates();
+  if (isAccountBalanceMigrationMissing(stateResult.error) && input.portalId) {
+    stateTable = "portal_balance_alert_states";
+    scopeColumn = "portal_id";
+    scopeId = input.portalId;
+    stateResult = await readStates();
+  }
+  const { data: stateRows, error: stateError } = stateResult;
   if (stateError) throw new Error(`Erro ao consultar estado do saldo: ${stateError.message}`);
 
   const stateByAccount = new Map(
@@ -195,7 +208,7 @@ export async function processPortalBalanceAlerts(
       : item.previous?.alert_sequence ?? 0;
 
     if (item.shouldAlert && recipients.length > 0) {
-      const eventId = `account-balance-low:${input.ownerUserId}:${item.balance.account_id}:${nextSequence}`;
+      const eventId = `${scopeColumn === "portal_id" ? "portal-balance-low" : "account-balance-low"}:${scopeId}:${item.balance.account_id}:${nextSequence}`;
       const title = `Saldo de mídia abaixo de ${formatBRL(threshold)}`;
       const location = input.portalName ? `, no portal ${input.portalName},` : "";
       const body = `${item.balance.account_name}${location} está com ${formatBRL(item.balance.balance_net)} disponíveis. Faça uma recarga para evitar a interrupção dos anúncios.`;
@@ -207,7 +220,7 @@ export async function processPortalBalanceAlerts(
     }
 
     const stateUpdate = {
-      owner_user_id: input.ownerUserId,
+      [scopeColumn]: scopeId,
       ad_account_id: item.balance.account_id,
       last_balance: item.balance.balance_net,
       is_below_threshold: isBelow,
@@ -215,9 +228,9 @@ export async function processPortalBalanceAlerts(
       ...(item.shouldAlert ? { last_alerted_at: new Date().toISOString() } : {}),
       updated_at: new Date().toISOString(),
     };
-    const { error: upsertError } = await db.from("account_balance_alert_states").upsert(
+    const { error: upsertError } = await db.from(stateTable).upsert(
       stateUpdate,
-      { onConflict: "owner_user_id,ad_account_id" },
+      { onConflict: `${scopeColumn},ad_account_id` },
     );
     if (upsertError) throw new Error(`Erro ao atualizar estado do saldo: ${upsertError.message}`);
   }

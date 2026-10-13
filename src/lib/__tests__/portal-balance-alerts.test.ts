@@ -107,3 +107,28 @@ describe("parseFundingDisplayBalance", () => {
     expect(parseFundingDisplayBalance("Saldo disponível (R$1.234,56 BRL)")).toBe(1234.56);
   });
 });
+
+describe("balance storage compatibility", () => {
+  it("preserves portal state and deduplication while the account migration is missing", async () => {
+    const { processPortalBalanceAlerts } = await import("../portal-balance-alerts");
+    const writes: Array<{ table: string; payload: Record<string, unknown>; conflict: string }> = [];
+    const db = { from(table: string) {
+      const builder = {
+        select: () => builder, eq: () => builder,
+        in: async () => table === "account_balance_alert_states"
+          ? { data: null, error: { code: "PGRST205", message: "Missing migration" } }
+          : { data: [{ ad_account_id: "act_1", is_below_threshold: true, alert_sequence: 4, last_alerted_at: new Date().toISOString() }], error: null },
+        upsert: async (payload: Record<string, unknown>, options: { onConflict: string }) => { writes.push({ table, payload, conflict: options.onConflict }); return { error: null }; },
+      }; return builder;
+    } };
+    const result = await processPortalBalanceAlerts(db as never, { ownerUserId: "owner", portalId: "portal", balances: [balance({ balance_net: 250 })] });
+    expect(result.alertsCreated).toBe(0);
+    expect(writes[0]).toMatchObject({ table: "portal_balance_alert_states", payload: { portal_id: "portal", alert_sequence: 4, is_below_threshold: false }, conflict: "portal_id,ad_account_id" });
+    expect(writes[0].payload).not.toHaveProperty("owner_user_id");
+  });
+  it("does not hide database permission errors as a migration fallback", async () => {
+    const { processPortalBalanceAlerts } = await import("../portal-balance-alerts");
+    const db = { from() { const b = { select: () => b, eq: () => b, in: async () => ({ error: { code: "42501", message: "Permission denied" } }) }; return b; } };
+    await expect(processPortalBalanceAlerts(db as never, { ownerUserId: "owner", portalId: "portal", balances: [balance()] })).rejects.toThrow("Permission denied");
+  });
+});
