@@ -22,3 +22,8 @@ describe("filterWorkspaceTasks", () => {
       .toEqual(["match"]);
   });
 });
+
+it('filters by all selected workspace tags',()=>{
+ const tasks=[task({id:'one',tags:['design','finance']}),task({id:'two',tags:['design']})];
+ expect(filterWorkspaceTasks(tasks,{due:'',assigneeId:'',tagIds:['design','finance']}).map(t=>t.id)).toEqual(['one']);
+});

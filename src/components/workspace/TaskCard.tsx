@@ -1,4 +1,5 @@
 "use client";
+import { TagChip } from "./TagChip";
 
 import { useDraggable } from "@dnd-kit/core";
 import { MessageSquare, Calendar as CalendarIcon } from "lucide-react";
@@ -63,6 +64,7 @@ export function TaskCard({ task, isDragOverlay = false, canDrag = true, onClick 
       </div>
 
       <div className="mb-2 flex flex-wrap items-center gap-1">
+        <span className="flex flex-wrap gap-1">{task.tags?.map(id=><TagChip key={id} tagId={id}/>)}</span>
         <PriorityBadge priority={task.priority} />
       </div>
 

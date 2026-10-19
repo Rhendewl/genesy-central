@@ -1,127 +1,88 @@
 "use client";
-
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { getSupabaseClient } from "@/lib/supabase";
 import type { NewTag, Tag } from "@/types";
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Module-level cache — tags mudam raramente e são usadas em cada LeadCard.
-// Evita N fetches paralelos quando o board renderiza muitos cards.
-// O cache é invalidado após mutações (create/update/delete).
-// ─────────────────────────────────────────────────────────────────────────────
-let _cache: Tag[] | null = null;
-let _pending: Promise<Tag[]> | null = null;
-const _listeners = new Set<(tags: Tag[]) => void>();
-
-function publishTags(tags: Tag[]) {
-  _cache = tags;
-  _listeners.forEach((listener) => listener(tags));
-}
-
-function invalidateCache() {
-  _cache = null;
-  _pending = null;
-}
-
-export function useTags() {
+type CatalogResult = {data: Tag[]; error: string | null};
+const catalogRequests = new Map<string, Promise<CatalogResult>>();
+let sessionUserId: string | null = null;
+export function useTags(scope: "global" | "workspace" = "global") {
   const supabase = getSupabaseClient();
-  const mountedRef = useRef(true);
-
-  const [tags, setTags] = useState<Tag[]>(_cache ?? []);
-  const [isLoading, setIsLoading] = useState(_cache === null);
-
-  // ── Fetch (com cache) ──────────────────────────────────────────────────────
-
+  const table = scope === "workspace" ? "workspace_tags" : "tags";
+  const [tags, setTags] = useState<Tag[]>([]);
+  const [isLoading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [requests] = useState(() => ({version:0}));
   const fetchTags = useCallback(async () => {
-    if (_cache !== null) {
-      setTags(_cache);
-      setIsLoading(false);
-      return;
+    const version = ++requests.version;
+    const {data:{session}} = await supabase.auth.getSession();
+    const key = `${table}:${session?.user.id ?? 'anonymous'}`;
+    let request = catalogRequests.get(key);
+    if (!request) {
+      request = Promise.resolve(supabase.from(table).select('*').order('name')).then(({data,error})=>({data: error ? [] : (data ?? []) as Tag[],error:error?.message ?? null}));
+      catalogRequests.set(key,request);
     }
-
-    if (!_pending) {
-      // Supabase retorna PromiseLike — envolvemos em Promise nativa
-      // para compatibilidade estrita com TypeScript
-      _pending = new Promise<Tag[]>((resolve) => {
-        supabase
-          .from("tags")
-          .select("*")
-          .order("name")
-          .then(({ data }) => {
-            const nextTags = (data as Tag[]) ?? [];
-            publishTags(nextTags);
-            resolve(nextTags);
-          });
-      });
+    try {
+      const result = await request;
+      if (version!==requests.version) return;
+      setTags(result.data);setError(result.error);setLoading(false);
+      if(result.error) catalogRequests.delete(key);
+    } catch (error) {
+      catalogRequests.delete(key);
+      if(version===requests.version){setError(error instanceof Error?error.message:'Erro ao carregar etiquetas');setLoading(false);}
     }
-
-    const result = await _pending;
-    if (!mountedRef.current) return;
-    setTags(result ?? []);
-    setIsLoading(false);
-  }, [supabase]);
-
-  useEffect(() => {
-    mountedRef.current = true;
-    const listener = (nextTags: Tag[]) => {
-      if (mountedRef.current) setTags(nextTags);
-    };
-    _listeners.add(listener);
-    fetchTags();
-    return () => {
-      mountedRef.current = false;
-      _listeners.delete(listener);
-    };
-  }, [fetchTags]);
-
-  // ── Create ─────────────────────────────────────────────────────────────────
-
-  async function createTag(data: NewTag): Promise<{ tag: Tag | null; error: string | null }> {
+  },[supabase,table,requests]);
+  useEffect(()=>{
+    void fetchTags();
+    const refresh=()=>{void fetchTags();};
+    window.addEventListener(`${table}-changed`,refresh);
+    const {data:{subscription}}=supabase.auth.onAuthStateChange((_event,session)=>{
+      const nextId=session?.user.id ?? null;
+      if(nextId!==sessionUserId){catalogRequests.clear();sessionUserId=nextId;}
+      requests.version++;setTags([]);setTimeout(refresh,0);
+    });
+    return ()=>{requests.version++;window.removeEventListener(`${table}-changed`,refresh);subscription.unsubscribe();};
+  },[fetchTags,supabase,table,requests]);
+  function changed(){
+    for(const key of Array.from(catalogRequests.keys())) if(key.startsWith(`${table}:`)) catalogRequests.delete(key);
+    window.dispatchEvent(new Event(`${table}-changed`));
+  }
+  async function createTag(data: NewTag) {
     const {
       data: { user },
     } = await supabase.auth.getUser();
-    if (!user) return { tag: null, error: "Não autenticado." };
-
-    const { data: created, error } = await supabase
-      .from("tags")
-      .insert({ ...data, user_id: user.id })
+    if (!user) return { tag: null, error: "Não autenticado" };
+    const { data: tag, error } = await supabase
+      .from(table)
+      .insert({ ...data, name: data.name.trim(), user_id: user.id })
       .select("*")
       .single();
-    if (error) return { tag: null, error: error.message };
-
-    invalidateCache();
-    await fetchTags();
-    return { tag: created as Tag, error: null };
+    if (!error) changed();
+    return { tag: tag as Tag | null, error: error?.message ?? null };
   }
-
-  // ── Update ─────────────────────────────────────────────────────────────────
-
-  async function updateTag(
-    id: string,
-    data: Partial<NewTag>
-  ): Promise<{ error: string | null }> {
-    const { error } = await supabase.from("tags").update(data).eq("id", id);
-    if (error) return { error: error.message };
-
-    invalidateCache();
-    await fetchTags();
-    return { error: null };
+  async function updateTag(id: string, data: Partial<NewTag>) {
+    const { error } = await supabase
+      .from(table)
+      .update(data)
+      .eq("id", id)
+      .select("id")
+      .single();
+    if (!error) changed();
+    return { error: error?.message ?? null };
   }
-
-  // ── Delete ─────────────────────────────────────────────────────────────────
-
-  async function deleteTag(id: string): Promise<{ error: string | null }> {
-    const { error } = await supabase.from("tags").delete().eq("id", id);
-    if (error) return { error: error.message };
-
-    invalidateCache();
-    await fetchTags();
-    return { error: null };
+  async function deleteTag(id: string) {
+    const { error } = await supabase
+      .from(table)
+      .delete()
+      .eq("id", id)
+      .select("id")
+      .single();
+    if (!error) changed();
+    return { error: error?.message ?? null };
   }
-
   return {
     tags,
     isLoading,
+    error,
     createTag,
     updateTag,
     deleteTag,

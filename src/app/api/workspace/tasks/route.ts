@@ -1,3 +1,4 @@
+import { validateTagIds } from "@/lib/workspace/objective-validation";
 // GET  /api/workspace/tasks — lista tarefas (filtros opcionais)
 // POST /api/workspace/tasks — cria tarefa (entra em "a_fazer" por padrão)
 
@@ -19,6 +20,7 @@ export async function GET(req: NextRequest) {
   const dueBefore   = url.searchParams.get("due_before")   ?? undefined;
   const dueAfter    = url.searchParams.get("due_after")    ?? undefined;
   const search      = url.searchParams.get("search")       ?? undefined;
+  const objectiveId = url.searchParams.get("objective_id");
   const boardId     = url.searchParams.get("board_id")     ?? undefined;
   // De quem é este Workspace — o próprio usuário por padrão, ou (se a RLS
   // permitir, isto é, se quem pede for admin da mesma organização) um colega
@@ -45,6 +47,13 @@ export async function GET(req: NextRequest) {
       assignedTaskIds = (rows ?? []).map((r) => r.task_id);
     }
 
+    let linkedTaskIds: string[] = [];
+    if (objectiveId) {
+      const {data:links,error:linksError}=await supabase.from('workspace_objective_task_links').select('task_id').eq('objective_id',objectiveId);
+      if(linksError) throw new Error(linksError.message);
+      linkedTaskIds=(links ?? []).map(l=>l.task_id);
+      assignedTaskIds=Array.from(new Set([...assignedTaskIds,...linkedTaskIds]));
+    }
     let query = supabase.from("workspace_tasks").select("*").order("position", { ascending: true });
     query = assignedTaskIds.length > 0
       ? query.or(`user_id.eq.${targetUserId},id.in.(${assignedTaskIds.join(",")})`)
@@ -68,7 +77,7 @@ export async function GET(req: NextRequest) {
     const { data, error } = await query;
     if (error) throw new Error(error.message);
 
-    const activeTasks = ((data ?? []) as WorkspaceTask[]).filter(task => shouldKeepWorkspaceTask(task));
+    const activeTasks = ((data ?? []) as WorkspaceTask[]).filter(task => linkedTaskIds.includes(task.id) || shouldKeepWorkspaceTask(task));
     const taskIds = activeTasks.map((t) => t.id);
     const { data: allAssignees } = taskIds.length > 0
       ? await supabase.from("workspace_task_assignees").select("task_id,assignee_id").in("task_id", taskIds)
@@ -117,6 +126,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "title é obrigatório" }, { status: 400 });
   }
 
+  if (body.tags !== undefined && !validateTagIds(body.tags)) return NextResponse.json({error:"Etiquetas inválidas"},{status:400});
   try {
     const status = body.status ?? "a_fazer";
 
@@ -149,7 +159,7 @@ export async function POST(req: NextRequest) {
         description: body.description ?? null,
         status,
         priority:    body.priority ?? "media",
-        tags:        [],
+        tags:        body.tags ?? [],
         due_date:    body.due_date ?? null,
         due_time:    body.due_time ?? null,
         color:       body.color ?? null,

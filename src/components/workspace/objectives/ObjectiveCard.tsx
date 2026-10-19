@@ -7,7 +7,7 @@ import { Calendar as CalendarIcon, Check } from "lucide-react";
 import { ProgressRing } from "@/components/workspace/ProgressRing";
 import { PriorityBadge } from "@/components/workspace/PriorityBadge";
 import { TagChip } from "@/components/workspace/TagChip";
-import { AssigneeAvatar } from "@/components/workspace/AssigneeAvatar";
+import { AssigneeAvatarGroup } from "@/components/workspace/AssigneeAvatarGroup";
 import type { WorkspaceObjective } from "@/types/workspace-objectives";
 
 const MAX_VISIBLE_STEPS = 4;
@@ -20,8 +20,8 @@ interface ObjectiveCardProps {
 
 export function ObjectiveCard({ objective, onClick, onToggleStep }: ObjectiveCardProps) {
   const steps = objective.steps ?? [];
-  const total = objective.steps_total ?? steps.length;
-  const done  = objective.steps_done  ?? steps.filter((s) => s.is_completed).length;
+  const total = objective.execution_total ?? 0;
+  const done  = objective.execution_done ?? 0;
   const percent = total > 0 ? (done / total) * 100 : 0;
 
   const visibleSteps = steps.slice(0, MAX_VISIBLE_STEPS);
@@ -43,10 +43,10 @@ export function ObjectiveCard({ objective, onClick, onToggleStep }: ObjectiveCar
             <h3 className="truncate text-sm font-semibold" style={{ color: "var(--text-title)" }}>
               {objective.title}
             </h3>
-            <AssigneeAvatar assigneeId={objective.assignee_id} size={20} />
+            <AssigneeAvatarGroup assigneeIds={objective.assignee_ids ?? []} size={20} />
           </div>
           <p className="mt-0.5 text-[10px]" style={{ color: "var(--muted-foreground)" }}>
-            {total > 0 ? `${done}/${total} etapas concluídas` : "Sem etapas"}
+            {total > 0 ? `${done}/${total} tarefas e etapas concluídas` : "Sem tarefas ou etapas"}
           </p>
         </div>
       </div>
@@ -90,7 +90,7 @@ export function ObjectiveCard({ objective, onClick, onToggleStep }: ObjectiveCar
       )}
 
       <div className="mb-2 flex flex-wrap items-center gap-1">
-        <PriorityBadge priority={objective.priority} />
+        <PriorityBadge priority={objective.priority} /><span className="text-[10px]">{objective.horizon === "curto" ? "Curto prazo" : objective.horizon === "longo" ? "Longo prazo" : "Médio prazo"} · {objective.status?.replaceAll("_", " ")}</span>
         {objective.tags.slice(0, 3).map((tagId) => <TagChip key={tagId} tagId={tagId} />)}
       </div>
 

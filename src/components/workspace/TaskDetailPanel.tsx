@@ -1,4 +1,5 @@
 "use client";
+import { TagSelector } from "@/components/tags/TagSelector";
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
@@ -40,6 +41,7 @@ export function TaskDetailPanel({ taskId, tasksHook, onClose, presentation = "dr
   const canExecute = isCreating || canExecuteTask(existingTask);
   const isModal = presentation === "modal";
 
+  const [taskTags, setTaskTags] = useState<string[]>([]);
   const [title,       setTitle]       = useState("");
   const [description, setDescription] = useState("");
   const [priority,    setPriority]    = useState<WorkspaceTaskPriority>("media");
@@ -71,6 +73,7 @@ export function TaskDetailPanel({ taskId, tasksHook, onClose, presentation = "dr
   useEffect(() => {
     if (existingTask) {
       setTitle(existingTask.title);
+      setTaskTags(existingTask.tags ?? []);
       setDescription(existingTask.description ?? "");
       setPriority(existingTask.priority);
       setBoardId(existingTask.board_id);
@@ -87,18 +90,18 @@ export function TaskDetailPanel({ taskId, tasksHook, onClose, presentation = "dr
   }, [isCreating, member?.id]);
 
   function saveField(patch: Partial<{
-    title: string; description: string; priority: WorkspaceTaskPriority; assignee_ids: string[];
+    tags: string[]; title: string; description: string; priority: WorkspaceTaskPriority; assignee_ids: string[];
     board_id: string; due_date: string | null; due_time: string | null; color: string | null; notes: string;
   }>) {
     if (!taskId || !canEdit) return;
-    void updateTask(taskId, patch);
+    void updateTask(taskId, patch).then(result => { if (result.error) toast.error(result.error); });
   }
 
   async function handleCreate() {
     if (!title.trim()) { toast.error("Título é obrigatório"); return; }
     setIsSaving(true);
     const result = await createTask({
-      title: title.trim(), description: description || undefined, priority,
+      tags: taskTags, title: title.trim(), description: description || undefined, priority,
       board_id: boardId || undefined,
       assignee_ids: assigneeIds, due_date: dueDate ?? undefined, due_time: dueTime ?? undefined,
       color: color ?? undefined, notes: notes || undefined,
@@ -465,7 +468,8 @@ export function TaskDetailPanel({ taskId, tasksHook, onClose, presentation = "dr
                 Prazo
               </p>
               <div className={!canEdit ? "pointer-events-none opacity-70" : undefined}>
-                <DueDatePicker
+                <TagSelector scope="workspace" value={taskTags} disabled={!canEdit} onChange={ids => { setTaskTags(ids); if (!isCreating) saveField({ tags: ids }); }} />
+              <DueDatePicker
                   date={dueDate}
                   time={dueTime}
                   onChangeDate={(d) => { setDueDate(d); if (!isCreating) saveField({ due_date: d }); }}

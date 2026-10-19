@@ -1,4 +1,5 @@
 "use client";
+import { TagChip } from "./TagChip";
 
 import { useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -118,6 +119,7 @@ function TaskRow({
           {task.title}
         </span>
         {!done && <PriorityBadge priority={task.priority} />}
+        <span className="flex flex-wrap gap-1">{task.tags?.map(id=><TagChip key={id} tagId={id}/>)}</span>
         {task.due_date && (
           <span className="flex-shrink-0 text-[11px]" style={{ color: "var(--muted-foreground)" }}>
             {format(new Date(`${task.due_date}T00:00:00`), "d MMM", { locale: ptBR })}

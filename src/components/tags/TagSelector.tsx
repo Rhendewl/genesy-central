@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { semanticChipStyle } from "@/lib/semantic-chip";
 
 interface TagSelectorProps {
+  scope?: "global" | "workspace";
   value: string[];
   onChange: (tagIds: string[]) => void;
   disabled?: boolean;
@@ -15,8 +16,9 @@ interface TagSelectorProps {
   helperText?: string;
 }
 
-export function TagSelector({ value, onChange, disabled = false, className, helperText }: TagSelectorProps) {
-  const { tags, createTag, deleteTag } = useTags();
+export function TagSelector({ value, onChange, disabled = false, className, helperText, scope = "global" }: TagSelectorProps) {
+  const { tags, createTag, deleteTag, updateTag, error } = useTags(scope);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [creatorOpen, setCreatorOpen] = useState(false);
   const [name, setName] = useState("");
   const [color, setColor] = useState("#4a8fd4");
@@ -37,13 +39,20 @@ export function TagSelector({ value, onChange, disabled = false, className, help
 
   function toggle(tagId: string) {
     if (disabled) return;
-    onChange(value.includes(tagId) ? value.filter((id) => id !== tagId) : [...value, tagId]);
+    const validIds = value.filter(id => tags.some(tag => tag.id === id));
+    onChange(validIds.includes(tagId) ? validIds.filter((id) => id !== tagId) : [...validIds, tagId]);
   }
 
   async function create() {
     const cleanName = name.trim();
     if (!cleanName) return toast.error("Informe o nome da etiqueta");
     setCreating(true);
+    if (editingId) {
+      const result = await updateTag(editingId, { name: cleanName.slice(0,60), color });
+      setCreating(false);
+      if (result.error) return toast.error(result.error);
+      setEditingId(null); setCreatorOpen(false); setName(""); return;
+    }
     const result = await createTag({ name: cleanName.slice(0, 60), color });
     setCreating(false);
     if (result.error || !result.tag) return toast.error(result.error ?? "Não foi possível criar a etiqueta");
@@ -55,7 +64,7 @@ export function TagSelector({ value, onChange, disabled = false, className, help
 
   async function remove(tagId: string, tagName: string) {
     if (disabled) return;
-    if (!window.confirm(`Apagar a etiqueta “${tagName}”? Ela será removida das opções do CRM, Marketing e Workspace.`)) return;
+    if (!window.confirm(`Apagar a etiqueta “${tagName}”? Ela será removida deste catálogo.`)) return;
     setDeletingId(tagId);
     const result = await deleteTag(tagId);
     setDeletingId(null);
@@ -93,10 +102,11 @@ export function TagSelector({ value, onChange, disabled = false, className, help
         <input value={search} onChange={event => setSearch(event.target.value)} placeholder="Buscar etiqueta…" className="mb-2 h-9 w-full rounded-lg border bg-[var(--input)] px-2.5 text-sm outline-none" autoFocus />
         <div className="space-y-0.5">{filteredTags.map(tag => {
           const active = value.includes(tag.id);
-          return <div key={tag.id} className="flex items-center rounded-lg hover:bg-[var(--hover)]"><button type="button" onClick={() => toggle(tag.id)} className="flex min-w-0 flex-1 items-center gap-2 px-2.5 py-2 text-left text-sm"><span className="h-2.5 w-2.5 rounded-full" style={{ background: tag.color }} /><span className="truncate">{tag.name}</span>{active && <Check size={13} className="ml-auto" />}</button><button type="button" onClick={() => void remove(tag.id, tag.name)} disabled={deletingId === tag.id} className="p-2 text-[var(--muted-foreground)] hover:text-red-400" aria-label={`Apagar etiqueta ${tag.name}`}>{deletingId === tag.id ? <Loader2 size={11} className="animate-spin" /> : <Trash2 size={11} />}</button></div>;
+          return <div key={tag.id} className="flex items-center rounded-lg hover:bg-[var(--hover)]"><button type="button" onClick={() => toggle(tag.id)} className="flex min-w-0 flex-1 items-center gap-2 px-2.5 py-2 text-left text-sm"><span className="h-2.5 w-2.5 rounded-full" style={{ background: tag.color }} /><span className="truncate">{tag.name}</span>{active && <Check size={13} className="ml-auto" />}</button><button type="button" className="p-2 text-xs" onClick={() => { setEditingId(tag.id); setName(tag.name); setColor(tag.color); setCreatorOpen(true); }}>Editar</button><button type="button" onClick={() => void remove(tag.id, tag.name)} disabled={deletingId === tag.id} className="p-2 text-[var(--muted-foreground)] hover:text-red-400" aria-label={`Apagar etiqueta ${tag.name}`}>{deletingId === tag.id ? <Loader2 size={11} className="animate-spin" /> : <Trash2 size={11} />}</button></div>;
         })}</div>
-        <div className="mt-2 border-t pt-2" style={{ borderColor: "var(--border)" }}>{!creatorOpen ? <button type="button" onClick={() => setCreatorOpen(true)} className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-sm text-[var(--primary)] hover:bg-[var(--hover)]"><Plus size={13} /> Criar nova etiqueta</button> : <div className="space-y-2"><div className="flex gap-2"><label className="relative flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-lg" style={{ background: color }}><TagIcon size={14} color="#fff" /><input type="color" value={color} onChange={event => setColor(event.target.value)} className="absolute inset-0 opacity-0" aria-label="Cor da etiqueta" /></label><input value={name} onChange={event => setName(event.target.value)} onKeyDown={event => { if (event.key === "Enter") { event.preventDefault(); void create(); } }} maxLength={60} placeholder="Nome da etiqueta" className="h-9 min-w-0 flex-1 rounded-lg border bg-[var(--input)] px-2.5 text-sm outline-none" /></div><button type="button" onClick={() => void create()} disabled={creating || !name.trim()} className="lc-btn flex h-9 w-full items-center justify-center gap-1.5 text-xs disabled:opacity-50">{creating ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />} Criar e adicionar</button></div>}</div>
+        <div className="mt-2 border-t pt-2" style={{ borderColor: "var(--border)" }}>{!creatorOpen ? <button type="button" onClick={() => setCreatorOpen(true)} className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-sm text-[var(--primary)] hover:bg-[var(--hover)]"><Plus size={13} /> Criar nova etiqueta</button> : <div className="space-y-2"><div className="flex gap-2"><label className="relative flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-lg" style={{ background: color }}><TagIcon size={14} color="#fff" /><input type="color" value={color} onChange={event => setColor(event.target.value)} className="absolute inset-0 opacity-0" aria-label="Cor da etiqueta" /></label><input value={name} onChange={event => setName(event.target.value)} onKeyDown={event => { if (event.key === "Enter") { event.preventDefault(); void create(); } }} maxLength={60} placeholder="Nome da etiqueta" className="h-9 min-w-0 flex-1 rounded-lg border bg-[var(--input)] px-2.5 text-sm outline-none" /></div><button type="button" onClick={() => void create()} disabled={creating || !name.trim()} className="lc-btn flex h-9 w-full items-center justify-center gap-1.5 text-xs disabled:opacity-50">{creating ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />} {editingId ? "Salvar etiqueta" : "Criar e adicionar"}</button></div>}</div>
       </div>}
+      {error && <p role="alert" className="text-xs text-red-400">{error}</p>}
       {helperText && <p className="text-[10px] text-[var(--muted-foreground)]">{helperText}</p>}
     </div>
   );
