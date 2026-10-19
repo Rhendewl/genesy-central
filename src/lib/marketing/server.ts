@@ -69,7 +69,7 @@ export async function createWorkspaceTaskForMarketing(
   },
 ) {
   const assigneeIds = Array.from(new Set(input.assigneeIds ?? []));
-  const tagIds = Array.from(new Set(input.tagIds ?? []));
+
 
   if (assigneeIds.length) {
     const { data, error } = await supabase
@@ -81,14 +81,6 @@ export async function createWorkspaceTaskForMarketing(
     if (error) throw new Error(error.message);
     if ((data ?? []).length !== assigneeIds.length) {
       throw Object.assign(new Error("O responsável selecionado não está disponível"), { status: 400 });
-    }
-  }
-
-  if (tagIds.length) {
-    const { data, error } = await supabase.from("tags").select("id").in("id", tagIds);
-    if (error) throw new Error(error.message);
-    if ((data ?? []).length !== tagIds.length) {
-      throw Object.assign(new Error("Uma das etiquetas selecionadas não está disponível"), { status: 400 });
     }
   }
 
@@ -112,7 +104,7 @@ export async function createWorkspaceTaskForMarketing(
       description: input.description ?? null,
       status: "a_fazer",
       priority: WORKSPACE_PRIORITY[input.priority],
-      tags: tagIds,
+      tags: [], // Workspace labels are independent from Marketing labels.
       due_date: deadline.dueDate,
       due_time: deadline.dueTime,
       notes: "Tarefa criada automaticamente pelo calendário de Marketing.",

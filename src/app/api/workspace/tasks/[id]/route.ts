@@ -1,3 +1,4 @@
+import { validateTagIds } from "@/lib/workspace/objective-validation";
 // GET    /api/workspace/tasks/[id] — tarefa + checklist + comentários + anexos
 // PATCH  /api/workspace/tasks/[id] — atualiza campos gerais (não status/position)
 // DELETE /api/workspace/tasks/[id] — remove tarefa (cascade nos filhos + limpeza de storage)
@@ -65,8 +66,9 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   const body = await req.json().catch(() => null) as UpdateWorkspaceTask | null;
   if (!body) return NextResponse.json({ error: "Corpo inválido" }, { status: 400 });
 
+  if(body.tags !== undefined && !validateTagIds(body.tags)) return NextResponse.json({error:"Etiquetas inválidas"},{status:400});
   const patch: Record<string, unknown> = {};
-  for (const key of ["board_id", "title", "description", "priority", "due_date", "due_time", "color", "notes"] as const) {
+  for (const key of ["tags", "board_id", "title", "description", "priority", "due_date", "due_time", "color", "notes"] as const) {
     if (key in body) patch[key] = body[key];
   }
 

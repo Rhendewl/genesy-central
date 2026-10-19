@@ -1,4 +1,5 @@
 "use client";
+import { executionProgress } from "@/lib/workspace/objective-progress";
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getSupabaseClient } from "@/lib/supabase";
@@ -23,7 +24,7 @@ export function useWorkspaceObjectives(viewAsUserId?: string) {
 
   const fetchObjectives = useCallback(async () => {
     setError(null);
-
+    try {
     const qs = viewAsUserId ? `?as_user_id=${viewAsUserId}` : "";
     const res  = await fetch(`/api/workspace/objectives${qs}`);
     const json = await res.json() as { objectives?: WorkspaceObjective[]; error?: string };
@@ -35,12 +36,13 @@ export function useWorkspaceObjectives(viewAsUserId?: string) {
     // etapas cada, então dá pra exibi-las direto no card sem query extra por
     // card. Escopada pelos ids já retornados (nunca um select() sem filtro).
     const objectiveIds = json.objectives.map((o) => o.id);
-    const { data: stepsData } = objectiveIds.length > 0
+    const { data: stepsData, error: stepsError } = objectiveIds.length > 0
       ? await supabase.from("workspace_objective_steps").select("*").in("objective_id", objectiveIds).order("position")
-      : { data: [] as WorkspaceObjectiveStep[] };
+      : { data: [] as WorkspaceObjectiveStep[], error: null };
 
     if (!mountedRef.current) return;
 
+    if (stepsError) { setError(stepsError.message); return; }
     const stepsByObjective = new Map<string, WorkspaceObjectiveStep[]>();
     for (const row of (stepsData ?? []) as WorkspaceObjectiveStep[]) {
       const list = stepsByObjective.get(row.objective_id);
@@ -48,17 +50,25 @@ export function useWorkspaceObjectives(viewAsUserId?: string) {
       else stepsByObjective.set(row.objective_id, [row]);
     }
 
+    const linksResult = objectiveIds.length ? await supabase.from('workspace_objective_task_links').select('objective_id,task_id').in('objective_id',objectiveIds) : {data:[],error:null};
+    if (linksResult.error) { setError(linksResult.error.message); return; }
+    const linkedIds = Array.from(new Set((linksResult.data ?? []).map(l=>l.task_id)));
+    const tasksResult = linkedIds.length ? await supabase.from('workspace_tasks').select('id,status').in('id',linkedIds) : {data:[],error:null};
+    if (tasksResult.error) { setError(tasksResult.error.message); return; }
     const enriched = json.objectives.map((o) => {
       const steps = stepsByObjective.get(o.id) ?? [];
+      const progress = executionProgress(o.id,json.objectives!,stepsData ?? [],linksResult.data ?? [],tasksResult.data ?? []);
       return {
         ...o,
         steps,
+        execution_items: progress.items, execution_total: progress.total, execution_done: progress.done,
         steps_total: steps.length,
         steps_done:  steps.filter((s) => s.is_completed).length,
       };
     });
 
-    setObjectives(enriched);
+    if (mountedRef.current) setObjectives(enriched);
+    } catch (error) { if(mountedRef.current) setError(error instanceof Error ? error.message : "Erro ao carregar objetivos"); }
   }, [supabase, viewAsUserId]);
 
   useEffect(() => {
@@ -70,6 +80,9 @@ export function useWorkspaceObjectives(viewAsUserId?: string) {
       .channel(`workspace-objectives-realtime-${viewAsUserId ?? "self"}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "workspace_objectives" }, () => fetchObjectives())
       .on("postgres_changes", { event: "*", schema: "public", table: "workspace_objective_steps" }, () => fetchObjectives())
+      .on("postgres_changes", { event: "*", schema: "public", table: "workspace_tasks" }, () => fetchObjectives())
+      .on("postgres_changes", {event:"*",schema:"public",table:"workspace_objective_task_links"},()=>fetchObjectives())
+      .on("postgres_changes", {event:"*",schema:"public",table:"workspace_objective_metrics"},()=>fetchObjectives())
       .subscribe();
 
     return () => {
@@ -110,6 +123,7 @@ export function useWorkspaceObjectives(viewAsUserId?: string) {
         if (previous) setObjectives((prev) => prev.map((o) => (o.id === id ? previous : o)));
         return { error: json.error ?? "Erro ao atualizar objetivo" };
       }
+      await fetchObjectives();
       return { error: null };
     } catch (err) {
       if (previous) setObjectives((prev) => prev.map((o) => (o.id === id ? previous : o)));
@@ -137,6 +151,7 @@ export function useWorkspaceObjectives(viewAsUserId?: string) {
         if (previous) setObjectives((prev) => prev.map((o) => (o.id === objectiveId ? previous : o)));
         return { error: json.error ?? "Erro ao atualizar etapa" };
       }
+      await fetchObjectives();
       return { error: null };
     } catch (err) {
       if (previous) setObjectives((prev) => prev.map((o) => (o.id === objectiveId ? previous : o)));
@@ -155,6 +170,7 @@ export function useWorkspaceObjectives(viewAsUserId?: string) {
         if (previous) setObjectives((prev) => [...prev, previous]);
         return { error: json.error ?? "Erro ao excluir objetivo" };
       }
+      await fetchObjectives();
       return { error: null };
     } catch (err) {
       if (previous) setObjectives((prev) => [...prev, previous]);

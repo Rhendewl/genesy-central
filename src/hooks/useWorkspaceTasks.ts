@@ -35,7 +35,7 @@ import type {
 
 export type TasksByStatus = Record<WorkspaceTaskStatus, WorkspaceTask[]>;
 
-export function useWorkspaceTasks(viewAsUserId?: string, activeBoardId?: string) {
+export function useWorkspaceTasks(viewAsUserId?: string, activeBoardId?: string, objectiveId?: string) {
   const supabase = getSupabaseClient();
   const { member, isOwner } = useCurrentMember();
 
@@ -67,6 +67,7 @@ export function useWorkspaceTasks(viewAsUserId?: string, activeBoardId?: string)
     const params = new URLSearchParams();
     if (viewAsUserId) params.set("as_user_id", viewAsUserId);
     if (activeBoardId) params.set("board_id", activeBoardId);
+    if (objectiveId) params.set("objective_id", objectiveId);
     const qs = params.size > 0 ? `?${params.toString()}` : "";
     const res  = await fetch(`/api/workspace/tasks${qs}`, { cache: "no-store" });
     const json = await res.json() as { tasks?: WorkspaceTask[]; error?: string };
@@ -110,7 +111,7 @@ export function useWorkspaceTasks(viewAsUserId?: string, activeBoardId?: string)
     setTasks(uniqueWorkspaceTasks(
       enriched.filter((task) => !discardedTaskIdsRef.current.has(task.id)),
     ));
-  }, [activeBoardId, supabase, viewAsUserId]);
+  }, [activeBoardId, supabase, viewAsUserId, objectiveId]);
 
   const scheduleRealtimeRefresh = useCallback(() => {
     if (realtimeRefreshTimerRef.current) clearTimeout(realtimeRefreshTimerRef.current);
@@ -191,6 +192,7 @@ export function useWorkspaceTasks(viewAsUserId?: string, activeBoardId?: string)
   // Retira a tarefa da tela exatamente ao completar 24 horas, mesmo se o app
   // permanecer aberto entre duas execuções do cron de limpeza.
   useEffect(() => {
+    if (objectiveId) return;
     const expirations = tasks
       .filter(task => task.status === "concluido")
       .map(task => Date.parse(task.completed_at ?? task.updated_at ?? task.created_at) + COMPLETED_TASK_RETENTION_MS)
@@ -203,7 +205,7 @@ export function useWorkspaceTasks(viewAsUserId?: string, activeBoardId?: string)
     }, Math.max(0, nextExpiration - Date.now()) + 50);
 
     return () => window.clearTimeout(timer);
-  }, [tasks]);
+  }, [tasks, objectiveId]);
 
   const tasksByStatus: TasksByStatus = useMemo(() => {
     const acc: TasksByStatus = { a_fazer: [], em_andamento: [], aguardando: [], concluido: [] };

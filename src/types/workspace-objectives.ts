@@ -1,6 +1,14 @@
 import type { WorkspaceTaskPriority } from "./workspace";
 
 export interface WorkspaceObjective {
+  horizon: "curto" | "medio" | "longo";
+  status: "planejado" | "em_andamento" | "pausado" | "concluido" | "cancelado";
+  start_date: string | null;
+  parent_id: string | null;
+  assignee_ids: string[];
+  execution_items?: {id:string; completed:boolean}[];
+  execution_total?: number;
+  execution_done?: number;
   id:          string;
   user_id:     string;
   created_by:  string;
@@ -19,11 +27,11 @@ export interface WorkspaceObjective {
 }
 
 export type NewWorkspaceObjective = Pick<WorkspaceObjective, "title"> & Partial<Pick<WorkspaceObjective,
-  "description" | "priority" | "assignee_id" | "tags" | "due_date"
+  "horizon" | "status" | "start_date" | "parent_id" | "assignee_ids" | "description" | "priority" | "assignee_id" | "tags" | "due_date"
 >>;
 
 export type UpdateWorkspaceObjective = Partial<Pick<WorkspaceObjective,
-  "title" | "description" | "priority" | "assignee_id" | "tags" | "due_date"
+  "title" | "horizon" | "status" | "start_date" | "parent_id" | "assignee_ids" | "description" | "priority" | "assignee_id" | "tags" | "due_date"
 >>;
 
 export interface WorkspaceObjectiveStep {

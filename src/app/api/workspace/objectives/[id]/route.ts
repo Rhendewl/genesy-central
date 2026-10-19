@@ -1,3 +1,4 @@
+import { validateObjectiveInput } from "@/lib/workspace/objective-validation";
 // GET    /api/workspace/objectives/[id] — objetivo + etapas + comentários + anexos
 // PATCH  /api/workspace/objectives/[id] — atualiza campos gerais
 // DELETE /api/workspace/objectives/[id] — remove objetivo (cascade + limpeza de storage)
@@ -25,6 +26,7 @@ export async function GET(_req: NextRequest, { params }: Params) {
       supabase.from("workspace_objective_attachments").select("*").eq("objective_id", id).order("created_at"),
     ]);
 
+    for (const result of [stepsRes,commentsRes,attachmentsRes]) if(result.error) throw new Error(result.error.message);
     if (objectiveRes.error) throw new Error(objectiveRes.error.message);
     if (!objectiveRes.data) return NextResponse.json({ error: "Objetivo não encontrado" }, { status: 404 });
 
@@ -51,8 +53,10 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   const body = await req.json().catch(() => null) as UpdateWorkspaceObjective | null;
   if (!body) return NextResponse.json({ error: "Corpo inválido" }, { status: 400 });
 
+  const validation = validateObjectiveInput(body);
+  if(validation) return NextResponse.json({error:validation},{status:400});
   const patch: Record<string, unknown> = {};
-  for (const key of ["title", "description", "priority", "assignee_id", "tags", "due_date"] as const) {
+  for (const key of ["horizon", "status", "start_date", "parent_id", "assignee_ids", "title", "description", "priority", "assignee_id", "tags", "due_date"] as const) {
     if (key in body) patch[key] = body[key];
   }
 
@@ -79,6 +83,14 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
   if (!user) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
 
   try {
+    const {data:objective,error:accessError}=await supabase.from('workspace_objectives').select('user_id').eq('id',id).maybeSingle();
+    if(accessError) throw new Error(accessError.message);
+    if(!objective) return NextResponse.json({error:'Objetivo não encontrado'},{status:404});
+    if(objective.user_id!==user.id) {
+      const {data:admin,error:adminError}=await supabase.rpc('is_admin_of_user',{target_user_id:objective.user_id});
+      if(adminError) throw new Error(adminError.message);
+      if(!admin) return NextResponse.json({error:'Somente o proprietário ou administrador pode excluir o objetivo'},{status:403});
+    }
     const { data: attachments } = await supabase
       .from("workspace_objective_attachments")
       .select("storage_path")
@@ -88,7 +100,7 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
       await supabase.storage.from("criativos").remove(attachments.map((a) => a.storage_path));
     }
 
-    const { error } = await supabase.from("workspace_objectives").delete().eq("id", id);
+    const { error } = await supabase.from("workspace_objectives").delete().eq("id", id).select("id").single();
     if (error) throw new Error(error.message);
 
     return NextResponse.json({ ok: true });

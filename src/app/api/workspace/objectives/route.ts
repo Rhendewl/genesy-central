@@ -1,3 +1,4 @@
+import { validateObjectiveInput } from "@/lib/workspace/objective-validation";
 // GET  /api/workspace/objectives — lista objetivos
 // POST /api/workspace/objectives — cria objetivo
 
@@ -26,10 +27,10 @@ export async function GET(req: NextRequest) {
 
     let query = supabase.from("workspace_objectives").select("*").order("updated_at", { ascending: false });
     query = targetProfile?.id
-      ? query.or(`user_id.eq.${targetUserId},assignee_id.eq.${targetProfile.id}`)
+      ? query.or(`user_id.eq.${targetUserId},assignee_ids.cs.{${targetProfile.id}}`)
       : query.eq("user_id", targetUserId);
 
-    if (assigneeId) query = query.eq("assignee_id", assigneeId);
+    if (assigneeId) query = query.contains("assignee_ids", [assigneeId]);
     if (search)     query = query.ilike("title", `%${search}%`);
 
     const { data, error } = await query;
@@ -48,6 +49,8 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
 
   const body = await req.json().catch(() => null) as (NewWorkspaceObjective & { user_id?: string }) | null;
+  const validation = validateObjectiveInput(body, true);
+  if (validation) return NextResponse.json({error:validation},{status:400});
   if (!body?.title) {
     return NextResponse.json({ error: "title é obrigatório" }, { status: 400 });
   }
@@ -60,6 +63,9 @@ export async function POST(req: NextRequest) {
         // RLS (is_admin_of_user) valida; sem isso o trigger usa o próprio uid.
         ...(body.user_id ? { user_id: body.user_id } : {}),
         created_by:  user.id,
+        horizon: body.horizon ?? "medio", status: body.status ?? "planejado",
+        start_date: body.start_date ?? null, parent_id: body.parent_id ?? null,
+        assignee_ids: body.assignee_ids ?? (body.assignee_id ? [body.assignee_id] : []),
         title:       body.title,
         description: body.description ?? null,
         priority:    body.priority ?? "media",

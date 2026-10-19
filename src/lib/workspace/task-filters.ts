@@ -3,6 +3,7 @@ import type { WorkspaceTask } from "@/types/workspace";
 export type WorkspaceTaskDueFilter = "" | "overdue" | "today" | "next_7_days" | "no_due_date";
 
 export interface WorkspaceTaskFilters {
+  tagIds?: string[];
   due: WorkspaceTaskDueFilter;
   assigneeId: string;
 }
@@ -21,6 +22,7 @@ export function filterWorkspaceTasks(
   nextWeekDate.setDate(nextWeekDate.getDate() + 7);
   const nextWeek = localDateKey(nextWeekDate);
   return tasks.filter((task) => {
+    if (filters.tagIds?.length && !filters.tagIds.every(id => task.tags?.includes(id))) return false;
     const assigneeIds = Array.isArray(task.assignee_ids) ? task.assignee_ids : [];
     const dueDate = typeof task.due_date === "string" ? task.due_date.slice(0, 10) : "";
 

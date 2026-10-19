@@ -6,7 +6,7 @@ import { semanticChipStyle } from "@/lib/semantic-chip";
 // Chip visual extraído de src/components/crm/LeadCard.tsx — mesma receita,
 // agora compartilhada entre CRM e Workspace.
 export function TagChip({ tagId }: { tagId: string }) {
-  const { tags } = useTags();
+  const { tags } = useTags("workspace");
   const tag = tags.find((t) => t.id === tagId);
   if (!tag) return null;
 

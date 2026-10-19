@@ -1,4 +1,5 @@
 "use client";
+import { useTags } from "@/hooks/useTags";
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
@@ -34,6 +35,8 @@ export default function WorkspaceKanbanPage() {
   const [view, setView] = useState<WorkspaceView>("kanban");
   const [openTaskId, setOpenTaskId] = useState<string | null>(null);
   const [isPanelOpen, setIsPanelOpen] = useState(false);
+  const { tags } = useTags("workspace");
+  const [tagIds, setTagIds] = useState<string[]>([]);
   const [dueFilter, setDueFilter] = useState<WorkspaceTaskDueFilter>("");
   const [assigneeFilter, setAssigneeFilter] = useState("");
   const { profiles } = useUsers();
@@ -50,12 +53,12 @@ export default function WorkspaceKanbanPage() {
 
   const filteredTasks = useMemo(() => {
     return filterWorkspaceTasks(tasksHook.tasks, {
-      due: dueFilter,
+      tagIds, due: dueFilter,
       assigneeId: assigneeFilter,
     });
-  }, [assigneeFilter, dueFilter, tasksHook.tasks]);
+  }, [assigneeFilter, dueFilter, tasksHook.tasks, tagIds]);
 
-  const hasFilters = Boolean(dueFilter || assigneeFilter);
+  const hasFilters = Boolean(dueFilter || assigneeFilter || tagIds.length);
 
   useEffect(() => {
     const taskId = searchParams.get("task");
@@ -77,7 +80,7 @@ export default function WorkspaceKanbanPage() {
   function changeBoard(boardId: string) {
     setActiveBoardId(boardId);
     window.localStorage.setItem("workspace-active-task-board", boardId);
-    setDueFilter("");
+    setTagIds([]); setDueFilter("");
     setAssigneeFilter("");
   }
 
@@ -126,6 +129,7 @@ export default function WorkspaceKanbanPage() {
 
       <div className="px-4 pb-4 sm:px-6">
         <div className="flex items-center gap-2 overflow-x-auto overscroll-x-contain pb-1 [scrollbar-width:none]">
+          <div className="flex flex-wrap gap-1" aria-label="Filtrar etiquetas">{tags.map(tag => <button key={tag.id} aria-pressed={tagIds.includes(tag.id)} onClick={() => setTagIds(ids => ids.includes(tag.id) ? ids.filter(id => id !== tag.id) : [...ids, tag.id])} className="rounded-full border px-2 py-1 text-xs" style={{ borderColor: tag.color, background: tagIds.includes(tag.id) ? tag.color + "30" : undefined }}>{tag.name}</button>)}</div>
           <select aria-label="Filtrar por prazo" value={dueFilter} onChange={(event) => setDueFilter(event.target.value as WorkspaceTaskDueFilter)} className={filterClass}>
             <option value="">Todos os prazos</option>
             <option value="overdue">Atrasadas</option>
@@ -138,7 +142,7 @@ export default function WorkspaceKanbanPage() {
             <option value="unassigned">Sem responsável</option>
             {activeProfiles.map((profile) => <option key={profile.id} value={profile.id}>{profile.full_name}</option>)}
           </select>
-          {hasFilters && <button type="button" onClick={() => { setDueFilter(""); setAssigneeFilter(""); }} className="flex h-9 shrink-0 items-center gap-1.5 rounded-xl px-3 text-xs text-[var(--muted-foreground)] hover:bg-[var(--hover)]"><FilterX size={13} />Limpar</button>}
+          {hasFilters && <button type="button" onClick={() => { setTagIds([]); setDueFilter(""); setAssigneeFilter(""); }} className="flex h-9 shrink-0 items-center gap-1.5 rounded-xl px-3 text-xs text-[var(--muted-foreground)] hover:bg-[var(--hover)]"><FilterX size={13} />Limpar</button>}
           {hasFilters && <span className="ml-auto shrink-0 text-[11px] text-[var(--muted-foreground)]">{filteredTasks.length} de {tasksHook.tasks.length}</span>}
         </div>
       </div>
