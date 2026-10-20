@@ -13,6 +13,13 @@ import {
   ObjectivesDashboard,
   objectiveStatuses,
 } from "@/components/workspace/objectives/ObjectivesDashboard";
+import { BscBoard } from "@/components/workspace/objectives/BscBoard";
+import {
+  currentMonth,
+  objectiveInMonth,
+  BSC_PERSPECTIVES,
+  type BscPerspective,
+} from "@/lib/workspace/bsc";
 import { useTags } from "@/hooks/useTags";
 import { useUsers } from "@/hooks/useUsers";
 
@@ -32,6 +39,11 @@ export default function WorkspaceObjetivosPage() {
     [assignee, setAssignee] = useState(""),
     [priority, setPriority] = useState(""),
     [due, setDue] = useState("");
+  const [view, setView] = useState<"bsc" | "execution">("bsc");
+  const [month, setMonth] = useState(currentMonth);
+  const [perspective, setPerspective] = useState("");
+  const [initialPerspective, setInitialPerspective] =
+    useState<BscPerspective>();
   const [tagIds, setTagIds] = useState<string[]>([]);
   const filtered = useMemo(
     () =>
@@ -41,6 +53,8 @@ export default function WorkspaceObjetivosPage() {
             o.title
               .toLocaleLowerCase("pt-BR")
               .includes(search.toLocaleLowerCase("pt-BR"))) &&
+          objectiveInMonth(o, month) &&
+          (!perspective || o.perspective === perspective) &&
           (!status || o.status === status) &&
           (!horizon || o.horizon === horizon) &&
           (!assignee || o.assignee_ids?.includes(assignee)) &&
@@ -51,6 +65,8 @@ export default function WorkspaceObjetivosPage() {
     [
       objectivesHook.objectives,
       search,
+      perspective,
+      month,
       status,
       horizon,
       assignee,
@@ -64,7 +80,8 @@ export default function WorkspaceObjetivosPage() {
     setIsPanelOpen(true);
   }
 
-  function openCreate() {
+  function openCreate(p?: BscPerspective) {
+    setInitialPerspective(p);
     setOpenObjectiveId(null);
     setIsPanelOpen(true);
   }
@@ -79,12 +96,12 @@ export default function WorkspaceObjetivosPage() {
     <div className="flex flex-col pb-24">
       <Header
         title="Workspace"
-        subtitle="Suas metas e o progresso de cada uma"
+        subtitle="Objetivos estratégicos e resultados do BSC"
       />
 
       <div className="flex flex-wrap items-center justify-end gap-3 px-4 pb-4 sm:px-6">
         <motion.button
-          onClick={openCreate}
+          onClick={() => openCreate()}
           whileHover={{ scale: 1.03 }}
           whileTap={{ scale: 0.97 }}
           className="lc-btn flex items-center gap-2 px-4 py-2 text-sm"
@@ -95,6 +112,36 @@ export default function WorkspaceObjetivosPage() {
       </div>
 
       <div className="flex-1 px-4 sm:px-6">
+        <div className="mb-5 flex flex-wrap items-center gap-3">
+          <button
+            className={`${view === "bsc" ? "lc-btn" : "rounded-lg border"} px-4 py-2 text-sm`}
+            aria-pressed={view === "bsc"}
+            onClick={() => setView("bsc")}
+          >
+            Mapa BSC
+          </button>
+          <button
+            className={`${view === "execution" ? "lc-btn" : "rounded-lg border"} px-4 py-2 text-sm`}
+            aria-pressed={view === "execution"}
+            onClick={() => setView("execution")}
+          >
+            Execução e lista
+          </button>
+          {
+            <label className="text-xs">
+              Objetivos vigentes no mês{" "}
+              <input
+                type="month"
+                aria-label="Mês do BSC"
+                className="rounded-lg border bg-transparent p-2"
+                value={month}
+                onChange={(e) => {
+                  setMonth(e.target.value);
+                }}
+              />
+            </label>
+          }
+        </div>
         <div className="mb-4 flex flex-wrap gap-2 [&_select]:rounded-lg [&_select]:border [&_select]:bg-[var(--background)] [&_select]:p-2 [&_select]:text-xs">
           <input
             aria-label="Buscar objetivos"
@@ -103,6 +150,18 @@ export default function WorkspaceObjetivosPage() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
+          <select
+            aria-label="Filtrar perspectiva"
+            value={perspective}
+            onChange={(e) => setPerspective(e.target.value)}
+          >
+            <option value="">Todas as perspectivas</option>
+            {Object.entries(BSC_PERSPECTIVES).map(([key, label]) => (
+              <option key={key} value={key}>
+                {label}
+              </option>
+            ))}
+          </select>
           <select
             aria-label="Filtrar status"
             value={status}
@@ -161,6 +220,8 @@ export default function WorkspaceObjetivosPage() {
           <button
             className="text-xs"
             onClick={() => {
+              setMonth("");
+              setPerspective("");
               setSearch("");
               setStatus("");
               setHorizon("");
@@ -195,9 +256,19 @@ export default function WorkspaceObjetivosPage() {
             </button>
           ))}
         </div>
-        {!objectivesHook.isLoading && !objectivesHook.error && (
-          <ObjectivesDashboard objectives={filtered} onOpen={openObjective} />
-        )}
+        {!objectivesHook.isLoading &&
+          !objectivesHook.error &&
+          (view === "bsc" ? (
+            <BscBoard
+              key={isPanelOpen ? "editing" : "closed"}
+              objectives={filtered}
+              month={month}
+              onOpen={openObjective}
+              onCreate={openCreate}
+            />
+          ) : (
+            <ObjectivesDashboard objectives={filtered} onOpen={openObjective} />
+          ))}
 
         {objectivesHook.isLoading ? (
           <div className="flex items-center justify-center py-24">
@@ -211,14 +282,14 @@ export default function WorkspaceObjetivosPage() {
           <div className="flex items-center justify-center py-24">
             <p className="text-sm text-red-400">{objectivesHook.error}</p>
           </div>
-        ) : (
+        ) : view === "execution" ? (
           <ObjectivesGrid
             objectives={filtered}
             isLoading={false}
             onOpen={openObjective}
             onToggleStep={objectivesHook.toggleObjectiveStep}
           />
-        )}
+        ) : null}
       </div>
 
       <AnimatePresence>
@@ -226,6 +297,7 @@ export default function WorkspaceObjetivosPage() {
           <ObjectiveDetailPanel
             key={openObjectiveId ?? "new"}
             onOpenObjective={openObjective}
+            initialPerspective={initialPerspective}
             objectiveId={openObjectiveId}
             objectivesHook={objectivesHook}
             onClose={closePanel}

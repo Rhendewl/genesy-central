@@ -4,6 +4,11 @@ import {
   validateTagIds,
 } from "../objective-validation";
 describe("objective input validation", () => {
+  it("accepts BSC perspectives or unclassified, rejects arbitrary values", () => {
+    expect(validateObjectiveInput({perspective:"financeira"})).toBeNull();
+    expect(validateObjectiveInput({perspective:null})).toBeNull();
+    expect(validateObjectiveInput({perspective:"foo"})).not.toBeNull();
+  });
   it("rejects empty titles, invalid horizons, and invalid JSON", () => {
     for (const body of [
       null,

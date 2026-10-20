@@ -1,3 +1,4 @@
+import { BSC_PERSPECTIVES } from "./bsc";
 const horizons = ["curto", "medio", "longo"];
 const statuses = [
   "planejado",
@@ -36,6 +37,8 @@ export function validateObjectiveInput(
   ] as const)
     if (key in body && !values.includes(body[key] as string))
       return `Valor inválido: ${key}`;
+  if (body.perspective != null && !Object.keys(BSC_PERSPECTIVES).includes(body.perspective as string))
+    return "Perspectiva BSC inválida";
   for (const key of ["parent_id", "assignee_id", "user_id"])
     if (
       body[key] != null &&

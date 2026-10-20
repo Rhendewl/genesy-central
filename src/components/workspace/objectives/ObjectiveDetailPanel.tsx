@@ -8,6 +8,8 @@ import { X, Trash2, Loader2 } from "lucide-react";
 import { useModalOpen } from "@/hooks/useModalOpen";
 import { TagSelector } from "@/components/tags/TagSelector";
 import { AssigneePicker } from "@/components/workspace/AssigneePicker";
+import { BSC_PERSPECTIVES, type BscPerspective } from "@/lib/workspace/bsc";
+import { BscIndicators } from "./BscIndicators";
 import { ObjectivePlanning } from "./ObjectivePlanning";
 import { descendants } from "@/lib/workspace/objective-progress";
 import type { UpdateWorkspaceObjective } from "@/types/workspace-objectives";
@@ -31,6 +33,7 @@ interface ObjectiveDetailPanelProps {
   onClose: () => void;
   onOpenObjective?: (id: string) => void;
   presentation?: "drawer" | "modal";
+  initialPerspective?: BscPerspective;
 }
 
 export function ObjectiveDetailPanel({
@@ -39,6 +42,7 @@ export function ObjectiveDetailPanel({
   onClose,
   onOpenObjective,
   presentation = "drawer",
+  initialPerspective,
 }: ObjectiveDetailPanelProps) {
   useModalOpen(true);
 
@@ -57,6 +61,7 @@ export function ObjectiveDetailPanel({
   const [priority, setPriority] = useState<WorkspaceTaskPriority>("media");
   const [assigneeIds, setAssigneeIds] = useState<string[]>([]);
   const [planning, setPlanning] = useState<UpdateWorkspaceObjective>({
+    perspective: initialPerspective ?? null,
     horizon: "medio",
     status: "planejado",
     parent_id: null,
@@ -86,6 +91,7 @@ export function ObjectiveDetailPanel({
       setPriority(existingObjective.priority);
       setAssigneeIds(existingObjective.assignee_ids ?? []);
       setPlanning({
+        perspective: existingObjective.perspective ?? null,
         horizon: existingObjective.horizon,
         status: existingObjective.status,
         parent_id: existingObjective.parent_id,
@@ -127,7 +133,9 @@ export function ObjectiveDetailPanel({
       toast.error(result.error);
       return;
     }
-    onClose();
+    if (result.objective && onOpenObjective)
+      onOpenObjective(result.objective.id);
+    else onClose();
   }
 
   async function handleDelete() {
@@ -264,6 +272,13 @@ export function ObjectiveDetailPanel({
               />
             </div>
 
+            {objectiveId && (
+              <BscIndicators
+                objectiveId={objectiveId}
+                onChange={() => void objectivesHook.refetch()}
+              />
+            )}
+
             <div>
               <p
                 className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide"
@@ -327,6 +342,28 @@ export function ObjectiveDetailPanel({
                 onChangeTime={() => {}}
               />
             </div>
+
+            <label className="text-xs">
+              Perspectiva BSC
+              <select
+                aria-label="Perspectiva BSC"
+                className="mt-1 w-full rounded-lg border bg-[var(--background)] p-2"
+                value={planning.perspective ?? ""}
+                onChange={(e) =>
+                  plan({
+                    perspective: (e.target.value ||
+                      null) as BscPerspective | null,
+                  })
+                }
+              >
+                <option value="">Sem perspectiva</option>
+                {Object.entries(BSC_PERSPECTIVES).map(([key, label]) => (
+                  <option key={key} value={key}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </label>
 
             <TagSelector
               scope="workspace"

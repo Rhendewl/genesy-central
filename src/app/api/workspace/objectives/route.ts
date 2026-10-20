@@ -63,6 +63,7 @@ export async function POST(req: NextRequest) {
         // RLS (is_admin_of_user) valida; sem isso o trigger usa o próprio uid.
         ...(body.user_id ? { user_id: body.user_id } : {}),
         created_by:  user.id,
+        perspective: body.perspective ?? null,
         horizon: body.horizon ?? "medio", status: body.status ?? "planejado",
         start_date: body.start_date ?? null, parent_id: body.parent_id ?? null,
         assignee_ids: body.assignee_ids ?? (body.assignee_id ? [body.assignee_id] : []),

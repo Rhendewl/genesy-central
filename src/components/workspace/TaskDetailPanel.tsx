@@ -1,4 +1,5 @@
 "use client";
+import { TaskObjectiveLinks } from "./TaskObjectiveLinks";
 import { TagSelector } from "@/components/tags/TagSelector";
 
 import { useEffect, useState } from "react";
@@ -468,6 +469,7 @@ export function TaskDetailPanel({ taskId, tasksHook, onClose, presentation = "dr
                 Prazo
               </p>
               <div className={!canEdit ? "pointer-events-none opacity-70" : undefined}>
+                {taskId && <TaskObjectiveLinks taskId={taskId} canEdit={canEdit} />}
                 <TagSelector scope="workspace" value={taskTags} disabled={!canEdit} onChange={ids => { setTaskTags(ids); if (!isCreating) saveField({ tags: ids }); }} />
               <DueDatePicker
                   date={dueDate}
