@@ -1,6 +1,7 @@
 import type { WorkspaceTaskPriority } from "./workspace";
 
 export interface WorkspaceObjective {
+  perspective?: import("@/lib/workspace/bsc").BscPerspective | null;
   horizon: "curto" | "medio" | "longo";
   status: "planejado" | "em_andamento" | "pausado" | "concluido" | "cancelado";
   start_date: string | null;
@@ -27,11 +28,11 @@ export interface WorkspaceObjective {
 }
 
 export type NewWorkspaceObjective = Pick<WorkspaceObjective, "title"> & Partial<Pick<WorkspaceObjective,
-  "horizon" | "status" | "start_date" | "parent_id" | "assignee_ids" | "description" | "priority" | "assignee_id" | "tags" | "due_date"
+  "perspective" | "horizon" | "status" | "start_date" | "parent_id" | "assignee_ids" | "description" | "priority" | "assignee_id" | "tags" | "due_date"
 >>;
 
 export type UpdateWorkspaceObjective = Partial<Pick<WorkspaceObjective,
-  "title" | "horizon" | "status" | "start_date" | "parent_id" | "assignee_ids" | "description" | "priority" | "assignee_id" | "tags" | "due_date"
+  "title" | "perspective" | "horizon" | "status" | "start_date" | "parent_id" | "assignee_ids" | "description" | "priority" | "assignee_id" | "tags" | "due_date"
 >>;
 
 export interface WorkspaceObjectiveStep {

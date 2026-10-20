@@ -1,5 +1,7 @@
 # Workspace: objetivos e etiquetas próprias
 
+Esta é a base publicada em 19/10/2026. A evolução para BSC está documentada em `workspace-bsc.md`.
+
 ## Comportamento
 
 - Amplia `/workspace/objetivos`, sem substituir registros existentes: CRUD, horizonte curto/médio/longo, status, prioridade, descrição, início/prazo, múltiplos responsáveis e hierarquia.
@@ -29,4 +31,4 @@ Excluir objetivo remove seus blocos, vínculos e metas; subobjetivos ficam indep
 - `NODE_PATH=<node_modules com @electric-sql/pglite> node scripts/tests/workspace-objectives-db.mjs`: 12 cenários sobre migration, RLS, hierarquia, metadados e exclusões. Usa schema-base reduzido; não substitui homologação do schema real.
 - Prévia visual dos componentes com dados fictícios conferida em desktop e 390px, sem overflow horizontal ou erros no console. A rota temporária foi removida; nenhuma fixture pública é entregue.
 
-Publicação: aplicar migration, conferir tabelas/policies/cron no Supabase, realizar smoke test autenticado e então seguir o deploy por `main`/Vercel. O acesso Supabase disponível nesta execução expõe REST, mas nenhuma função SQL; a migration não foi aplicada e produção não foi atualizada. A versão não deve ser promovida antes da migration. Fluxos autenticados completos no banco real ainda precisam ser homologados.
+Publicação: aplicar migration, conferir tabelas/policies/cron no Supabase, realizar smoke test autenticado e então seguir o deploy por `main`/Vercel. A migration base foi aplicada pelo usuário e sua estrutura foi verificada por REST; a versão base foi publicada em 19/10/2026. A evolução BSC exige sua própria migration descrita em `workspace-bsc.md`. Fluxos autenticados completos de escrita no banco real ainda precisam ser homologados.

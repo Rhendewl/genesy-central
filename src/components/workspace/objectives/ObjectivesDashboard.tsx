@@ -1,5 +1,4 @@
 "use client";
-import { useEffect, useState } from "react";
 import {
   ResponsiveContainer,
   BarChart,
@@ -10,10 +9,7 @@ import {
   Cell,
 } from "recharts";
 import { HalfDonutGauge } from "@/components/dashboard-geral/HalfDonutGauge";
-import { getSupabaseClient } from "@/lib/supabase";
-import { metricProgress } from "@/lib/workspace/objective-progress";
 import type { WorkspaceObjective } from "@/types/workspace-objectives";
-import type { ObjectiveMetric } from "./ObjectivePlanning";
 export const objectiveStatuses = {
   planejado: "Planejados",
   em_andamento: "Em andamento",
@@ -28,48 +24,14 @@ export function ObjectivesDashboard({
   objectives: WorkspaceObjective[];
   onOpen: (id: string) => void;
 }) {
-  const [metrics, setMetrics] = useState<ObjectiveMetric[]>([]),
-    [error, setError] = useState("");
-  useEffect(() => {
-    let active = true;
-    const ids = objectives.map((o) => o.id);
-    if (!ids.length) {
-      setMetrics([]);
-      return;
-    }
-    void getSupabaseClient()
-      .from("workspace_objective_metrics")
-      .select("*")
-      .in("objective_id", ids)
-      .then((r) => {
-        if (active) {
-          setError(r.error?.message ?? "");
-          setMetrics(r.data ?? []);
-        }
-      });
-    return () => {
-      active = false;
-    };
-  }, [objectives]);
-  return (
-    <ObjectivesDashboardView
-      objectives={objectives}
-      onOpen={onOpen}
-      metrics={metrics}
-      error={error}
-    />
-  );
+  return <ObjectivesDashboardView objectives={objectives} onOpen={onOpen} />;
 }
 export function ObjectivesDashboardView({
   objectives,
   onOpen,
-  metrics,
-  error = "",
 }: {
   objectives: WorkspaceObjective[];
   onOpen: (id: string) => void;
-  metrics: ObjectiveMetric[];
-  error?: string;
 }) {
   const today = new Date().toLocaleDateString("en-CA");
   const active = objectives.filter(
@@ -207,43 +169,6 @@ export function ObjectivesDashboardView({
           Inclui subobjetivos e tarefas visíveis para você. Tarefas repetidas
           dentro do mesmo objetivo contam uma vez.
         </p>
-      </section>
-      <section className="lc-card p-5">
-        <h2 className="mb-4 text-sm font-semibold">Resultados mensuráveis</h2>
-        {error && (
-          <p role="alert" className="text-red-400">
-            {error}
-          </p>
-        )}
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {metrics.map((m) => (
-            <button
-              key={m.id}
-              onClick={() => onOpen(m.objective_id)}
-              className="rounded-xl p-3 hover:bg-[var(--hover)]"
-            >
-              <HalfDonutGauge
-                percent={metricProgress(
-                  Number(m.baseline),
-                  Number(m.target),
-                  Number(m.current_value),
-                )}
-                label={m.title}
-                caption={`${m.current_value} / ${m.target} ${m.unit}`}
-                size={132}
-              />
-              <p className="mt-2 text-xs text-[var(--muted-foreground)]">
-                {objectives.find((o) => o.id === m.objective_id)?.title}
-              </p>
-            </button>
-          ))}
-        </div>
-        {!metrics.length && (
-          <p className="text-xs text-[var(--muted-foreground)]">
-            Adicione metas nos detalhes de um objetivo. Elas não alteram a
-            porcentagem de execução.
-          </p>
-        )}
       </section>
     </div>
   );

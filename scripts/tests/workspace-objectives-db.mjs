@@ -41,6 +41,9 @@ await db.exec(
     "utf8",
   ),
 );
+await db.exec(
+  readFileSync("supabase/migrations/20261020130000_workspace_bsc.sql", "utf8"),
+);
 let passed = 0;
 async function check(name, fn) {
   await fn();
@@ -152,6 +155,101 @@ await check("workspace tags copied independently", async () => {
     (await db.query(`SELECT name FROM tags WHERE id='${a}'`)).rows[0].name,
     "Design",
   );
+});
+await check(
+  "BSC perspective validation preserves unclassified legacy objectives",
+  async () => {
+    assert.equal(
+      (
+        await db.query(
+          `SELECT perspective FROM workspace_objectives WHERE id='${root}'`,
+        )
+      ).rows[0].perspective,
+      null,
+    );
+    await db.exec(
+      `UPDATE workspace_objectives SET perspective='financeira' WHERE id='${root}'`,
+    );
+    await reject(
+      `UPDATE workspace_objectives SET perspective='unknown' WHERE id='${root}'`,
+    );
+  },
+);
+const metricId = await insert(
+  `INSERT INTO workspace_objective_metrics(objective_id,title,target) VALUES('${root}','Receita',25000) RETURNING id`,
+);
+await check(
+  "monthly records are independent and unique with valid numeric values",
+  async () => {
+    await db.exec(
+      `INSERT INTO workspace_objective_metric_periods(metric_id,month,target,current_value) VALUES('${metricId}','2026-10-01',25000,10000),('${metricId}','2026-11-01',30000,0)`,
+    );
+    await reject(
+      `INSERT INTO workspace_objective_metric_periods(metric_id,month,target) VALUES('${metricId}','2026-10-01',1)`,
+    );
+    await reject(
+      `INSERT INTO workspace_objective_metric_periods(metric_id,month,target) VALUES('${metricId}','2026-12-02',1)`,
+    );
+    await reject(
+      `UPDATE workspace_objective_metric_periods SET current_value='NaN' WHERE metric_id='${metricId}'`,
+    );
+    await reject(
+      `UPDATE workspace_objective_metric_periods SET month='2027-01-01' WHERE metric_id='${metricId}'`,
+    );
+    await db.exec(
+      `UPDATE workspace_objective_metric_periods SET current_value=15000 WHERE metric_id='${metricId}' AND month='2026-10-01'`,
+    );
+    assert.equal(
+      Number(
+        (
+          await db.query(
+            `SELECT current_value FROM workspace_objective_metric_periods WHERE metric_id='${metricId}' AND month='2026-11-01'`,
+          )
+        ).rows[0].current_value,
+      ),
+      0,
+    );
+  },
+);
+await check(
+  "monthly RLS blocks reads, updates, inserts and deletes by another organization",
+  async () => {
+    await db.exec(`SET test.uid='${b}'`);
+    assert.equal(
+      (await db.query("SELECT * FROM workspace_objective_metric_periods")).rows
+        .length,
+      0,
+    );
+    assert.equal(
+      (
+        await db.query(
+          "UPDATE workspace_objective_metric_periods SET current_value=999 RETURNING id",
+        )
+      ).rows.length,
+      0,
+    );
+    assert.equal(
+      (
+        await db.query(
+          "DELETE FROM workspace_objective_metric_periods RETURNING id",
+        )
+      ).rows.length,
+      0,
+    );
+    await reject(
+      `INSERT INTO workspace_objective_metric_periods(metric_id,month,target) VALUES('${metricId}','2026-12-01',1)`,
+    );
+    await db.exec(`SET test.uid='${a}'`);
+  },
+);
+await check("assigned member can record objective results", async () => {
+  await db.exec(
+    `UPDATE workspace_objectives SET assignee_ids=ARRAY['${c}']::uuid[] WHERE id='${root}';SET test.uid='${c}'`,
+  );
+  await db.exec(
+    `INSERT INTO workspace_objective_metric_periods(metric_id,month,target,current_value) VALUES('${metricId}','2026-12-01',25000,20000)`,
+  );
+  await db.exec(`SET test.uid='${a}'`);
 });
 await check(
   "deleting parent preserves children and operational tasks",

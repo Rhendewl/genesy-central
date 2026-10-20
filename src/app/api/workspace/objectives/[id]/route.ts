@@ -56,7 +56,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   const validation = validateObjectiveInput(body);
   if(validation) return NextResponse.json({error:validation},{status:400});
   const patch: Record<string, unknown> = {};
-  for (const key of ["horizon", "status", "start_date", "parent_id", "assignee_ids", "title", "description", "priority", "assignee_id", "tags", "due_date"] as const) {
+  for (const key of ["perspective", "horizon", "status", "start_date", "parent_id", "assignee_ids", "title", "description", "priority", "assignee_id", "tags", "due_date"] as const) {
     if (key in body) patch[key] = body[key];
   }
 

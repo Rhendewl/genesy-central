@@ -6,8 +6,7 @@ import { useWorkspaceViewing } from "@/context/WorkspaceViewingContext";
 import { useWorkspaceTasks } from "@/hooks/useWorkspaceTasks";
 import { TaskDetailPanel } from "@/components/workspace/TaskDetailPanel";
 import { TagChip } from "@/components/workspace/TagChip";
-import { HalfDonutGauge } from "@/components/dashboard-geral/HalfDonutGauge";
-import { metricProgress } from "@/lib/workspace/objective-progress";
+
 import type { WorkspaceTask } from "@/types/workspace";
 export interface ObjectiveMetric {
   id: string;
@@ -38,22 +37,15 @@ export function ObjectivePlanning({
   );
   const [blocks, setBlocks] = useState<Block[]>([]),
     [links, setLinks] = useState<TaskLink[]>([]),
-    [tasks, setTasks] = useState<WorkspaceTask[]>([]),
-    [metrics, setMetrics] = useState<ObjectiveMetric[]>([]);
+    [tasks, setTasks] = useState<WorkspaceTask[]>([]);
   const [blockTitle, setBlockTitle] = useState(""),
     [taskTitle, setTaskTitle] = useState(""),
     [taskId, setTaskId] = useState(""),
     [blockId, setBlockId] = useState("");
+  const [showCompleted, setShowCompleted] = useState(false);
   const [openTask, setOpenTask] = useState<string | null>(null),
     [busy, setBusy] = useState(false),
     [error, setError] = useState<string | null>(null);
-  const [metric, setMetric] = useState({
-    title: "",
-    unit: "",
-    baseline: 0,
-    target: 100,
-    current_value: 0,
-  });
   const load = useCallback(async () => {
     const results = await Promise.all([
       db
@@ -65,7 +57,6 @@ export function ObjectivePlanning({
         .from("workspace_objective_task_links")
         .select("*")
         .eq("objective_id", id),
-      db.from("workspace_objective_metrics").select("*").eq("objective_id", id),
     ]);
     const failure = results.find((r) => r.error)?.error;
     if (failure) {
@@ -75,7 +66,7 @@ export function ObjectivePlanning({
     setError(null);
     setBlocks(results[0].data ?? []);
     setLinks(results[1].data ?? []);
-    setMetrics(results[2].data ?? []);
+
     const ids = (results[1].data ?? []).map((l) => l.task_id);
     if (ids.length) {
       const r = await db.from("workspace_tasks").select("*").in("id", ids);
@@ -120,11 +111,22 @@ export function ObjectivePlanning({
         </p>
       )}
       <section className="space-y-2">
-        <h3 className="text-sm font-semibold">Blocos e tarefas</h3>
+        <h3 className="text-sm font-semibold">
+          Iniciativas e tarefas estratégicas
+        </h3>
         <p className="text-xs text-[var(--muted-foreground)]">
           As tarefas são as mesmas do Workspace. Permissões e responsáveis são
           preservados.
         </p>
+        <button
+          type="button"
+          className="text-xs underline"
+          onClick={() => setShowCompleted((v) => !v)}
+        >
+          {showCompleted
+            ? "Ocultar concluídas"
+            : `Mostrar concluídas (${tasks.filter((t) => t.status === "concluido").length})`}
+        </button>
         <form
           className="flex gap-2"
           onSubmit={(e) => {
@@ -195,7 +197,13 @@ export function ObjectivePlanning({
               )}
             </div>
             {links
-              .filter((l) => (l.block_id ?? "") === block.id)
+              .filter(
+                (l) =>
+                  (l.block_id ?? "") === block.id &&
+                  (showCompleted ||
+                    tasks.find((t) => t.id === l.task_id)?.status !==
+                      "concluido"),
+              )
               .map((link) => {
                 const task = tasks.find((t) => t.id === link.task_id);
                 return (
@@ -325,156 +333,6 @@ export function ObjectivePlanning({
           />
           <button disabled={busy || !taskTitle.trim()} className="lc-btn px-3">
             Criar
-          </button>
-        </form>
-      </section>
-      <section className="space-y-3">
-        <h3 className="text-sm font-semibold">Metas mensuráveis</h3>
-        <p className="text-xs text-[var(--muted-foreground)]">
-          Resultados independentes das tarefas. Ex.: faturamento em R$ ou
-          quantidade de clientes.
-        </p>
-        {metrics.map((m) => (
-          <form
-            key={m.id}
-            className="lc-card p-3 space-y-2"
-            onSubmit={(e) => {
-              e.preventDefault();
-              void mutate(() =>
-                db
-                  .from("workspace_objective_metrics")
-                  .update({
-                    title: m.title,
-                    unit: m.unit,
-                    baseline: m.baseline,
-                    target: m.target,
-                    current_value: m.current_value,
-                  })
-                  .eq("id", m.id),
-              );
-            }}
-          >
-            <HalfDonutGauge
-              percent={metricProgress(
-                Number(m.baseline),
-                Number(m.target),
-                Number(m.current_value),
-              )}
-              label={m.title}
-              caption={`${m.current_value} / ${m.target} ${m.unit}`}
-            />
-            {(
-              ["title", "unit", "baseline", "target", "current_value"] as const
-            ).map((key) => (
-              <label key={key} className="block text-xs">
-                {
-                  {
-                    title: "Nome",
-                    unit: "Unidade",
-                    baseline: "Valor inicial",
-                    target: "Meta",
-                    current_value: "Atual",
-                  }[key]
-                }
-                <input
-                  className={field}
-                  type={key === "title" || key === "unit" ? "text" : "number"}
-                  step="any"
-                  value={m[key]}
-                  required={key !== "unit"}
-                  onChange={(e) =>
-                    setMetrics((rows) =>
-                      rows.map((row) =>
-                        row.id === m.id
-                          ? {
-                              ...row,
-                              [key]:
-                                key === "title" || key === "unit"
-                                  ? e.target.value
-                                  : Number(e.target.value),
-                            }
-                          : row,
-                      ),
-                    )
-                  }
-                />
-              </label>
-            ))}
-            <div className="flex justify-between">
-              <button className="lc-btn px-3 py-1" disabled={busy}>
-                Salvar meta
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  if (window.confirm("Excluir esta meta?"))
-                    void mutate(() =>
-                      db
-                        .from("workspace_objective_metrics")
-                        .delete()
-                        .eq("id", m.id),
-                    );
-                }}
-              >
-                Excluir
-              </button>
-            </div>
-          </form>
-        ))}
-        <form
-          className="space-y-2"
-          onSubmit={(e) => {
-            e.preventDefault();
-            void mutate(() =>
-              db
-                .from("workspace_objective_metrics")
-                .insert({ ...metric, objective_id: id }),
-            );
-          }}
-        >
-          <input
-            aria-label="Nome da meta"
-            className={field}
-            placeholder="Nome da meta"
-            required
-            value={metric.title}
-            onChange={(e) => setMetric({ ...metric, title: e.target.value })}
-          />
-          <input
-            aria-label="Unidade"
-            className={field}
-            placeholder="Unidade (R$, clientes...)"
-            value={metric.unit}
-            onChange={(e) => setMetric({ ...metric, unit: e.target.value })}
-          />
-          <div className="grid grid-cols-3 gap-2">
-            {(["baseline", "target", "current_value"] as const).map((key) => (
-              <label key={key} className="text-xs">
-                {
-                  {
-                    baseline: "Inicial",
-                    target: "Meta",
-                    current_value: "Atual",
-                  }[key]
-                }
-                <input
-                  className={field}
-                  type="number"
-                  step="any"
-                  required
-                  value={metric[key]}
-                  onChange={(e) =>
-                    setMetric({ ...metric, [key]: Number(e.target.value) })
-                  }
-                />
-              </label>
-            ))}
-          </div>
-          <button
-            disabled={busy || metric.target === metric.baseline}
-            className="lc-btn px-3 py-2 text-sm"
-          >
-            Adicionar meta
           </button>
         </form>
       </section>
