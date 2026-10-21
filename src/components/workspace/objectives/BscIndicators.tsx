@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { getSupabaseClient } from "@/lib/supabase";
 import { useBscMetrics } from "@/hooks/useBscMetrics";
 import type { BscMetric } from "@/lib/workspace/bsc";
-import { metricProgress } from "@/lib/workspace/objective-progress";
+import { bscMetricProgress as metricProgress } from "@/lib/workspace/bsc";
 import { HalfDonutGauge } from "@/components/dashboard-geral/HalfDonutGauge";
 const field = "w-full rounded-lg border bg-[var(--background)] p-2 text-sm";
 export function BscIndicators({

@@ -64,53 +64,59 @@ export function useWorkspaceTasks(viewAsUserId?: string, activeBoardId?: string,
     const fetchId = ++latestFetchIdRef.current;
     setError(null);
 
-    const params = new URLSearchParams();
-    if (viewAsUserId) params.set("as_user_id", viewAsUserId);
-    if (activeBoardId) params.set("board_id", activeBoardId);
-    if (objectiveId) params.set("objective_id", objectiveId);
-    const qs = params.size > 0 ? `?${params.toString()}` : "";
-    const res  = await fetch(`/api/workspace/tasks${qs}`, { cache: "no-store" });
-    const json = await res.json() as { tasks?: WorkspaceTask[]; error?: string };
+    try {
+      const params = new URLSearchParams();
+      if (viewAsUserId) params.set("as_user_id", viewAsUserId);
+      if (activeBoardId) params.set("board_id", activeBoardId);
+      if (objectiveId) params.set("objective_id", objectiveId);
+      const qs = params.size > 0 ? `?${params.toString()}` : "";
+      const res  = await fetch(`/api/workspace/tasks${qs}`, { cache: "no-store" });
+      const json = await res.json() as { tasks?: WorkspaceTask[]; error?: string };
 
-    if (!mountedRef.current || fetchId !== latestFetchIdRef.current) return;
-    if (!res.ok || !json.tasks) {
-      setError(json.error ?? "Erro ao carregar tarefas");
-      return;
+      if (!mountedRef.current || fetchId !== latestFetchIdRef.current) return;
+      if (!res.ok || !json.tasks) {
+        setError(json.error ?? "Erro ao carregar tarefas");
+        return;
+      }
+
+      const taskIds = json.tasks.map((t) => t.id);
+      const [checklistRes, commentsRes] = taskIds.length > 0
+        ? await Promise.all([
+            supabase.from("workspace_task_checklist_items").select("task_id,is_completed").in("task_id", taskIds),
+            supabase.from("workspace_task_comments").select("task_id").in("task_id", taskIds),
+          ])
+        : [{ data: [] as { task_id: string; is_completed: boolean }[] }, { data: [] as { task_id: string }[] }];
+
+      if (!mountedRef.current || fetchId !== latestFetchIdRef.current) return;
+
+      const checklistCounts = new Map<string, { total: number; done: number }>();
+      for (const row of checklistRes.data ?? []) {
+        const cur = checklistCounts.get(row.task_id) ?? { total: 0, done: 0 };
+        cur.total += 1;
+        if (row.is_completed) cur.done += 1;
+        checklistCounts.set(row.task_id, cur);
+      }
+
+      const commentCounts = new Map<string, number>();
+      for (const row of commentsRes.data ?? []) {
+        commentCounts.set(row.task_id, (commentCounts.get(row.task_id) ?? 0) + 1);
+      }
+
+      const enriched = json.tasks.map((t) => ({
+        ...t,
+        checklist_total: checklistCounts.get(t.id)?.total ?? 0,
+        checklist_done:  checklistCounts.get(t.id)?.done  ?? 0,
+        comment_count:   commentCounts.get(t.id) ?? 0,
+      }));
+
+      setTasks(uniqueWorkspaceTasks(
+        enriched.filter((task) => !discardedTaskIdsRef.current.has(task.id)),
+      ));
+    } catch (error) {
+      if (mountedRef.current && fetchId === latestFetchIdRef.current) {
+        setError(error instanceof Error ? error.message : "Não foi possível carregar as tarefas");
+      }
     }
-
-    const taskIds = json.tasks.map((t) => t.id);
-    const [checklistRes, commentsRes] = taskIds.length > 0
-      ? await Promise.all([
-          supabase.from("workspace_task_checklist_items").select("task_id,is_completed").in("task_id", taskIds),
-          supabase.from("workspace_task_comments").select("task_id").in("task_id", taskIds),
-        ])
-      : [{ data: [] as { task_id: string; is_completed: boolean }[] }, { data: [] as { task_id: string }[] }];
-
-    if (!mountedRef.current || fetchId !== latestFetchIdRef.current) return;
-
-    const checklistCounts = new Map<string, { total: number; done: number }>();
-    for (const row of checklistRes.data ?? []) {
-      const cur = checklistCounts.get(row.task_id) ?? { total: 0, done: 0 };
-      cur.total += 1;
-      if (row.is_completed) cur.done += 1;
-      checklistCounts.set(row.task_id, cur);
-    }
-
-    const commentCounts = new Map<string, number>();
-    for (const row of commentsRes.data ?? []) {
-      commentCounts.set(row.task_id, (commentCounts.get(row.task_id) ?? 0) + 1);
-    }
-
-    const enriched = json.tasks.map((t) => ({
-      ...t,
-      checklist_total: checklistCounts.get(t.id)?.total ?? 0,
-      checklist_done:  checklistCounts.get(t.id)?.done  ?? 0,
-      comment_count:   commentCounts.get(t.id) ?? 0,
-    }));
-
-    setTasks(uniqueWorkspaceTasks(
-      enriched.filter((task) => !discardedTaskIdsRef.current.has(task.id)),
-    ));
   }, [activeBoardId, supabase, viewAsUserId, objectiveId]);
 
   const scheduleRealtimeRefresh = useCallback(() => {
