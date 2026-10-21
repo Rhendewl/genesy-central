@@ -6,7 +6,8 @@ import { Plus, Loader2 } from "lucide-react";
 import { Header } from "@/components/layout/Header";
 import { useWorkspaceObjectives } from "@/hooks/useWorkspaceObjectives";
 import { useWorkspaceViewing } from "@/context/WorkspaceViewingContext";
-import { ObjectivesGrid } from "@/components/workspace/objectives/ObjectivesGrid";
+import { BscWizard } from "@/components/workspace/objectives/BscWizard";
+import { BscCharts } from "@/components/workspace/objectives/BscCharts";
 import { ObjectiveDetailPanel } from "@/components/workspace/objectives/ObjectiveDetailPanel";
 
 import {
@@ -18,7 +19,6 @@ import {
   currentMonth,
   objectiveInMonth,
   BSC_PERSPECTIVES,
-  type BscPerspective,
 } from "@/lib/workspace/bsc";
 import { useTags } from "@/hooks/useTags";
 import { useUsers } from "@/hooks/useUsers";
@@ -42,8 +42,7 @@ export default function WorkspaceObjetivosPage() {
   const [view, setView] = useState<"bsc" | "execution">("bsc");
   const [month, setMonth] = useState(currentMonth);
   const [perspective, setPerspective] = useState("");
-  const [initialPerspective, setInitialPerspective] =
-    useState<BscPerspective>();
+  const [isWizardOpen, setIsWizardOpen] = useState(false);
   const [tagIds, setTagIds] = useState<string[]>([]);
   const filtered = useMemo(
     () =>
@@ -80,10 +79,8 @@ export default function WorkspaceObjetivosPage() {
     setIsPanelOpen(true);
   }
 
-  function openCreate(p?: BscPerspective) {
-    setInitialPerspective(p);
-    setOpenObjectiveId(null);
-    setIsPanelOpen(true);
+  function openCreate() {
+    setIsWizardOpen(true);
   }
 
   function closePanel() {
@@ -118,14 +115,14 @@ export default function WorkspaceObjetivosPage() {
             aria-pressed={view === "bsc"}
             onClick={() => setView("bsc")}
           >
-            Mapa BSC
+            Painel BSC
           </button>
           <button
             className={`${view === "execution" ? "lc-btn" : "rounded-lg border"} px-4 py-2 text-sm`}
             aria-pressed={view === "execution"}
             onClick={() => setView("execution")}
           >
-            Execução e lista
+            Gráficos
           </button>
           {
             <label className="text-xs">
@@ -142,132 +139,149 @@ export default function WorkspaceObjetivosPage() {
             </label>
           }
         </div>
-        <div className="mb-4 flex flex-wrap gap-2 [&_select]:rounded-lg [&_select]:border [&_select]:bg-[var(--background)] [&_select]:p-2 [&_select]:text-xs">
-          <input
-            aria-label="Buscar objetivos"
-            placeholder="Buscar objetivos"
-            className="rounded-lg border bg-transparent p-2 text-sm"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-          <select
-            aria-label="Filtrar perspectiva"
-            value={perspective}
-            onChange={(e) => setPerspective(e.target.value)}
-          >
-            <option value="">Todas as perspectivas</option>
-            {Object.entries(BSC_PERSPECTIVES).map(([key, label]) => (
-              <option key={key} value={key}>
-                {label}
-              </option>
-            ))}
-          </select>
-          <select
-            aria-label="Filtrar status"
-            value={status}
-            onChange={(e) => setStatus(e.target.value)}
-          >
-            <option value="">Todos os status</option>
-            {Object.entries(objectiveStatuses).map(([k, v]) => (
-              <option key={k} value={k}>
-                {v}
-              </option>
-            ))}
-          </select>
-          <select
-            aria-label="Filtrar horizonte"
-            value={horizon}
-            onChange={(e) => setHorizon(e.target.value)}
-          >
-            <option value="">Todos os horizontes</option>
-            <option value="curto">Curto prazo</option>
-            <option value="medio">Médio prazo</option>
-            <option value="longo">Longo prazo</option>
-          </select>
-          <select
-            aria-label="Filtrar responsável"
-            value={assignee}
-            onChange={(e) => setAssignee(e.target.value)}
-          >
-            <option value="">Todos os responsáveis</option>
-            {profiles.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.full_name}
-              </option>
-            ))}
-          </select>
-          <select
-            aria-label="Filtrar prioridade"
-            value={priority}
-            onChange={(e) => setPriority(e.target.value)}
-          >
-            <option value="">Todas as prioridades</option>
-            {["baixa", "media", "alta", "urgente"].map((p) => (
-              <option key={p} value={p}>
-                {p}
-              </option>
-            ))}
-          </select>
-          <label className="text-xs">
-            Prazo até{" "}
+        <details className="mb-4">
+          <summary className="mb-3 cursor-pointer text-xs text-[var(--muted-foreground)]">
+            Buscar e filtrar objetivos
+          </summary>
+          <div className="mb-4 flex flex-wrap gap-2 [&_select]:rounded-lg [&_select]:border [&_select]:bg-[var(--background)] [&_select]:p-2 [&_select]:text-xs">
             <input
-              type="date"
-              value={due}
-              onChange={(e) => setDue(e.target.value)}
-              className="rounded-lg border bg-transparent p-2"
+              aria-label="Buscar objetivos"
+              placeholder="Buscar objetivos"
+              className="rounded-lg border bg-transparent p-2 text-sm"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
             />
-          </label>
-          <button
-            className="text-xs"
-            onClick={() => {
-              setMonth("");
-              setPerspective("");
-              setSearch("");
-              setStatus("");
-              setHorizon("");
-              setAssignee("");
-              setPriority("");
-              setDue("");
-              setTagIds([]);
-            }}
-          >
-            Limpar filtros
-          </button>
-        </div>
-        <div className="mb-4 flex flex-wrap gap-2">
-          {tags.map((t) => (
-            <button
-              key={t.id}
-              aria-pressed={tagIds.includes(t.id)}
-              className="rounded-full border px-3 py-1 text-xs"
-              style={{
-                borderColor: t.color,
-                background: tagIds.includes(t.id) ? t.color + "30" : undefined,
-              }}
-              onClick={() =>
-                setTagIds((ids) =>
-                  ids.includes(t.id)
-                    ? ids.filter((id) => id !== t.id)
-                    : [...ids, t.id],
-                )
-              }
+            <select
+              aria-label="Filtrar perspectiva"
+              value={perspective}
+              onChange={(e) => setPerspective(e.target.value)}
             >
-              {t.name}
+              <option value="">Todas as perspectivas</option>
+              {Object.entries(BSC_PERSPECTIVES).map(([key, label]) => (
+                <option key={key} value={key}>
+                  {label}
+                </option>
+              ))}
+            </select>
+            <select
+              aria-label="Filtrar status"
+              value={status}
+              onChange={(e) => setStatus(e.target.value)}
+            >
+              <option value="">Todos os status</option>
+              {Object.entries(objectiveStatuses).map(([k, v]) => (
+                <option key={k} value={k}>
+                  {v}
+                </option>
+              ))}
+            </select>
+            <select
+              aria-label="Filtrar horizonte"
+              value={horizon}
+              onChange={(e) => setHorizon(e.target.value)}
+            >
+              <option value="">Todos os horizontes</option>
+              <option value="curto">Curto prazo</option>
+              <option value="medio">Médio prazo</option>
+              <option value="longo">Longo prazo</option>
+            </select>
+            <select
+              aria-label="Filtrar responsável"
+              value={assignee}
+              onChange={(e) => setAssignee(e.target.value)}
+            >
+              <option value="">Todos os responsáveis</option>
+              {profiles.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.full_name}
+                </option>
+              ))}
+            </select>
+            <select
+              aria-label="Filtrar prioridade"
+              value={priority}
+              onChange={(e) => setPriority(e.target.value)}
+            >
+              <option value="">Todas as prioridades</option>
+              {["baixa", "media", "alta", "urgente"].map((p) => (
+                <option key={p} value={p}>
+                  {p}
+                </option>
+              ))}
+            </select>
+            <label className="text-xs">
+              Prazo até{" "}
+              <input
+                type="date"
+                value={due}
+                onChange={(e) => setDue(e.target.value)}
+                className="rounded-lg border bg-transparent p-2"
+              />
+            </label>
+            <button
+              className="text-xs"
+              onClick={() => {
+                setMonth("");
+                setPerspective("");
+                setSearch("");
+                setStatus("");
+                setHorizon("");
+                setAssignee("");
+                setPriority("");
+                setDue("");
+                setTagIds([]);
+              }}
+            >
+              Limpar filtros
             </button>
-          ))}
-        </div>
+          </div>
+          <div className="mb-4 flex flex-wrap gap-2">
+            {tags.map((t) => (
+              <button
+                key={t.id}
+                aria-pressed={tagIds.includes(t.id)}
+                className="rounded-full border px-3 py-1 text-xs"
+                style={{
+                  borderColor: t.color,
+                  background: tagIds.includes(t.id)
+                    ? t.color + "30"
+                    : undefined,
+                }}
+                onClick={() =>
+                  setTagIds((ids) =>
+                    ids.includes(t.id)
+                      ? ids.filter((id) => id !== t.id)
+                      : [...ids, t.id],
+                  )
+                }
+              >
+                {t.name}
+              </button>
+            ))}
+          </div>
+        </details>
         {!objectivesHook.isLoading &&
           !objectivesHook.error &&
           (view === "bsc" ? (
             <BscBoard
-              key={isPanelOpen ? "editing" : "closed"}
               objectives={filtered}
-              month={month}
+              onChange={() => void objectivesHook.refetch()}
               onOpen={openObjective}
               onCreate={openCreate}
             />
           ) : (
-            <ObjectivesDashboard objectives={filtered} onOpen={openObjective} />
+            <div className="space-y-5">
+              <BscCharts
+                objectives={filtered}
+                month={month}
+                onOpen={openObjective}
+                onCreate={openCreate}
+              />
+              <ObjectivesDashboard
+                objectives={filtered}
+                onOpen={openObjective}
+              />
+            </div>
           ))}
 
         {objectivesHook.isLoading ? (
@@ -282,22 +296,32 @@ export default function WorkspaceObjetivosPage() {
           <div className="flex items-center justify-center py-24">
             <p className="text-sm text-red-400">{objectivesHook.error}</p>
           </div>
-        ) : view === "execution" ? (
-          <ObjectivesGrid
-            objectives={filtered}
-            isLoading={false}
-            onOpen={openObjective}
-            onToggleStep={objectivesHook.toggleObjectiveStep}
-          />
         ) : null}
       </div>
 
+      {isWizardOpen && (
+        <BscWizard
+          onClose={() => setIsWizardOpen(false)}
+          onCreated={() => {
+            setIsWizardOpen(false);
+            setMonth("");
+            setPerspective("");
+            setSearch("");
+            setStatus("");
+            setHorizon("");
+            setAssignee("");
+            setPriority("");
+            setDue("");
+            setTagIds([]);
+            void objectivesHook.refetch();
+          }}
+        />
+      )}
       <AnimatePresence>
         {isPanelOpen && (
           <ObjectiveDetailPanel
             key={openObjectiveId ?? "new"}
             onOpenObjective={openObjective}
-            initialPerspective={initialPerspective}
             objectiveId={openObjectiveId}
             objectivesHook={objectivesHook}
             onClose={closePanel}

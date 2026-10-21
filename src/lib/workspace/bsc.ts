@@ -39,7 +39,7 @@ export function bscSummary(
         metrics
           .filter((m) => m.objective_id === o.id)
           .map((m) =>
-            metricProgress(
+            bscMetricProgress(
               Number(m.baseline),
               Number(m.target),
               Number(m.current_value),
@@ -87,3 +87,50 @@ export function currentMonth() {
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 }
+
+// Positive growth goals show cumulative attainment (15,000 / 20,000 = 75%).
+// Reduction or non-positive targets use progress from the starting value.
+export function bscMetricProgress(
+  baseline: number,
+  target: number,
+  current: number,
+) {
+  if (
+    ![baseline, target, current].every(Number.isFinite) ||
+    baseline === target
+  )
+    return 0;
+  return target > baseline && target > 0 && baseline >= 0
+    ? Math.max(0, Math.min(100, (current / target) * 100))
+    : metricProgress(baseline, target, current);
+}
+export const BSC_COLORS = {
+  financeira: {
+    letter: "F",
+    name: "Financeiro",
+    bg: "#173722",
+    selected: "#326b42",
+    border: "#347343",
+  },
+  clientes: {
+    letter: "C",
+    name: "Clientes",
+    bg: "#080c2b",
+    selected: "#202e68",
+    border: "#29458d",
+  },
+  processos: {
+    letter: "P",
+    name: "Processos",
+    bg: "#78858b",
+    selected: "#9aa6ad",
+    border: "#a6b3b9",
+  },
+  aprendizado: {
+    letter: "A",
+    name: "Aprendizado",
+    bg: "#8e3e00",
+    selected: "#b65a05",
+    border: "#c86a16",
+  },
+} as const;

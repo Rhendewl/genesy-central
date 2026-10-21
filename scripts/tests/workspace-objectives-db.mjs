@@ -44,6 +44,21 @@ await db.exec(
 await db.exec(
   readFileSync("supabase/migrations/20261020130000_workspace_bsc.sql", "utf8"),
 );
+// Minimal task metadata/assignee policies for exercising the transactional wizard.
+await db.exec(`
+ALTER TABLE workspace_objectives ADD COLUMN description text, ADD COLUMN priority text DEFAULT 'media';
+ALTER TABLE workspace_tasks ADD COLUMN priority text DEFAULT 'media', ADD COLUMN due_date date;
+CREATE TABLE workspace_task_assignees(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),task_id uuid REFERENCES workspace_tasks(id),assignee_id uuid REFERENCES user_profiles(id));
+ALTER TABLE workspace_task_assignees ENABLE ROW LEVEL SECURITY;
+CREATE POLICY access ON workspace_task_assignees FOR ALL TO authenticated USING(EXISTS(SELECT 1 FROM workspace_tasks WHERE id=task_id AND created_by=auth.uid())) WITH CHECK(EXISTS(SELECT 1 FROM workspace_tasks WHERE id=task_id AND created_by=auth.uid()));
+GRANT SELECT,INSERT,UPDATE,DELETE ON workspace_task_assignees TO authenticated;
+`);
+await db.exec(
+  readFileSync(
+    "supabase/migrations/20261021120000_workspace_bsc_guided.sql",
+    "utf8",
+  ),
+);
 let passed = 0;
 async function check(name, fn) {
   await fn();
@@ -267,6 +282,151 @@ await check(
       (await db.query("SELECT * FROM workspace_tasks")).rows.length,
       1,
     );
+  },
+);
+
+const draft = {
+  title: "Crescer",
+  horizon: "medio",
+  priority: "alta",
+  start_date: "2026-10-01",
+  due_date: "2026-12-31",
+  tags: [],
+  areas: ["financeira", "clientes", "processos", "aprendizado"].map(
+    (perspective) => ({
+      perspective,
+      description: "Resultado esperado",
+      indicator: "Indicador",
+      unit: "R$",
+      baseline: "8000",
+      target: "20000",
+      current_value: "15000",
+      tasks: "Primeira tarefa",
+      task_ids: [],
+      assignee_ids: [c],
+    }),
+  ),
+};
+const group = "00000000-0000-4000-8000-000000000100";
+const create = async (id, d = draft, owner = a) =>
+  db.query("SELECT * FROM create_workspace_bsc($1,$2,$3::jsonb)", [
+    id,
+    owner,
+    JSON.stringify(d),
+  ]);
+await check(
+  "wizard creates four perspectives with independent metrics and assigned Workspace tasks",
+  async () => {
+    const r = await create(group);
+    assert.equal(r.rows.length, 4);
+    assert.equal(new Set(r.rows.map((o) => o.perspective)).size, 4);
+    const ids = r.rows.map((o) => o.id);
+    const m = await db.query(
+      "SELECT * FROM workspace_objective_metrics WHERE objective_id=ANY($1::uuid[])",
+      [ids],
+    );
+    assert.equal(m.rows.length, 4);
+    const links = await db.query(
+      "SELECT * FROM workspace_objective_task_links WHERE objective_id=ANY($1::uuid[])",
+      [ids],
+    );
+    assert.equal(links.rows.length, 4);
+    assert.equal(
+      (await db.query("SELECT * FROM workspace_task_assignees")).rows.length,
+      4,
+    );
+  },
+);
+await check("retry of submitted wizard is idempotent", async () => {
+  await create(group);
+  assert.equal(
+    (
+      await db.query(
+        "SELECT * FROM workspace_objectives WHERE bsc_group_id=$1",
+        [group],
+      )
+    ).rows.length,
+    4,
+  );
+  assert.equal(
+    (await db.query("SELECT * FROM workspace_task_assignees")).rows.length,
+    4,
+  );
+});
+await check(
+  "invalid fourth area rolls back all earlier objectives, metrics and tasks",
+  async () => {
+    const before = await db.query(
+      "SELECT count(*)::int n FROM workspace_tasks",
+    );
+    const invalid = structuredClone(draft);
+    invalid.areas[3].target = "8000";
+    const id = "00000000-0000-4000-8000-000000000101";
+    await assert.rejects(create(id, invalid));
+    assert.equal(
+      (
+        await db.query(
+          "SELECT * FROM workspace_objectives WHERE bsc_group_id=$1",
+          [id],
+        )
+      ).rows.length,
+      0,
+    );
+    assert.equal(
+      (await db.query("SELECT count(*)::int n FROM workspace_tasks")).rows[0].n,
+      before.rows[0].n,
+    );
+  },
+);
+await check("wizard rejects duplicate perspectives", async () => {
+  const d = structuredClone(draft);
+  d.areas[3].perspective = "financeira";
+  await assert.rejects(create("00000000-0000-4000-8000-000000000102", d));
+});
+await check(
+  "wizard rejects foreign organization owners and assignees",
+  async () => {
+    await assert.rejects(
+      create("00000000-0000-4000-8000-000000000103", draft, b),
+    );
+    const d = structuredClone(draft);
+    d.areas[3].assignee_ids = [b];
+    await assert.rejects(create("00000000-0000-4000-8000-000000000104", d));
+  },
+);
+await check(
+  "wizard links existing tasks without duplicating them",
+  async () => {
+    const d = structuredClone(draft);
+    d.areas.forEach((x) => {
+      x.tasks = "";
+      x.task_ids = [task];
+    });
+    const before = (
+      await db.query("SELECT count(*)::int n FROM workspace_tasks")
+    ).rows[0].n;
+    await create("00000000-0000-4000-8000-000000000105", d);
+    assert.equal(
+      (await db.query("SELECT count(*)::int n FROM workspace_tasks")).rows[0].n,
+      before,
+    );
+  },
+);
+await check(
+  "foreign user cannot read or reuse another workspace's BSC group",
+  async () => {
+    await db.exec(`SET test.uid='${b}'`);
+    assert.equal(
+      (
+        await db.query(
+          "SELECT * FROM workspace_objectives WHERE bsc_group_id=$1",
+          [group],
+        )
+      ).rows.length,
+      0,
+    );
+    await assert.rejects(create(group));
+    await db.exec(`SET test.uid='${a}'`);
   },
 );
 console.log(`${passed} database checks passed`);
