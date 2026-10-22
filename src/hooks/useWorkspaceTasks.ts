@@ -35,10 +35,11 @@ import type {
 
 export type TasksByStatus = Record<WorkspaceTaskStatus, WorkspaceTask[]>;
 
-export function useWorkspaceTasks(viewAsUserId?: string, activeBoardId?: string, objectiveId?: string) {
+export function useWorkspaceTasks(viewAsUserId?: string, activeBoardId?: string, objectiveId?: string, objectiveOnly = false) {
   const supabase = getSupabaseClient();
   const { member, isOwner } = useCurrentMember();
 
+  const [objectiveLinks, setObjectiveLinks] = useState<{id:string;task_id:string}[]>([]);
   const [tasks,     setTasks]     = useState<WorkspaceTask[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error,     setError]     = useState<string | null>(null);
@@ -69,9 +70,10 @@ export function useWorkspaceTasks(viewAsUserId?: string, activeBoardId?: string,
       if (viewAsUserId) params.set("as_user_id", viewAsUserId);
       if (activeBoardId) params.set("board_id", activeBoardId);
       if (objectiveId) params.set("objective_id", objectiveId);
+      if (objectiveOnly) params.set("objective_only", "1");
       const qs = params.size > 0 ? `?${params.toString()}` : "";
       const res  = await fetch(`/api/workspace/tasks${qs}`, { cache: "no-store" });
-      const json = await res.json() as { tasks?: WorkspaceTask[]; error?: string };
+      const json = await res.json() as { tasks?: WorkspaceTask[]; error?: string; objective_links?: {id:string;task_id:string}[] };
 
       if (!mountedRef.current || fetchId !== latestFetchIdRef.current) return;
       if (!res.ok || !json.tasks) {
@@ -79,6 +81,11 @@ export function useWorkspaceTasks(viewAsUserId?: string, activeBoardId?: string,
         return;
       }
 
+      if (objectiveOnly) {
+        setObjectiveLinks(json.objective_links ?? []);
+        setTasks(uniqueWorkspaceTasks(json.tasks));
+        return;
+      }
       const taskIds = json.tasks.map((t) => t.id);
       const [checklistRes, commentsRes] = taskIds.length > 0
         ? await Promise.all([
@@ -117,7 +124,7 @@ export function useWorkspaceTasks(viewAsUserId?: string, activeBoardId?: string,
         setError(error instanceof Error ? error.message : "Não foi possível carregar as tarefas");
       }
     }
-  }, [activeBoardId, supabase, viewAsUserId, objectiveId]);
+  }, [activeBoardId, supabase, viewAsUserId, objectiveId, objectiveOnly]);
 
   const scheduleRealtimeRefresh = useCallback(() => {
     if (realtimeRefreshTimerRef.current) clearTimeout(realtimeRefreshTimerRef.current);
@@ -136,7 +143,7 @@ export function useWorkspaceTasks(viewAsUserId?: string, activeBoardId?: string,
     });
 
     const channel = supabase
-      .channel(`workspace-tasks-realtime-${viewAsUserId ?? "self"}`)
+      .channel(`workspace-tasks-realtime-${viewAsUserId ?? "self"}-${crypto.randomUUID()}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "workspace_tasks" }, (payload) => {
         // O status precisa refletir no gráfico no mesmo instante em que o
         // evento realtime chega. A consulta completa continua rodando em
@@ -470,6 +477,7 @@ export function useWorkspaceTasks(viewAsUserId?: string, activeBoardId?: string,
 
   return {
     tasks,
+    objectiveLinks,
     tasksByStatus,
     completionStats,
     isLoading,

@@ -21,7 +21,7 @@ describe("Guided BSC", () => {
     expect(bscMetricProgress(0, 100, -20)).toBe(0);
     expect(bscMetricProgress(0, 100, NaN)).toBe(0);
   });
-  it("requires four distinct perspectives and all metrics", () => {
+  it("requires selected perspectives to be distinct and have metrics", () => {
     expect(validateBscDraft(valid())).toBeNull();
     const d = valid();
     d.areas[3].perspective = "financeira";
@@ -56,5 +56,17 @@ describe("Guided BSC", () => {
     const d = valid();
     d.areas[0].task_ids = ["00000000-0000-4000-8000-000000000001"];
     expect(validateBscDraft(d)).toBeNull();
+  });
+  it("accepts one selected area and a task destination, but rejects empty areas or invalid destinations", () => {
+    const d = valid();
+    d.areas = d.areas.slice(0, 1);
+    d.task_board_id = "00000000-0000-4000-8000-000000000001";
+    d.save_task_board_default = true;
+    expect(validateBscDraft(d)).toBeNull();
+    d.task_board_id = "bad";
+    expect(validateBscDraft(d)).not.toBeNull();
+    d.task_board_id = null;
+    d.areas = [];
+    expect(validateBscDraft(d)).not.toBeNull();
   });
 });

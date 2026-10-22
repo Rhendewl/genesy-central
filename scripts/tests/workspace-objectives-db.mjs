@@ -59,6 +59,15 @@ await db.exec(
     "utf8",
   ),
 );
+await db.exec(`
+CREATE TABLE workspace_task_boards(id uuid PRIMARY KEY,user_id uuid NOT NULL,is_default boolean DEFAULT false);
+INSERT INTO workspace_task_boards VALUES('${a}','${a}',true),('${b}','${b}',true),('${c}','${a}',false);
+ALTER TABLE workspace_task_boards ENABLE ROW LEVEL SECURITY;
+CREATE POLICY access ON workspace_task_boards FOR ALL TO authenticated USING(user_id=owner_id_of(auth.uid())) WITH CHECK(user_id=owner_id_of(auth.uid()));
+GRANT SELECT ON workspace_task_boards TO authenticated;
+ALTER TABLE workspace_tasks ADD COLUMN board_id uuid REFERENCES workspace_task_boards(id);
+`);
+await db.exec(readFileSync("supabase/migrations/20261021220000_workspace_bsc_area_destination.sql","utf8"));
 let passed = 0;
 async function check(name, fn) {
   await fn();
@@ -429,5 +438,22 @@ await check(
     await db.exec(`SET test.uid='${a}'`);
   },
 );
+
+await check("single-area creation routes new tasks to selected board and persists personal default",async()=>{
+ const d={...structuredClone(draft),areas:[structuredClone(draft.areas[0])],task_board_id:c,save_task_board_default:true};
+ const r=await create("00000000-0000-4000-8000-000000000110",d);assert.equal(r.rows.length,1);
+ const tasks=await db.query("SELECT t.board_id FROM workspace_tasks t JOIN workspace_objective_task_links l ON l.task_id=t.id WHERE l.objective_id=$1",[r.rows[0].id]);assert.equal(tasks.rows[0].board_id,c);
+ assert.equal((await db.query("SELECT default_board_id FROM workspace_bsc_preferences")).rows[0].default_board_id,c);
+ const again=await create("00000000-0000-4000-8000-000000000110",d);assert.equal(again.rows.length,1);
+ delete d.task_board_id;d.save_task_board_default=false;
+ const next=await create("00000000-0000-4000-8000-000000000111",d);
+ assert.equal((await db.query("SELECT t.board_id FROM workspace_tasks t JOIN workspace_objective_task_links l ON l.task_id=t.id WHERE l.objective_id=$1",[next.rows[0].id])).rows[0].board_id,c);
+});
+await check("foreign task destination is rejected and cannot be stored as a preference",async()=>{
+ const d={...structuredClone(draft),areas:[structuredClone(draft.areas[0])],task_board_id:b,save_task_board_default:true};await assert.rejects(create("00000000-0000-4000-8000-000000000112",d));
+ await reject(`UPDATE workspace_bsc_preferences SET default_board_id='${b}'`);
+ await reject(`INSERT INTO workspace_bsc_preferences(user_id,workspace_owner_id,default_board_id) VALUES('${b}','${b}','${b}')`);
+});
+await check("empty area selection is rejected",async()=>{await assert.rejects(create("00000000-0000-4000-8000-000000000113",{...draft,areas:[]}));});
 console.log(`${passed} database checks passed`);
 await db.close();

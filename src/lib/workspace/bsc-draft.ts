@@ -13,6 +13,8 @@ export type BscAreaDraft = {
   assignee_ids: string[];
 };
 export type BscDraft = {
+  task_board_id?: string | null;
+  save_task_board_default?: boolean;
   title: string;
   horizon: "curto" | "medio" | "longo";
   priority: "baixa" | "media" | "alta" | "urgente";
@@ -55,10 +57,18 @@ export function validateBscDraft(input: unknown): string | null {
     return "O término deve ser posterior ao início";
   if (
     !Array.isArray(d.areas) ||
-    d.areas.length !== 4 ||
-    new Set(d.areas.map((a) => a?.perspective)).size !== 4
+    d.areas.length < 1 ||
+    d.areas.length > 4 ||
+    new Set(d.areas.map((a) => a?.perspective)).size !== d.areas.length
   )
-    return "Preencha as quatro áreas do BSC";
+    return "Escolha ao menos uma área do BSC, sem repetir áreas";
+  if (d.task_board_id != null && !validateTagIds([d.task_board_id]))
+    return "Workspace de tarefas inválido";
+  if (
+    d.save_task_board_default != null &&
+    typeof d.save_task_board_default !== "boolean"
+  )
+    return "Preferência inválida";
   for (const a of d.areas) {
     if (!a || !Object.keys(BSC_PERSPECTIVES).includes(a.perspective))
       return "Área inválida";

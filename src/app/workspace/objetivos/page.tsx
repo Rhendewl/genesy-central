@@ -19,6 +19,7 @@ import {
   currentMonth,
   objectiveInMonth,
   BSC_PERSPECTIVES,
+  type BscPerspective,
 } from "@/lib/workspace/bsc";
 import { useTags } from "@/hooks/useTags";
 import { useUsers } from "@/hooks/useUsers";
@@ -42,6 +43,7 @@ export default function WorkspaceObjetivosPage() {
   const [view, setView] = useState<"bsc" | "execution">("bsc");
   const [month, setMonth] = useState(currentMonth);
   const [perspective, setPerspective] = useState("");
+  const [initialArea, setInitialArea] = useState<BscPerspective>();
   const [isWizardOpen, setIsWizardOpen] = useState(false);
   const [tagIds, setTagIds] = useState<string[]>([]);
   const filtered = useMemo(
@@ -79,7 +81,8 @@ export default function WorkspaceObjetivosPage() {
     setIsPanelOpen(true);
   }
 
-  function openCreate() {
+  function openCreate(area?: BscPerspective) {
+    setInitialArea(area);
     setIsWizardOpen(true);
   }
 
@@ -301,6 +304,7 @@ export default function WorkspaceObjetivosPage() {
 
       {isWizardOpen && (
         <BscWizard
+          initialPerspective={initialArea}
           onClose={() => setIsWizardOpen(false)}
           onCreated={() => {
             setIsWizardOpen(false);

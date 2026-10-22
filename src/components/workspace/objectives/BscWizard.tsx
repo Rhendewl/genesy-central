@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import { ArrowLeft, ArrowRight, X, Check } from "lucide-react";
 import { useModalOpen } from "@/hooks/useModalOpen";
@@ -7,12 +7,15 @@ import { useWorkspaceViewing } from "@/context/WorkspaceViewingContext";
 import { useWorkspaceTasks } from "@/hooks/useWorkspaceTasks";
 import { AssigneePicker } from "@/components/workspace/AssigneePicker";
 import { TagSelector } from "@/components/tags/TagSelector";
-import { BSC_COLORS } from "@/lib/workspace/bsc";
+import { TaskDestinationPicker } from "./TaskDestinationPicker";
+import { BSC_COLORS, type BscPerspective } from "@/lib/workspace/bsc";
 import {
   newBscDraft,
   validateBscDraft,
   type BscAreaDraft,
 } from "@/lib/workspace/bsc-draft";
+
+import styles from "./bsc.module.css";
 
 const areaSteps = [
   "intro",
@@ -27,6 +30,7 @@ const areaSteps = [
   "task_ids",
 ] as const;
 const finalSteps = [
+  "destination",
   "horizon",
   "priority",
   "start_date",
@@ -34,19 +38,14 @@ const finalSteps = [
   "tags",
   "review",
 ] as const;
-const steps = [
-  { key: "title", area: -1 },
-  ...Array.from({ length: 4 }, (_, area) =>
-    areaSteps.map((key) => ({ key, area })),
-  ).flat(),
-  ...finalSteps.map((key) => ({ key, area: -1 })),
-];
 const field =
-  "w-full rounded-xl border border-[var(--border)] bg-transparent px-4 py-3 text-lg outline-none focus:border-amber-400";
+  "w-full rounded-xl border border-[var(--border)] bg-transparent px-4 py-3 text-lg outline-none";
 export function BscWizard({
   onClose,
   onCreated,
+  initialPerspective,
 }: {
+  initialPerspective?: BscPerspective;
   onClose: () => void;
   onCreated: () => void;
 }) {
@@ -54,16 +53,34 @@ export function BscWizard({
   const { viewingMember } = useWorkspaceViewing();
   const tasks = useWorkspaceTasks(viewingMember?.auth_user_id ?? undefined);
   const [draft, setDraft] = useState(newBscDraft);
+  const [selectedAreas, setSelectedAreas] = useState<BscPerspective[]>(
+    initialPerspective ? [initialPerspective] : [],
+  );
+  const steps = [
+    { key: "areas", area: -1 },
+    { key: "title", area: -1 },
+    ...draft.areas.flatMap((a, area) =>
+      selectedAreas.includes(a.perspective)
+        ? areaSteps.map((key) => ({ key, area }))
+        : [],
+    ),
+    ...finalSteps.map((key) => ({ key, area: -1 })),
+  ];
   const [step, setStep] = useState(0),
     [busy, setBusy] = useState(false),
     [error, setError] = useState<string | null>(null);
+  const [editingReview, setEditingReview] = useState(false);
   const [confirmClose, setConfirmClose] = useState(false);
   const requestId = useRef(crypto.randomUUID());
   const panel = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLInputElement>(null);
   const current = steps[step],
     area = current.area >= 0 ? draft.areas[current.area] : null;
-  const color = area ? BSC_COLORS[area.perspective] : null;
+  const color = area
+    ? BSC_COLORS[area.perspective]
+    : selectedAreas.length === 1
+      ? BSC_COLORS[selectedAreas[0]]
+      : null;
   useEffect(() => {
     input.current?.focus();
   }, [step]);
@@ -91,6 +108,8 @@ export function BscWizard({
     }));
   }
   const questions: Record<string, string> = {
+    areas: "Em qual área você quer criar o objetivo?",
+    destination: "Qual workspace deve receber as novas tarefas?",
     title: "Qual é o nome do objetivo?",
     description: "O que você quer alcançar nesta área?",
     indicator: "Qual indicador vai medir esse resultado?",
@@ -109,6 +128,20 @@ export function BscWizard({
     review: "Tudo pronto para cadastrar?",
   };
   function next() {
+    if (current.key === "areas" && !selectedAreas.length) {
+      setError("Escolha ao menos uma área");
+      return;
+    }
+    if (
+      current.key === "destination" &&
+      !draft.task_board_id &&
+      draft.areas.some(
+        (a) => selectedAreas.includes(a.perspective) && a.tasks.trim(),
+      )
+    ) {
+      setError("Escolha o workspace de destino das tarefas");
+      return;
+    }
     const el = panel.current?.querySelector<
       HTMLInputElement | HTMLTextAreaElement
     >("input[data-answer],textarea[data-answer]");
@@ -134,7 +167,11 @@ export function BscWizard({
     setStep((s) => Math.min(steps.length - 1, s + 1));
   }
   async function submit() {
-    const invalid = validateBscDraft(draft);
+    const payload = {
+      ...draft,
+      areas: draft.areas.filter((a) => selectedAreas.includes(a.perspective)),
+    };
+    const invalid = validateBscDraft(payload);
     if (invalid) {
       setError(invalid);
       return;
@@ -148,7 +185,7 @@ export function BscWizard({
         body: JSON.stringify({
           group_id: requestId.current,
           user_id: viewingMember?.auth_user_id,
-          draft,
+          draft: payload,
         }),
       });
       const result = await r.json();
@@ -170,7 +207,19 @@ export function BscWizard({
         role="dialog"
         aria-modal="true"
         aria-labelledby="bsc-question"
-        className="lc-modal-panel relative flex max-h-[90dvh] w-full max-w-2xl flex-col overflow-hidden rounded-3xl border border-[var(--border-modal)] bg-[var(--bg-modal)] shadow-2xl outline-none"
+        style={
+          {
+            "--bsc-accent": color
+              ? {
+                  financeira: "#45ad64",
+                  clientes: "#5386ec",
+                  processos: "#94a3b8",
+                  aprendizado: "#e99139",
+                }[area?.perspective ?? selectedAreas[0]]
+              : "var(--silver)",
+          } as CSSProperties
+        }
+        className={`${styles.wizard} lc-modal-panel relative flex max-h-[90dvh] w-full max-w-2xl flex-col overflow-hidden rounded-3xl border border-[var(--border-modal)] bg-[var(--bg-modal)] shadow-2xl outline-none`}
         onKeyDown={(e) => {
           if (e.key === "Escape") {
             e.stopPropagation();
@@ -200,8 +249,12 @@ export function BscWizard({
       >
         <div className="h-1 bg-white/10">
           <div
-            className="h-full bg-amber-400 transition-[width]"
-            style={{ width: `${((step + 1) / steps.length) * 100}%` }}
+            className="h-full transition-[width,background]"
+            style={{
+              width: `${((step + 1) / steps.length) * 100}%`,
+              background:
+                "linear-gradient(90deg, color-mix(in srgb,var(--bsc-accent) 55%,transparent),var(--bsc-accent))",
+            }}
           />
         </div>
         <header className="flex items-center justify-between px-6 py-4">
@@ -220,7 +273,7 @@ export function BscWizard({
         {confirmClose && (
           <div
             role="alert"
-            className="mx-6 rounded-xl border border-amber-400/30 bg-amber-400/10 p-4 text-sm"
+            className="mx-6 rounded-xl border border-[var(--bsc-accent)]/30 bg-amber-400/10 p-4 text-sm"
           >
             <p>Sair do cadastro? As respostas ainda não foram salvas.</p>
             <div className="mt-3 flex gap-4">
@@ -245,7 +298,15 @@ export function BscWizard({
               <span
                 key={key}
                 className={`flex h-8 w-8 items-center justify-center rounded-full border text-xs ${current.area === i ? "ring-2 ring-white/30" : ""}`}
-                style={{ background: c.bg, borderColor: c.border }}
+                style={{
+                  background: `linear-gradient(135deg,${c.selected},${c.bg})`,
+                  color: "white",
+                  borderColor: c.border,
+                  boxShadow: `inset 0 1px 0 #ffffff60, 0 3px 10px ${c.border}30`,
+                  outline:
+                    current.area === i ? `2px solid ${c.border}` : undefined,
+                  outlineOffset: 3,
+                }}
               >
                 {c.letter}
               </span>
@@ -268,6 +329,50 @@ export function BscWizard({
               Como “{draft.title}” se traduz nesta área? Vamos definir o
               resultado esperado, o indicador e as tarefas para chegar lá.
             </p>
+          )}
+          {current.key === "areas" && (
+            <div className="grid grid-cols-2 gap-3">
+              {Object.entries(BSC_COLORS).map(([id, c]) => (
+                <button
+                  key={id}
+                  aria-pressed={selectedAreas.includes(id as BscPerspective)}
+                  className="rounded-xl border border-[var(--border)] p-4 text-left"
+                  style={{
+                    borderColor: selectedAreas.includes(id as BscPerspective)
+                      ? c.border
+                      : undefined,
+                    background: selectedAreas.includes(id as BscPerspective)
+                      ? `${c.selected}20`
+                      : undefined,
+                  }}
+                  onClick={() =>
+                    setSelectedAreas((ids) =>
+                      ids.includes(id as BscPerspective)
+                        ? ids.filter((v) => v !== id)
+                        : [...ids, id as BscPerspective],
+                    )
+                  }
+                >
+                  <strong>
+                    {c.letter} · {c.name}
+                  </strong>
+                </button>
+              ))}
+              <p className="col-span-2 text-xs text-[var(--muted-foreground)]">
+                Escolha apenas uma área ou marque outras se quiser. Você
+                responderá somente às áreas selecionadas.
+              </p>
+            </div>
+          )}
+          {current.key === "destination" && (
+            <TaskDestinationPicker
+              value={draft.task_board_id}
+              onChange={(id) => setDraft((d) => ({ ...d, task_board_id: id }))}
+              remember={draft.save_task_board_default}
+              onRememberChange={(v) =>
+                setDraft((d) => ({ ...d, save_task_board_default: v }))
+              }
+            />
           )}
           {current.key === "title" && (
             <input
@@ -422,7 +527,7 @@ export function BscWizard({
               ).map(([value, label]) => (
                 <button
                   key={value}
-                  className={`${field} text-left ${draft.horizon === value ? "border-amber-400" : ""}`}
+                  className={`${field} text-left ${draft.horizon === value ? "border-[var(--bsc-accent)]" : ""}`}
                   aria-pressed={draft.horizon === value}
                   onClick={() => setDraft({ ...draft, horizon: value })}
                 >
@@ -443,7 +548,7 @@ export function BscWizard({
               ).map(([value, label]) => (
                 <button
                   key={value}
-                  className={`${field} text-left ${draft.priority === value ? "border-amber-400" : ""}`}
+                  className={`${field} text-left ${draft.priority === value ? "border-[var(--bsc-accent)]" : ""}`}
                   aria-pressed={draft.priority === value}
                   onClick={() => setDraft({ ...draft, priority: value })}
                 >
@@ -466,7 +571,7 @@ export function BscWizard({
                 }
               />
               <p className="mt-3 text-xs text-[var(--muted-foreground)]">
-                Opcional. As datas serão aplicadas às quatro áreas.
+                Opcional. As datas serão aplicadas às áreas selecionadas.
               </p>
             </>
           )}
@@ -482,27 +587,74 @@ export function BscWizard({
             <div className="space-y-3">
               <p className="text-lg">{draft.title}</p>
               <p className="text-xs text-[var(--muted-foreground)]">
-                Um card em cada área, com metas acumuladas independentes. As
-                tarefas existentes mantêm seus responsáveis e prazos.
+                Um card em cada área selecionada, com metas acumuladas
+                independentes. As tarefas existentes mantêm seus responsáveis e
+                prazos.
               </p>
-              {draft.areas.map((a, i) => (
-                <button
-                  key={a.perspective}
-                  className="block w-full rounded-xl border border-[var(--border)] p-3 text-left"
-                  onClick={() => setStep(1 + i * areaSteps.length)}
-                >
-                  <strong className="text-sm">
-                    {BSC_COLORS[a.perspective].name}
-                  </strong>
-                  <p className="mt-1 text-xs">
-                    {a.indicator} · Meta: {a.target} {a.unit}
-                  </p>
-                  <p className="mt-1 text-xs text-[var(--muted-foreground)]">
-                    {a.tasks.split("\n").filter((t) => t.trim()).length} novas
-                    tarefas · {a.task_ids.length} vinculadas · Editar
-                  </p>
-                </button>
-              ))}
+              {draft.areas
+                .filter((a) => selectedAreas.includes(a.perspective))
+                .map((a) => (
+                  <details
+                    key={a.perspective}
+                    className="rounded-xl border border-[var(--border)] p-3"
+                  >
+                    <summary className="cursor-pointer">
+                      <strong className="text-sm">
+                        {BSC_COLORS[a.perspective].name}
+                      </strong>
+                      <p className="mt-1 text-xs">
+                        {a.indicator} · Meta: {a.target} {a.unit}
+                      </p>
+                      <p className="mt-1 text-xs text-[var(--muted-foreground)]">
+                        {a.tasks.split("\n").filter((t) => t.trim()).length}{" "}
+                        novas tarefas · {a.task_ids.length} vinculadas · Ver
+                        resumo
+                      </p>
+                    </summary>
+                    <div className="mt-3 space-y-2 border-t border-[var(--border)] pt-3 text-sm">
+                      <p>{a.description || "Sem descrição"}</p>
+                      <p>
+                        Valor inicial: {a.baseline} {a.unit} · Realizado:{" "}
+                        {a.current_value} {a.unit}
+                      </p>
+                      <p>Responsáveis: {a.assignee_ids.length}</p>
+                      <ul className="list-inside list-disc">
+                        {a.tasks
+                          .split("\n")
+                          .filter((t) => t.trim())
+                          .map((t, j) => (
+                            <li key={j}>{t}</li>
+                          ))}
+                      </ul>
+                      {a.task_ids.map((id) => (
+                        <p key={id}>
+                          ↗{" "}
+                          {tasks.tasks.find((t) => t.id === id)?.title ??
+                            "Tarefa vinculada"}
+                        </p>
+                      ))}
+                      <button
+                        className="lc-btn px-3 py-2 text-xs"
+                        onClick={() => {
+                          setEditingReview(true);
+                          setStep(
+                            steps.findIndex(
+                              (s) =>
+                                s.key === "description" &&
+                                s.area ===
+                                  draft.areas.findIndex(
+                                    (item) =>
+                                      item.perspective === a.perspective,
+                                  ),
+                            ),
+                          );
+                        }}
+                      >
+                        Editar {BSC_COLORS[a.perspective].name}
+                      </button>
+                    </div>
+                  </details>
+                ))}
             </div>
           )}
           {error && (
@@ -511,6 +663,17 @@ export function BscWizard({
             </p>
           )}
         </div>
+        {editingReview && current.key !== "review" && (
+          <button
+            className="mx-6 mb-3 rounded-lg border border-[var(--border)] py-2 text-sm"
+            onClick={() => {
+              setError(null);
+              setStep(steps.length - 1);
+            }}
+          >
+            Voltar ao resumo
+          </button>
+        )}
         <footer className="flex items-center justify-between gap-3 border-t border-[var(--border)] px-6 py-4">
           <button
             disabled={step === 0 || busy}

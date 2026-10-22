@@ -40,8 +40,10 @@ export function useBscMetrics(objectiveIds: string[]) {
         setLoading(false);
       }
     }
-    setLoading(true);
     void load();
+    const refresh = () => void load();
+    window.addEventListener("workspace-bsc-metrics-changed", refresh);
+    window.addEventListener("focus", refresh);
     const channel = db
       .channel(`bsc-${Math.random()}`)
       .on(
@@ -52,6 +54,8 @@ export function useBscMetrics(objectiveIds: string[]) {
       .subscribe();
     return () => {
       active = false;
+      window.removeEventListener("workspace-bsc-metrics-changed", refresh);
+      window.removeEventListener("focus", refresh);
       void db.removeChannel(channel);
     };
   }, [idsKey, revision]);

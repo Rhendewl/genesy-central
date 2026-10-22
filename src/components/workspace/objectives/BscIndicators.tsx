@@ -130,6 +130,7 @@ function IndicatorEditor({
     if (r.error) toast.error(r.error.message);
     else {
       toast.success("Meta e realizado salvos");
+      window.dispatchEvent(new Event("workspace-bsc-metrics-changed"));
       onChange();
     }
   }
