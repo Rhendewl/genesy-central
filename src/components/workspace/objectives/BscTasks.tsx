@@ -9,17 +9,17 @@ import { TaskDetailPanel } from "@/components/workspace/TaskDetailPanel";
 import { AssigneeAvatarGroup } from "@/components/workspace/AssigneeAvatarGroup";
 import { useGlobalStore } from "@/store";
 import { progressColor, progressGradientFrom } from "@/lib/progress-color";
+import { BscTaskModal } from "./BscTaskModal";
 import { TagChip } from "@/components/workspace/TagChip";
 
 export function BscTasks({
   objectiveId,
   onChange,
-  onManage,
 }: {
   objectiveId: string;
   onChange?: () => void;
-  onManage: () => void;
 }) {
+  const [creating, setCreating] = useState(false);
   const theme = useGlobalStore((s) => s.theme);
   const { viewingMember } = useWorkspaceViewing();
   const hook = useWorkspaceTasks(
@@ -38,7 +38,7 @@ export function BscTasks({
   const load = refetchTasks;
   useEffect(() => {
     const channel = db
-      .channel(`bsc-links-${objectiveId}`)
+      .channel(`bsc-links-${objectiveId}-${crypto.randomUUID()}`)
       .on(
         "postgres_changes",
         {
@@ -159,11 +159,11 @@ export function BscTasks({
         </>
       )}
       <button
-        onClick={onManage}
+        onClick={() => setCreating(true)}
         className="flex items-center gap-2 text-xs text-white/70"
       >
         <Plus size={14} />
-        Criar, vincular e organizar tarefas
+        Criar ou vincular tarefa
       </button>
       {unlinkId && (
         <div
@@ -231,6 +231,18 @@ export function BscTasks({
           />
         </div>
       </footer>
+      {creating && (
+        <BscTaskModal
+          objectiveId={objectiveId}
+          linkedIds={links.map((l) => l.task_id)}
+          onClose={() => setCreating(false)}
+          onSaved={() => {
+            setCreating(false);
+            void hook.refetch();
+            onChange?.();
+          }}
+        />
+      )}
       {open && (
         <TaskDetailPanel
           presentation="modal"

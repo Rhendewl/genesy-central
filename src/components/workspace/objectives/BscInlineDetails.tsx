@@ -37,6 +37,10 @@ export function BscInlineDetails({
     setDirty(true);
   }
   async function save() {
+    if (!draft.title.trim() || draft.title.length > 500)
+      return toast.error("Informe um nome válido");
+    if (draft.start_date && draft.due_date && draft.due_date < draft.start_date)
+      return toast.error("O término deve ser posterior ao início");
     setBusy(true);
     try {
       const r = await fetch(`/api/workspace/objectives/${objective.id}`, {
@@ -62,6 +66,7 @@ export function BscInlineDetails({
   return (
     <div className={`${styles.editor} space-y-5`}>
       <form
+        id={`objective-fields-${objective.id}`}
         onSubmit={(e) => {
           e.preventDefault();
           void save();
@@ -69,7 +74,6 @@ export function BscInlineDetails({
         className="space-y-3"
       >
         <label>
-          Objetivo
           <input
             aria-label="Nome do objetivo"
             required
@@ -89,6 +93,31 @@ export function BscInlineDetails({
             placeholder="Descreva o resultado esperado"
           />
         </label>
+      </form>
+      <div className="border-t border-[var(--border)] pt-4">
+        <h4 className="mb-3 text-xs font-semibold uppercase tracking-wide">
+          Indicadores e metas
+        </h4>
+        {metrics.map((m) => (
+          <InlineMetric
+            key={`${m.id}:${m.title}:${m.unit}:${m.baseline}:${m.target}:${m.current_value}`}
+            metric={m}
+            onSaved={onSaved}
+          />
+        ))}
+        {!metrics.length && (
+          <button className="text-sm underline" onClick={onAdvanced}>
+            Adicionar indicador
+          </button>
+        )}
+      </div>
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          void save();
+        }}
+        className="space-y-3"
+      >
         <div className="grid grid-cols-2 gap-3">
           <label>
             Prioridade
@@ -190,25 +219,8 @@ export function BscInlineDetails({
           </button>
         )}
       </form>
-      <div className="border-t border-[var(--border)] pt-4">
-        <h4 className="mb-3 text-xs font-semibold uppercase tracking-wide">
-          Indicadores e metas
-        </h4>
-        {metrics.map((m) => (
-          <InlineMetric
-            key={`${m.id}:${m.title}:${m.unit}:${m.baseline}:${m.target}:${m.current_value}`}
-            metric={m}
-            onSaved={onSaved}
-          />
-        ))}
-        {!metrics.length && (
-          <button className="text-sm underline" onClick={onAdvanced}>
-            Adicionar indicador
-          </button>
-        )}
-      </div>
       <div className="flex flex-wrap justify-between gap-3 border-t border-[var(--border)] pt-3 text-xs">
-        <button onClick={onAdvanced}>Blocos, subobjetivos e anexos</button>
+        <button onClick={onAdvanced}>Subobjetivos e anexos</button>
         <button onClick={() => setDeleting(true)} className="text-red-500">
           Excluir objetivo desta área
         </button>

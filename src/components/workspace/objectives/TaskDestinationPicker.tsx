@@ -83,6 +83,7 @@ export function TaskDestinationPicker({
         </label>
       ) : (
         <button
+          type="button"
           disabled={!value || busy}
           className="text-xs underline"
           onClick={async () => {
@@ -95,13 +96,11 @@ export function TaskDestinationPicker({
                 data: { user },
               } = await db.auth.getUser();
               if (!user) throw new Error("Sessão expirada");
-              const r = await db
-                .from("workspace_bsc_preferences")
-                .upsert({
-                  user_id: user.id,
-                  workspace_owner_id: board.user_id,
-                  default_board_id: board.id,
-                });
+              const r = await db.from("workspace_bsc_preferences").upsert({
+                user_id: user.id,
+                workspace_owner_id: board.user_id,
+                default_board_id: board.id,
+              });
               if (r.error) throw new Error(r.error.message);
               setPreference(board.id);
               toast.success(

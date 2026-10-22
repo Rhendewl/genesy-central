@@ -1,7 +1,12 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { Plus } from "lucide-react";
-import { bscSummary, BSC_COLORS, type BscPerspective, type BscMetric } from "@/lib/workspace/bsc";
+import {
+  bscSummary,
+  BSC_COLORS,
+  type BscPerspective,
+  type BscMetric,
+} from "@/lib/workspace/bsc";
 import { useBscMetrics } from "@/hooks/useBscMetrics";
 import type { WorkspaceObjective } from "@/types/workspace-objectives";
 import { BscTasks } from "./BscTasks";
@@ -80,6 +85,18 @@ export function BscBoardView({
   metrics,
   onChange,
 }: Props & { metrics: BscMetric[] }) {
+  const theme = useGlobalStore((s) => s.theme);
+  const boardRef = useRef<HTMLElement>(null);
+  const [boardHeight, setBoardHeight] = useState(560);
+  useEffect(() => {
+    const node = boardRef.current;
+    if (!node) return;
+    const observer = new ResizeObserver(() =>
+      setBoardHeight(node.getBoundingClientRect().height),
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [tab, setTab] = useState<"view" | "tasks">("view");
   const summary = bscSummary(objectives, metrics);
@@ -94,9 +111,11 @@ export function BscBoardView({
   const score = selected ? (summary.scores.get(selected.id) ?? null) : null;
   return (
     <div
+      style={{ "--bsc-panel-height": `${boardHeight}px` } as CSSProperties}
       className={`${styles.root} grid items-start gap-6 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]`}
     >
       <section
+        ref={boardRef}
         className={`${styles.surface} min-w-0 overflow-hidden rounded-[22px]`}
         aria-label="Painel BSC por área"
       >
@@ -168,11 +187,14 @@ export function BscBoardView({
                         className="relative isolate overflow-hidden backdrop-blur-xl hover:brightness-125 flex min-h-[68px] w-32 shrink-0 flex-col justify-between gap-2 rounded-xl border px-2.5 pb-1.5 pt-2 text-center transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-white"
                         style={{
                           color: "var(--text-title)",
-                          background: `linear-gradient(145deg, ${color.selected}${selected?.id === o.id ? "c0" : "75"} 0%, ${color.bg}80 55%, ${color.bg}40 100%)`,
+                          background:
+                            theme === "light"
+                              ? `linear-gradient(135deg, ${{ financeira: "#dcfce7", clientes: "#dbeafe", processos: "#e2e8f0", aprendizado: "#ffedd5" }[p.id]}e6, #ffffff80)`
+                              : `linear-gradient(145deg, ${color.selected}${selected?.id === o.id ? "c0" : "75"} 0%, ${color.bg}80 55%, ${color.bg}40 100%)`,
                           borderColor: `${color.border}${selected?.id === o.id ? "ee" : "80"}`,
                           backdropFilter: "blur(20px) saturate(160%)",
                           WebkitBackdropFilter: "blur(20px) saturate(160%)",
-                          boxShadow: `inset 0 1px 0 rgba(255,255,255,${selected?.id === o.id ? ".3" : ".18"}), inset 0 -1px 0 rgba(255,255,255,.04), 0 6px 18px rgba(0,0,0,.3)${selected?.id === o.id ? `, 0 0 0 1px ${color.border}70, 0 0 20px ${color.selected}35` : ""}`,
+                          boxShadow: "none",
                         }}
                       >
                         <span
@@ -231,7 +253,7 @@ export function BscBoardView({
         )}
       </section>
       <aside
-        className={`${styles.surface} min-w-0 rounded-[22px] p-5 sm:p-7 lg:sticky lg:top-5`}
+        className={`${styles.surface} ${styles.detailPanel} relative flex min-w-0 flex-col overflow-hidden rounded-[22px] p-5 sm:p-6`}
         aria-label="Detalhes do objetivo selecionado"
       >
         <div
@@ -256,76 +278,99 @@ export function BscBoardView({
             </button>
           ))}
         </div>
-        {selected ? (
-          <>
-            <div className="mb-5 flex items-start gap-3 border-b border-white/20 pb-5">
-              <div className="min-w-0 flex-1">
-                <p className="mb-1 text-[9px] uppercase text-white/65">
-                  {tab === "view"
-                    ? "Visualização do objetivo"
-                    : "Tarefas do objetivo"}{" "}
-                  |{" "}
-                  <span style={{ color: area?.border ?? "#aaa" }}>
-                    {area?.name ?? "Sem área"}
-                  </span>
-                </p>
-                {tab === "tasks" && (
-                  <h3 className="break-words text-2xl font-light leading-tight">
-                    {selected.title}
-                  </h3>
-                )}
-              </div>
-            </div>
-            <div hidden={tab !== "tasks"}>
-              <BscTasks
-                key={selected.id}
-                objectiveId={selected.id}
-                onChange={onChange}
-                onManage={() => onOpen(selected.id)}
-              />
-            </div>
-            {tab === "view" && (
-              <>
-                <BscInlineDetails
-                  key={`${selected.id}:${selected.updated_at}`}
-                  objective={selected}
-                  metrics={selectedMetrics}
-                  onSaved={() => onChange?.()}
-                  onAdvanced={() => onOpen(selected.id)}
-                />
-                <footer
-                  className={`${styles.band} -mx-5 -mb-5 mt-5 rounded-2xl p-5 sm:-mx-7 sm:-mb-7`}
-                >
-                  <div className="mb-2 flex items-center justify-between gap-3">
-                    <span className="text-sm font-light">METAS REALIZADAS</span>
-                    <span className="ml-auto text-lg">
-                      {selectedMetrics.length === 1
-                        ? formatBscValue(
-                            selectedMetrics[0].current_value,
-                            selectedMetrics[0].unit,
-                          )
-                        : ""}
+        <div
+          className={`${styles.detailScroll} min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1 ${tab === "view" ? "pb-36" : "pb-3"}`}
+        >
+          {selected ? (
+            <>
+              <div className="mb-3 flex items-start gap-3">
+                <div className="min-w-0 flex-1">
+                  <p className="mb-2 text-xs sm:text-sm font-medium uppercase tracking-wide text-[var(--muted-foreground)]">
+                    {tab === "view"
+                      ? "Visualização do objetivo"
+                      : "Tarefas do objetivo"}{" "}
+                    |{" "}
+                    <span
+                      style={{
+                        color: selected.perspective
+                          ? (theme === "light"
+                              ? {
+                                  financeira: "#166534",
+                                  clientes: "#1d4ed8",
+                                  processos: "#475569",
+                                  aprendizado: "#9a3412",
+                                }
+                              : {
+                                  financeira: "#86efac",
+                                  clientes: "#93c5fd",
+                                  processos: "#cbd5e1",
+                                  aprendizado: "#fdba74",
+                                })[selected.perspective]
+                          : "var(--text-title)",
+                      }}
+                    >
+                      {area?.name ?? "Sem área"}
                     </span>
-                    <strong className="text-lg">
-                      {score === null ? "—" : `${Math.round(score)}%`}
-                    </strong>
-                  </div>
-                  <BscProgress
-                    value={score}
-                    label="Atingimento do objetivo selecionado"
-                  />
-                  <p className="mt-2 text-[9px] uppercase text-white/50">
-                    Progresso acumulado das metas
                   </p>
-                </footer>
-              </>
-            )}
-          </>
-        ) : (
-          <div className="py-20 text-center text-sm text-white/50">
-            Cadastre seu primeiro objetivo para começar.
-          </div>
-        )}
+                  {tab === "tasks" && (
+                    <h3 className="break-words text-2xl font-light leading-tight">
+                      {selected.title}
+                    </h3>
+                  )}
+                </div>
+              </div>
+              <div hidden={tab !== "tasks"}>
+                <BscTasks
+                  key={selected.id}
+                  objectiveId={selected.id}
+                  onChange={onChange}
+                />
+              </div>
+              {tab === "view" && (
+                <>
+                  <BscInlineDetails
+                    key={`${selected.id}:${selected.updated_at}`}
+                    objective={selected}
+                    metrics={selectedMetrics}
+                    onSaved={() => onChange?.()}
+                    onAdvanced={() => onOpen(selected.id)}
+                  />
+                  <footer
+                    className={`${styles.capsule} absolute bottom-4 left-4 right-4 z-10 rounded-2xl border border-[var(--border)] p-4`}
+                  >
+                    <div className="mb-2 flex items-center justify-between gap-3">
+                      <span className="text-sm font-light">
+                        METAS REALIZADAS
+                      </span>
+                      <span className="ml-auto text-lg">
+                        {selectedMetrics.length === 1
+                          ? formatBscValue(
+                              selectedMetrics[0].current_value,
+                              selectedMetrics[0].unit,
+                            )
+                          : ""}
+                      </span>
+                      <strong className="text-lg">
+                        {score === null ? "—" : `${Math.round(score)}%`}
+                      </strong>
+                    </div>
+                    <BscProgress
+                      value={score}
+                      label="Atingimento do objetivo selecionado"
+                    />
+                    <p className="mt-2 text-[9px] uppercase text-white/50">
+                      Progresso acumulado das metas
+                    </p>
+                  </footer>
+                </>
+              )}
+            </>
+          ) : (
+            <div className="py-20 text-center text-sm text-white/50">
+              Cadastre seu primeiro objetivo para começar.
+            </div>
+          )}
+        </div>
       </aside>
     </div>
   );
