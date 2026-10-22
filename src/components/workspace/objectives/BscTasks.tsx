@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Check, Pencil, X, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { getSupabaseClient } from "@/lib/supabase";
@@ -7,6 +7,8 @@ import { useWorkspaceTasks } from "@/hooks/useWorkspaceTasks";
 import { useWorkspaceViewing } from "@/context/WorkspaceViewingContext";
 import { TaskDetailPanel } from "@/components/workspace/TaskDetailPanel";
 import { AssigneeAvatarGroup } from "@/components/workspace/AssigneeAvatarGroup";
+import { useGlobalStore } from "@/store";
+import { progressColor, progressGradientFrom } from "@/lib/progress-color";
 import { TagChip } from "@/components/workspace/TagChip";
 
 export function BscTasks({
@@ -18,29 +20,23 @@ export function BscTasks({
   onChange?: () => void;
   onManage: () => void;
 }) {
+  const theme = useGlobalStore((s) => s.theme);
   const { viewingMember } = useWorkspaceViewing();
   const hook = useWorkspaceTasks(
     viewingMember?.auth_user_id ?? undefined,
     undefined,
     objectiveId,
+    true,
   );
   const db = getSupabaseClient();
   const refetchTasks = hook.refetch;
-  const [links, setLinks] = useState<{ id: string; task_id: string }[]>([]);
-  const [error, setError] = useState<string | null>(null);
+  const links = hook.objectiveLinks;
+
   const [open, setOpen] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [unlinkId, setUnlinkId] = useState<string | null>(null);
-  const load = useCallback(async () => {
-    const r = await db
-      .from("workspace_objective_task_links")
-      .select("id,task_id")
-      .eq("objective_id", objectiveId);
-    setError(r.error?.message ?? null);
-    if (!r.error) setLinks(r.data ?? []);
-  }, [db, objectiveId]);
+  const load = refetchTasks;
   useEffect(() => {
-    void load();
     const channel = db
       .channel(`bsc-links-${objectiveId}`)
       .on(
@@ -52,7 +48,6 @@ export function BscTasks({
           filter: `objective_id=eq.${objectiveId}`,
         },
         () => {
-          void load();
           void refetchTasks();
         },
       )
@@ -66,9 +61,9 @@ export function BscTasks({
   const progress = tasks.length ? (done / tasks.length) * 100 : 0;
   return (
     <div className="space-y-5">
-      {(error || hook.error) && (
+      {hook.error && (
         <p role="alert" className="text-xs text-red-400">
-          {error || hook.error}
+          {hook.error}
         </p>
       )}
       {hook.isLoading && !hook.error ? (
@@ -92,7 +87,7 @@ export function BscTasks({
                 .map((t) => (
                   <div
                     key={t.id}
-                    className="rounded-xl border border-[#315b37] bg-[#122017] px-2 py-2"
+                    className="rounded-xl border border-[#315b3770] bg-[color-mix(in_srgb,#326b42_15%,var(--glass-bg))] px-2 py-2"
                   >
                     <div className="flex items-center gap-2">
                       <button
@@ -228,8 +223,11 @@ export function BscTasks({
           className="h-3 overflow-hidden rounded-full bg-white/15"
         >
           <div
-            className="h-full rounded-full bg-[#cc5424] transition-[width]"
-            style={{ width: `${progress}%` }}
+            className="h-full rounded-full transition-[width]"
+            style={{
+              width: `${progress}%`,
+              background: `linear-gradient(90deg,${progressGradientFrom(progress, theme)},${progressColor(progress)})`,
+            }}
           />
         </div>
       </footer>

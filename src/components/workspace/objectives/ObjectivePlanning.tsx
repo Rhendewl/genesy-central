@@ -7,6 +7,7 @@ import { useWorkspaceTasks } from "@/hooks/useWorkspaceTasks";
 import { TaskDetailPanel } from "@/components/workspace/TaskDetailPanel";
 import { TagChip } from "@/components/workspace/TagChip";
 
+import { TaskDestinationPicker } from "./TaskDestinationPicker";
 import type { WorkspaceTask } from "@/types/workspace";
 export interface ObjectiveMetric {
   id: string;
@@ -38,6 +39,7 @@ export function ObjectivePlanning({
   const [blocks, setBlocks] = useState<Block[]>([]),
     [links, setLinks] = useState<TaskLink[]>([]),
     [tasks, setTasks] = useState<WorkspaceTask[]>([]);
+  const [destination, setDestination] = useState<string | null>(null);
   const [blockTitle, setBlockTitle] = useState(""),
     [taskTitle, setTaskTitle] = useState(""),
     [taskId, setTaskId] = useState(""),
@@ -302,12 +304,16 @@ export function ObjectivePlanning({
         {tasksHook.error && (
           <p className="text-xs text-red-400">{tasksHook.error}</p>
         )}
+        <TaskDestinationPicker value={destination} onChange={setDestination} />
         <form
           className="flex gap-2"
           onSubmit={async (e) => {
             e.preventDefault();
             setBusy(true);
-            const r = await tasksHook.createTask({ title: taskTitle.trim() });
+            const r = await tasksHook.createTask({
+              title: taskTitle.trim(),
+              ...(destination ? { board_id: destination } : {}),
+            });
             setBusy(false);
             if (r.error || !r.task)
               return toast.error(r.error ?? "Erro ao criar tarefa");
@@ -331,7 +337,10 @@ export function ObjectivePlanning({
             placeholder="Criar tarefa neste objetivo"
             required
           />
-          <button disabled={busy || !taskTitle.trim()} className="lc-btn px-3">
+          <button
+            disabled={busy || !taskTitle.trim() || !destination}
+            className="lc-btn px-3"
+          >
             Criar
           </button>
         </form>

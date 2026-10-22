@@ -30,6 +30,20 @@ export async function GET(req: NextRequest) {
   const targetUserId = url.searchParams.get("as_user_id") || user.id;
 
   try {
+    if (objectiveId && url.searchParams.get("objective_only") === "1") {
+      if (!validateTagIds([objectiveId])) return NextResponse.json({error:"Objetivo inválido"},{status:400});
+      // Both the links and embedded tasks are filtered by the caller's RLS.
+      // Only fetch this objective, without scanning the user's other boards.
+      const {data,error}=await supabase.from("workspace_objective_task_links")
+        .select("id,task_id,task:workspace_tasks(*,workspace_task_assignees(assignee_id))")
+        .eq("objective_id",objectiveId);
+      if(error) throw new Error(error.message);
+      const rows=(data ?? []) as unknown as {id:string;task_id:string;task:(WorkspaceTask & {workspace_task_assignees:{assignee_id:string}[]})|null}[];
+      const owners=Array.from(new Set(rows.flatMap(r=>r.task && r.task.created_by!==user.id ? [r.task.user_id]:[])));
+      const admins=new Set((await Promise.all(owners.map(async id=>({id,allowed:await isWorkspaceAdminOfUser(supabase,id)})))).filter(x=>x.allowed).map(x=>x.id));
+      const tasks=rows.flatMap(r=>{if(!r.task)return [];const {workspace_task_assignees,...task}=r.task;return [{...task,assignee_ids:(workspace_task_assignees??[]).map(a=>a.assignee_id),can_edit:task.created_by===user.id||admins.has(task.user_id)}];});
+      return NextResponse.json({tasks,objective_links:rows.map(({id,task_id})=>({id,task_id}))},{headers:{"Cache-Control":"private, no-store, max-age=0"}});
+    }
     // Tarefas que targetUserId criou OU das quais é responsável — mesma
     // regra da RLS pessoal (Fase 1), só que calculada "de fora" para X.
     const { data: targetProfile } = await supabase
