@@ -121,6 +121,7 @@ async function instagramPost<T>(path: string, accessToken: string, body?: unknow
 
 export const INSTAGRAM_AUTOMATION_SCOPES = [
   "instagram_business_basic",
+  "instagram_business_content_publish",
   "instagram_business_manage_insights",
   "instagram_business_manage_comments",
   "instagram_business_manage_messages",
@@ -337,4 +338,23 @@ export async function getInstagramAccountDailyExactMetrics(userId: string, acces
     })));
   }
   return rows;
+}
+
+
+export function createInstagramStory(userId: string, accessToken: string, imageUrl: string) {
+  return instagramPost<{ id: string }>(`/${INSTAGRAM_GRAPH_VERSION}/${userId}/media`, accessToken, {
+    media_type: "STORIES", image_url: imageUrl,
+  });
+}
+
+export function getInstagramContainerStatus(containerId: string, accessToken: string) {
+  return instagramGet<{ status_code: string; status?: string }>(
+    `/${INSTAGRAM_GRAPH_VERSION}/${containerId}?fields=status_code,status`, accessToken,
+  );
+}
+
+export function publishInstagramStory(userId: string, accessToken: string, containerId: string) {
+  return instagramPost<{ id: string }>(`/${INSTAGRAM_GRAPH_VERSION}/${userId}/media_publish`, accessToken, {
+    creation_id: containerId,
+  });
 }
