@@ -4,17 +4,8 @@
 
 const GRAPH = "https://graph.facebook.com/v21.0";
 
-// Fields considered "standard" — not shown as custom questions in notes
-const STANDARD_FIELDS = new Set([
-  "first_name", "last_name", "full_name",
-  "email", "phone_number", "phone", "telefone",
-  "city", "cidade",
-  "state", "country", "zip_code", "postal_code",
-  "street_address", "date_of_birth", "gender",
-  "company_name", "job_title", "work_phone_number",
-]);
-
 export interface MetaLeadData {
+  answers: { name: string; values: string[] }[];
   first_name:     string;
   full_name:      string;
   phone:          string | null;
@@ -49,9 +40,9 @@ export async function fetchMetaLead(
 ): Promise<MetaLeadData> {
   const fields =
     "field_data,ad_id,ad_name,adset_id,adset_name,campaign_id,campaign_name,created_time";
-  const url = `${GRAPH}/${leadgenId}?fields=${fields}&access_token=${accessToken}`;
+  const url = `${GRAPH}/${encodeURIComponent(leadgenId)}?fields=${fields}`;
 
-  const res = await fetch(url, { cache: "no-store" });
+  const res = await fetch(url, { cache: "no-store", headers: { Authorization: `Bearer ${accessToken}` }, signal: AbortSignal.timeout(8000) });
   if (!res.ok) {
     const body = await res.json().catch(() => ({})) as { error?: { message?: string } };
     throw new Error(body?.error?.message ?? `Meta Graph API ${res.status}`);
@@ -62,7 +53,7 @@ export async function fetchMetaLead(
   // Flatten field_data into a lowercase key → value map
   const fm: Record<string, string> = {};
   for (const f of data.field_data ?? []) {
-    fm[f.name.toLowerCase()] = f.values[0] ?? "";
+    fm[f.name.toLowerCase()] = f.values.join("; ");
   }
 
   const first_name = fm["first_name"] || fm["nome"] || "";
@@ -77,15 +68,16 @@ export async function fetchMetaLead(
   const email = fm["email"] || null;
   const city  = fm["city"] || fm["cidade"] || null;
 
-  // Collect custom fields (anything not in the standard set)
+  // Preserve every answer, including standard fields and multiple selections.
   const custom_fields: { label: string; value: string }[] = [];
   for (const [key, value] of Object.entries(fm)) {
-    if (!STANDARD_FIELDS.has(key) && value.trim()) {
+    if (value.trim()) {
       custom_fields.push({ label: humanizeLabel(key), value });
     }
   }
 
   return {
+    answers: data.field_data ?? [],
     first_name: first_name || full_name.split(" ")[0] || "Lead",
     full_name,
     phone,

@@ -5,6 +5,7 @@ export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
+import { getMarketingServerContext, apiError } from "@/lib/marketing/server";
 import { decryptToken } from "@/lib/crypto";
 import { getLeadGenForms } from "@/lib/meta-api";
 
@@ -13,8 +14,9 @@ export async function GET(req: NextRequest) {
   if (!pageId) return NextResponse.json({ error: "pageId required" }, { status: 400 });
 
   const supabase = await createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
+  let user;
+  try { const context = await getMarketingServerContext(supabase); if (!context.isAdmin) return NextResponse.json({ error: "Apenas administradores podem configurar a captura." }, { status: 403 }); user = context.user; }
+  catch (error) { const e = apiError(error); return NextResponse.json({ error: e.message }, { status: e.status }); }
 
   // Resolve token: prefer page token, fall back to user token
   const { data: pageSub } = await supabase
@@ -55,19 +57,23 @@ export async function GET(req: NextRequest) {
   }
 
   // Merge with subscription state
-  const { data: subs } = await supabase
+  const { data: subs, error: subsError } = await supabase
     .from("meta_form_subscriptions")
-    .select("form_id, is_active, leads_count, last_lead_at")
+    .select("form_id, is_active, leads_count, last_lead_at, crm_pipeline_id, crm_stage_id")
     .eq("user_id", user.id)
     .eq("page_id", pageId);
 
+  if (subsError) return NextResponse.json({ error: "Não foi possível carregar a configuração. Verifique se a atualização do banco foi aplicada." }, { status: 500 });
+
   const subMap = new Map((subs ?? []).map(s => [
     s.form_id as string,
-    s as { form_id: string; is_active: boolean; leads_count: number; last_lead_at: string | null },
+    s as { form_id: string; is_active: boolean; leads_count: number; last_lead_at: string | null; crm_pipeline_id: string | null; crm_stage_id: string | null },
   ]));
 
   const formsWithState = forms.map(f => ({
     ...f,
+    crm_pipeline_id: subMap.get(f.id)?.crm_pipeline_id ?? null,
+    crm_stage_id: subMap.get(f.id)?.crm_stage_id ?? null,
     is_subscribed: subMap.get(f.id)?.is_active ?? false,
     leads_count:   subMap.get(f.id)?.leads_count ?? 0,
     last_lead_at:  subMap.get(f.id)?.last_lead_at ?? null,

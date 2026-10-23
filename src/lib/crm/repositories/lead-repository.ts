@@ -9,6 +9,11 @@ export interface LeadRow {
 }
 
 export interface CreateLeadParams {
+  page_id?: string | null;
+  leadgen_id?: string | null;
+  campaign_name?: string | null;
+  ad_name?: string | null;
+  meta_form_answers?: { name: string; values: string[] }[];
   user_id:       string;
   pipeline_id:   string;
   stage_id:      string;
@@ -70,6 +75,8 @@ export class LeadRepository {
     const { data, error } = await this.db
       .from("leads")
       .insert({
+        ...(params.leadgen_id ? { leadgen_id: params.leadgen_id, page_id: params.page_id,
+          campaign_name: params.campaign_name, ad_name: params.ad_name, meta_form_answers: params.meta_form_answers } : {}),
         user_id:       params.user_id,
         pipeline_id:   params.pipeline_id,
         stage_id:      params.stage_id,

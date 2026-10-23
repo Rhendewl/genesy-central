@@ -13,7 +13,7 @@ export async function GET() {
   const [{ data: pages, error }, { data: connections }] = await Promise.all([
     supabase
       .from("meta_page_subscriptions")
-      .select("id, meta_page_id, page_name, is_active, platform_account_id, created_at")
+      .select("id, meta_page_id, page_name, is_active, platform_account_id, created_at, capture_unconfigured_forms")
       .eq("user_id", user.id)
       .order("created_at"),
 
