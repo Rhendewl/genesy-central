@@ -189,11 +189,19 @@ export async function getPagesWithTokens(token: string): Promise<MetaPageWithTok
 }
 
 export async function getLeadGenForms(pageId: string, pageToken: string): Promise<MetaLeadGenForm[]> {
-  const data = await metaGet<{ data: MetaLeadGenForm[] }>(
-    `/${pageId}/leadgen_forms?fields=id,name,status,leads_count&limit=100`,
-    pageToken
-  );
-  return data.data ?? [];
+  const forms: MetaLeadGenForm[] = [];
+  let after: string | undefined;
+  const seen = new Set<string>();
+  do {
+    const data = await metaGet<{ data: MetaLeadGenForm[]; paging?: { next?: string; cursors?: { after?: string } } }>(
+      `/${pageId}/leadgen_forms?fields=id,name,status,leads_count&limit=100${after ? `&after=${encodeURIComponent(after)}` : ""}`, pageToken,
+    );
+    forms.push(...(data.data ?? []));
+    after = data.paging?.next ? data.paging.cursors?.after : undefined;
+    if (after && seen.has(after)) throw new Error("Paginação de formulários inválida");
+    if (after) seen.add(after);
+  } while (after);
+  return forms;
 }
 
 // ── Insights with geographic breakdown (region) ───────────────────────────────

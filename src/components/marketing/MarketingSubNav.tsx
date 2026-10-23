@@ -3,7 +3,7 @@
 import type { ComponentType, SVGProps } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bot, CalendarDays, LayoutDashboard, PanelsTopLeft } from "lucide-react";
+import { Bot, ClipboardList, CalendarDays, LayoutDashboard, PanelsTopLeft } from "lucide-react";
 import { InstagramGlyph } from "@/components/marketing/InstagramReports";
 import { cn } from "@/lib/utils";
 import { useGlobalStore } from "@/store";
@@ -30,6 +30,7 @@ const ITEMS: Array<{ href: string; label: string; icon: NavIcon; exact?: boolean
   { href: "/marketing/automacoes", label: "Automações", icon: Bot },
   { href: "/marketing/calendario", label: "Calendário Editorial", icon: CalendarDays },
   { href: "/marketing/gerador", label: "Gerador de Posts", icon: PanelsTopLeft },
+  { href: "/marketing/formularios-meta", label: "Formulários Meta", icon: ClipboardList },
   { href: "/marketing/trafego", label: "Tráfego Pago", icon: MetaGlyph },
 ];
 
