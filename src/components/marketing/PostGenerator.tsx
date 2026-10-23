@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { InstagramStoryDialog, storyJpeg } from "./InstagramStoryDialog";
 import {
   createZip, defaultPostLetterSpacing, defaultPostLineHeight, normalizePostLineHeight, normalizePostTextWidth, numberedSlideFilename, POST_FORMATS, postElementToPng, postTextElementToPng, sanitizeDownloadName, saveBlob,
   type PostFormat, type PostTemplate,
@@ -382,6 +383,8 @@ function PostEditor({ template, onBack }: { template: PostTemplate; onBack: () =
   const [tweetProfile, setTweetProfile] = useState<TweetProfile>(DEFAULT_PROFILE);
   const [storageReady, setStorageReady] = useState(false);
   const [syncState, setSyncState] = useState<"saving" | "synced" | "offline">("saving");
+  const [storySnapshot, setStorySnapshot] = useState<{ image: Blob; slideNumber: number } | null>(null);
+  const [preparingStory, setPreparingStory] = useState(false);
   const [exporting, setExporting] = useState<"one" | "all" | "share" | null>(null);
   const [mobilePanel, setMobilePanel] = useState<MobileEditorPanel>(null);
   const [mobileTextTool, setMobileTextTool] = useState<MobileTextTool>(null);
@@ -794,6 +797,19 @@ function PostEditor({ template, onBack }: { template: PostTemplate; onBack: () =
     setSlides((current) => { const next = [...current]; [next[activeIndex], next[target]] = [next[target], next[activeIndex]]; return next; });
   };
 
+  async function prepareStory() {
+    const element = exportRefs.current.get(activeId);
+    if (!element || preparingStory) return;
+    if (dimensions.width !== 1080 || dimensions.height !== 1920) { toast.error("Selecione o formato Story 1080 × 1920 para publicar."); return; }
+    setPreparingStory(true);
+    const slideNumber = activeIndex + 1;
+    try {
+      const png = await postElementToPng(element, dimensions.width, dimensions.height);
+      setStorySnapshot({ image: await storyJpeg(png), slideNumber });
+    } catch (error) { toast.error(error instanceof Error ? error.message : "Não foi possível preparar o story."); }
+    finally { setPreparingStory(false); }
+  }
+
   async function exportOne() {
     const element = exportRefs.current.get(activeId);
     if (!element) return;
@@ -865,6 +881,7 @@ function PostEditor({ template, onBack }: { template: PostTemplate; onBack: () =
           {(Object.entries(POST_FORMATS) as Array<[PostFormat, typeof dimensions]>).map(([value, item]) => <button key={value} onClick={() => setFormat(value)} className={cn("rounded-lg px-3 py-1.5 text-[11px] font-medium transition", format === value ? "bg-[var(--segment-active-bg)] text-[var(--text-title)]" : "text-[var(--muted-foreground)] hover:text-[var(--text-title)]")}>{item.label}</button>)}
         </div>
         <Button variant="outline" onClick={() => void exportOne()} loading={exporting === "one"} icon={<Download />}>Slide atual</Button>
+        <Button variant="outline" onClick={() => void prepareStory()} loading={preparingStory} disabled={Boolean(exporting)} icon={<Send />}>Postar story</Button>
         <Button onClick={() => setExportDialogOpen(true)} loading={exporting === "all"} icon={<Layers3 />} signature>Baixar todos</Button>
       </div>
 
@@ -986,6 +1003,7 @@ function PostEditor({ template, onBack }: { template: PostTemplate; onBack: () =
               <div className="grid gap-2 p-4">
                 <Button fullWidth onClick={() => void shareOne()} loading={exporting === "share"} icon={<Share2 />}>Compartilhar slide atual</Button>
                 <Button fullWidth variant="outline" onClick={() => void exportOne()} loading={exporting === "one"} icon={<Download />}>Baixar slide atual</Button>
+                <Button fullWidth variant="outline" onClick={() => void prepareStory()} loading={preparingStory} disabled={Boolean(exporting)} icon={<Send />}>Postar story</Button>
                 <Button fullWidth variant="outline" onClick={() => { setMobilePanel(null); setExportDialogOpen(true); }} loading={exporting === "all"} icon={<Layers3 />}>Baixar todos os slides</Button>
               </div>
             ) : (
@@ -1061,6 +1079,7 @@ function PostEditor({ template, onBack }: { template: PostTemplate; onBack: () =
         {slides.map((slide) => <PostCanvas key={slide.id} slide={slide} profile={tweetProfile} template={template} width={dimensions.width} height={dimensions.height} refCallback={(node) => { if (node) exportRefs.current.set(slide.id, node); else exportRefs.current.delete(slide.id); }} />)}
       </div>
 
+      {storySnapshot && <InstagramStoryDialog image={storySnapshot.image} slideNumber={storySnapshot.slideNumber} onClose={() => setStorySnapshot(null)} />}
       {exportDialogOpen && (
         <ExportNameDialog
           value={exportName}
