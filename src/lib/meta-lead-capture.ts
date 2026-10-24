@@ -4,7 +4,7 @@ import { fetchMetaLead } from "@/lib/meta-leads";
 import { LeadService } from "@/lib/crm/lead-service";
 
 export type MetaLeadEvent = { page_id: string; leadgen_id: string; form_id: string; created_time?: number; ad_id?: string };
-export type FormRoute = { form_id: string; form_name?: string | null; is_active: boolean; crm_pipeline_id: string | null; crm_stage_id: string | null };
+export type FormRoute = { form_id: string; form_name?: string | null; is_active: boolean; crm_pipeline_id: string | null; crm_stage_id: string | null; assigned_to?: string | null };
 export function resolveFormRoute(routes: FormRoute[], formId: string, legacyCapture = false) {
   // An explicitly paused form stays paused even when all forms are paused.
   if (!routes.length) return { capture: legacyCapture, route: null }; // Only explicitly preserved legacy page configuration.
@@ -18,7 +18,7 @@ export async function captureMetaLead(db: SupabaseClient, event: MetaLeadEvent, 
   if (pageError) throw new Error(pageError.message);
   if (!page) return { status: "skipped", step: "page_inactive" };
   const { data: subscriptions, error: routeError } = await db.from("meta_form_subscriptions")
-    .select("form_id,form_name,is_active,crm_pipeline_id,crm_stage_id").eq("user_id", ownerId).eq("page_id", event.page_id);
+    .select("form_id,form_name,is_active,crm_pipeline_id,crm_stage_id,assigned_to").eq("user_id", ownerId).eq("page_id", event.page_id);
   if (routeError) throw new Error(routeError.message);
   const routing = resolveFormRoute(subscriptions ?? [], event.form_id, page.capture_unconfigured_forms === true);
   if (!routing.capture) return { status: "skipped", step: "form_paused_or_unconfigured" };
@@ -37,8 +37,13 @@ export async function captureMetaLead(db: SupabaseClient, event: MetaLeadEvent, 
     const legacy = await db.from("crm_stages").select("id,crm_pipelines!inner(user_id,is_active)")
       .eq("crm_pipelines.user_id", ownerId).eq("crm_pipelines.is_active", true).eq("is_active", true)
       .eq("legacy_column", "novo_lead").order("order_index").limit(1).maybeSingle();
-    if (legacy.error || !legacy.data) throw new Error("Escolha o CRM e a etapa de entrada em Marketing → Formulários Meta.");
+    if (legacy.error || !legacy.data) throw new Error("Escolha o CRM e a etapa de entrada em CRM → Formulários Meta.");
     stageId = legacy.data.id;
+  }
+  const assignedTo = routing.route?.assigned_to ?? null;
+  if (assignedTo) {
+    const assignee = await db.from("user_profiles").select("id,auth_user_id").eq("id", assignedTo).eq("owner_id", ownerId).eq("is_active", true).maybeSingle();
+    if (assignee.error || !assignee.data?.auth_user_id) throw new Error("O responsável configurado não está disponível. Atualize o responsável deste formulário.");
   }
   let encrypted = page.encrypted_page_token;
   if (!encrypted && page.platform_account_id) {
@@ -53,7 +58,7 @@ export async function captureMetaLead(db: SupabaseClient, event: MetaLeadEvent, 
     ...(lead.ad_name ? [`Anúncio: ${lead.ad_name}`] : []), "", "Respostas do formulário",
     ...lead.custom_fields.map((field) => `${field.label}: ${field.value}`)].join("\n");
   const result = await new LeadService(db).createLead({
-    user_id: ownerId, stageId: stageId!, name: lead.full_name || lead.first_name || "Lead Meta",
+    assigned_to: assignedTo, user_id: ownerId, stageId: stageId!, name: lead.full_name || lead.first_name || "Lead Meta",
     contact: lead.phone || lead.email || "", email: lead.email, source: "meta_lead_ads",
     page_id: event.page_id, leadgen_id: event.leadgen_id, form_id: event.form_id,
     form_name: routing.route?.form_name ?? null, campaign_name: lead.campaign_name, ad_name: lead.ad_name,

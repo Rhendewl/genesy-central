@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { LayoutGrid, BarChart2, Settings2, Bell, Zap, FileBarChart, Target } from "lucide-react";
+import { ClipboardList, LayoutGrid, BarChart2, Settings2, Bell, Zap, FileBarChart, Target } from "lucide-react";
+import { MetaLeadForms } from "@/components/marketing/MetaLeadForms";
 import { Header } from "@/components/layout/Header";
 import { KanbanBoard } from "@/components/crm/KanbanBoard";
 import { LeadsAnalytics } from "@/components/crm/LeadsAnalytics";
@@ -21,7 +22,7 @@ import { useFinancialPrivacyStore } from "@/store/financial-privacy";
 // CRM Page — Kanban / Leads / Pipelines
 // ─────────────────────────────────────────────────────────────────────────────
 
-type TabId = "kanban" | "leads" | "metas" | "relatorios" | "pipelines" | "notificacoes" | "automacoes";
+type TabId = "kanban" | "leads" | "metas" | "relatorios" | "pipelines" | "notificacoes" | "automacoes" | "formularios-meta";
 
 const TABS: { id: TabId; label: string; icon: React.ReactNode }[] = [
   { id: "kanban",        label: "Kanban",       icon: <LayoutGrid size={15} /> },
@@ -30,6 +31,7 @@ const TABS: { id: TabId; label: string; icon: React.ReactNode }[] = [
   { id: "relatorios",    label: "Relatórios",   icon: <FileBarChart size={15} /> },
   { id: "pipelines",     label: "Pipelines",    icon: <Settings2  size={15} /> },
   { id: "notificacoes",  label: "Notificações", icon: <Bell       size={15} /> },
+  { id: "formularios-meta", label: "Formulários Meta", icon: <ClipboardList size={15} /> },
   { id: "automacoes",    label: "Automações",   icon: <Zap        size={15} /> },
 ];
 
@@ -40,6 +42,7 @@ const SUBTITLES: Record<TabId, string> = {
   relatorios:   "Atividades e desempenho comercial por período",
   pipelines:    "Gerenciar pipelines e etapas",
   notificacoes: "Notificações automáticas por etapa",
+  "formularios-meta": "Captura e distribuição de leads dos formulários Meta",
   automacoes:   "Gatilho → espera → condições → ação, por pipeline",
 };
 
@@ -47,6 +50,7 @@ export default function CrmPage() {
   const valuesHidden = useFinancialPrivacyStore((state) => state.valuesHidden);
   void valuesHidden;
   const [activeTab, setActiveTab] = useState<TabId>("kanban");
+  useEffect(() => { if (new URLSearchParams(window.location.search).get("tab") === "formularios-meta") setActiveTab("formularios-meta"); }, []);
   const { member, isOwner } = useCurrentMember();
   const hasFullCrmAccess = isAdministrativeMember(member, isOwner === true);
   const visibleTabs = hasFullCrmAccess
@@ -148,6 +152,7 @@ export default function CrmPage() {
               <CrmNotificacoesTab />
             </div>
           )}
+          {hasFullCrmAccess && activeTab === "formularios-meta" && <MetaLeadForms />}
           {hasFullCrmAccess && activeTab === "automacoes" && <AutomationsAdmin />}
         </motion.div>
       </AnimatePresence>

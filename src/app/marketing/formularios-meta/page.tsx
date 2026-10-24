@@ -1,2 +1,2 @@
-import { MetaLeadForms } from "@/components/marketing/MetaLeadForms";
-export default function MetaLeadFormsPage() { return <MetaLeadForms />; }
+import { redirect } from "next/navigation";
+export default function MetaLeadFormsPage() { redirect("/crm?tab=formularios-meta"); }
