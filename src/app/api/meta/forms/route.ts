@@ -59,7 +59,7 @@ export async function GET(req: NextRequest) {
   // Merge with subscription state
   const { data: subs, error: subsError } = await supabase
     .from("meta_form_subscriptions")
-    .select("form_id, is_active, leads_count, last_lead_at, crm_pipeline_id, crm_stage_id")
+    .select("form_id, is_active, leads_count, last_lead_at, crm_pipeline_id, crm_stage_id, assigned_to")
     .eq("user_id", user.id)
     .eq("page_id", pageId);
 
@@ -67,12 +67,13 @@ export async function GET(req: NextRequest) {
 
   const subMap = new Map((subs ?? []).map(s => [
     s.form_id as string,
-    s as { form_id: string; is_active: boolean; leads_count: number; last_lead_at: string | null; crm_pipeline_id: string | null; crm_stage_id: string | null },
+    s as { form_id: string; is_active: boolean; leads_count: number; last_lead_at: string | null; crm_pipeline_id: string | null; crm_stage_id: string | null; assigned_to: string | null },
   ]));
 
   const formsWithState = forms.map(f => ({
     ...f,
     crm_pipeline_id: subMap.get(f.id)?.crm_pipeline_id ?? null,
+    assigned_to: subMap.get(f.id)?.assigned_to ?? null,
     crm_stage_id: subMap.get(f.id)?.crm_stage_id ?? null,
     is_subscribed: subMap.get(f.id)?.is_active ?? false,
     leads_count:   subMap.get(f.id)?.leads_count ?? 0,

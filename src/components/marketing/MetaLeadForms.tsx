@@ -1,13 +1,14 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { useUsers } from "@/hooks/useUsers";
 import { RefreshCw, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import type { CrmPipelineWithStages } from "@/types/crm";
 
 type Page = { page_id: string; page_name: string; is_active: boolean; capture_unconfigured_forms?: boolean };
-type Form = { id: string; name: string; status: string; is_subscribed: boolean; leads_count: number; last_lead_at: string | null; crm_pipeline_id: string | null; crm_stage_id: string | null };
+type Form = { id: string; name: string; status: string; is_subscribed: boolean; leads_count: number; last_lead_at: string | null; crm_pipeline_id: string | null; crm_stage_id: string | null; assigned_to: string | null };
 type Log = { id: string; received_at: string; form_id: string | null; status: string; error_message: string | null };
 const inputClass = "mt-1 w-full rounded-xl border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2.5 text-sm text-[var(--text-title)]";
 async function api(url: string, init?: RequestInit) {
@@ -18,6 +19,8 @@ async function api(url: string, init?: RequestInit) {
 }
 
 export function MetaLeadForms() {
+  const { profiles } = useUsers();
+  const activeProfiles = profiles.filter((profile) => profile.is_active && profile.auth_user_id);
   const [pages, setPages] = useState<Page[]>([]);
   const [pageId, setPageId] = useState("");
   const [forms, setForms] = useState<Form[]>([]);
@@ -60,7 +63,7 @@ export function MetaLeadForms() {
     setSaving(form.id); setError("");
     try {
       await api("/api/meta/forms/toggle", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
-        pageId, formId: form.id, active: form.is_subscribed, pipelineId: form.crm_pipeline_id, stageId: form.crm_stage_id,
+        pageId, formId: form.id, active: form.is_subscribed, pipelineId: form.crm_pipeline_id, stageId: form.crm_stage_id, assignedTo: form.assigned_to,
       }) });
       toast.success(form.is_subscribed ? "Captura ativada no destino escolhido." : "Captura pausada.");
     } catch (e) { setError(e instanceof Error ? e.message : "Falha ao salvar."); }
@@ -88,9 +91,10 @@ export function MetaLeadForms() {
       {formsLoading ? <p>Carregando formulários…</p> : !forms.length ? <p>Nenhum formulário disponível nesta página.</p> : <div className="grid gap-4 xl:grid-cols-2">{forms.map((form) => {
         const stages = pipelines.find((pipeline) => pipeline.id === form.crm_pipeline_id)?.crm_stages.filter((stage) => stage.is_active) ?? [];
         return <section key={form.id} className="lc-card-base space-y-4 rounded-2xl p-5">
-          <div className="flex items-start justify-between gap-4"><div><h2 className="font-semibold text-[var(--text-title)]">{form.name}</h2><p className="mt-1 text-xs text-[var(--muted-foreground)]">{form.leads_count} leads capturados{form.last_lead_at ? ` · Último: ${new Date(form.last_lead_at).toLocaleString("pt-BR")}` : ""}</p></div><label className="flex shrink-0 items-center gap-2 text-sm"><input type="checkbox" checked={form.is_subscribed} disabled={Boolean(saving)} onChange={(e) => change(form.id, { is_subscribed: e.target.checked })} />Capturar</label></div>
+          <div className="flex items-start justify-between gap-4"><div><h2 className="font-semibold text-[var(--text-title)]">{form.name}</h2><p className="mt-1 text-xs text-[var(--muted-foreground)]">{form.leads_count} leads capturados{form.last_lead_at ? ` · Último: ${new Date(form.last_lead_at).toLocaleString("pt-BR")}` : ""}</p></div><div className="flex shrink-0 items-center gap-2 text-sm"><span>Capturar</span><button type="button" role="switch" aria-label={`Capturar ${form.name}`} aria-checked={form.is_subscribed} disabled={Boolean(saving)} onClick={() => change(form.id, { is_subscribed: !form.is_subscribed })} className="relative h-5 w-9 shrink-0 rounded-full transition-colors disabled:opacity-50" style={{ background: form.is_subscribed ? "var(--primary)" : "var(--border-card-hover)" }}><span className="absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white transition-transform" style={{ transform: form.is_subscribed ? "translateX(16px)" : "translateX(0)" }} /></button></div></div>
           <div className="grid gap-3 sm:grid-cols-2"><label className="text-sm">CRM de destino<select aria-label={`CRM de ${form.name}`} className={inputClass} disabled={Boolean(saving)} value={form.crm_pipeline_id ?? ""} onChange={(e) => change(form.id, { crm_pipeline_id: e.target.value || null, crm_stage_id: null })}><option value="">Selecione o CRM</option>{pipelines.map((pipeline) => <option key={pipeline.id} value={pipeline.id}>{pipeline.name}</option>)}</select></label>
           <label className="text-sm">Etapa de entrada<select aria-label={`Etapa de ${form.name}`} className={inputClass} disabled={!form.crm_pipeline_id || Boolean(saving)} value={form.crm_stage_id ?? ""} onChange={(e) => change(form.id, { crm_stage_id: e.target.value || null })}><option value="">Selecione a etapa</option>{stages.map((stage) => <option key={stage.id} value={stage.id}>{stage.name}</option>)}</select></label></div>
+          <label className="block text-sm">Responsável pelos novos leads<select aria-label={`Responsável de ${form.name}`} className={inputClass} disabled={Boolean(saving)} value={form.assigned_to ?? ""} onChange={(e) => change(form.id, { assigned_to: e.target.value || null })}><option value="">Sem responsável</option>{activeProfiles.map((profile) => <option key={profile.id} value={profile.id}>{profile.full_name}</option>)}</select></label>
           <Button icon={<Save />} loading={saving === form.id} disabled={Boolean(saving) || (form.is_subscribed && !form.crm_stage_id)} onClick={() => void save(form)}>Salvar configuração</Button>
         </section>;
       })}</div>}

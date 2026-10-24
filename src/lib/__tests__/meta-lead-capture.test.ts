@@ -35,6 +35,18 @@ describe("Meta lead routing", () => {
     expect(mocks.createLead).toHaveBeenCalledWith(expect.objectContaining({ user_id: "owner", stageId: "stage", name: "Ana", contact: "85999999999", leadgen_id: "222", meta_form_answers: [{ name: "interesses", values: ["Casa", "Apartamento"] }], integration_notes: expect.stringContaining("Casa; Apartamento") }));
     expect(filters).toContainEqual(["crm_stages", "crm_pipelines.user_id", "owner"]);
   });
+  it("assigns new leads to the configured active account member", async () => {
+    const { db, filters } = database({ meta_page_subscriptions: [{ data: { encrypted_page_token: "encrypted" } }], meta_form_subscriptions: [{ data: [{ ...active, assigned_to: "member" }] }], leads: [{ data: null }], crm_stages: [{ data: { id: "stage" } }], user_profiles: [{ data: { id: "member", auth_user_id: "auth-member" } }] });
+    await captureMetaLead(db, event, "owner");
+    expect(mocks.createLead).toHaveBeenCalledWith(expect.objectContaining({ assigned_to: "member" }));
+    expect(filters).toContainEqual(["user_profiles", "owner_id", "owner"]);
+  });
+  it("rejects removed or foreign assignees before fetching the lead", async () => {
+    const { db } = database({ meta_page_subscriptions: [{ data: { encrypted_page_token: "encrypted" } }], meta_form_subscriptions: [{ data: [{ ...active, assigned_to: "foreign" }] }], leads: [{ data: null }], crm_stages: [{ data: { id: "stage" } }], user_profiles: [{ data: null }] });
+    await expect(captureMetaLead(db, event, "owner")).rejects.toThrow("responsável");
+    expect(mocks.fetchLead).not.toHaveBeenCalled();
+    expect(mocks.createLead).not.toHaveBeenCalled();
+  });
   it("never retrieves or inserts an already captured event", async () => {
     const { db } = database({ meta_page_subscriptions: [{ data: { encrypted_page_token: "encrypted" } }], meta_form_subscriptions: [{ data: [active] }], leads: [{ data: { id: "existing" } }] });
     expect(await captureMetaLead(db, event, "owner")).toMatchObject({ status: "duplicate" }); expect(mocks.fetchLead).not.toHaveBeenCalled(); expect(mocks.createLead).not.toHaveBeenCalled();

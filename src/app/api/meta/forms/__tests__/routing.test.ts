@@ -20,3 +20,6 @@ it("refuses unavailable or cross-owner stages", async () => { rows.crm_stages = 
 it("checks that the requested form belongs to the page", async () => { mocks.forms.mockResolvedValue([{ id: "other", name: "Other" }]); expect((await POST(request())).status).toBe(400); expect(mocks.save).not.toHaveBeenCalled(); });
 it("saves the selected destination using server-verified form name", async () => { expect((await POST(request())).status).toBe(200); expect(mocks.save).toHaveBeenCalledWith(expect.objectContaining({ user_id: "owner", crm_pipeline_id: "pipeline", crm_stage_id: "stage", form_name: "Cadastro", is_active: true }), { onConflict: "user_id,form_id" }); });
 it("requires a complete destination before activating", async () => { expect((await POST(request({ stageId: null }))).status).toBe(400); expect(mocks.save).not.toHaveBeenCalled(); });
+
+it("rejects an unavailable assignee", async () => { expect((await POST(request({ assignedTo: "other-member" }))).status).toBe(400); expect(mocks.save).not.toHaveBeenCalled(); });
+it("saves an active account member as assignee", async () => { rows.user_profiles = { id: "member", auth_user_id: "auth-member" }; expect((await POST(request({ assignedTo: "member" }))).status).toBe(200); expect(mocks.save).toHaveBeenCalledWith(expect.objectContaining({ assigned_to: "member" }), expect.anything()); });
