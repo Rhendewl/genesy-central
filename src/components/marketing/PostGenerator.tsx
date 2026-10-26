@@ -29,6 +29,7 @@ import {
   postProjectHasUserContent,
   saveRemotePostProject,
 } from "@/lib/marketing/post-project-sync";
+import { backgroundImageStyle, normalizeBackgroundCrop } from "@/lib/marketing/post-background";
 import { cn } from "@/lib/utils";
 import { useGlobalStore } from "@/store";
 
@@ -46,6 +47,7 @@ type Slide = StoryGradient & {
   mediaAspects: MediaAspect[];
   mediaNaturalAspects: number[];
   backgroundImage: string;
+  backgroundCrop: MediaCrop;
   imageDarkness: number;
   fontSize: number;
   textX: number;
@@ -70,6 +72,7 @@ type MobileTextTool = MobileInlineTool | "fontSize" | "lineHeight" | "letterSpac
 type MobileVisualTool =
   | { kind: "backgroundColor" }
   | { kind: "backgroundDarkness" }
+  | { kind: "backgroundCrop"; axis: keyof MediaCrop }
   | { kind: "mediaCrop"; index: number; axis: keyof MediaCrop }
   | { kind: "avatarCrop"; axis: keyof MediaCrop }
   | { kind: "textPlacement" }
@@ -196,6 +199,7 @@ function makeSlide(template: PostTemplate, index = 0): Slide {
     mediaAspects: [],
     mediaNaturalAspects: [],
     backgroundImage: "",
+    backgroundCrop: defaultMediaCrop(),
     imageDarkness: 42,
     ...normalizeStoryGradient({}),
     fontSize: template === "tweet" ? 45 : 70,
@@ -282,7 +286,7 @@ function normalizePostProject(template: PostTemplate, project: PersistedPostProj
     const savedLayout = Array.isArray(slide.layout) ? slide.layout.filter((key) => validKeys.has(key)) : [];
     const fallbackLayout = slide.mediaPosition === "top" ? ["media", ...textBlocks.map((block) => block.id)] : [...textBlocks.map((block) => block.id), "media"];
     const layout = [...savedLayout, ...fallbackLayout.filter((key) => !savedLayout.includes(key))];
-    return { ...base, ...slide, ...normalizeStoryGradient(slide), id: slide.id || uid(), media, mediaCrops, mediaAspects, mediaNaturalAspects, textBlocks, layout, layoutMode: slide.layoutMode === "free" ? "free" as const : "auto" as const, freePositions: slide.freePositions || {}, freeSizes: slide.freeSizes || {} };
+    return { ...base, ...slide, ...normalizeStoryGradient(slide), backgroundCrop: normalizeBackgroundCrop(slide.backgroundCrop), id: slide.id || uid(), media, mediaCrops, mediaAspects, mediaNaturalAspects, textBlocks, layout, layoutMode: slide.layoutMode === "free" ? "free" as const : "auto" as const, freePositions: slide.freePositions || {}, freeSizes: slide.freeSizes || {} };
   });
   const activeId = slides.some((slide) => slide.id === project.activeId) ? project.activeId : slides[0].id;
   return {
@@ -1249,12 +1253,14 @@ function MobileVisualQuickPanel({ tool, slide, textBlockId, update, profile, set
 }) {
   const mediaCrop = tool.kind === "mediaCrop" ? { ...defaultMediaCrop(), ...slide.mediaCrops[tool.index] } : null;
   const avatarCrop = profile.avatarCrop;
+  const backgroundCrop = normalizeBackgroundCrop(slide.backgroundCrop);
   const textLayoutIndex = slide.layout.indexOf(textBlockId);
   const mediaLayoutIndex = slide.layout.indexOf("media");
   const textPlacement = textLayoutIndex < mediaLayoutIndex ? "above" : "below";
   const axisLabel = (axis: keyof MediaCrop) => axis === "x" ? "Horizontal" : axis === "y" ? "Vertical" : "Zoom";
   const label = tool.kind === "backgroundColor" ? "Cor de fundo"
     : tool.kind === "backgroundDarkness" ? `Escurecer foto · ${slide.imageDarkness}%`
+    : tool.kind === "backgroundCrop" ? `Fundo · ${axisLabel(tool.axis)}`
     : tool.kind === "textPlacement" ? "Posição do texto"
     : tool.kind === "mediaCrop" ? `Imagem ${tool.index + 1} · ${axisLabel(tool.axis)}`
     : `Foto do perfil · ${axisLabel(tool.axis)}`;
@@ -1280,6 +1286,7 @@ function MobileVisualQuickPanel({ tool, slide, textBlockId, update, profile, set
       <div className="px-4 py-4">
         {tool.kind === "backgroundColor" && <BackgroundColorRow value={slide.background} onChange={(background) => update({ background, foreground: contrastColor(background) })} />}
         {tool.kind === "backgroundDarkness" && <input aria-label="Escurecer foto" type="range" min="0" max="90" value={slide.imageDarkness} onChange={(event) => update({ imageDarkness: Number(event.target.value) })} className="post-gradient-range block w-full" style={postRangeStyle(slide.imageDarkness, 0, 90)} />}
+        {tool.kind === "backgroundCrop" && <input aria-label={`${axisLabel(tool.axis)} da imagem de fundo`} type="range" min={tool.axis === "zoom" ? 1 : 0} max={tool.axis === "zoom" ? 2.5 : 100} step={tool.axis === "zoom" ? 0.05 : 1} value={backgroundCrop[tool.axis]} onChange={(event) => update({ backgroundCrop: { ...backgroundCrop, [tool.axis]: Number(event.target.value) } })} className="post-gradient-range block w-full" style={postRangeStyle(backgroundCrop[tool.axis], tool.axis === "zoom" ? 1 : 0, tool.axis === "zoom" ? 2.5 : 100)} />}
         {tool.kind === "mediaCrop" && mediaCrop && <input aria-label={`${axisLabel(tool.axis)} da imagem ${tool.index + 1}`} type="range" min={tool.axis === "zoom" ? 1 : 0} max={tool.axis === "zoom" ? 2.5 : 100} step={tool.axis === "zoom" ? 0.05 : 1} value={mediaCrop[tool.axis]} onChange={(event) => updateMediaCrop(Number(event.target.value))} className="post-gradient-range block w-full" style={postRangeStyle(mediaCrop[tool.axis], tool.axis === "zoom" ? 1 : 0, tool.axis === "zoom" ? 2.5 : 100)} />}
         {tool.kind === "avatarCrop" && <input aria-label={`${axisLabel(tool.axis)} da foto do perfil`} type="range" min={tool.axis === "zoom" ? 1 : 0} max={tool.axis === "zoom" ? 4 : 100} step={tool.axis === "zoom" ? 0.05 : 1} value={avatarCrop[tool.axis]} onChange={(event) => updateAvatarCrop(Number(event.target.value))} className="post-gradient-range block w-full" style={postRangeStyle(avatarCrop[tool.axis], tool.axis === "zoom" ? 1 : 0, tool.axis === "zoom" ? 4 : 100)} />}
         {tool.kind === "textPlacement" && <div className="grid grid-cols-2 gap-2"><button type="button" onClick={() => placeText("above")} className={cn("rounded-xl border px-3 py-2.5 text-xs", textPlacement === "above" && "border-[var(--accent-blue)] bg-[var(--hover)]")}>Acima da imagem</button><button type="button" onClick={() => placeText("below")} className={cn("rounded-xl border px-3 py-2.5 text-xs", textPlacement === "below" && "border-[var(--accent-blue)] bg-[var(--hover)]")}>Abaixo da imagem</button></div>}
@@ -1534,7 +1541,7 @@ function PostCanvas({ slide, profile, template, width, height, editable = false,
     if (!target.closest("[data-canvas-media]")) setSelectedMediaKey(null);
     if (!target.closest("[data-text-block-id], [data-free-key], [data-canvas-media], [data-post-profile]")) onDeselectTextBlock?.();
   }}>
-    {template === "stories" && slide.backgroundImage && <><img src={slide.backgroundImage} alt="Fundo do slide" className="absolute inset-0 h-full w-full object-cover" /><span className="absolute inset-0 bg-black" style={{ opacity: slide.imageDarkness / 100 }} /></>}
+    {template === "stories" && slide.backgroundImage && <><img src={slide.backgroundImage} alt="Fundo do slide" className="absolute inset-0 h-full w-full object-cover" draggable={false} style={backgroundImageStyle(slide.backgroundCrop)} /><span className="pointer-events-none absolute inset-0 bg-black" style={{ opacity: slide.imageDarkness / 100 }} /></>}
     {template === "stories" && slide.backgroundImage && slide.backgroundGradientEnabled && <span aria-hidden="true" data-story-gradient className="pointer-events-none absolute bottom-0 left-0 right-0" style={storyGradientStyle(slide)} />}
     {freeContent}
     {editable && isFreeDragging && <><span aria-hidden className="pointer-events-none absolute inset-y-0 z-40 w-px bg-[#27a3ff]/55" style={{ left: width / 2 }} /><span aria-hidden className="pointer-events-none absolute inset-x-0 z-40 h-px bg-[#27a3ff]/55" style={{ top: height / 2 }} /></>}
@@ -1913,7 +1920,18 @@ function PropertiesPanel({ section, template, format, setFormat, slide, update, 
         {(!section || section === "image") && <MediaPanel slide={slide} update={update} addFile={addFile} title="Imagem do post" mobile={Boolean(section)} onFocusCrop={section ? (index, axis) => onFocusVisualControl?.({ kind: "mediaCrop", index, axis }) : undefined} />}
       </> : <>
         {(!section || section === "background") && <><PanelSection title="Cores">{section ? <MobileAdjustmentButton label="Cor de fundo" value={slide.background.toUpperCase()} onClick={() => onFocusVisualControl?.({ kind: "backgroundColor" })} /> : <BackgroundColorRow value={slide.background} onChange={updateBackground} />}<div className="flex items-center justify-between rounded-xl border px-3 py-2" style={{ borderColor: "var(--glass-border)" }}><span className="text-xs">Texto automático</span><span className="h-7 w-7 rounded-full border" style={{ background: slide.foreground, borderColor: "var(--glass-border)" }} /></div></PanelSection>
-        <PanelSection title="Imagem de fundo"><UploadField label="Imagem do slide" value={slide.backgroundImage} square onFile={(file) => addFile(file, (backgroundImage) => update({ backgroundImage }))} onRemove={() => update({ backgroundImage: "" })} />{slide.backgroundImage && (section ? <MobileAdjustmentButton label="Escurecer foto" value={`${slide.imageDarkness}%`} onClick={() => onFocusVisualControl?.({ kind: "backgroundDarkness" })} /> : <Field label={`Escurecer foto · ${slide.imageDarkness}%`}><input type="range" min="0" max="90" value={slide.imageDarkness} onChange={(event) => update({ imageDarkness: Number(event.target.value) })} className="post-gradient-range w-full" style={postRangeStyle(slide.imageDarkness, 0, 90)} /></Field>)}{slide.backgroundImage && <div className="mt-4 space-y-3 border-t border-[var(--border)] pt-3"><label className="flex items-center justify-between gap-3 text-xs"><span>Gradiente sobre a imagem</span><input type="checkbox" checked={slide.backgroundGradientEnabled === true} onChange={(event) => update({ backgroundGradientEnabled: event.target.checked })} /></label>{slide.backgroundGradientEnabled && <><Field label={`Intensidade · ${slide.backgroundGradientIntensity ?? 100}%`}><input aria-label="Intensidade do gradiente" type="range" min="0" max="100" value={slide.backgroundGradientIntensity ?? 100} onChange={(event) => update({ backgroundGradientIntensity: Number(event.target.value) })} className="post-gradient-range w-full" style={postRangeStyle(slide.backgroundGradientIntensity ?? 100, 0, 100)} /></Field><Field label={`Comprimento · ${slide.backgroundGradientLength ?? 65}%`}><input aria-label="Comprimento do gradiente" type="range" min="0" max="100" value={slide.backgroundGradientLength ?? 65} onChange={(event) => update({ backgroundGradientLength: Number(event.target.value) })} className="post-gradient-range w-full" style={postRangeStyle(slide.backgroundGradientLength ?? 65, 0, 100)} /></Field><p className="text-[11px] text-[var(--muted-foreground)]">Escurece a partir da base da imagem, mantendo os textos por cima. O comprimento define quanto da altura recebe o efeito.</p></>}</div>}</PanelSection></>}
+        <PanelSection title="Imagem de fundo"><UploadField label="Imagem do slide" value={slide.backgroundImage} square onFile={(file) => addFile(file, (backgroundImage) => update({ backgroundImage, backgroundCrop: defaultMediaCrop() }))} onRemove={() => update({ backgroundImage: "", backgroundCrop: defaultMediaCrop() })} />
+          {slide.backgroundImage && <div className="my-3 space-y-2">
+            {section ? <>
+              {(["x", "y", "zoom"] as const).map((axis) => <MobileAdjustmentButton key={axis} label={axis === "x" ? "Horizontal" : axis === "y" ? "Vertical" : "Zoom"} value={axis === "zoom" ? `${slide.backgroundCrop.zoom.toFixed(2)}×` : `${Math.round(slide.backgroundCrop[axis])}%`} onClick={() => onFocusVisualControl?.({ kind: "backgroundCrop", axis })} />)}
+            </> : <>
+              <CropSlider label="Horizontal" value={slide.backgroundCrop.x} min={0} max={100} onChange={(x) => update({ backgroundCrop: { ...slide.backgroundCrop, x } })} />
+              <CropSlider label="Vertical" value={slide.backgroundCrop.y} min={0} max={100} onChange={(y) => update({ backgroundCrop: { ...slide.backgroundCrop, y } })} />
+              <CropSlider label="Zoom" value={slide.backgroundCrop.zoom} min={1} max={2.5} step={0.05} onChange={(zoom) => update({ backgroundCrop: { ...slide.backgroundCrop, zoom } })} />
+            </>}
+            <button type="button" onClick={() => update({ backgroundCrop: defaultMediaCrop() })} className="text-xs text-[var(--accent-blue)]">Restaurar enquadramento</button>
+          </div>}
+          {slide.backgroundImage && (section ? <MobileAdjustmentButton label="Escurecer foto" value={`${slide.imageDarkness}%`} onClick={() => onFocusVisualControl?.({ kind: "backgroundDarkness" })} /> : <Field label={`Escurecer foto · ${slide.imageDarkness}%`}><input type="range" min="0" max="90" value={slide.imageDarkness} onChange={(event) => update({ imageDarkness: Number(event.target.value) })} className="post-gradient-range w-full" style={postRangeStyle(slide.imageDarkness, 0, 90)} /></Field>)}{slide.backgroundImage && <div className="mt-4 space-y-3 border-t border-[var(--border)] pt-3"><label className="flex items-center justify-between gap-3 text-xs"><span>Gradiente sobre a imagem</span><input type="checkbox" checked={slide.backgroundGradientEnabled === true} onChange={(event) => update({ backgroundGradientEnabled: event.target.checked })} /></label>{slide.backgroundGradientEnabled && <><Field label={`Intensidade · ${slide.backgroundGradientIntensity ?? 100}%`}><input aria-label="Intensidade do gradiente" type="range" min="0" max="200" value={slide.backgroundGradientIntensity ?? 100} onChange={(event) => update({ backgroundGradientIntensity: Number(event.target.value) })} className="post-gradient-range w-full" style={postRangeStyle(slide.backgroundGradientIntensity ?? 100, 0, 200)} /></Field><Field label={`Comprimento · ${slide.backgroundGradientLength ?? 65}%`}><input aria-label="Comprimento do gradiente" type="range" min="0" max="100" value={slide.backgroundGradientLength ?? 65} onChange={(event) => update({ backgroundGradientLength: Number(event.target.value) })} className="post-gradient-range w-full" style={postRangeStyle(slide.backgroundGradientLength ?? 65, 0, 100)} /></Field><p className="text-[11px] text-[var(--muted-foreground)]">Escurece a partir da base da imagem, mantendo os textos por cima. O comprimento define quanto da altura recebe o efeito. Acima de 100%, o escurecimento avança sobre uma área maior, até 200%.</p></>}</div>}</PanelSection></>}
         {(!section || section === "image") && <MediaPanel slide={slide} update={update} addFile={addFile} title="Imagem complementar" mobile={Boolean(section)} onFocusCrop={section ? (index, axis) => onFocusVisualControl?.({ kind: "mediaCrop", index, axis }) : undefined} />}
       </>}
     </div></aside>;

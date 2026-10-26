@@ -5,3 +5,14 @@ describe('Story background gradient',()=>{
  it('uses independent intensity and height for preview and export',()=>expect(storyGradientStyle({backgroundGradientIntensity:75,backgroundGradientLength:40})).toEqual({height:'40%',background:'linear-gradient(to bottom, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.75) 100%)'}));
  it('handles transparent, full-height and invalid saved values',()=>{expect(storyGradientStyle({backgroundGradientIntensity:0,backgroundGradientLength:100}).height).toBe('100%');expect(storyGradientStyle({backgroundGradientIntensity:0}).background).toContain('rgba(0, 0, 0, 0) 100%');expect(normalizeStoryGradient({backgroundGradientIntensity:Infinity,backgroundGradientLength:-5})).toEqual({backgroundGradientEnabled:false,backgroundGradientIntensity:100,backgroundGradientLength:0});});
 });
+
+describe("Stronger gradient", () => {
+ it("allows 200% and darkens a larger area within the selected length", () => {
+  expect(normalizeStoryGradient({backgroundGradientIntensity: 250}).backgroundGradientIntensity).toBe(200);
+  const normal = storyGradientStyle({backgroundGradientIntensity: 100, backgroundGradientLength: 65});
+  const strong = storyGradientStyle({backgroundGradientIntensity: 200, backgroundGradientLength: 65});
+  expect(normal.height).toBe(strong.height);
+  expect(strong.background).toBe("linear-gradient(to bottom, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 1) 50%, rgba(0, 0, 0, 1) 100%)");
+  expect(normal.background).not.toBe(strong.background);
+ });
+});
