@@ -1,3 +1,5 @@
+import type { CalendarReminder } from "@/types/google-calendar";
+
 // ── GoogleCalendarService ─────────────────────────────────────────────────────
 // All direct communication with the Google Calendar API v3.
 // Receives a valid (already-refreshed) access_token from the caller.
@@ -19,6 +21,7 @@ export interface CreateEventParams {
   attendeeEmail?:  string;
   location?:       string | null;
   conferenceUrl?:  string | null;
+  reminders?: CalendarReminder[];
 }
 
 export interface GoogleEvent {
@@ -41,7 +44,7 @@ export async function createCalendarEvent(params: CreateEventParams): Promise<Go
   const {
     accessToken, googleCalendarId, summary, description,
     startDateTime, endDateTime, timezone,
-    attendeeEmail, location, conferenceUrl,
+    attendeeEmail, location, conferenceUrl, reminders,
   } = params;
 
   const event: Record<string, unknown> = {
@@ -49,7 +52,7 @@ export async function createCalendarEvent(params: CreateEventParams): Promise<Go
     description,
     start: { dateTime: startDateTime, timeZone: timezone },
     end:   { dateTime: endDateTime,   timeZone: timezone },
-    reminders: REMINDERS,
+    reminders: reminders === undefined ? REMINDERS : { useDefault: false, overrides: reminders },
   };
 
   if (attendeeEmail) {
@@ -81,6 +84,9 @@ export async function createCalendarEvent(params: CreateEventParams): Promise<Go
     body: JSON.stringify(event),
   });
 
+  if (res.status === 401) {
+    throw new GoogleAuthError("Google Calendar authorization expired");
+  }
   if (!res.ok) {
     const err = await res.text();
     throw new Error(`Google Calendar event creation failed (${res.status}): ${err}`);
@@ -106,6 +112,7 @@ export interface RawGoogleEvent {
   htmlLink:    string;
   start: { date?: string; dateTime?: string; timeZone?: string };
   end:   { date?: string; dateTime?: string; timeZone?: string };
+  reminders?: { useDefault: boolean; overrides?: CalendarReminder[] };
   attendees?: { email: string; displayName?: string; responseStatus?: string; self?: boolean }[];
 }
 

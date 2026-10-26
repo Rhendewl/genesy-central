@@ -4,13 +4,14 @@ import { useMemo, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { addDays, format, startOfWeek } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { ChevronLeft, ChevronRight } from "lucide-react";
-import { useGoogleCalendarEvents } from "@/hooks/useGoogleCalendarEvents";
+import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
+import { invalidateGoogleCalendarEvents, useGoogleCalendarEvents } from "@/hooks/useGoogleCalendarEvents";
 import { AgendaDesktopGrid } from "./AgendaDesktopGrid";
 import { AgendaMobileCompactGrid } from "./AgendaMobileCompactGrid";
 import { AgendaMobileCarousel } from "./AgendaMobileCarousel";
 import { AgendaSkeleton } from "./AgendaSkeleton";
 import { AgendaDisconnectedState } from "./AgendaDisconnectedState";
+import { CreateEventModal } from "./CreateEventModal";
 import { DayDetailDrawer } from "./DayDetailDrawer";
 import { groupEventsByDay } from "./constants";
 import type { NormalizedCalendarEvent } from "@/types/google-calendar";
@@ -36,6 +37,7 @@ interface AgendaSemanalPanelProps {
 }
 
 export function AgendaSemanalPanel({ minRowHeight, mobileLayout = "carousel" }: AgendaSemanalPanelProps = {}) {
+  const [createDay, setCreateDay] = useState<Date | null>(null);
   const shouldReduce = useReducedMotion();
   const [rangeStart, setRangeStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 0 }));
   const [direction,  setDirection]  = useState(1);
@@ -74,6 +76,12 @@ export function AgendaSemanalPanel({ minRowHeight, mobileLayout = "carousel" }: 
         </div>
         {connected && !isLoading && (
           <div className="flex items-center gap-1">
+            <button
+              onClick={() => setCreateDay(new Date())}
+              className="mr-1 flex items-center gap-1 rounded-lg bg-[#b0b8c1] px-2.5 py-2 text-xs font-medium text-black transition-opacity hover:opacity-80"
+            >
+              <Plus size={14} /> Novo evento
+            </button>
             <button
               onClick={handlePrev}
               aria-label="Período anterior"
@@ -149,9 +157,27 @@ export function AgendaSemanalPanel({ minRowHeight, mobileLayout = "carousel" }: 
             events={selectedDayKey ? (eventsByDay.get(selectedDayKey) ?? []) : []}
             initialFocusEvent={focusEvent}
             onClose={() => { setSelectedDay(null); setFocusEvent(null); }}
+            onCreateEvent={() => {
+              setCreateDay(selectedDay);
+              setSelectedDay(null);
+              setFocusEvent(null);
+            }}
           />
         )}
       </AnimatePresence>
+      {createDay && (
+        <CreateEventModal
+          day={createDay}
+          onClose={() => setCreateDay(null)}
+          onCreated={(start) => {
+            setCreateDay(null);
+            if (format(start, "yyyy-MM-dd") < format(rangeStart, "yyyy-MM-dd") || format(start, "yyyy-MM-dd") > format(rangeEnd, "yyyy-MM-dd")) {
+              setRangeStart(startOfWeek(start, { weekStartsOn: 0 }));
+            }
+            invalidateGoogleCalendarEvents();
+          }}
+        />
+      )}
     </div>
   );
 }

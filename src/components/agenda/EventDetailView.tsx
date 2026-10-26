@@ -2,7 +2,7 @@
 
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Clock, MapPin, Users, ExternalLink } from "lucide-react";
+import { Clock, MapPin, Users, ExternalLink, Bell } from "lucide-react";
 import type { NormalizedCalendarEvent } from "@/types/google-calendar";
 
 interface EventDetailViewProps {
@@ -75,6 +75,21 @@ export function EventDetailView({ event }: EventDetailViewProps) {
           </ul>
         )}
       </div>
+
+      {event.reminders && (
+        <div>
+          <p className="mb-1.5 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--muted-foreground)]"><Bell size={12} /> Lembretes</p>
+          {event.reminders.useDefault ? <p className="text-sm">Padrão do Google Agenda</p> : (event.reminders.overrides?.length ?? 0) === 0 ? <p className="text-sm">Sem lembretes</p> : (
+            <ul className="flex flex-col gap-1 text-sm">
+              {event.reminders.overrides?.map((reminder, index) => {
+                const minutes = reminder.minutes;
+                const interval = minutes === 0 ? "No horário do evento" : minutes % 1440 === 0 ? `${minutes / 1440} dia(s) antes` : minutes % 60 === 0 ? `${minutes / 60} hora(s) antes` : `${minutes} minuto(s) antes`;
+                return <li key={index}>{reminder.method === "email" ? "E-mail" : "Notificação"}: {interval}</li>;
+              })}
+            </ul>
+          )}
+        </div>
+      )}
 
       <a
         href={event.htmlLink}

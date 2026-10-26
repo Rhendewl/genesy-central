@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { X, ChevronLeft, ArrowUpRight } from "lucide-react";
+import { X, ChevronLeft, ArrowUpRight, Plus } from "lucide-react";
 import { EventDetailView } from "./EventDetailView";
 import type { NormalizedCalendarEvent } from "@/types/google-calendar";
 
@@ -15,9 +15,10 @@ interface DayDetailDrawerProps {
   events:             NormalizedCalendarEvent[];
   initialFocusEvent?: NormalizedCalendarEvent | null;
   onClose:            () => void;
+  onCreateEvent?:     () => void;
 }
 
-export function DayDetailDrawer({ day, events, initialFocusEvent, onClose }: DayDetailDrawerProps) {
+export function DayDetailDrawer({ day, events, initialFocusEvent, onClose, onCreateEvent }: DayDetailDrawerProps) {
   const router = useRouter();
   const [focusEvent, setFocusEvent] = useState<NormalizedCalendarEvent | null>(initialFocusEvent ?? null);
   const [portalReady, setPortalReady] = useState(false);
@@ -132,6 +133,11 @@ export function DayDetailDrawer({ day, events, initialFocusEvent, onClose }: Day
           className="flex-shrink-0 px-5 py-4"
           style={{ borderTop: "1px solid var(--border-modal)" }}
         >
+          {onCreateEvent && (
+            <button onClick={onCreateEvent} className="mb-2 flex w-full items-center justify-center gap-1.5 rounded-xl border border-[var(--border-modal)] px-3 py-2.5 text-sm font-medium">
+              <Plus size={15} /> Novo evento neste dia
+            </button>
+          )}
           <button
             onClick={openInAgenda}
             className="flex w-full items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-sm font-medium transition-all active:scale-95"

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { format } from "date-fns";
+import { addDays, format } from "date-fns";
 import type { NormalizedCalendarEvent, CalendarEventsResponse } from "@/types/google-calendar";
 
 const CACHE_FRESH_MS = 30_000;   // mantém a navegação instantânea entre telas
@@ -16,6 +16,11 @@ interface CacheEntry {
 
 // Module-level cache — persists across mounts/period navigation within the session.
 const cache = new Map<string, CacheEntry>();
+
+export function invalidateGoogleCalendarEvents() {
+  cache.clear();
+  window.dispatchEvent(new Event("google-calendar:changed"));
+}
 
 export function useGoogleCalendarEvents(rangeStart: Date, rangeEnd: Date) {
   const fromKey = format(rangeStart, "yyyy-MM-dd");
@@ -40,7 +45,10 @@ export function useGoogleCalendarEvents(rangeStart: Date, rangeEnd: Date) {
     setError(null);
 
     try {
-      const params = new URLSearchParams({ from, to, refresh: String(Date.now()) });
+      // Use the viewer's local day boundaries, including evenings on the last day.
+      const timeMin = new Date(`${from}T00:00:00`).toISOString();
+      const timeMax = addDays(new Date(`${to}T00:00:00`), 1).toISOString();
+      const params = new URLSearchParams({ from: timeMin, to: timeMax, refresh: String(Date.now()) });
       const res  = await fetch(`/api/google-calendar/events?${params.toString()}`, {
         signal: controller.signal,
         cache:  "no-store",
@@ -98,12 +106,15 @@ export function useGoogleCalendarEvents(rangeStart: Date, rangeEnd: Date) {
       if (age > CACHE_STALE_MS) void fetchRange(fromKey, toKey, { silent: true });
     };
 
+    const onCalendarChanged = () => { void fetchRange(fromKey, toKey, { silent: true }); };
+    window.addEventListener("google-calendar:changed", onCalendarChanged);
     window.addEventListener("focus", onFocusOrVisible);
     window.addEventListener("online", onFocusOrVisible);
     document.addEventListener("visibilitychange", onFocusOrVisible);
     const interval = setInterval(onFocusOrVisible, POLL_INTERVAL_MS);
 
     return () => {
+      window.removeEventListener("google-calendar:changed", onCalendarChanged);
       window.removeEventListener("focus", onFocusOrVisible);
       window.removeEventListener("online", onFocusOrVisible);
       document.removeEventListener("visibilitychange", onFocusOrVisible);

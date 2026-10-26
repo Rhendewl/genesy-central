@@ -52,7 +52,22 @@ export interface GoogleUserInfo {
 }
 
 // Normalized event shape returned by GET /api/google-calendar/events
-// (mirrors the "dashboard agenda" panel — read-only mirror of the user's primary Google Calendar)
+// Shared by the dashboard and workspace calendar.
+export interface CalendarReminder {
+  method: "popup" | "email";
+  minutes: number;
+}
+
+export interface CreateCalendarEventInput {
+  title: string;
+  description: string;
+  location: string;
+  start: string;
+  end: string;
+  timezone: string;
+  reminders: CalendarReminder[];
+}
+
 export interface NormalizedCalendarEvent {
   id:          string;
   title:       string;
@@ -63,6 +78,7 @@ export interface NormalizedCalendarEvent {
   end:         string;
   isAllDay:    boolean;
   timezone:    string | null;
+  reminders?: { useDefault: boolean; overrides?: CalendarReminder[] };
   attendees: {
     email:          string;
     name:           string | null;
