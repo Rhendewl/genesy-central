@@ -37,6 +37,7 @@ const PUBLIC_ROUTES = [
   "/api/marketing/instagram/webhook",
   "/api/cron/",
   "/api/conversas/webhook/",
+  "/api/crm/conversation-intelligence/webhook",
 ];
 // Redirect authenticated users away from these (login page only)
 const AUTH_REDIRECT_ROUTES = ["/auth"];

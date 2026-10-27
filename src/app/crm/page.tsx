@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ClipboardList, LayoutGrid, BarChart2, Settings2, Bell, Zap, FileBarChart, Target } from "lucide-react";
+import { ConversationIntelligence } from "@/components/crm/conversation-intelligence/ConversationIntelligence";
 import { MetaLeadForms } from "@/components/marketing/MetaLeadForms";
 import { Header } from "@/components/layout/Header";
 import { KanbanBoard } from "@/components/crm/KanbanBoard";
@@ -22,9 +23,10 @@ import { useFinancialPrivacyStore } from "@/store/financial-privacy";
 // CRM Page — Kanban / Leads / Pipelines
 // ─────────────────────────────────────────────────────────────────────────────
 
-type TabId = "kanban" | "leads" | "metas" | "relatorios" | "pipelines" | "notificacoes" | "automacoes" | "formularios-meta";
+type TabId = "kanban" | "leads" | "metas" | "relatorios" | "pipelines" | "notificacoes" | "automacoes" | "formularios-meta" | "inteligencia-conversas";
 
 const TABS: { id: TabId; label: string; icon: React.ReactNode }[] = [
+  { id: "inteligencia-conversas", label: "Inteligência de Conversas", icon: <BarChart2 size={15} /> },
   { id: "kanban",        label: "Kanban",       icon: <LayoutGrid size={15} /> },
   { id: "leads",         label: "Leads",        icon: <BarChart2  size={15} /> },
   { id: "metas",         label: "Metas",        icon: <Target size={15} /> },
@@ -36,6 +38,7 @@ const TABS: { id: TabId; label: string; icon: React.ReactNode }[] = [
 ];
 
 const SUBTITLES: Record<TabId, string> = {
+  "inteligencia-conversas": "Conversas autorizadas e indicadores comerciais",
   kanban:       "Funil comercial de leads",
   leads:        "Métricas e análise",
   metas:        "Objetivos comerciais e progresso do funil",
@@ -53,9 +56,11 @@ export default function CrmPage() {
   useEffect(() => { if (new URLSearchParams(window.location.search).get("tab") === "formularios-meta") setActiveTab("formularios-meta"); }, []);
   const { member, isOwner } = useCurrentMember();
   const hasFullCrmAccess = isAdministrativeMember(member, isOwner === true);
+  const canUseConversationIntelligence = Boolean((isOwner || member?.permissions.includes("crm")) && (isOwner || ["admin", "comercial", "gestor_comercial"].includes(member?.role ?? "")));
+  const allowedTabs = TABS.filter(tab => tab.id !== "inteligencia-conversas" || canUseConversationIntelligence);
   const visibleTabs = hasFullCrmAccess
-    ? TABS
-    : TABS.filter(tab => tab.id === "kanban" || tab.id === "leads");
+    ? allowedTabs
+    : allowedTabs.filter(tab => tab.id === "kanban" || tab.id === "leads" || tab.id === "inteligencia-conversas");
   const isKanban = activeTab === "kanban";
 
   return (
@@ -142,6 +147,7 @@ export default function CrmPage() {
             isKanban ? "flex min-h-0 flex-1 flex-col" : "pb-8",
           )}
         >
+          {canUseConversationIntelligence && activeTab === "inteligencia-conversas" && <ConversationIntelligence />}
           {activeTab === "kanban"       && <KanbanBoard />}
           {activeTab === "leads"        && <LeadsAnalytics />}
           {hasFullCrmAccess && activeTab === "metas" && <CrmGoals />}
