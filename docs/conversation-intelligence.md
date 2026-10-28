@@ -56,7 +56,7 @@ No painel Meta:
 
 - Validar verificação empresarial, condições de Tech Provider/Embedded Signup aplicáveis, App Review e acesso avançado necessário para conectar números de outros negócios.
 - Solicitar/validar `whatsapp_business_management` e `whatsapp_business_messaging`; conferir outras permissões exigidas pela configuração escolhida, sem reutilizar automaticamente o fluxo de anúncios do projeto.
-- Registrar domínios de produção/homologação e JavaScript SDK allowed domains. Confirmar versão do protocolo de Embedded Signup: o cliente implementa `sessionInfoVersion: "3"` e o evento `FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING`; isso exige confirmação no app atual antes da homologação.
+- Registrar domínios de produção/homologação e JavaScript SDK allowed domains. Confirmar versão do protocolo de Embedded Signup: o cliente agora explicita `extras.version: "v4"` conforme o código gerado no configurador Meta fornecido pelo usuário, mantém `sessionInfoVersion: "3"` e o evento `FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING`; isso exige confirmação no app atual antes da homologação.
 - Endpoint HTTPS: `/api/crm/conversation-intelligence/webhook`. Validar challenge, inscrever campos `messages` e `smb_message_echoes`, e autorizar inscrição do app no WABA. O fluxo registra `subscribed_apps` no servidor.
 - Confirmar elegibilidade do número/país/conta e versão suportada do aplicativo Business. O número deve manter o atendimento no aplicativo após conectar. Se a API não expuser os campos de elegibilidade implementados, o vínculo falha fechado e o contrato deve ser ajustado após confirmação oficial.
 - Conferir política de privacidade e processo de exclusão nos URLs públicos existentes. A análise requer autorização dos contatos e do SDR conforme os controles da interface.
@@ -89,3 +89,7 @@ A implementação está na branch `codex/conversation-intelligence`, em um workt
 `/Users/lancastermatos/Documents/Codex/2026-10-27/referenced-chatgpt-conversation-this-is-an/work/genesy-conversation-intelligence`
 
 O checkout original estava com um cherry-pick em andamento, apesar de não apresentar alterações rastreadas. Essa operação foi preservada; não houve abort, quit, reset nem troca de branch no checkout original. O patch fornecido reproduz a implementação e pode ser revisado antes de integrar à branch de produção.
+
+## Compatibilidade do cadastro incorporado v4
+
+O launch agora inclui `extras.version: "v4"`, confirmado pelo código gerado na configuração `1760757525003988`. O código mantém a intenção de Coexistence e bloqueia o vínculo sem confirmação server-side. Ainda é necessário selecionar a opção de usuários do WhatsApp Business no configurador da Meta, comparar seus extras gerados e homologar o evento de conclusão; o exemplo fornecido até aqui tem apenas `extras: {"version":"v4"}` e representa o cadastro padrão. Esse ajuste não certifica Coexistence nem substitui o teste de ponta a ponta.
