@@ -1,6 +1,11 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAgencyClients } from "@/hooks/useAgencyClients";
+import {
+  launchMetaSignup,
+  META_SIGNUP_HELP,
+  type MetaSdk,
+} from "@/lib/conversation-intelligence/meta-signup";
 
 type Finding = {
   category: string;
@@ -51,13 +56,6 @@ type Data = {
     kind: string;
   }>;
 };
-type Facebook = {
-  init: (options: Record<string, unknown>) => void;
-  login: (
-    cb: (response: { authResponse?: { code?: string } }) => void,
-    options: Record<string, unknown>,
-  ) => void;
-};
 const endpoint = "/api/crm/conversation-intelligence";
 async function request(path: string, body?: unknown) {
   const r = await fetch(
@@ -90,6 +88,8 @@ export function ConversationIntelligence({ clientId }: { clientId?: string }) {
   const cleanup = useRef<() => void>();
   const launch = useRef<() => void>();
   const [prepared, setPrepared] = useState(false);
+  const [waitingForMeta, setWaitingForMeta] = useState(false);
+  const [showMetaHelp, setShowMetaHelp] = useState(false);
   const load = useCallback(async () => {
     setError("");
     setData(null);
@@ -122,16 +122,36 @@ export function ConversationIntelligence({ clientId }: { clientId?: string }) {
   async function connect() {
     setBusy(true);
     setError("");
+    setShowMetaHelp(false);
     try {
       const config = await request(`${endpoint}/connect`, { action: "start" });
-      const win = window as Window & { FB?: Facebook };
+      const win = window as Window & { FB?: MetaSdk };
       if (!win.FB)
         await new Promise<void>((resolve, reject) => {
           const s = document.createElement("script");
           s.src = "https://connect.facebook.net/en_US/sdk.js";
           s.async = true;
-          s.onload = () => resolve();
-          s.onerror = () => reject(new Error("Não foi possível abrir a Meta"));
+          const timeout = window.setTimeout(
+            () =>
+              reject(
+                new Error(
+                  "A Meta demorou para carregar. Verifique bloqueadores do navegador e tente novamente.",
+                ),
+              ),
+            15000,
+          );
+          s.onload = () => {
+            window.clearTimeout(timeout);
+            resolve();
+          };
+          s.onerror = () => {
+            window.clearTimeout(timeout);
+            reject(
+              new Error(
+                "Não foi possível carregar a Meta. Verifique sua conexão e bloqueadores do navegador.",
+              ),
+            );
+          };
           document.head.appendChild(s);
         });
       const fb = win.FB;
@@ -143,86 +163,37 @@ export function ConversationIntelligence({ clientId }: { clientId?: string }) {
         xfbml: false,
       });
       launch.current = () => {
+        cleanup.current?.();
         setPrepared(false);
         setBusy(true);
-        let code = "",
-          phoneId = "",
-          wabaId = "",
-          submitted = false;
-        const stop = () => {
-          window.removeEventListener("message", listener);
-          window.clearTimeout(timer);
-        };
-        const finish = async () => {
-          if (!code || !phoneId || !wabaId || submitted) return;
-          submitted = true;
-          stop();
-          await act(
-            {
-              action: "finish",
-              session: config.session,
-              code,
-              phoneId,
-              wabaId,
-            },
-            `${endpoint}/connect`,
-          );
-        };
-        const listener = (event: MessageEvent) => {
-          if (
-            !["https://www.facebook.com", "https://web.facebook.com"].includes(
-              event.origin,
-            )
-          )
-            return;
-          let msg;
-          try {
-            msg =
-              typeof event.data === "string"
-                ? JSON.parse(event.data)
-                : event.data;
-          } catch {
-            return;
-          }
-          if (msg?.type !== "WA_EMBEDDED_SIGNUP") return;
-          if (msg.event === "FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING") {
-            phoneId = msg.data?.phone_number_id;
-            wabaId = msg.data?.waba_id;
-            void finish();
-          } else if (["CANCEL", "ERROR"].includes(msg.event)) {
-            stop();
+        setWaitingForMeta(true);
+        setShowMetaHelp(false);
+        setError("");
+        cleanup.current = launchMetaSignup({
+          sdk: fb,
+          configId: config.configId,
+          onSlow: () => setShowMetaHelp(true),
+          onFailure: (message) => {
+            setError(message);
+            setShowMetaHelp(true);
+            setWaitingForMeta(false);
             setBusy(false);
-            setError("Conexão não concluída na Meta.");
-          }
-        };
-        const timer = window.setTimeout(() => {
-          stop();
-          setBusy(false);
-          setError("Conexão expirada. Tente novamente.");
-        }, 600000);
-        cleanup.current = stop;
-        window.addEventListener("message", listener);
-        fb.login(
-          (response) => {
-            code = response.authResponse?.code ?? "";
-            if (!code) {
-              stop();
-              setBusy(false);
-              return;
-            }
-            void finish();
           },
-          {
-            config_id: config.configId,
-            response_type: "code",
-            override_default_response_type: true,
-            extras: {
-              version: "v4",
-              featureType: "whatsapp_business_app_onboarding",
-              sessionInfoVersion: "3",
-            },
+          onFinish: ({ code, phoneId, wabaId }) => {
+            setWaitingForMeta(false);
+            setShowMetaHelp(false);
+            void act(
+              {
+                action: "finish",
+                session: config.session,
+                code,
+                phoneId,
+                wabaId,
+              },
+              `${endpoint}/connect`,
+            );
           },
-        );
+        });
       };
       setPrepared(true);
       setBusy(false);
@@ -340,9 +311,46 @@ export function ConversationIntelligence({ clientId }: { clientId?: string }) {
                 disabled={busy || !data?.configuration?.ready}
                 onClick={() => (prepared ? launch.current?.() : void connect())}
               >
-                {prepared ? "Continuar na Meta" : "Conectar pela Meta"}
+                {waitingForMeta
+                  ? "Aguardando conexão na Meta…"
+                  : busy
+                    ? "Preparando conexão…"
+                    : prepared
+                      ? "Continuar na Meta"
+                      : "Conectar pela Meta"}
               </button>
             </>
+          )}
+        </div>
+      )}
+      {!clientId && (waitingForMeta || showMetaHelp) && (
+        <div role="status" className="space-y-3 rounded-xl border p-4 text-sm">
+          <p>
+            {waitingForMeta
+              ? "Conclua a autorização na janela da Meta. Se ela não apareceu, confira as orientações abaixo."
+              : "A conexão ainda não foi concluída."}
+          </p>
+          <p>{META_SIGNUP_HELP}</p>
+          <p>
+            Na Meta: Login do Facebook para Empresas → primeira opção
+            “Configurações” → “Entrar com o SDK do JavaScript”: Sim.
+          </p>
+          {waitingForMeta && (
+            <button
+              type="button"
+              className={button}
+              onClick={() => {
+                cleanup.current?.();
+                setWaitingForMeta(false);
+                setBusy(false);
+                setShowMetaHelp(false);
+                setError(
+                  "Espera cancelada. Você pode iniciar uma nova tentativa.",
+                );
+              }}
+            >
+              Parar de aguardar e tentar novamente
+            </button>
           )}
         </div>
       )}
