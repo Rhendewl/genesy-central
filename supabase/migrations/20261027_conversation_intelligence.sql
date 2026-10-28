@@ -1,11 +1,26 @@
 -- Official Cloud API only. No historical import. All writes through server/RPC.
 begin;
-create function public.ci_active(p_sdr uuid, p_tenant uuid) returns boolean
-language sql stable security definer set search_path = public as $$
- select exists(select 1 from user_profiles where auth_user_id=p_sdr and owner_id=p_tenant
- and is_active and role in ('admin','comercial','gestor_comercial')
- and (auth_user_id=owner_id or 'crm'=any(permissions)));
-$$;
+CREATE OR REPLACE FUNCTION public.ci_active(p_sdr uuid, p_tenant uuid)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $function$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.user_profiles AS profile
+    WHERE profile.auth_user_id = p_sdr
+      AND profile.owner_id = p_tenant
+      AND profile.is_active = true
+      AND profile.role IN ('admin', 'comercial', 'gestor_comercial')
+      AND (
+        profile.auth_user_id = profile.owner_id
+        OR profile.permissions @> '["crm"]'::jsonb
+      )
+  );
+$function$;
+
 create table public.ci_connections (
  id uuid primary key default gen_random_uuid(), tenant_id uuid not null references auth.users on delete cascade,
  sdr_id uuid not null references auth.users on delete cascade, waba_id text not null,

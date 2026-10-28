@@ -11,7 +11,7 @@ const tenant = "00000000-0000-4000-8000-000000000001",
   bob = "00000000-0000-4000-8000-000000000003",
   other = "00000000-0000-4000-8000-000000000004";
 await db.exec(`create schema auth;create role anon;create role authenticated;create role service_role bypassrls;create table auth.users(id uuid primary key);create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid $$;grant usage on schema auth to authenticated;grant execute on function auth.uid() to authenticated;
-create table user_profiles(auth_user_id uuid,owner_id uuid,is_active boolean,role text,permissions text[] default array['crm']);create table agency_clients(id uuid primary key,user_id uuid);`);
+create table user_profiles(auth_user_id uuid,owner_id uuid,is_active boolean,role text,permissions jsonb not null default '["crm"]'::jsonb);create table agency_clients(id uuid primary key,user_id uuid);`);
 await db.exec(
   await readFile(
     new URL(
@@ -147,12 +147,12 @@ await db.query("update ci_connections set status='connected' where id=$1", [
   conn,
 ]);
 await db.query(
-  "update user_profiles set permissions='{}' where auth_user_id=$1",
+  "update user_profiles set permissions='[]'::jsonb where auth_user_id=$1",
   [alice],
 );
 assert.equal(await ingest("hash", "permission-removed"), false);
 await db.query(
-  "update user_profiles set permissions=array['crm'] where auth_user_id=$1",
+  "update user_profiles set permissions='[\"crm\"]'::jsonb where auth_user_id=$1",
   [alice],
 );
 await db.query(

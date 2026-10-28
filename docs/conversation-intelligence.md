@@ -77,8 +77,8 @@ Referências oficiais para revisão no processo de homologação:
 - PostgreSQL isolado via PGlite: migration, permissões/RLS, isolamento entre SDRs e contas, gate de consentimento, duplicatas, revogação, análise tardia e remoção em cascata testados. Script: `scripts/tests/conversation-intelligence-db.mjs`; instalar `@electric-sql/pglite` em um diretório temporário e passar `PGLITE_MODULE=/caminho/absoluto/dist/index.js`.
 - Não foram executados Embedded Signup real, entrega real de echoes, análise real por fornecedor nem teste visual com conta autenticada.
 - Estado consultado em 27/10/2026: produção em `https://dash.genesycompany.com` respondeu 307 para `/auth`, servidor Vercel; `/api/version` retornou `dpl_GuEUghrEPAEpzurKjCwvMcHAku1z`.
-- Supabase consultado em leitura: `commercial_intelligence_settings` respondeu 200; `ci_connections`, `ci_consents`, `ci_messages` responderam 404/PGRST205. Migration nova não aplicada no ambiente consultado.
-- Nenhum push, deploy, inscrição Meta real ou alteração de produção foi realizado nesta implementação. O projeto faz deploy automático ao publicar `main`; não publicar sem fechar a homologação.
+- Após aplicação pelo usuário, Supabase foi conferido em leitura: `ci_connections`, `ci_consents`, `ci_messages` e `commercial_intelligence_settings` responderam 200. O teste isolado foi corrigido para usar `permissions` JSONB, como no schema real.
+- Publicação do módulo autorizada pelo usuário. A conexão permanece bloqueada até que as variáveis obrigatórias estejam presentes; a coleta ainda exige conexão oficial e consentimento por contato. Não houve inscrição Meta real ou teste com números reais nesta etapa.
 
 Homologação necessária: dois SDRs/números elegíveis, contato autorizado e outro não autorizado, entradas e saídas pelo aplicativo, replay/reordenação, revogação durante IA, perda de permissão CRM, token revogado, exclusão, cron e comparação manual das métricas. Aprovação Meta e configuração real permanecem pendentes.
 
