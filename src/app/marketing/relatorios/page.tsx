@@ -20,7 +20,6 @@ import {
 } from "recharts";
 import { ChevronLeft, ChevronRight, Info } from "lucide-react";
 import { useSearchParams } from "next/navigation";
-import { Header } from "@/components/layout/Header";
 import { InstagramGlyph, InstagramReports } from "@/components/marketing/InstagramReports";
 import { InstagramStudio } from "@/components/marketing/instagram/InstagramStudio";
 import { MarketingEmptyState, MarketingSkeleton } from "@/components/marketing/MarketingUI";
@@ -45,7 +44,7 @@ export default function MarketingReportsPage() {
   const searchParams = useSearchParams();
   const today = new Date();
   const [view, setView] = useState<"editorial" | "instagram">("instagram");
-  const [area, setArea] = useState<"reports" | "posts" | "calendar" | "automations">("reports");
+  const [area, setArea] = useState<"reports" | "overview" | "posts" | "calendar" | "automations">("reports");
   const [period, setPeriod] = useState<"month" | "7d" | "15d" | "30d">("30d");
   const [selectedMonth, setSelectedMonth] = useState(startOfMonth(today));
   const [start, setStart] = useState(format(subDays(today, 29), "yyyy-MM-dd"));
@@ -55,7 +54,7 @@ export default function MarketingReportsPage() {
   }, []);
   useEffect(() => {
     const requestedArea = searchParams.get("area");
-    if (requestedArea === "posts" || requestedArea === "calendar" || requestedArea === "automations") setArea(requestedArea);
+    if (requestedArea === "overview" || requestedArea === "posts" || requestedArea === "calendar" || requestedArea === "automations") setArea(requestedArea);
   }, [searchParams]);
   const compareDays = differenceInCalendarDays(new Date(`${end}T12:00:00`), new Date(`${start}T12:00:00`)) + 1;
   const compareEnd = format(subDays(new Date(`${start}T12:00:00`), 1), "yyyy-MM-dd");
@@ -145,11 +144,16 @@ export default function MarketingReportsPage() {
 
   return (
     <div className="pb-10">
-      <Header title="Central do Instagram" subtitle="Desempenho, publicações, agenda e automações em um único lugar" />
+      <header className="px-4 pb-5 pt-8 sm:px-6 sm:pt-10">
+        <span className="text-[11px] font-semibold tracking-[.22em] text-[var(--muted-foreground)]">MARKETING · CONTEÚDO E CONVERSAS</span>
+        <h1 className="mt-3 text-3xl font-semibold tracking-[-.045em] text-[var(--text-title)] sm:text-[42px]">Central do Instagram</h1>
+        <p className="mt-3 text-sm text-[var(--muted-foreground)] sm:text-base">Planeje, publique e transforme interações em oportunidades.</p>
+      </header>
       <div className="px-4 sm:px-6">
         <nav className="mb-4 flex max-w-full gap-1 overflow-x-auto rounded-xl border p-1" aria-label="Áreas da Central do Instagram" style={{ background: "var(--glass-bg-soft)" }}>
           {([
-            ["reports", "Relatórios"],
+            ["reports", "Painel profissional"],
+            ["overview", "Planejamento"],
             ["posts", "Publicações"],
             ["calendar", "Agenda"],
             ["automations", "Automações"],
@@ -274,9 +278,10 @@ export default function MarketingReportsPage() {
           </>
         )}
         </>}
-        {area === "posts" && <InstagramStudio initialTab="posts" />}
-        {area === "calendar" && <InstagramStudio initialTab="calendar" />}
-        {area === "automations" && <InstagramStudio initialTab="automations" />}
+        {area === "overview" && <InstagramStudio embedded initialTab="overview" />}
+        {area === "posts" && <InstagramStudio embedded initialTab="posts" />}
+        {area === "calendar" && <InstagramStudio embedded initialTab="calendar" />}
+        {area === "automations" && <InstagramStudio embedded initialTab="automations" />}
       </div>
     </div>
   );
