@@ -12,8 +12,8 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "border-[#c3c9cd]/20 bg-[#b0b8c1] text-[#08090a] shadow-[0_1px_10px_rgba(176,184,193,.10)] hover:border-[#d3d9dd]/30 hover:bg-[#c3c9cd] hover:-translate-y-px active:translate-y-0 active:bg-[#a4adb4]",
-        primary: "border-[#c3c9cd]/20 bg-[#b0b8c1] text-[#08090a] shadow-[0_1px_10px_rgba(176,184,193,.10)] hover:border-[#d3d9dd]/30 hover:bg-[#c3c9cd] hover:-translate-y-px active:translate-y-0 active:bg-[#a4adb4]",
+        default: "border-2 border-[#e5ebef]/65 bg-[linear-gradient(130deg,#f5f5f5,#a7adb5)] text-[#08090a] shadow-[inset_0_1px_0_rgba(255,255,255,.85),0_2px_12px_rgba(176,184,193,.16)] hover:border-white/90 hover:bg-[linear-gradient(130deg,#fff,#c4c9d0)] hover:-translate-y-px active:translate-y-0 active:bg-[#a4adb4]",
+        primary: "border-2 border-[#e5ebef]/65 bg-[linear-gradient(130deg,#f5f5f5,#a7adb5)] text-[#08090a] shadow-[inset_0_1px_0_rgba(255,255,255,.85),0_2px_12px_rgba(176,184,193,.16)] hover:border-white/90 hover:bg-[linear-gradient(130deg,#fff,#c4c9d0)] hover:-translate-y-px active:translate-y-0 active:bg-[#a4adb4]",
         outline: "border-border bg-background hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50",
         secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80 aria-expanded:bg-secondary aria-expanded:text-secondary-foreground",
         ghost: "hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:hover:bg-muted/50",

@@ -73,8 +73,9 @@ export async function GET(req: NextRequest) {
     const previousTotals = emptyTotals();
     const liveDaily = new Map<string, InstagramAccountMetrics>();
     let metricsSource: "account" | "content_fallback" = "account";
-    if (start && end && connections.data?.length) {
-      const live = await Promise.allSettled(connections.data.map(async (connection) => {
+    const activeConnections = (connections.data ?? []).filter((connection) => connection.status === "connected");
+    if (start && end && activeConnections.length) {
+      const live = await Promise.allSettled(activeConnections.map(async (connection) => {
         const accessToken = decryptToken(connection.encrypted_access_token);
         const [current, previous, daily, exactDaily] = await Promise.all([
           getInstagramAccountTotals(connection.instagram_user_id, accessToken, start, end),
@@ -152,9 +153,30 @@ export async function DELETE(req: NextRequest) {
     if (!context.isAdmin) throw Object.assign(new Error("Apenas administradores podem desconectar contas"), { status: 403 });
     const body = await req.json().catch(() => ({})) as { connectionId?: string };
     if (!body.connectionId) throw Object.assign(new Error("Conta não informada"), { status: 400 });
+    // Scheduled posts deliberately restrict deletion of their connection. Keep
+    // the account as an audit trail, cancel the pending queue, and reactivate
+    // this same record when OAuth connects the account again.
+    const { error: cancelError } = await supabase
+      .from("marketing_instagram_scheduled_posts")
+      .update({
+        status: "cancelled",
+        last_error: "Publicação cancelada porque a conta do Instagram foi desconectada.",
+      })
+      .eq("connection_id", body.connectionId)
+      .eq("organization_id", context.organizationId)
+      .in("status", ["scheduled", "publishing"]);
+    if (cancelError) throw new Error(cancelError.message);
+
     const { error } = await supabase
       .from("marketing_instagram_connections")
-      .delete()
+      .update({
+        status: "disconnected",
+        webhook_subscribed: false,
+        webhook_fields: [],
+        webhook_error: null,
+        sync_error: null,
+        updated_at: new Date().toISOString(),
+      })
       .eq("id", body.connectionId)
       .eq("organization_id", context.organizationId);
     if (error) throw new Error(error.message);
