@@ -1,2 +1,5 @@
-import { InstagramStudio } from "@/components/marketing/instagram/InstagramStudio";
-export default function MarketingInstagramPage() { return <InstagramStudio />; }
+import { redirect } from "next/navigation";
+
+export default function MarketingInstagramPage() {
+  redirect("/marketing/relatorios?area=automacoes");
+}

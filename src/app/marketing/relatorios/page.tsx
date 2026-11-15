@@ -19,8 +19,10 @@ import {
   YAxis,
 } from "recharts";
 import { ChevronLeft, ChevronRight, Info } from "lucide-react";
+import { useSearchParams } from "next/navigation";
 import { Header } from "@/components/layout/Header";
 import { InstagramGlyph, InstagramReports } from "@/components/marketing/InstagramReports";
+import { InstagramStudio } from "@/components/marketing/instagram/InstagramStudio";
 import { MarketingEmptyState, MarketingSkeleton } from "@/components/marketing/MarketingUI";
 import { useMarketing } from "@/context/MarketingContext";
 import { marketingStats } from "@/lib/marketing/domain";
@@ -40,8 +42,10 @@ const tooltipStyle = {
 
 export default function MarketingReportsPage() {
   const marketing = useMarketing();
+  const searchParams = useSearchParams();
   const today = new Date();
   const [view, setView] = useState<"editorial" | "instagram">("instagram");
+  const [area, setArea] = useState<"reports" | "posts" | "calendar" | "automations">("reports");
   const [period, setPeriod] = useState<"month" | "7d" | "15d" | "30d">("30d");
   const [selectedMonth, setSelectedMonth] = useState(startOfMonth(today));
   const [start, setStart] = useState(format(subDays(today, 29), "yyyy-MM-dd"));
@@ -49,6 +53,10 @@ export default function MarketingReportsPage() {
   useEffect(() => {
     if (new URLSearchParams(window.location.search).get("view") === "editorial") setView("editorial");
   }, []);
+  useEffect(() => {
+    const requestedArea = searchParams.get("area");
+    if (requestedArea === "posts" || requestedArea === "calendar" || requestedArea === "automations") setArea(requestedArea);
+  }, [searchParams]);
   const compareDays = differenceInCalendarDays(new Date(`${end}T12:00:00`), new Date(`${start}T12:00:00`)) + 1;
   const compareEnd = format(subDays(new Date(`${start}T12:00:00`), 1), "yyyy-MM-dd");
   const compareStart = format(subDays(new Date(`${start}T12:00:00`), compareDays), "yyyy-MM-dd");
@@ -137,8 +145,17 @@ export default function MarketingReportsPage() {
 
   return (
     <div className="pb-10">
-      <Header title={view === "instagram" ? "Instagram" : "Operação editorial"} subtitle={view === "instagram" ? "Desempenho, audiência e engajamento das contas conectadas" : "Métricas internas da operação de conteúdo"} />
+      <Header title="Central do Instagram" subtitle="Desempenho, publicações, agenda e automações em um único lugar" />
       <div className="px-4 sm:px-6">
+        <nav className="mb-4 flex max-w-full gap-1 overflow-x-auto rounded-xl border p-1" aria-label="Áreas da Central do Instagram" style={{ background: "var(--glass-bg-soft)" }}>
+          {([
+            ["reports", "Relatórios"],
+            ["posts", "Publicações"],
+            ["calendar", "Agenda"],
+            ["automations", "Automações"],
+          ] as const).map(([id, label]) => <button key={id} onClick={() => setArea(id)} className={`shrink-0 rounded-lg px-3 py-2 text-sm font-medium transition ${area === id ? "bg-gradient-to-r from-[#7c3aed] via-[#db2777] to-[#f97316] text-white shadow-sm" : "text-[var(--muted-foreground)] hover:text-[var(--text-title)]"}`}>{label}</button>)}
+        </nav>
+        {area === "reports" && <>
         <div className="mb-4 inline-flex max-w-full rounded-xl border p-1" style={{ background: "var(--glass-bg-soft)" }}>
           <button onClick={() => setView("instagram")} className={`flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition ${view === "instagram" ? "bg-gradient-to-r from-[#7c3aed] via-[#db2777] to-[#f97316] text-white shadow-sm" : "text-[var(--muted-foreground)] hover:text-[var(--text-title)]"}`}><InstagramGlyph size={14} /> Instagram</button>
           <button onClick={() => setView("editorial")} className={`rounded-lg px-3 py-2 text-sm font-medium transition ${view === "editorial" ? "bg-[var(--primary)] text-white shadow-sm" : "text-[var(--muted-foreground)] hover:text-[var(--text-title)]"}`}>Operação editorial</button>
@@ -256,6 +273,10 @@ export default function MarketingReportsPage() {
             </div>
           </>
         )}
+        </>}
+        {area === "posts" && <InstagramStudio initialTab="posts" />}
+        {area === "calendar" && <InstagramStudio initialTab="calendar" />}
+        {area === "automations" && <InstagramStudio initialTab="automations" />}
       </div>
     </div>
   );

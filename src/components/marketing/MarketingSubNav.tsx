@@ -3,7 +3,7 @@
 import type { ComponentType, SVGProps } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Binoculars, CalendarDays, LayoutDashboard, PanelsTopLeft } from "lucide-react";
+import { Binoculars, CalendarDays, PanelsTopLeft } from "lucide-react";
 import { InstagramGlyph } from "@/components/marketing/InstagramReports";
 import { cn } from "@/lib/utils";
 import { useGlobalStore } from "@/store";
@@ -25,10 +25,8 @@ function MetaGlyph({ size = 16, ...props }: SVGProps<SVGSVGElement> & { size?: s
 type NavIcon = ComponentType<{ size?: string | number; className?: string }>;
 
 const ITEMS: Array<{ href: string; label: string; icon: NavIcon; exact?: boolean }> = [
-  { href: "/marketing", label: "Visão Geral", icon: LayoutDashboard, exact: true },
-  { href: "/marketing/relatorios", label: "Relatórios Instagram", icon: InstagramGlyph },
+  { href: "/marketing/relatorios", label: "Central do Instagram", icon: InstagramGlyph },
   { href: "/marketing/concorrentes", label: "Concorrentes", icon: Binoculars },
-  { href: "/marketing/automacoes", label: "Central do Instagram", icon: InstagramGlyph },
   { href: "/marketing/calendario", label: "Calendário Editorial", icon: CalendarDays },
   { href: "/marketing/gerador", label: "Gerador de Posts", icon: PanelsTopLeft },
   { href: "/marketing/trafego", label: "Tráfego Pago", icon: MetaGlyph },
