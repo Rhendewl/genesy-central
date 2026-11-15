@@ -70,19 +70,21 @@ export function PrivateAuthLayout({ children }: { children: React.ReactNode }) {
           style={{
             position:           "fixed",
             inset:              0,
-            zIndex:             -1,
+            // Mantém o plano visual atrás do conteúdo no mesmo contexto de
+            // composição. O índice negativo faz o Chromium do PWA ignorar
+            // esta camada quando um card aplica backdrop-filter.
+            zIndex:             0,
             pointerEvents:      "none",
             backgroundImage:    theme === "light" ? "url('/bg-genesy-light.png')" : "url('/bg-genesy-dark.png')",
             backgroundSize:     "cover",
             backgroundPosition: "center",
             backgroundRepeat:   "no-repeat",
-            backgroundAttachment: "fixed",
             opacity:            1,
           }}
         />
       )}
 
-      <main className={mainClass}>
+      <main className={`${mainClass} relative z-10`}>
         {children}
       </main>
 
