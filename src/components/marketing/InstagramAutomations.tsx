@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Bot, CheckCircle2, MessageCircle, Pencil, Plus, Trash2, Webhook, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { LeadOriginSelector } from "@/components/crm/LeadOriginSelector";
@@ -37,7 +37,7 @@ const EMPTY: FormState = {
 
 const inputClass = "min-h-10 w-full rounded-xl border bg-transparent px-3 py-2 text-sm outline-none focus:border-[var(--primary)]";
 
-export function InstagramAutomations({ accountId }: { accountId?: string }) {
+export function InstagramAutomations({ accountId, createSignal = 0 }: { accountId?: string; createSignal?: number }) {
   const [automations, setAutomations] = useState<Automation[]>([]);
   const [connections, setConnections] = useState<Connection[]>([]);
   const [pipelines, setPipelines] = useState<Pipeline[]>([]);
@@ -49,6 +49,7 @@ export function InstagramAutomations({ accountId }: { accountId?: string }) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editorOpen, setEditorOpen] = useState(false);
   const [form, setForm] = useState<FormState>(EMPTY);
+  const openedSignal = useRef(0);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -76,6 +77,13 @@ export function InstagramAutomations({ accountId }: { accountId?: string }) {
     setForm({ ...EMPTY, connectionId: accountId || connections[0]?.id || "", steps: [{ type: "message", text: "", delayMinutes: 0 }] });
     setEditorOpen(false);
   };
+  useEffect(() => {
+    if (!createSignal || createSignal === openedSignal.current || loading || !isAdmin || !connections.length) return;
+    openedSignal.current = createSignal;
+    setEditingId(null);
+    setForm({ ...EMPTY, connectionId: accountId || connections[0]?.id || "", steps: [{ type: "message", text: "", delayMinutes: 0 }] });
+    setEditorOpen(true);
+  }, [accountId, connections, createSignal, isAdmin, loading]);
   const edit = (item: Automation) => {
     setEditingId(item.id);
     setEditorOpen(true);
