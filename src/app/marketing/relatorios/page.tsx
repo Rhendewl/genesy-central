@@ -150,7 +150,7 @@ export default function MarketingReportsPage() {
         <p className="mt-3 text-sm text-[var(--muted-foreground)] sm:text-base">Planeje, publique e transforme interações em oportunidades.</p>
       </header>
       <div className="px-4 sm:px-6">
-        <nav className="mb-4 flex max-w-full gap-1 overflow-x-auto rounded-xl border p-1" aria-label="Áreas da Central do Instagram" style={{ background: "var(--glass-bg-soft)" }}>
+        <nav className="mb-4 flex max-w-full gap-1 overflow-x-auto rounded-xl border p-1 backdrop-blur-2xl" aria-label="Áreas da Central do Instagram" style={{ background: "linear-gradient(135deg,color-mix(in srgb,var(--background) 55%,transparent),color-mix(in srgb,var(--background) 30%,transparent))", borderColor: "color-mix(in srgb,var(--foreground) 18%,transparent)", backdropFilter: "blur(24px) saturate(135%)", WebkitBackdropFilter: "blur(24px) saturate(135%)", boxShadow: "inset 0 1px 0 color-mix(in srgb,#fff 11%,transparent),0 10px 28px #00000010" }}>
           {([
             ["reports", "Painel profissional"],
             ["overview", "Planejamento"],
@@ -160,7 +160,7 @@ export default function MarketingReportsPage() {
           ] as const).map(([id, label]) => <button key={id} onClick={() => setArea(id)} className={`shrink-0 rounded-lg px-3 py-2 text-sm font-medium transition ${area === id ? "bg-gradient-to-r from-[#7c3aed] via-[#db2777] to-[#f97316] text-white shadow-sm" : "text-[var(--muted-foreground)] hover:text-[var(--text-title)]"}`}>{label}</button>)}
         </nav>
         {area === "reports" && <>
-        <div className="mb-4 inline-flex max-w-full rounded-xl border p-1" style={{ background: "var(--glass-bg-soft)" }}>
+        <div className="mb-4 inline-flex max-w-full rounded-xl border p-1 backdrop-blur-2xl" style={{ background: "linear-gradient(135deg,color-mix(in srgb,var(--background) 55%,transparent),color-mix(in srgb,var(--background) 30%,transparent))", borderColor: "color-mix(in srgb,var(--foreground) 18%,transparent)", backdropFilter: "blur(24px) saturate(135%)", WebkitBackdropFilter: "blur(24px) saturate(135%)", boxShadow: "inset 0 1px 0 color-mix(in srgb,#fff 11%,transparent),0 10px 28px #00000010" }}>
           <button onClick={() => setView("instagram")} className={`flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition ${view === "instagram" ? "bg-gradient-to-r from-[#7c3aed] via-[#db2777] to-[#f97316] text-white shadow-sm" : "text-[var(--muted-foreground)] hover:text-[var(--text-title)]"}`}><InstagramGlyph size={14} /> Instagram</button>
           <button onClick={() => setView("editorial")} className={`rounded-lg px-3 py-2 text-sm font-medium transition ${view === "editorial" ? "bg-[var(--primary)] text-white shadow-sm" : "text-[var(--muted-foreground)] hover:text-[var(--text-title)]"}`}>Operação editorial</button>
         </div>
