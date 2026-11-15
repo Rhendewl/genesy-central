@@ -1,5 +1,9 @@
 "use client";
 
+import { accentBorderStyle } from "@/components/ui/accent-border";
+
+import { DateInput } from "@/components/ui/DateInput";
+
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
@@ -254,7 +258,7 @@ export default function OnboardingProjectDetailPage() {
         Onboardings
       </button>
 
-      <div className="flex flex-col gap-3 lc-card p-4" style={{ borderTop: `2px solid ${statusMeta?.color ?? "#7c878e"}` }}>
+      <div className="app-accent-border flex flex-col gap-3 lc-card p-4" style={accentBorderStyle(statusMeta?.color ?? "#7c878e")}>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h1 className="text-lg font-bold" style={{ color: "var(--text-title)" }}>{detail.name}</h1>
@@ -346,7 +350,7 @@ export default function OnboardingProjectDetailPage() {
                   <SortableStageCard
                     key={stage.id}
                     id={stage.id}
-                    cardStyle={{ borderLeft: `3px solid ${stage.color}` }}
+                    cardStyle={accentBorderStyle(stage.color)}
                   >
                     {({ attributes, listeners, setActivatorNodeRef }) => (
                       <>
@@ -531,7 +535,7 @@ export default function OnboardingProjectDetailPage() {
 
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-medium" style={{ color: "var(--muted-foreground)" }}>Data meta</label>
-                <input
+                <DateInput
                   type="date"
                   value={targetDate}
                   onChange={(e) => setTargetDate(e.target.value)}
@@ -650,7 +654,7 @@ export default function OnboardingProjectDetailPage() {
               <div className="grid grid-cols-[1fr_auto] gap-3">
                 <div className="flex flex-col gap-1.5">
                   <label className="text-xs font-medium" style={{ color: "var(--muted-foreground)" }}>Prazo da etapa</label>
-                  <input
+                  <DateInput
                     type="date"
                     value={stageDueDate}
                     onChange={(e) => setStageDueDate(e.target.value)}

@@ -1,3 +1,4 @@
+import { messagingCards } from "./messaging-results";
 import { jsPDF } from "jspdf";
 import type { TrafficReportData } from "@/types/traffic-report";
 
@@ -106,7 +107,7 @@ export function createTrafficReportPdf(data: TrafficReportData, assets: TrafficR
   text(WHITE, 6.4); pdf.text(`Gerado em ${new Date(data.generatedAt).toLocaleDateString("pt-BR")}`, PAD, H - 10);
 
   // Resumo em quadrantes
-  addPage(); header("Performance do período", "Resumo executivo");
+  addPage(); header("Leads: formulários e conversas", "Resumo executivo");
   const main = [
     { label: "VALOR INVESTIDO", value: money.format(data.metrics.spend), fill: BLACK, color: WHITE },
     { label: "LEADS GERADOS", value: number.format(data.metrics.leads), fill: GRAY_DARK, color: WHITE },
@@ -135,11 +136,26 @@ export function createTrafficReportPdf(data: TrafficReportData, assets: TrafficR
     text(BLACK, value.length > 12 ? 7 : 8.6, "bold"); pdf.text(value, x + 3, boxY + 13);
   });
 
+  // Messaging gets its own page so the executive summary never overflows.
+  const conversations=messagingCards(data.metrics.messaging_results);
+  if(conversations.length){
+    addPage();header("Conversas geradas", "Resultados por canal");
+    text(BLACK,6.5);pdf.text(wrap("Conversas iniciadas no período, já incluídas nos leads totais. A Meta informa o destino nos conjuntos de anúncios; destinos múltiplos ou indisponíveis ficam sem canal identificado."),PAD,y);y+=19;
+    conversations.forEach(metric=>{
+      pdf.setFillColor(...SURFACE);pdf.roundedRect(PAD,y,CW,20,2,2,"F");
+      text(BLACK,7,"bold");pdf.text(metric.label,PAD+4,y+7);
+      text(BLACK,12,"bold");pdf.text(number.format(metric.value),W-PAD-4,y+12,{align:"right"});
+      text(BLACK,5.7);pdf.text(metric.description,PAD+4,y+14);y+=22;
+    });
+    if(data.metrics.messaging_history_pending){text(BLACK,5.5);pdf.text(wrap("Parte do período ainda não tem detalhamento por canal. Sincronize novamente para completar os dados."),PAD,y+3);}
+  }
+
   // Campanhas
-  addPage(); header("Ranking de performance", "Melhores campanhas");
+  addPage(); header("Ranking de performance", "Campanhas do relatório");
   if (!data.campaigns.length) { text(BLACK, 7); pdf.text("Nenhuma campanha com dados no período.", PAD, y); }
-  data.campaigns.slice(0, 6).forEach((campaign, index) => {
+  data.campaigns.forEach((campaign, index) => {
     const h = 24;
+    if (y + h > 179) { addPage(); header("Ranking de performance", "Campanhas do relatório"); }
     pdf.setFillColor(...SURFACE); pdf.setDrawColor(...GRAY_LIGHT);
     pdf.roundedRect(PAD, y, CW, h, 2, 2, "FD");
     pdf.setFillColor(...GRAY_DARK); pdf.roundedRect(PAD + 2.5, y + 3, 8, 8, 1.4, 1.4, "F");

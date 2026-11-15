@@ -46,8 +46,10 @@
     "html-to-image": "^1.11.13",
     "jspdf": "^4.2.1",
     "lucide-react": "^1.8.0",
+    "mammoth": "^1.13.0",
     "next": "14.2.35",
     "openai": "^6.39.0",
+    "qrcode": "^1.5.4",
     "react": "^18",
     "react-dom": "^18",
     "recharts": "^3.8.1",
@@ -61,7 +63,9 @@
     "zustand": "^5.0.12"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.15",
     "@types/node": "^20",
+    "@types/qrcode": "^1.5.6",
     "@types/react": "^18",
     "@types/react-dom": "^18",
     "@types/web-push": "^3.6.4",

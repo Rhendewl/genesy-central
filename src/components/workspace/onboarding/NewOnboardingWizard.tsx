@@ -1,5 +1,7 @@
 "use client";
 
+import { DateInput } from "@/components/ui/DateInput";
+
 import { useEffect, useState } from "react";
 import { X, Loader2 } from "lucide-react";
 import { useAgencyClients } from "@/hooks/useAgencyClients";
@@ -105,7 +107,7 @@ export function NewOnboardingWizard({ onClose, onCreate }: NewOnboardingWizardPr
 
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-medium" style={{ color: "var(--muted-foreground)" }}>Data de início</label>
-            <input
+            <DateInput
               type="date"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}

@@ -1,5 +1,7 @@
 "use client";
 
+import { accentBorderStyle } from "@/components/ui/accent-border";
+
 import { useRouter } from "next/navigation";
 import { AlertTriangle, Calendar } from "lucide-react";
 import { ProgressBar } from "@/components/workspace/ProgressBar";
@@ -13,8 +15,8 @@ export function OnboardingProjectCard({ project }: { project: OnboardingProjectS
   return (
     <div
       onClick={() => router.push(`/workspace/onboarding/${project.id}`)}
-      className="flex cursor-pointer flex-col gap-3 p-4 lc-card"
-      style={{ borderTop: `2px solid ${statusMeta?.color ?? "#7c878e"}` }}
+      className="app-accent-border flex cursor-pointer flex-col gap-3 p-4 lc-card"
+      style={accentBorderStyle(statusMeta?.color ?? "#7c878e")}
     >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">

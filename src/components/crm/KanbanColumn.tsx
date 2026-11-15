@@ -18,7 +18,10 @@ import { privateFinancialValue } from "@/store/financial-privacy";
 // - Empty state com dashed border que reage ao isOver
 // ─────────────────────────────────────────────────────────────────────────────
 
+import type {LeadActivity} from "@/hooks/useLeadActivityIndicators";
+
 interface KanbanColumnProps {
+  activities?: Record<string,LeadActivity>;
   stage: CrmStage;
   leads: Lead[];
   totalValue: number;
@@ -30,13 +33,13 @@ function fmtBRL(v: number): string {
   return privateFinancialValue(v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }));
 }
 
-export function KanbanColumn({ stage, leads, totalValue, onEditLead }: KanbanColumnProps) {
+export function KanbanColumn({ stage, leads, totalValue, onEditLead, activities }: KanbanColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id: stage.id });
 
   return (
     <div
       ref={setNodeRef}
-      className="flex h-full min-h-0 w-72 flex-shrink-0 flex-col overflow-hidden rounded-[20px] transition-all duration-200"
+      className="crm-kanban-column relative isolate flex h-full min-h-0 w-72 flex-shrink-0 flex-col overflow-hidden rounded-[20px] transition-all duration-200"
       style={{
         background: isOver
           ? "var(--hover)"
@@ -51,8 +54,20 @@ export function KanbanColumn({ stage, leads, totalValue, onEditLead }: KanbanCol
           : "0 4px 20px var(--shadow-sm), inset 0 1px 0 var(--hover)",
       }}
     >
+      {/* Stage-colored light stays behind content and never captures drag events. */}
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 overflow-hidden rounded-[inherit]">
+        <div className="absolute inset-0 rounded-[inherit]" style={{ background: `radial-gradient(ellipse 180px 200px at top left, color-mix(in srgb, ${stage.color ?? "#7c83ff"} 13%, transparent), transparent 80%)` }} />
+        <div className="absolute inset-0 rounded-[inherit] p-px" style={{
+          background: `radial-gradient(ellipse 200px 360px at top left, ${stage.color ?? "#7c83ff"}, transparent 80%)`,
+          mask: "linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)",
+          maskComposite: "exclude",
+          WebkitMask: "linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)",
+          WebkitMaskComposite: "xor",
+          opacity: 0.75,
+        }} />
+      </div>
       {/* ── Header ── */}
-      <div className="px-4 pt-4 pb-3">
+      <div className="crm-kanban-column-header px-4 pt-4 pb-3">
         {/* Linha 1: dot colorido + label + badge */}
         <div className="flex items-center gap-2.5">
           <span
@@ -94,7 +109,7 @@ export function KanbanColumn({ stage, leads, totalValue, onEditLead }: KanbanCol
       </div>
 
       {/* ── Cards area ── */}
-      <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto overscroll-contain p-3">
+      <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto overflow-x-hidden overscroll-y-contain overscroll-x-auto p-3">
         <AnimatePresence initial={false}>
           {leads.map((lead) => (
             <motion.div
@@ -111,6 +126,7 @@ export function KanbanColumn({ stage, leads, totalValue, onEditLead }: KanbanCol
             >
               <LeadCard
                 lead={lead}
+                activity={activities?.[lead.id]}
                 onEdit={() => onEditLead(lead.id)}
               />
             </motion.div>

@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
+import "./calendar.css";
 import { Providers }        from "@/components/layout/Providers";
 import { AuthLayout }       from "@/components/layout/AuthLayout";
 import { PlatformLoader }   from "@/components/layout/PlatformLoader";

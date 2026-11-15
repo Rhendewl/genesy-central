@@ -5,6 +5,7 @@
 const GRAPH = "https://graph.facebook.com/v21.0";
 
 export interface MetaLeadData {
+  created_time?: string | null;
   answers: { name: string; values: string[] }[];
   first_name:     string;
   full_name:      string;
@@ -64,7 +65,7 @@ export async function fetchMetaLead(
     [first_name, last_name].filter(Boolean).join(" ") ||
     "";
 
-  const phone = fm["phone_number"] || fm["phone"] || fm["telefone"] || null;
+  const phone = fm["phone_number"] || fm["whatsapp_number"] || fm["phone"] || fm["telefone"] || null;
   const email = fm["email"] || null;
   const city  = fm["city"] || fm["cidade"] || null;
 
@@ -77,6 +78,7 @@ export async function fetchMetaLead(
   }
 
   return {
+    created_time: data.created_time ?? null,
     answers: data.field_data ?? [],
     first_name: first_name || full_name.split(" ")[0] || "Lead",
     full_name,

@@ -1,5 +1,9 @@
 import { randomUUID } from "node:crypto";
 
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  ? new URL(process.env.NEXT_PUBLIC_SUPABASE_URL)
+  : null;
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   distDir: process.env.NEXT_BUILD_DIR || ".next",
@@ -19,6 +23,12 @@ const nextConfig = {
         hostname: "**.supabase.co",
         pathname: "/storage/v1/object/public/**",
       },
+      ...(supabaseUrl?.protocol === "https:" ? [{
+        protocol: "https",
+        hostname: supabaseUrl.hostname,
+        port: supabaseUrl.port,
+        pathname: "/storage/v1/object/public/**",
+      }] : []),
     ],
   },
   webpack: (config) => {

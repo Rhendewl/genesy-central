@@ -1,4 +1,6 @@
 "use client";
+
+import { DateInput } from "@/components/ui/DateInput";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import { ArrowLeft, ArrowRight, X, Check } from "lucide-react";
@@ -559,7 +561,7 @@ export function BscWizard({
           )}
           {["start_date", "due_date"].includes(current.key) && (
             <>
-              <input
+              <DateInput
                 ref={input}
                 data-answer
                 type="date"

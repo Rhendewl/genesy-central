@@ -1,4 +1,5 @@
 "use client";
+
 import { TagChip } from "./TagChip";
 
 import { useDraggable } from "@dnd-kit/core";
@@ -53,13 +54,13 @@ export function TaskCard({ task, isDragOverlay = false, canDrag = true, onClick 
         borderColor:    "var(--border-card)",
         boxShadow:      isDragOverlay ? "0 28px 64px var(--shadow-lg), 0 0 0 1px var(--border-card-drag)" : undefined,
         touchAction:    "none",
-        borderLeft:     task.color ? `3px solid ${task.color}` : undefined,
       }}
     >
       <div className="mb-2 flex items-start justify-between gap-2">
-        <p className="flex-1 text-[13px] font-medium leading-snug" style={{ color: "var(--text-title)" }}>
-          {task.title}
-        </p>
+        <div className="flex min-w-0 flex-1 items-start gap-2">
+          {task.color && <span aria-label="Tarefa colorida" className="mt-1.5 h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: task.color }} />}
+          <p className="flex-1 text-[13px] font-medium leading-snug" style={{ color: "var(--text-title)" }}>{task.title}</p>
+        </div>
         <AssigneeAvatarGroup assigneeIds={task.assignee_ids} size={18} />
       </div>
 

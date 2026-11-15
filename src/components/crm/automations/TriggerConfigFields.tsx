@@ -6,15 +6,16 @@ import { getTriggerDef } from "./catalog";
 import { AutomationSelect } from "./AutomationSelect";
 
 interface TriggerConfigFieldsProps {
+  pipelineId?: string | null;
   triggerType:   string;
   triggerConfig: Record<string, unknown>;
   stages:        CrmStage[];
   onChange:      (config: Record<string, unknown>) => void;
 }
 
-export function TriggerConfigFields({ triggerType, triggerConfig, stages, onChange }: TriggerConfigFieldsProps) {
+export function TriggerConfigFields({ triggerType, triggerConfig, stages, onChange, pipelineId }: TriggerConfigFieldsProps) {
   const def = getTriggerDef(triggerType);
-  const { tags } = useTags();
+  const { tags } = useTags("crm", pipelineId);
 
   if (!def || def.configFields.length === 0) return null;
 

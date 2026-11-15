@@ -1,178 +1,35 @@
 "use client";
-
-import { useCallback, useEffect, useRef, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { ChevronDown, X, Check, Kanban } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { useState } from "react";
+import { Popover } from "@base-ui/react/popover";
+import { ChevronDown, Check, Kanban, Search, Layers3 } from "lucide-react";
 import type { CrmPipelineWithStages } from "@/types/crm";
-
-// ─────────────────────────────────────────────────────────────────────────────
-// PipelineFilter
-//
-// Componente visual puro para seleção de uma ou mais pipelines.
-// Não gerencia estado nem persistência — recebe value + onChange externamente.
-// Persistência fica em usePipelineFilter().
-//
-// Segue o padrão visual de PeriodFilter: botão com backdrop blur,
-// dropdown animado com lista de opções, close on outside click.
-// ─────────────────────────────────────────────────────────────────────────────
+import "./crm-analysis.css";
 
 export interface PipelineFilterProps {
-  /** null = todas as pipelines; string[] = IDs selecionados */
-  value:     string[] | null;
-  onChange:  (ids: string[] | null) => void;
+  value: string[] | null;
+  onChange: (ids: string[] | null) => void;
   pipelines: CrmPipelineWithStages[];
 }
-
-function buildLabel(value: string[] | null, pipelines: CrmPipelineWithStages[]): string {
-  if (value === null || value.length === 0) return "Todas as pipelines";
-  if (value.length === 1) {
-    const p = pipelines.find(p => p.id === value[0]);
-    return p?.name ?? "1 pipeline";
-  }
-  return `${value.length} pipelines`;
-}
-
 export function PipelineFilter({ value, onChange, pipelines }: PipelineFilterProps) {
-  const [open, setOpen]     = useState(false);
-  const containerRef        = useRef<HTMLDivElement>(null);
-
-  const isActive = value !== null && value.length > 0;
-  const label    = buildLabel(value, pipelines);
-
-  // ── Close on outside click ────────────────────────────────────────────────
-
-  useEffect(() => {
-    if (!open) return;
-    function onMouseDown(e: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", onMouseDown);
-    return () => document.removeEventListener("mousedown", onMouseDown);
-  }, [open]);
-
-  // ── Interaction handlers ──────────────────────────────────────────────────
-
-  const selectAll = useCallback(() => {
-    onChange(null);
-    setOpen(false);
-  }, [onChange]);
-
-  const togglePipeline = useCallback((id: string) => {
-    if (value === null) {
-      // saindo de "todas" → seleciona só esta
-      onChange([id]);
-    } else if (value.includes(id)) {
-      // deselecionar
-      const next = value.filter(v => v !== id);
-      onChange(next.length === 0 ? null : next);
-    } else {
-      // adicionar à seleção
-      onChange([...value, id]);
-    }
-  }, [value, onChange]);
-
-  const clearFilter = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation();
-    onChange(null);
-  }, [onChange]);
-
-  return (
-    <div ref={containerRef} className="relative">
-      {/* ── Trigger button ──────────────────────────────────────────────── */}
-      <button
-        onClick={() => setOpen(o => !o)}
-        className={cn(
-          "flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-all hover:scale-[1.02] active:scale-95 select-none",
-          isActive ? "text-[var(--text-title)]" : "text-[var(--silver)] hover:text-[var(--text-title)]",
-        )}
-        style={{
-          background:           "var(--glass-bg-soft)",
-          backdropFilter:       "blur(28px) saturate(160%)",
-          WebkitBackdropFilter: "blur(28px) saturate(160%)",
-          border: isActive
-            ? "1px solid var(--border-card-hover)"
-            : "1px solid var(--border-card)",
-          transform:            "translateZ(0)",
-        }}
-      >
-        <Kanban size={13} />
-        <span className="hidden sm:inline max-w-[160px] truncate">{label}</span>
-        <ChevronDown
-          size={12}
-          className={cn("transition-transform duration-200", open && "rotate-180")}
-        />
-        {isActive && (
-          <span
-            onClick={clearFilter}
-            className="ml-0.5 rounded-full p-0.5 text-[var(--icon)] hover:text-[var(--text-title)] hover:bg-[var(--hover)] transition-colors"
-          >
-            <X size={10} />
-          </span>
-        )}
-      </button>
-
-      {/* ── Dropdown panel ──────────────────────────────────────────────── */}
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            initial={{ opacity: 0, y: -6, scale: 0.97 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -4, scale: 0.97 }}
-            transition={{ duration: 0.15, ease: "easeOut" }}
-            className="lc-modal-panel absolute left-0 top-full mt-2 z-40 min-w-[220px] rounded-2xl overflow-hidden"
-            style={{
-              transformOrigin: "top left",
-            }}
-          >
-            <div className="p-1.5">
-              {/* "Todas" option */}
-              <button
-                onClick={selectAll}
-                className={cn(
-                  "w-full text-left px-3 py-2 rounded-xl text-sm transition-all flex items-center justify-between gap-2",
-                  !isActive
-                    ? "text-[var(--text-title)] font-medium"
-                    : "text-[var(--silver)] hover:text-[var(--text-title)] hover:bg-[var(--hover)]",
-                )}
-                style={!isActive ? { background: "var(--hover)" } : {}}
-              >
-                Todas as pipelines
-                {!isActive && <span className="w-1.5 h-1.5 rounded-full bg-[var(--icon)] shrink-0" />}
-              </button>
-
-              {/* Individual pipelines */}
-              {pipelines.map(p => {
-                const isSelected = value !== null && value.includes(p.id);
-                return (
-                  <button
-                    key={p.id}
-                    onClick={() => togglePipeline(p.id)}
-                    className={cn(
-                      "w-full text-left px-3 py-2 rounded-xl text-sm transition-all flex items-center gap-2",
-                      isSelected
-                        ? "text-[var(--text-title)] font-medium"
-                        : "text-[var(--silver)] hover:text-[var(--text-title)] hover:bg-[var(--hover)]",
-                    )}
-                    style={isSelected ? { background: "var(--hover)" } : {}}
-                  >
-                    <span
-                      className="w-2 h-2 rounded-full flex-shrink-0"
-                      style={{ background: p.color }}
-                    />
-                    <span className="truncate flex-1">{p.name}</span>
-                    {isSelected && (
-                      <Check size={12} className="text-[var(--icon)] flex-shrink-0" />
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const selected = pipelines.filter(p => value?.includes(p.id));
+  const all = value === null || value.length === 0;
+  const label = all ? "Todas as pipelines" : selected.length === 1 ? selected[0].name : `${selected.length} pipelines selecionadas`;
+  const toggle = (id: string) => {
+    const next = all ? [id] : value!.includes(id) ? value!.filter(v => v !== id) : [...value!, id];
+    onChange(next.length ? next : null);
+  };
+  return <Popover.Root open={open} onOpenChange={next => { setOpen(next); if (!next) setSearch(""); }}>
+    <Popover.Trigger aria-label={`Selecionar pipelines: ${label}`} className="crm-analysis-filter w-full">
+      <Kanban size={17} className="text-[var(--muted-foreground)]"/>
+      <span className="min-w-0 flex-1 text-left"><span className="crm-analysis-filter-label">Pipelines</span><span className="block truncate text-sm font-medium">{label}</span></span>
+      <span className="flex -space-x-1" aria-hidden="true">{(all ? pipelines : selected).slice(0,3).map(p=><span key={p.id} className="h-2.5 w-2.5 rounded-full ring-2 ring-[var(--background)]" style={{background:p.color}}/>)}</span><ChevronDown size={14}/>
+    </Popover.Trigger>
+    <Popover.Portal><Popover.Positioner sideOffset={10} className="app-date-positioner"><Popover.Popup className="crm-analysis-pipeline-popup">
+      <div className="border-b border-[var(--border)] p-4"><h3 className="text-sm font-semibold">Quais pipelines analisar?</h3><p className="mt-1 text-xs text-[var(--muted-foreground)]">Selecione uma ou compare várias.</p><label className="mt-3 flex items-center gap-2 rounded-xl border border-[var(--border)] px-3"><Search size={14} className="text-[var(--muted-foreground)]"/><input aria-label="Buscar pipeline" value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar pipeline…" className="min-h-10 min-w-0 flex-1 bg-transparent text-sm outline-none"/></label></div>
+      <div className="max-h-72 overflow-y-auto p-2"><button type="button" aria-pressed={all} className="crm-analysis-pipeline-option" onClick={()=>onChange(null)}><Layers3 size={17}/><span className="flex-1 text-left">Todas as pipelines</span>{all&&<Check size={15}/>}</button>{pipelines.filter(p=>p.name.toLocaleLowerCase("pt-BR").includes(search.toLocaleLowerCase("pt-BR"))).map(p=><button type="button" key={p.id} aria-pressed={!all&&value!.includes(p.id)} className="crm-analysis-pipeline-option" onClick={()=>toggle(p.id)}><span className="h-2.5 w-2.5 rounded-full" style={{background:p.color}}/><span className="flex-1 truncate text-left">{p.name}</span><span className={`grid h-5 w-5 shrink-0 place-items-center rounded-md border ${!all&&value!.includes(p.id)?"border-sky-400 bg-sky-400/15 text-sky-400":"border-[var(--border)]"}`}>{!all&&value!.includes(p.id)&&<Check size={13}/>}</span></button>)}{!pipelines.some(p=>p.name.toLocaleLowerCase("pt-BR").includes(search.toLocaleLowerCase("pt-BR")))&&<p className="px-3 py-5 text-xs text-[var(--muted-foreground)]">Nenhuma pipeline encontrada.</p>}</div>
+      <div className="flex items-center justify-between gap-3 border-t border-[var(--border)] px-4 py-3"><span className="text-xs text-[var(--muted-foreground)]">{all?`${pipelines.length} pipelines na análise`:`${selected.length} selecionada(s)`}</span><button type="button" onClick={()=>{setOpen(false);setSearch("");}} className="min-h-9 rounded-lg bg-sky-500/15 px-4 text-xs font-semibold text-sky-500">Concluir</button></div>
+    </Popover.Popup></Popover.Positioner></Popover.Portal>
+  </Popover.Root>;
 }

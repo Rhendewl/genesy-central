@@ -70,3 +70,19 @@ describe("Google event creation", () => {
     await expect(createCalendarEvent(params)).rejects.toThrow("503");
   });
 });
+
+describe('lead reminder event idempotency',()=>{
+ const fixed={...params,eventId:'a'.repeat(64),reminderId:'attempt'};
+ it('sends a deterministic private event identifier without inviting the lead',async()=>{
+  const fetcher=vi.fn().mockResolvedValue(Response.json({id:fixed.eventId,htmlLink:'https://calendar.google.com/event'}));vi.stubGlobal('fetch',fetcher);await createCalendarEvent(fixed);
+  const body=JSON.parse(fetcher.mock.calls[0][1].body);expect(body).toMatchObject({id:fixed.eventId,visibility:'private',extendedProperties:{private:{genesy_lead_reminder:'attempt'}}});expect(body.attendees).toBeUndefined();
+ });
+ it('recovers an already-created event after a lost response',async()=>{
+  const saved={id:fixed.eventId,htmlLink:'https://calendar.google.com/event',extendedProperties:{private:{genesy_lead_reminder:'attempt'}}};
+  const fetcher=vi.fn().mockResolvedValueOnce(new Response('',{status:409})).mockResolvedValueOnce(Response.json(saved));vi.stubGlobal('fetch',fetcher);
+  expect(await createCalendarEvent(fixed)).toEqual({id:saved.id,htmlLink:saved.htmlLink});expect(fetcher).toHaveBeenCalledTimes(2);
+ });
+ it('refuses to claim an unrelated or cancelled event',async()=>{
+  const fetcher=vi.fn().mockResolvedValueOnce(new Response('',{status:409})).mockResolvedValueOnce(Response.json({id:fixed.eventId,extendedProperties:{private:{genesy_lead_reminder:'other'}}}));vi.stubGlobal('fetch',fetcher);await expect(createCalendarEvent(fixed)).rejects.toThrow('does not match');
+ });
+});

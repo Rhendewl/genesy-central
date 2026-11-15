@@ -1,3 +1,4 @@
+import { recordInstagramPublication } from "@/lib/marketing/editorial-instagram";
 import { NextRequest, NextResponse } from "next/server";
 import sharp from "sharp";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
@@ -80,8 +81,13 @@ export async function POST(req: NextRequest) {
       } catch (error) { await storage.remove([path]); throw error; }
     }
     if (!ticket) throw fail("Publicação inválida.");
+    const recordPublished = (mediaId?: string) => recordInstagramPublication(createAdminSupabaseClient(), {
+      organizationId: ctx.organizationId, userId: ctx.user.id, connectionId, containerId: ticket!.containerId,
+      paths: [ticket!.path], mediaId,
+    });
     const state = await getInstagramContainerStatus(ticket.containerId, token);
     if (state.status_code === "PUBLISHED") {
+      await recordPublished();
       await storage.remove([ticket.path]);
       return NextResponse.json({ published: true });
     }
@@ -93,6 +99,7 @@ export async function POST(req: NextRequest) {
     // Retrying always uses this same container; never creates a second story.
     const published = await publishInstagramStory(account.instagram_user_id, token, ticket.containerId);
     if (!published.id) throw fail("Não foi possível confirmar a publicação. Verifique o status novamente.", 502);
+    await recordPublished(published.id);
     await storage.remove([ticket.path]);
     return NextResponse.json({ published: true, mediaId: published.id });
   } catch (error) { const e = apiError(error); return NextResponse.json({ error: e.message }, { status: e.status }); }

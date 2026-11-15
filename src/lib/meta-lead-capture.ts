@@ -1,10 +1,11 @@
+import { crmDate } from "@/lib/crm/operation-analytics";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { decryptToken } from "@/lib/crypto";
 import { fetchMetaLead } from "@/lib/meta-leads";
 import { LeadService } from "@/lib/crm/lead-service";
 
 export type MetaLeadEvent = { page_id: string; leadgen_id: string; form_id: string; created_time?: number; ad_id?: string };
-export type FormRoute = { form_id: string; form_name?: string | null; is_active: boolean; crm_pipeline_id: string | null; crm_stage_id: string | null; assigned_to?: string | null };
+export type FormRoute = { form_id: string; form_name?: string | null; is_active: boolean; crm_pipeline_id: string | null; crm_stage_id: string | null; assigned_to?: string | null; crm_deal_value?: number };
 export function resolveFormRoute(routes: FormRoute[], formId: string, legacyCapture = false) {
   // An explicitly paused form stays paused even when all forms are paused.
   if (!routes.length) return { capture: legacyCapture, route: null }; // Only explicitly preserved legacy page configuration.
@@ -18,7 +19,7 @@ export async function captureMetaLead(db: SupabaseClient, event: MetaLeadEvent, 
   if (pageError) throw new Error(pageError.message);
   if (!page) return { status: "skipped", step: "page_inactive" };
   const { data: subscriptions, error: routeError } = await db.from("meta_form_subscriptions")
-    .select("form_id,form_name,is_active,crm_pipeline_id,crm_stage_id,assigned_to").eq("user_id", ownerId).eq("page_id", event.page_id);
+    .select("form_id,form_name,is_active,crm_pipeline_id,crm_stage_id,assigned_to,crm_deal_value").eq("user_id", ownerId).eq("page_id", event.page_id);
   if (routeError) throw new Error(routeError.message);
   const routing = resolveFormRoute(subscriptions ?? [], event.form_id, page.capture_unconfigured_forms === true);
   if (!routing.capture) return { status: "skipped", step: "form_paused_or_unconfigured" };
@@ -53,17 +54,24 @@ export async function captureMetaLead(db: SupabaseClient, event: MetaLeadEvent, 
   }
   if (!encrypted) throw new Error("Página sem autorização. Sincronize ou reconecte a conta Meta.");
   const lead = await fetchMetaLead(event.leadgen_id, decryptToken(encrypted));
+  const originalTime = lead.created_time ? Date.parse(lead.created_time) : NaN;
+  const arrivalMs = Number.isFinite(originalTime) ? originalTime : (event.created_time ?? NaN) * 1000;
+  const receivedAt = Number.isFinite(arrivalMs) && Number.isFinite(new Date(arrivalMs).getTime()) ? new Date(arrivalMs).toISOString() : undefined;
   const notes = ["Formulário instantâneo Meta", `Formulário: ${routing.route?.form_name || event.form_id}`,
     ...(lead.campaign_name ? [`Campanha: ${lead.campaign_name}`] : []),
     ...(lead.ad_name ? [`Anúncio: ${lead.ad_name}`] : []), "", "Respostas do formulário",
     ...lead.custom_fields.map((field) => `${field.label}: ${field.value}`)].join("\n");
+  const formName = routing.route?.form_name?.trim();
+  const leadName = lead.full_name?.trim() || lead.first_name?.trim() || "Lead Meta";
   const result = await new LeadService(db).createLead({
-    assigned_to: assignedTo, user_id: ownerId, stageId: stageId!, name: lead.full_name || lead.first_name || "Lead Meta",
+    assigned_to: assignedTo, user_id: ownerId, stageId: stageId!, name: `${leadName}${formName ? ` | ${formName}` : ""}`,
+    deal_value: Number(routing.route?.crm_deal_value ?? 0),
     contact: lead.phone || lead.email || "", email: lead.email, source: "meta_lead_ads",
     page_id: event.page_id, leadgen_id: event.leadgen_id, form_id: event.form_id,
     form_name: routing.route?.form_name ?? null, campaign_name: lead.campaign_name, ad_name: lead.ad_name,
     meta_form_answers: lead.answers, integration_notes: notes,
-    entered_at: event.created_time && Number.isFinite(event.created_time) ? new Date(event.created_time * 1000).toISOString().slice(0, 10) : undefined,
+    received_at: receivedAt,
+    entered_at: receivedAt ? crmDate(receivedAt) : undefined,
   });
   if (!result.ok) {
     // A simultaneous delivery may have won the database uniqueness race.

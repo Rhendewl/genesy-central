@@ -4,11 +4,12 @@ import Link from "next/link";
 import { useUsers } from "@/hooks/useUsers";
 import { RefreshCw, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { MoneyInput } from "@/components/ui/MoneyInput";
 import { toast } from "sonner";
 import type { CrmPipelineWithStages } from "@/types/crm";
 
 type Page = { page_id: string; page_name: string; is_active: boolean; capture_unconfigured_forms?: boolean };
-type Form = { id: string; name: string; status: string; is_subscribed: boolean; leads_count: number; last_lead_at: string | null; crm_pipeline_id: string | null; crm_stage_id: string | null; assigned_to: string | null };
+type Form = { id: string; name: string; status: string; is_subscribed: boolean; leads_count: number; last_lead_at: string | null; crm_pipeline_id: string | null; crm_stage_id: string | null; assigned_to: string | null; crm_deal_value: number };
 type Log = { id: string; received_at: string; form_id: string | null; status: string; error_message: string | null };
 const inputClass = "mt-1 w-full rounded-xl border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2.5 text-sm text-[var(--text-title)]";
 async function api(url: string, init?: RequestInit) {
@@ -63,7 +64,7 @@ export function MetaLeadForms() {
     setSaving(form.id); setError("");
     try {
       await api("/api/meta/forms/toggle", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
-        pageId, formId: form.id, active: form.is_subscribed, pipelineId: form.crm_pipeline_id, stageId: form.crm_stage_id, assignedTo: form.assigned_to,
+        pageId, formId: form.id, active: form.is_subscribed, pipelineId: form.crm_pipeline_id, stageId: form.crm_stage_id, assignedTo: form.assigned_to, dealValue: form.crm_deal_value ?? 0,
       }) });
       toast.success(form.is_subscribed ? "Captura ativada no destino escolhido." : "Captura pausada.");
     } catch (e) { setError(e instanceof Error ? e.message : "Falha ao salvar."); }
@@ -95,6 +96,10 @@ export function MetaLeadForms() {
           <div className="grid gap-3 sm:grid-cols-2"><label className="text-sm">CRM de destino<select aria-label={`CRM de ${form.name}`} className={inputClass} disabled={Boolean(saving)} value={form.crm_pipeline_id ?? ""} onChange={(e) => change(form.id, { crm_pipeline_id: e.target.value || null, crm_stage_id: null })}><option value="">Selecione o CRM</option>{pipelines.map((pipeline) => <option key={pipeline.id} value={pipeline.id}>{pipeline.name}</option>)}</select></label>
           <label className="text-sm">Etapa de entrada<select aria-label={`Etapa de ${form.name}`} className={inputClass} disabled={!form.crm_pipeline_id || Boolean(saving)} value={form.crm_stage_id ?? ""} onChange={(e) => change(form.id, { crm_stage_id: e.target.value || null })}><option value="">Selecione a etapa</option>{stages.map((stage) => <option key={stage.id} value={stage.id}>{stage.name}</option>)}</select></label></div>
           <label className="block text-sm">Responsável pelos novos leads<select aria-label={`Responsável de ${form.name}`} className={inputClass} disabled={Boolean(saving)} value={form.assigned_to ?? ""} onChange={(e) => change(form.id, { assigned_to: e.target.value || null })}><option value="">Sem responsável</option>{activeProfiles.map((profile) => <option key={profile.id} value={profile.id}>{profile.full_name}</option>)}</select></label>
+          <label className="block text-sm">Valor do negócio por lead (R$)
+            <MoneyInput value={form.crm_deal_value ?? 0} onChange={(value) => change(form.id, { crm_deal_value: value })} disabled={Boolean(saving)} max={999_999_999_999.99} className="mt-1" />
+            <span className="mt-1 block text-xs text-[var(--muted-foreground)]">Aplicado a cada novo lead capturado. O título será Nome do lead | {form.name}.</span>
+          </label>
           <Button icon={<Save />} loading={saving === form.id} disabled={Boolean(saving) || (form.is_subscribed && !form.crm_stage_id)} onClick={() => void save(form)}>Salvar configuração</Button>
         </section>;
       })}</div>}

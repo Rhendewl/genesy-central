@@ -13,6 +13,8 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { OperationAnalytics } from "./OperationAnalytics";
+import { formatArrival } from "@/lib/crm/operation-analytics";
 import { useLeadsAnalytics, bucketOf } from "@/hooks/useLeadsAnalytics";
 import { useLeadsAnalyticsData } from "@/hooks/useLeadsAnalyticsData";
 import { usePipelineFilter } from "@/hooks/usePipelineFilter";
@@ -161,7 +163,7 @@ export function LeadsAnalytics() {
       : member?.crm_pipeline_id ? [member.crm_pipeline_id] : [],
     [hasFullCrmAccess, member?.crm_pipeline_id, selectedPipelineIds],
   );
-  const { leads, stageHistory, stages, goals, isLoading, bulkDeleteLeads } = useLeadsAnalyticsData(
+  const { leads, stageHistory, stages, goals, isLoading, error, refetch, bulkDeleteLeads } = useLeadsAnalyticsData(
     effectivePipelineIds,
     accessResolved,
   );
@@ -199,13 +201,13 @@ export function LeadsAnalytics() {
     return leads.filter(l => {
       if (q && !l.name.toLowerCase().includes(q) && !(l.contact ?? "").toLowerCase().includes(q)) return false;
       if (sourceFilter !== "all" && (l.source || "manual") !== sourceFilter) return false;
-      if (stageFilter  !== "all" && l.kanban_column !== stageFilter)          return false;
+      if (stageFilter  !== "all" && (stages.length ? l.stage_id : l.kanban_column) !== stageFilter)          return false;
       if (min !== null && (l.iq_score === null || l.iq_score < min)) return false;
       if (max !== null && (l.iq_score === null || l.iq_score > max)) return false;
       if (ieBucketFilter !== "all" && (l.ie_score === null || bucketOf(l.ie_score) !== ieBucketFilter)) return false;
       return true;
     });
-  }, [leads, search, sourceFilter, stageFilter, iqMin, iqMax, ieBucketFilter]);
+  }, [leads, stages, search, sourceFilter, stageFilter, iqMin, iqMax, ieBucketFilter]);
 
   const visibleLeads = showAll ? filteredLeads : filteredLeads.slice(0, 20);
 
@@ -246,7 +248,7 @@ export function LeadsAnalytics() {
     setBulkDeleteArmed(false);
   };
 
-  if (isLoading) {
+  if (isLoading && leads.length === 0 && stages.length === 0) {
     return (
       <div className="px-4 sm:px-6 py-8 grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[...Array(8)].map((_, i) => (
@@ -257,23 +259,12 @@ export function LeadsAnalytics() {
   }
 
   return (
-    <div className="pt-6">
-      {/* ── Pipeline filter bar ─────────────────────────────────────────────── */}
-      {hasFullCrmAccess && activePipelines.length > 0 && (
-        <div className="px-4 sm:px-6 pb-5 flex items-center gap-3">
-          <PipelineFilter
-            pipelines={activePipelines}
-            value={selectedPipelineIds}
-            onChange={setPipelineFilter}
-          />
-          {selectedPipelineIds !== null && selectedPipelineIds.length > 0 && (
-            <p className="text-xs text-[var(--muted-foreground)]">
-              {analytics.totalLeads} lead{analytics.totalLeads !== 1 ? "s" : ""} na seleção
-            </p>
-          )}
-        </div>
-      )}
-
+    <div className="pt-6" aria-busy={isLoading}>
+      {isLoading && <p role="status" className="mx-4 mb-3 flex items-center gap-2 text-xs text-[var(--muted-foreground)] sm:mx-6"><Loader2 size={13} className="animate-spin"/>Atualizando os dados da seleção…</p>}
+      {error && <div role="alert" className="mx-4 mb-4 rounded-xl border border-rose-500/30 p-4 text-sm sm:mx-6">Não foi possível carregar a análise completa. {error}<button onClick={() => void refetch()} className="ml-3 underline">Tentar novamente</button></div>}
+      {!error && <OperationAnalytics leads={leads} history={stageHistory} stages={stages} pipelines={pipelines} refresh={() => void refetch()} pipelineFilter={hasFullCrmAccess && activePipelines.length > 0 ? <PipelineFilter pipelines={activePipelines} value={selectedPipelineIds} onChange={setPipelineFilter} /> : undefined} />}
+      <details className="mb-8">
+        <summary className="mx-4 mb-6 cursor-pointer rounded-xl border border-[var(--border)] p-4 text-sm font-semibold sm:mx-6">Indicadores gerais, metas e base de leads</summary>
       {/* ── Section 1: Metric cards ─────────────────────────────────────────── */}
       <Section title="Visão Geral">
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 px-4 sm:px-6">
@@ -312,7 +303,7 @@ export function LeadsAnalytics() {
           <MetricCard
             label="Taxa de contato"
             value={fmtPct(analytics.contactRate)}
-            sub="Chegaram a Em Andamento"
+            sub="Primeiro avanço registrado fora de Novo lead"
             positive={null}
             icon={<PhoneCall size={14} />}
             accent="#f59e0b"
@@ -335,7 +326,7 @@ export function LeadsAnalytics() {
           />
           <MetricCard
             label="Vendas totais"
-            value={analytics.stageFunnel.find(s => s.id === "venda_realizada")?.count ?? 0}
+            value={Math.round(analytics.totalLeads * analytics.saleRate / 100)}
             icon={<BadgeDollarSign size={14} />}
             accent="#22c55e"
           />
@@ -667,7 +658,7 @@ export function LeadsAnalytics() {
               className="appearance-none pl-3 pr-8 py-2 rounded-xl text-sm text-[var(--text-body)] outline-none lc-filter-control cursor-pointer"
             >
               <option value="all">Todas as etapas</option>
-              {KANBAN_COLUMNS.map(c => (
+              {analytics.stageFunnel.map(c => (
                 <option key={c.id} value={c.id}>{c.label}</option>
               ))}
             </select>
@@ -765,7 +756,7 @@ export function LeadsAnalytics() {
             <div
               className="grid items-center text-[10px] font-semibold text-[var(--muted-foreground)] uppercase tracking-widest px-4 py-3"
               style={{
-                gridTemplateColumns: "24px 1fr 1fr 1fr 1fr 60px 60px 90px 90px",
+                gridTemplateColumns: "24px 1fr 1fr 1fr 1fr 60px 60px 90px 170px",
                 background: "var(--hover)",
                 borderBottom: "1px solid var(--border-card)",
               }}
@@ -796,13 +787,13 @@ export function LeadsAnalytics() {
             ) : (
               <>
                 {visibleLeads.map((lead, i) => {
-                  const col = KANBAN_COLUMNS.find(c => c.id === lead.kanban_column);
+                  const col = analytics.stageFunnel.find(c => c.id === (stages.length ? lead.stage_id : lead.kanban_column));
                   return (
                     <div
                       key={lead.id}
                       className="grid items-center px-4 py-3 text-sm transition-colors hover:bg-[var(--hover)]"
                       style={{
-                        gridTemplateColumns: "24px 1fr 1fr 1fr 1fr 60px 60px 90px 90px",
+                        gridTemplateColumns: "24px 1fr 1fr 1fr 1fr 60px 60px 90px 170px",
                         borderBottom: i < visibleLeads.length - 1
                           ? "1px solid var(--border-card)"
                           : undefined,
@@ -839,7 +830,7 @@ export function LeadsAnalytics() {
                         {lead.deal_value > 0 ? fmtBRL(lead.deal_value) : "—"}
                       </span>
                       <span className="text-right text-[var(--text-body)] text-xs">
-                        {format(new Date(lead.created_at), "dd/MM/yy", { locale: ptBR })}
+                        {formatArrival(lead)}
                       </span>
                     </div>
                   );
@@ -882,6 +873,7 @@ export function LeadsAnalytics() {
           />
         </div>
       )}
+      </details>
     </div>
   );
 }

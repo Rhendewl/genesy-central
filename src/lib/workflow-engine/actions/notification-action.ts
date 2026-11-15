@@ -1,3 +1,4 @@
+import { crmNotificationUrl } from "@/lib/crm/notification-url";
 import type { ActionExecutor, ActionExecContext, ActionExecResult } from "../types";
 import { renderWorkflowTemplate } from "../variables";
 import { dispatchPushToUser } from "@/lib/notifications/push-dispatcher";
@@ -72,6 +73,8 @@ export const notificationAction: ActionExecutor = {
       .in("id", recipientIds);
     if (profilesError) return { ok: false, error: `Erro ao resolver destinatários: ${profilesError.message}` };
 
+    const {data: targetLead} = await ctx.db.from("leads").select("pipeline_id").eq("id",ctx.recordId).maybeSingle();
+    const actionUrl=crmNotificationUrl(targetLead?.pipeline_id,ctx.recordId);
     const rows = recipientIds.map(recipientId => ({
       user_id:           ctx.userId,
       recipient_user_id: recipientId,
@@ -81,7 +84,7 @@ export const notificationAction: ActionExecutor = {
       title,
       body,
       source:            "workflow",
-      action_url:        "/crm",
+      action_url:        actionUrl,
     }));
 
     const { data: inserted, error } = await ctx.db
@@ -108,7 +111,7 @@ export const notificationAction: ActionExecutor = {
       try {
         const push = await dispatchPushToUser(ctx.db, authUserId, title, body, {
           tag: `crm-workflow-${ctx.automationId}-${ctx.recordId}`,
-          url: "/crm",
+          url: actionUrl,
         });
         const pushStatus = push.skippedReason === "no_subscriptions"
           ? "no_subscription"

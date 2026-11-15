@@ -11,7 +11,10 @@ export async function POST(req: NextRequest) {
     const context = await getMarketingServerContext(db);
     if (!context.isAdmin) throw Object.assign(new Error("Apenas administradores podem configurar a captura."), { status: 403 });
     const body = await req.json();
-    const { pageId, formId, active, pipelineId, stageId, assignedTo } = body;
+    const { pageId, formId, active, pipelineId, stageId, assignedTo, dealValue } = body;
+    if (dealValue !== undefined && (typeof dealValue !== "number" || !Number.isFinite(dealValue) || dealValue < 0 || dealValue > 999_999_999_999.99)) {
+      throw Object.assign(new Error("Informe um valor de negócio válido, maior ou igual a zero."), { status: 400 });
+    }
     if (![pageId, formId].every((id) => typeof id === "string" && /^\d+$/.test(id)) || typeof active !== "boolean") throw Object.assign(new Error("Página ou formulário inválido."), { status: 400 });
     if (active && (!pipelineId || !stageId)) throw Object.assign(new Error("Escolha o CRM e a etapa de entrada."), { status: 400 });
     const page = await db.from("meta_page_subscriptions").select("encrypted_page_token,is_active").eq("user_id", context.user.id).eq("meta_page_id", pageId).maybeSingle();
@@ -47,6 +50,7 @@ export async function POST(req: NextRequest) {
     }
     const saved = await db.from("meta_form_subscriptions").upsert({ user_id: context.user.id, page_id: pageId, form_id: formId,
       assigned_to: assignedTo || null, form_name: formName, is_active: active, crm_pipeline_id: pipelineId || null, crm_stage_id: stageId || null,
+      ...(dealValue !== undefined ? { crm_deal_value: Math.round(dealValue * 100) / 100 } : {}),
       updated_at: new Date().toISOString() }, { onConflict: "user_id,form_id" });
     if (saved.error) throw new Error(saved.error.message);
     return NextResponse.json({ success: true });

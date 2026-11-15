@@ -1,3 +1,5 @@
+
+import { accentBorderStyle } from "@/components/ui/accent-border";
 import { AlertTriangle, CheckCircle2, Info, MapPin, Target, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -79,8 +81,8 @@ export function KpiReadingGuide({
           const config = STATUS[item.status];
           const Icon = config.icon;
           return (
-            <article key={item.id} className="relative overflow-hidden rounded-xl border p-4" style={{ background: "var(--bg-modal)" }}>
-              <span className="absolute inset-y-0 left-0 w-0.5" style={{ background: config.glow }} />
+            <article key={item.id} className="app-accent-border relative overflow-hidden rounded-xl border p-4" style={{ background: "var(--bg-modal)", ...accentBorderStyle(config.glow) }}>
+
               <div className="flex items-start gap-3">
                 <span className={cn("mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-lg border", config.badge, config.color)}>
                   <Icon size={15} />

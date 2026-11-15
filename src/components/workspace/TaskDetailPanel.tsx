@@ -312,7 +312,7 @@ export function TaskDetailPanel({ taskId, tasksHook, onClose, presentation = "dr
             )}
           </div>
           {!isCreating && canEdit && (
-            <button onClick={() => setConfirmDelete(true)} aria-label="Excluir tarefa">
+            <button onClick={() => setConfirmDelete(true)} aria-label="Descartar tarefa">
               <Trash2 size={16} style={{ color: "var(--muted-foreground)" }} />
             </button>
           )}
@@ -327,6 +327,10 @@ export function TaskDetailPanel({ taskId, tasksHook, onClose, presentation = "dr
           style={{ scrollbarGutter: "stable", paddingBottom: "max(1.25rem, env(safe-area-inset-bottom))" }}
         >
           <div className="flex flex-col gap-5">
+            {!isCreating && existingTask && <div className="space-y-2 rounded-xl border border-[var(--border)] bg-[var(--hover)] p-3 text-xs">
+              <p><span className="text-[var(--muted-foreground)]">Criada em: </span>{new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Fortaleza", dateStyle: "short", timeStyle: "short" }).format(new Date(existingTask.created_at))}</p>
+              <p><span className="text-[var(--muted-foreground)]">Concluída em: </span>{existingTask.completed_at ? new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Fortaleza", dateStyle: "short", timeStyle: "short" }).format(new Date(existingTask.completed_at)) : existingTask.status === "concluido" ? "Data de conclusão não registrada" : "Ainda não concluída"}</p>
+            </div>}
             {!isCreating && !canEdit && (
               <div
                 className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs"
@@ -596,7 +600,7 @@ export function TaskDetailPanel({ taskId, tasksHook, onClose, presentation = "dr
             style={{ background: "var(--bg-modal)", border: "1px solid var(--border-modal)", boxShadow: "0 24px 64px var(--shadow-modal)" }}
           >
             <div className="flex flex-col gap-2 px-5 pb-4 pt-5">
-              <p className="text-sm font-semibold" style={{ color: "var(--text-title)" }}>Excluir tarefa</p>
+              <p className="text-sm font-semibold" style={{ color: "var(--text-title)" }}>Descartar tarefa</p>
               <p className="text-xs" style={{ color: "var(--muted-foreground)" }}>
                 Esta ação não pode ser desfeita. Checklist, comentários e anexos serão removidos.
               </p>
@@ -617,7 +621,7 @@ export function TaskDetailPanel({ taskId, tasksHook, onClose, presentation = "dr
                 style={{ background: "#e05c5c", color: "#fff" }}
               >
                 {isSaving && <Loader2 size={12} className="animate-spin" />}
-                Excluir
+                Descartar
               </button>
             </div>
           </motion.div>

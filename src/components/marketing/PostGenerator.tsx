@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { InstagramFeedDialog, feedJpeg } from "./InstagramFeedDialog";
 import { InstagramStoryDialog, storyJpeg } from "./InstagramStoryDialog";
 import {
   createZip, defaultPostLetterSpacing, defaultPostLineHeight, normalizePostLineHeight, normalizePostTextWidth, numberedSlideFilename, POST_FORMATS, postElementToPng, postTextElementToPng, sanitizeDownloadName, saveBlob,
@@ -388,6 +389,7 @@ function PostEditor({ template, onBack }: { template: PostTemplate; onBack: () =
   const [storageReady, setStorageReady] = useState(false);
   const [syncState, setSyncState] = useState<"saving" | "synced" | "offline">("saving");
   const [storySnapshot, setStorySnapshot] = useState<{ image: Blob; slideNumber: number } | null>(null);
+  const [feedDialogOpen, setFeedDialogOpen] = useState(false);
   const [preparingStory, setPreparingStory] = useState(false);
   const [exporting, setExporting] = useState<"one" | "all" | "share" | null>(null);
   const [mobilePanel, setMobilePanel] = useState<MobileEditorPanel>(null);
@@ -885,6 +887,7 @@ function PostEditor({ template, onBack }: { template: PostTemplate; onBack: () =
           {(Object.entries(POST_FORMATS) as Array<[PostFormat, typeof dimensions]>).map(([value, item]) => <button key={value} onClick={() => setFormat(value)} className={cn("rounded-lg px-3 py-1.5 text-[11px] font-medium transition", format === value ? "bg-[var(--segment-active-bg)] text-[var(--text-title)]" : "text-[var(--muted-foreground)] hover:text-[var(--text-title)]")}>{item.label}</button>)}
         </div>
         <Button variant="outline" onClick={() => void exportOne()} loading={exporting === "one"} icon={<Download />}>Slide atual</Button>
+        <Button variant="outline" onClick={() => { if (format !== "portrait") { toast.error("Selecione o formato Feed 4:5 para publicar no feed."); return; } setFeedDialogOpen(true); }} disabled={Boolean(exporting)} icon={<Send />}>Postar no Instagram</Button>
         <Button variant="outline" onClick={() => void prepareStory()} loading={preparingStory} disabled={Boolean(exporting)} icon={<Send />}>Postar story</Button>
         <Button onClick={() => setExportDialogOpen(true)} loading={exporting === "all"} icon={<Layers3 />} signature>Baixar todos</Button>
       </div>
@@ -1007,6 +1010,7 @@ function PostEditor({ template, onBack }: { template: PostTemplate; onBack: () =
               <div className="grid gap-2 p-4">
                 <Button fullWidth onClick={() => void shareOne()} loading={exporting === "share"} icon={<Share2 />}>Compartilhar slide atual</Button>
                 <Button fullWidth variant="outline" onClick={() => void exportOne()} loading={exporting === "one"} icon={<Download />}>Baixar slide atual</Button>
+                <Button fullWidth variant="outline" onClick={() => { if (format !== "portrait") { toast.error("Selecione o formato Feed 4:5 para publicar no feed."); return; } setFeedDialogOpen(true); }} disabled={Boolean(exporting)} icon={<Send />}>Postar no Instagram</Button>
                 <Button fullWidth variant="outline" onClick={() => void prepareStory()} loading={preparingStory} disabled={Boolean(exporting)} icon={<Send />}>Postar story</Button>
                 <Button fullWidth variant="outline" onClick={() => { setMobilePanel(null); setExportDialogOpen(true); }} loading={exporting === "all"} icon={<Layers3 />}>Baixar todos os slides</Button>
               </div>
@@ -1083,6 +1087,14 @@ function PostEditor({ template, onBack }: { template: PostTemplate; onBack: () =
         {slides.map((slide) => <PostCanvas key={slide.id} slide={slide} profile={tweetProfile} template={template} width={dimensions.width} height={dimensions.height} refCallback={(node) => { if (node) exportRefs.current.set(slide.id, node); else exportRefs.current.delete(slide.id); }} />)}
       </div>
 
+      {feedDialogOpen && <InstagramFeedDialog slides={slides.map((slide, index) => ({ id: slide.id, number: index + 1 }))} renderThumbnail={(id) => {
+        const slide = slides.find((item) => item.id === id);
+        return slide ? <div style={{ width: dimensions.width, height: dimensions.height, transform: "scale(0.1037037)", transformOrigin: "top left" }}><PostCanvas slide={slide} profile={tweetProfile} template={template} width={dimensions.width} height={dimensions.height} /></div> : null;
+      }} onClose={() => setFeedDialogOpen(false)} capture={async (id) => {
+        const element = exportRefs.current.get(id);
+        if (!element) throw new Error("O slide ainda não está pronto.");
+        return feedJpeg(await postElementToPng(element, dimensions.width, dimensions.height));
+      }} />}
       {storySnapshot && <InstagramStoryDialog image={storySnapshot.image} slideNumber={storySnapshot.slideNumber} onClose={() => setStorySnapshot(null)} />}
       {exportDialogOpen && (
         <ExportNameDialog

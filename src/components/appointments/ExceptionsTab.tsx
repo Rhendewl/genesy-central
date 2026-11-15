@@ -1,5 +1,7 @@
 "use client";
 
+import { DateInput } from "@/components/ui/DateInput";
+
 import { useState } from "react";
 import { Plus, Trash2, Loader2 } from "lucide-react";
 import type {
@@ -96,7 +98,7 @@ export function ExceptionsTab({ exceptions, onCreate, onDelete }: ExceptionsTabP
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs mb-1" style={{ color: "var(--muted-foreground)" }}>Data</label>
-              <input
+              <DateInput
                 type="date"
                 value={date}
                 onChange={e => setDate(e.target.value)}

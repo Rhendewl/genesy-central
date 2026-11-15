@@ -20,19 +20,27 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   if (!user) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
 
   const body = await req.json() as { tags?: string[] };
-  if (!Array.isArray(body.tags)) {
+  if (!Array.isArray(body.tags) || body.tags.some(tag => typeof tag !== "string")) {
     return NextResponse.json({ error: "tags deve ser um array" }, { status: 400 });
   }
   const nextTags = body.tags;
 
   const { data: current, error: fetchErr } = await supabase
     .from("leads")
-    .select("tags")
+    .select("tags,pipeline_id")
     .eq("id", leadId)
     .maybeSingle();
 
   if (fetchErr) return NextResponse.json({ error: fetchErr.message }, { status: 500 });
   if (!current)  return NextResponse.json({ error: "Lead não encontrado" }, { status: 404 });
+
+  if (process.env.NEXT_PUBLIC_CRM_PIPELINE_TAGS_ENABLED === "true" && nextTags.length) {
+    if (!current.pipeline_id) return NextResponse.json({ error: "O lead precisa estar em uma pipeline." }, { status: 400 });
+    const catalog = await supabase.from("crm_pipeline_tags").select("id").eq("pipeline_id", current.pipeline_id).in("id", nextTags);
+    if (catalog.error) return NextResponse.json({ error: catalog.error.message }, { status: 500 });
+    const allowed = new Set((catalog.data ?? []).map(tag => tag.id));
+    if (nextTags.some(id => !allowed.has(id))) return NextResponse.json({ error: "Selecione apenas etiquetas desta pipeline." }, { status: 400 });
+  }
 
   const currentTags: string[] = (current.tags as string[] | null) ?? [];
 

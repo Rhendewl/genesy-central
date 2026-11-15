@@ -20,6 +20,7 @@ import { useLeadOrigins } from "@/hooks/useLeadOrigins";
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 interface CrmConfig {
+  name_suffix: string;
   enabled:        boolean;
   source:         string;
   origin_id:      string | null;
@@ -35,6 +36,7 @@ interface CrmConfig {
 }
 
 const DEFAULT_CONFIG: CrmConfig = {
+  name_suffix: "",
   enabled:        true,
   source:         "formulario_genesy",
   origin_id:      null,
@@ -316,6 +318,7 @@ export default function FormularioCrmPage() {
     if (crm) {
       const s = crm.settings as Partial<CrmConfig & { kanban_column?: string }>;
       const loaded: CrmConfig = {
+        name_suffix: s.name_suffix ?? "",
         enabled:        crm.enabled         ?? true,
         source:         s.source            ?? DEFAULT_CONFIG.source,
         origin_id:      s.origin_id         ?? null,
@@ -372,6 +375,7 @@ export default function FormularioCrmPage() {
     setIsSaving(true);
     try {
       const settings: Record<string, unknown> = {
+        name_suffix: config.name_suffix.trim(),
         source:         config.source,
         origin_id:      config.origin_id,
         pipeline_id:    config.pipeline_id,
@@ -476,6 +480,12 @@ export default function FormularioCrmPage() {
             </SectionCard>
 
             {/* ── 3. Pipeline → Etapa ──────────────────────────────────────── */}
+            <SectionCard title="Nome do lead no CRM" description="Acrescente uma identificação aos leads deste formulário.">
+              <label htmlFor="crm-name-suffix" className="text-xs font-medium">Identificação após o nome</label>
+              <input id="crm-name-suffix" value={config.name_suffix} maxLength={100} onChange={e => patch("name_suffix", e.target.value)} placeholder="Form Villa Real" className="w-full rounded-lg px-3 py-2 text-sm" style={{ background: "var(--hover)", border: "1px solid var(--border)", color: "var(--text-title)" }} />
+              <p className="text-xs" style={{ color: "var(--muted-foreground)" }}>Prévia: Maria Silva{config.name_suffix.trim() ? ` | ${config.name_suffix.trim()}` : ""}</p>
+              <p className="text-xs" style={{ color: "var(--muted-foreground)" }}>Os parâmetros utm_source, utm_medium, utm_campaign, utm_content e utm_term do link são capturados automaticamente e enviados ao contexto do lead, junto com fbclid e gclid quando presentes.</p>
+            </SectionCard>
             <SectionCard title="Destino no CRM" description="Pipeline e etapa onde o lead será criado.">
               <FieldRow label="Pipeline">
                 <SelectField<string>

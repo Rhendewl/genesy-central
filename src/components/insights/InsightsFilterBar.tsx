@@ -1,7 +1,8 @@
 "use client";
+import { DateRangeCalendar } from "@/components/ui/DateInput";
 
 import { useState, useRef, useEffect } from "react";
-import { Calendar, ChevronLeft, ChevronRight, Monitor, Smartphone, Tablet, X } from "lucide-react";
+import { Calendar, Monitor, Smartphone, Tablet, X } from "lucide-react";
 
 export interface InsightsPeriod {
   since?: string;
@@ -77,124 +78,7 @@ function fmtShort(iso: string): string {
 
 // ── Calendar ──────────────────────────────────────────────────────────────────
 
-const WEEKDAYS = ["S", "T", "Q", "Q", "S", "S", "D"];
-
-function isSameDay(a: Date, b: Date) {
-  return a.getFullYear() === b.getFullYear() &&
-    a.getMonth()    === b.getMonth() &&
-    a.getDate()     === b.getDate();
-}
-
-function RangeCalendar({
-  from, to, onApply, onCancel,
-}: {
-  from: Date | null;
-  to: Date | null;
-  onApply: (from: Date, to: Date) => void;
-  onCancel: () => void;
-}) {
-  const now = new Date();
-  const [viewYear,  setViewYear]  = useState(now.getFullYear());
-  const [viewMonth, setViewMonth] = useState(now.getMonth());
-  const [lFrom,     setLFrom]     = useState<Date | null>(from);
-  const [lTo,       setLTo]       = useState<Date | null>(to);
-  const [phase,     setPhase]     = useState<"from" | "to">("from");
-  const [hovered,   setHovered]   = useState<Date | null>(null);
-
-  const prevMonth = () => viewMonth === 0 ? (setViewYear(y => y - 1), setViewMonth(11)) : setViewMonth(m => m - 1);
-  const nextMonth = () => viewMonth === 11 ? (setViewYear(y => y + 1), setViewMonth(0)) : setViewMonth(m => m + 1);
-
-  const handleDay = (day: number) => {
-    const d = startOfDay(new Date(viewYear, viewMonth, day));
-    if (phase === "from") { setLFrom(d); setLTo(null); setPhase("to"); }
-    else {
-      if (lFrom && d < lFrom) { setLTo(lFrom); setLFrom(d); }
-      else setLTo(d);
-      setPhase("from");
-    }
-  };
-
-  const days  = new Date(viewYear, viewMonth + 1, 0).getDate();
-  const off   = (new Date(viewYear, viewMonth, 1).getDay() + 6) % 7;
-  const rEnd  = phase === "to" && hovered && lFrom ? (hovered < lFrom ? lFrom : hovered) : lTo;
-  const rStart = phase === "to" && hovered && lFrom && hovered < lFrom ? hovered : lFrom;
-
-  const inRange  = (d: number) => { const dt = new Date(viewYear, viewMonth, d); return rStart && rEnd ? dt > rStart && dt < rEnd : false; };
-  const isFrom   = (d: number) => lFrom && isSameDay(new Date(viewYear, viewMonth, d), lFrom);
-  const isTo     = (d: number) => lTo   && isSameDay(new Date(viewYear, viewMonth, d), lTo);
-  const isToday  = (d: number) => d === now.getDate() && viewMonth === now.getMonth() && viewYear === now.getFullYear();
-  const isSel    = (d: number) => isFrom(d) || isTo(d);
-
-  const monthLabel = new Date(viewYear, viewMonth).toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
-
-  return (
-    <div className="rounded-xl shadow-xl overflow-hidden" style={{ background: "var(--card)", border: "1px solid var(--border)", minWidth: 280 }}>
-      <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: "1px solid var(--border)" }}>
-        <button onClick={prevMonth} className="p-1 rounded hover:bg-[var(--hover)] transition-colors">
-          <ChevronLeft size={13} style={{ color: "var(--muted-foreground)" }} />
-        </button>
-        <span className="text-xs font-semibold capitalize" style={{ color: "var(--text-title)" }}>{monthLabel}</span>
-        <button onClick={nextMonth} className="p-1 rounded hover:bg-[var(--hover)] transition-colors">
-          <ChevronRight size={13} style={{ color: "var(--muted-foreground)" }} />
-        </button>
-      </div>
-      <div className="px-3 pt-2 pb-1">
-        <div className="grid grid-cols-7 mb-1">
-          {WEEKDAYS.map((d, i) => (
-            <div key={i} className="text-center text-[10px] py-1" style={{ color: "var(--muted-foreground)" }}>{d}</div>
-          ))}
-        </div>
-        <div className="grid grid-cols-7">
-          {Array.from({ length: off }).map((_, i) => <div key={`e-${i}`} className="h-8" />)}
-          {Array.from({ length: days }, (_, i) => i + 1).map(d => {
-            const sel   = isSel(d);
-            const range = inRange(d);
-            const from_ = isFrom(d);
-            const to_   = isTo(d);
-            let bg = "transparent", color = "var(--muted-foreground)", br = "6px";
-            if (sel)        { bg = "var(--primary)"; color = "#fff"; }
-            else if (range) { bg = "var(--border-color)"; color = "var(--text-title)"; br = "0"; }
-            if (from_ && lTo)   br = "6px 0 0 6px";
-            if (to_   && lFrom) br = "0 6px 6px 0";
-            return (
-              <button
-                key={d}
-                onClick={() => handleDay(d)}
-                onMouseEnter={() => phase === "to" && setHovered(new Date(viewYear, viewMonth, d))}
-                onMouseLeave={() => setHovered(null)}
-                className="relative h-8 flex items-center justify-center text-xs transition-colors"
-                style={{ background: bg, color, borderRadius: br, fontWeight: isToday(d) ? 600 : 400 }}
-              >
-                {d}
-                {isToday(d) && !sel && (
-                  <span className="absolute bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full" style={{ background: "var(--primary)" }} />
-                )}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-      <div className="px-4 py-2 text-[10px]" style={{ color: "var(--muted-foreground)" }}>
-        {phase === "from" || !lFrom ? "Selecione a data inicial"
-          : lTo ? `${fmtShort(lFrom.toISOString())} → ${fmtShort(lTo.toISOString())}`
-          : "Selecione a data final"}
-      </div>
-      <div className="flex items-center justify-end gap-2 px-4 py-3" style={{ borderTop: "1px solid var(--border)" }}>
-        <button onClick={onCancel} className="px-3 py-1.5 rounded-lg text-xs transition-colors hover:bg-[var(--hover)]" style={{ color: "var(--muted-foreground)" }}>
-          Cancelar
-        </button>
-        <button
-          disabled={!lFrom || !lTo}
-          onClick={() => lFrom && lTo && onApply(lFrom, lTo)}
-          className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all hover:opacity-90 disabled:opacity-40"
-          style={{ background: "#b0b8c1", color: "#000000" }}
-        >
-          Aplicar
-        </button>
-      </div>
-    </div>
-  );
-}
+const RangeCalendar = DateRangeCalendar;
 
 // ── InsightsFilterBar ─────────────────────────────────────────────────────────
 

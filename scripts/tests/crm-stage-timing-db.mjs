@@ -1,0 +1,34 @@
+import {createRequire} from 'node:module';
+import {readFileSync} from 'node:fs';
+import assert from 'node:assert/strict';
+const require=createRequire(import.meta.url);
+const {PGlite}=require('@electric-sql/pglite');
+const db=new PGlite();
+const id=n=>`00000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
+const [owner,foreign,pipeline,first,next,other,legacy,meta,manual]=Array.from({length:9},(_,i)=>id(i+1));
+try {
+ await db.exec(`CREATE ROLE authenticated;
+ CREATE FUNCTION effective_owner_id() RETURNS uuid LANGUAGE sql AS $$SELECT '${owner}'::uuid$$;
+ CREATE TABLE crm_stages(id uuid PRIMARY KEY,pipeline_id uuid,user_id uuid,legacy_column text,is_active boolean);
+ INSERT INTO crm_stages VALUES('${first}','${pipeline}','${owner}',NULL,true),('${next}','${pipeline}','${owner}',NULL,true),('${other}','${pipeline}','${foreign}',NULL,true);
+ CREATE TABLE leads(id uuid PRIMARY KEY,user_id uuid,leadgen_id text,stage_id uuid,pipeline_id uuid,kanban_column text,updated_at timestamptz);
+ INSERT INTO leads VALUES('${legacy}','${owner}',NULL,'${first}','${pipeline}','abordados',now()),('${meta}','${owner}','123','${first}','${pipeline}','abordados',now());
+ CREATE TABLE meta_webhook_logs(user_id uuid,leadgen_id text,payload jsonb);
+ INSERT INTO meta_webhook_logs VALUES('${owner}','123','{"created_time": 1700000000}'),('${owner}','123','{"created_time":1700000100}'),('${owner}','bad','{"created_time":"not-a-number"}'),('${foreign}','123','{"created_time":1600000000}');
+ CREATE TABLE crm_lead_stage_history(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),lead_id uuid,pipeline_id uuid,stage_id uuid,from_column text,to_column text,moved_by uuid,note text,moved_at timestamptz DEFAULT now());
+ INSERT INTO crm_lead_stage_history(lead_id,pipeline_id,stage_id,moved_at) VALUES('${legacy}','${pipeline}','${first}',now()-interval '1 hour'),('${legacy}','${pipeline}','${next}',now());
+ CREATE TABLE lead_movements(lead_id uuid,from_column text,to_column text);
+ `);
+ await db.exec(readFileSync('supabase/migrations/20261113120000_crm_arrival_and_stage_timing.sql','utf8'));
+ assert.equal((await db.query('SELECT received_at FROM leads WHERE id=$1',[legacy])).rows[0].received_at,null);
+ assert.equal(new Date((await db.query('SELECT received_at FROM leads WHERE id=$1',[meta])).rows[0].received_at).getTime(),1700000000000);
+ assert.equal((await db.query('SELECT from_stage_id FROM crm_lead_stage_history WHERE lead_id=$1 ORDER BY moved_at DESC',[legacy])).rows[0].from_stage_id,first);
+ await db.exec(`INSERT INTO leads(id,user_id,stage_id,pipeline_id) VALUES('${manual}','${owner}','${first}','${pipeline}');`);
+ assert.ok((await db.query('SELECT received_at FROM leads WHERE id=$1',[manual])).rows[0].received_at);
+ await db.query('SELECT * FROM crm_move_lead($1,$2)',[manual,next]);
+ const history=(await db.query('SELECT * FROM crm_lead_stage_history WHERE lead_id=$1',[manual])).rows;
+ assert.equal(history.length,1);assert.equal(history[0].from_stage_id,first);assert.equal(history[0].stage_id,next);assert.ok(history[0].moved_at);
+ await assert.rejects(db.query('SELECT * FROM crm_move_lead($1,$2)',[manual,other]),/STAGE_NOT_FOUND/);
+ assert.equal((await db.query('SELECT stage_id FROM leads WHERE id=$1',[manual])).rows[0].stage_id,next);
+ console.log('OK: original Meta arrivals, unknown legacy hours, new arrival defaults, exact custom source/destination stages, tenant rejection and transactional movement.');
+} finally {await db.close();}

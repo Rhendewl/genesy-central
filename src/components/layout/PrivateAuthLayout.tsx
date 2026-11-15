@@ -72,12 +72,12 @@ export function PrivateAuthLayout({ children }: { children: React.ReactNode }) {
             inset:              0,
             zIndex:             -1,
             pointerEvents:      "none",
-            backgroundImage:    theme === "light" ? "url('/bg-premium-claro.jpg')" : "url('/bg-premium.jpg')",
+            backgroundImage:    theme === "light" ? "url('/bg-genesy-light.png')" : "url('/bg-genesy-dark.png')",
             backgroundSize:     "cover",
             backgroundPosition: "center",
             backgroundRepeat:   "no-repeat",
             backgroundAttachment: "fixed",
-            opacity:            theme === "light" ? 0.6 : 0.4,
+            opacity:            1,
           }}
         />
       )}

@@ -1,4 +1,6 @@
 "use client";
+
+import { DateInput } from "@/components/ui/DateInput";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
@@ -195,7 +197,7 @@ export function BscTaskModal({
                 />
                 <label className="block text-sm">
                   Prazo
-                  <input
+                  <DateInput
                     type="date"
                     className={field}
                     value={due}

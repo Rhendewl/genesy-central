@@ -1,0 +1,45 @@
+import { createRequire } from "node:module";
+import { readFileSync } from "node:fs";
+import assert from "node:assert/strict";
+const require = createRequire(import.meta.url);
+const { PGlite } = require("@electric-sql/pglite");
+const db = new PGlite();
+const id = n => `00000000-0000-4000-8000-${String(n).padStart(12,"0")}`;
+const [owner, foreign, ana, manual, inactive, external, pa, pb, sa, sb] = Array.from({length:10},(_,i)=>id(i+1));
+await db.exec(`
+CREATE SCHEMA auth; CREATE ROLE authenticated; CREATE TABLE auth.users(id uuid PRIMARY KEY);
+CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql AS $$SELECT NULL::uuid$$;
+CREATE FUNCTION effective_owner_id() RETURNS uuid LANGUAGE sql AS $$SELECT '${owner}'::uuid$$;
+CREATE FUNCTION can_access_crm_pipeline(uuid) RETURNS boolean LANGUAGE sql AS $$SELECT true$$;
+CREATE FUNCTION can_view_lead(uuid) RETURNS boolean LANGUAGE sql AS $$SELECT true$$;
+CREATE TABLE user_profiles(id uuid PRIMARY KEY,owner_id uuid,auth_user_id uuid,is_active boolean,crm_pipeline_id uuid,role text,job_title text,created_at timestamptz DEFAULT now());
+INSERT INTO user_profiles VALUES ('${ana}','${owner}','${id(50)}',true,'${pa}','comercial','SDR',now()),('${manual}','${owner}','${id(51)}',true,'${pb}','comercial','SDR',now()-interval '1 day'),('${inactive}','${owner}','${id(52)}',false,'${pa}','comercial','SDR',now()),('${external}','${foreign}','${id(53)}',true,'${pa}','comercial','SDR',now());
+CREATE TABLE crm_pipelines(id uuid PRIMARY KEY,user_id uuid);
+INSERT INTO crm_pipelines VALUES('${pa}','${owner}'),('${pb}','${owner}');
+CREATE TABLE crm_stages(id uuid PRIMARY KEY,user_id uuid,pipeline_id uuid,legacy_column text,require_note boolean,is_active boolean);
+INSERT INTO crm_stages VALUES('${sa}','${owner}','${pa}','novo_lead',false,true),('${sb}','${owner}','${pb}','novo_lead',false,true);
+CREATE TABLE leads(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),user_id uuid,pipeline_id uuid,stage_id uuid,assigned_to uuid,name text,contact text,email text,source text,page_id text,leadgen_id text,campaign_name text,ad_name text,form_id uuid,form_name text,is_duplicate boolean,kanban_column text,tags text[],notes text,integration_notes text,deal_value numeric,entered_at date,iq_score numeric,ie_score numeric,canonical_lead_id uuid,is_pipeline_copy boolean,copied_from_lead_id uuid);
+CREATE TABLE observed_notifications(lead_id uuid,assignee uuid);
+CREATE FUNCTION observe_notification() RETURNS trigger LANGUAGE plpgsql AS $$BEGIN INSERT INTO observed_notifications VALUES(NEW.id,NEW.assigned_to);RETURN NEW;END$$;
+CREATE TRIGGER notification_after_insert AFTER INSERT ON leads FOR EACH ROW EXECUTE FUNCTION observe_notification();
+CREATE TABLE crm_activity_log(source_record_id uuid,event_type text,metadata jsonb);
+CREATE TABLE crm_lead_stage_history(lead_id uuid,pipeline_id uuid,stage_id uuid,from_column text,to_column text,moved_by uuid,note text);
+INSERT INTO leads(id,user_id,pipeline_id,stage_id,canonical_lead_id,assigned_to) VALUES('${id(30)}','${owner}','${pa}','${sa}','${id(30)}',NULL);
+`);
+await db.exec(readFileSync("supabase/migrations/20261029200000_crm_pipeline_default_assignee.sql","utf8"));
+await db.exec(`UPDATE crm_pipelines SET default_assignee_id='${ana}' WHERE id='${pa}';`);
+for(const source of ["manual","meta_lead_ads","form","instagram"]){
+ const r=await db.query(`INSERT INTO leads(user_id,pipeline_id,stage_id,source) VALUES('${owner}','${pa}','${sa}',$1) RETURNING id,assigned_to`,[source]);
+ assert.equal(r.rows[0].assigned_to,ana);
+ assert.equal((await db.query("SELECT assignee FROM observed_notifications WHERE lead_id=$1",[r.rows[0].id])).rows[0].assignee,ana);
+}
+assert.equal((await db.query(`SELECT assigned_to FROM leads WHERE id='${id(30)}'`)).rows[0].assigned_to,null);
+assert.equal((await db.query(`INSERT INTO leads(user_id,pipeline_id,stage_id,assigned_to) VALUES('${owner}','${pa}','${sa}','${manual}') RETURNING assigned_to`)).rows[0].assigned_to,manual);
+assert.equal((await db.query(`INSERT INTO leads(user_id,stage_id) VALUES('${owner}','${sa}') RETURNING assigned_to`)).rows[0].assigned_to,ana);
+await assert.rejects(db.exec(`UPDATE crm_pipelines SET default_assignee_id='${external}' WHERE id='${pa}'`),/responsável ativo/);
+await assert.rejects(db.exec(`UPDATE crm_pipelines SET default_assignee_id='${inactive}' WHERE id='${pa}'`),/responsável ativo/);
+await db.exec(`UPDATE crm_pipelines SET default_assignee_id='${manual}' WHERE id='${pb}';`);
+const copy=await db.query(`SELECT * FROM crm_copy_lead_to_pipeline('${id(30)}','${sb}')`);
+assert.equal((await db.query("SELECT assigned_to FROM leads WHERE id=$1",[copy.rows[0].lead_id])).rows[0].assigned_to,manual);
+console.log("OK: assignment precedes AFTER notifications; manual choice, existing leads, stage fallback, tenant/active validation and pipeline copies.");
+await db.close();

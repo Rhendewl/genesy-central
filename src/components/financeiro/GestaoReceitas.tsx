@@ -1,19 +1,15 @@
 "use client";
 
+import { FinancialSectionHeader, FinancialMetric, FinancialFilters, FinancialAnalysis } from "./FinancialSection";
+import { FinancialActivityChart, FinancialBreakdown } from "./FinancialActivityChart";
+import { createPortal } from "react-dom";
+import { DateInput } from "@/components/ui/DateInput";
+
 import { useState, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid,
-  Tooltip as RechartsTooltip, ResponsiveContainer, Cell,
-} from "recharts";
 import { format, parseISO, endOfMonth, eachDayOfInterval } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import {
-  Plus, Search, X, Edit2, Trash2, Check,
-  CheckCircle2, Clock, AlertTriangle, XCircle,
-  TrendingUp, TrendingDown, DollarSign, RefreshCw,
-  Users, Repeat, Lightbulb, ArrowUpDown,
-} from "lucide-react";
+import { Search, X, Edit2, Trash2, Check, CheckCircle2, Clock, AlertTriangle, XCircle, Repeat } from "lucide-react";
 import { toast } from "sonner";
 import { useReceitas } from "@/hooks/useReceitas";
 import { useAgencyClients } from "@/hooks/useAgencyClients";
@@ -29,12 +25,6 @@ import { privateFinancialValue, useFinancialPrivacyStore } from "@/store/financi
 const fmt = (v: number) =>
   privateFinancialValue(new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v));
 
-const fmtK = (v: number) => {
-  if (Math.abs(v) >= 1000) return privateFinancialValue(`R$${(v / 1000).toFixed(1)}k`);
-  return privateFinancialValue(new Intl.NumberFormat("pt-BR", {
-    style: "currency", currency: "BRL", maximumFractionDigits: 0,
-  }).format(v));
-};
 
 // ── Config ────────────────────────────────────────────────────────────────────
 
@@ -106,10 +96,11 @@ function ReceitaModal({ revenue, onClose, onSave, clients }: ModalProps) {
 
   const field = "w-full rounded-xl bg-[var(--hover)] text-[var(--text-title)] text-sm px-3 py-2.5 outline-none";
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
+  return createPortal(
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" onClick={onClose}>
       <div className="lc-modal-backdrop absolute inset-0" />
       <motion.div
+        role="dialog" aria-modal="true" aria-label={revenue ? "Editar Receita" : "Nova Receita"}
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.95 }}
@@ -121,7 +112,7 @@ function ReceitaModal({ revenue, onClose, onSave, clients }: ModalProps) {
           <h2 className="text-lg font-bold text-[var(--text-title)]">
             {revenue ? "Editar Receita" : "Nova Receita"}
           </h2>
-          <button onClick={onClose} className="text-[var(--silver)] hover:text-[var(--text-title)] transition-colors">
+          <button aria-label="Fechar receita" onClick={onClose} className="text-[var(--silver)] hover:text-[var(--text-title)] transition-colors">
             <X size={20} />
           </button>
         </div>
@@ -162,12 +153,12 @@ function ReceitaModal({ revenue, onClose, onSave, clients }: ModalProps) {
           </div>
           <div>
             <label className="block text-xs text-[var(--silver)] mb-1.5 font-medium">Data *</label>
-            <input type="date" value={form.date ?? ""} onChange={e => set("date", e.target.value)}
+            <DateInput type="date" value={form.date ?? ""} onChange={e => set("date", e.target.value)}
               className={field} style={{ border: "none" }} />
           </div>
           <div>
             <label className="block text-xs text-[var(--silver)] mb-1.5 font-medium">Vencimento</label>
-            <input type="date" value={form.due_date ?? ""} onChange={e => set("due_date", e.target.value || null)}
+            <DateInput type="date" value={form.due_date ?? ""} onChange={e => set("due_date", e.target.value || null)}
               className={field} style={{ border: "none" }} />
           </div>
           <div>
@@ -219,78 +210,13 @@ function ReceitaModal({ revenue, onClose, onSave, clients }: ModalProps) {
           </PrimaryButton>
         </div>
       </motion.div>
-    </div>
+    </div>, document.body
   );
 }
-
-// ── KPI Card ──────────────────────────────────────────────────────────────────
-
-function KpiCard({
-  label, value, sub, icon, accent, trend, delay = 0,
-}: {
-  label: string;
-  value: string;
-  sub?: string;
-  icon: React.ReactNode;
-  accent: string;
-  trend?: { pct: number; positive?: boolean } | null;
-  delay?: number;
-}) {
-  const trendUp = trend ? (trend.positive !== false ? trend.pct >= 0 : trend.pct < 0) : false;
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay }}
-      className="lc-card p-5 flex flex-col gap-3"
-    >
-      <div className="flex items-center justify-between">
-        <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
-          style={{ background: `${accent}1a`, color: accent }}>
-          {icon}
-        </div>
-        {trend != null && (
-          <span className={cn(
-            "flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full",
-            trendUp ? "text-emerald-400 bg-emerald-400/10" : "text-red-400 bg-red-400/10"
-          )}>
-            {trendUp ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
-            {privateFinancialValue(`${Math.abs(trend.pct).toFixed(1)}%`)}
-          </span>
-        )}
-      </div>
-      <div>
-        <p className="text-2xl font-bold text-[var(--text-title)] leading-none mb-1">{value}</p>
-        <p className="text-xs text-[var(--silver)]">{label}</p>
-        {sub && <p className="text-[10px] text-[var(--text-muted)] mt-0.5">{sub}</p>}
-      </div>
-    </motion.div>
-  );
-}
-
-// ── Chart Tooltip ─────────────────────────────────────────────────────────────
-
-function ChartTooltip({ active, payload, label }: {
-  active?: boolean; payload?: Array<{ value: number }>; label?: string;
-}) {
-  if (!active || !payload?.length) return null;
-  return (
-    <div className="rounded-xl px-3 py-2 text-xs shadow-xl"
-      style={{ background: "var(--chart-tooltip-bg)", border: "1px solid var(--chart-tooltip-border)" }}>
-      <p className="mb-1" style={{ color: "var(--chart-tooltip-label)" }}>{label}</p>
-      <p className="font-semibold" style={{ color: "var(--chart-tooltip-text)" }}>{fmt(payload[0].value)}</p>
-    </div>
-  );
-}
-
-// ── Main ──────────────────────────────────────────────────────────────────────
-
-interface Props { year: number; month: number; }
 
 type SortKey = "date_desc" | "date_asc" | "amount_desc" | "amount_asc";
-type ChartView = "day" | "type";
 
-export function GestaoReceitas({ year, month }: Props) {
+export function GestaoReceitas({ year, month }: { year: number; month: number }) {
   const valuesHidden = useFinancialPrivacyStore(state => state.valuesHidden);
   const monthStart = `${year}-${String(month).padStart(2, "0")}-01`;
   const monthEnd   = format(endOfMonth(new Date(year, month - 1)), "yyyy-MM-dd");
@@ -310,7 +236,6 @@ export function GestaoReceitas({ year, month }: Props) {
   const [filterStatus,setFilterStatus]= useState<RevenueStatus | "todos">("todos");
   const [filterPay,   setFilterPay]   = useState<PaymentMethod | "todos">("todos");
   const [sort,        setSort]        = useState<SortKey>("date_desc");
-  const [chartView,   setChartView]   = useState<ChartView>("day");
   const [modal,       setModal]       = useState<{ open: boolean; revenue?: Revenue }>({ open: false });
   const [deleting,    setDeleting]    = useState<string | null>(null);
 
@@ -381,14 +306,9 @@ export function GestaoReceitas({ year, month }: Props) {
         const dayStr   = format(day, "yyyy-MM-dd");
         const dayTotal = active.filter(r => r.date === dayStr).reduce((s, r) => s + r.amount, 0);
         return { date: format(day, "dd"), total: dayTotal };
-      })
-      .filter(d => d.total > 0);
+      });
   }, [active, year, month, monthEnd]);
 
-  const typeChartData = useMemo(() =>
-    byType.map(t => ({ name: t.label, total: t.total, hex: t.hex })),
-    [byType]
-  );
 
   // ── Insights ───────────────────────────────────────────────────────────────
 
@@ -489,281 +409,33 @@ export function GestaoReceitas({ year, month }: Props) {
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
-    <div className="space-y-5">
-
-      {/* ── 1. KPI Row (8 cards, 2×4) ── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <KpiCard
-          label="Receita Total"
-          value={fmt(total)}
-          sub={`${active.length} lançamentos`}
-          icon={<DollarSign size={16} />}
-          accent="#22c55e"
-          trend={variation !== null ? { pct: variation, positive: true } : null}
-          delay={0}
-        />
-        <KpiCard
-          label="Recebido"
-          value={fmt(totalPago)}
-          sub={`${revenues.filter(r => r.status === "pago").length} pagamentos`}
-          icon={<CheckCircle2 size={16} />}
-          accent="#10b981"
-          delay={0.04}
-        />
-        <KpiCard
-          label="A Receber"
-          value={fmt(totalPendente)}
-          sub={`${revenues.filter(r => r.status === "pendente").length} pendentes`}
-          icon={<Clock size={16} />}
-          accent="#fbbf24"
-          delay={0.08}
-        />
-        <KpiCard
-          label="Inadimplência"
-          value={fmt(totalAtrasado)}
-          sub={`${revenues.filter(r => r.status === "atrasado").length} em atraso`}
-          icon={<AlertTriangle size={16} />}
-          accent={totalAtrasado > 0 ? "#f87171" : "var(--silver)"}
-          delay={0.12}
-        />
-        <KpiCard
-          label="MRR"
-          value={fmt(mrr)}
-          sub={`${revenues.filter(r => r.is_recurring).length} recorrentes`}
-          icon={<Repeat size={16} />}
-          accent="#60a5fa"
-          delay={0.16}
-        />
-        <KpiCard
-          label="Ticket Médio / Cliente"
-          value={fmt(ticketMedio)}
-          sub={`${uniqueClients} cliente${uniqueClients !== 1 ? "s" : ""} pagantes`}
-          icon={<Users size={16} />}
-          accent="#a78bfa"
-          delay={0.20}
-        />
-        <KpiCard
-          label="Crescimento"
-          value={variation !== null ? privateFinancialValue(`${variation >= 0 ? "+" : ""}${variation.toFixed(1)}%`) : "—"}
-          sub={prevTotal > 0 ? `Anterior: ${fmt(prevTotal)}` : "Sem dados anteriores"}
-          icon={variation !== null && variation >= 0 ? <TrendingUp size={16} /> : <TrendingDown size={16} />}
-          accent={variation !== null && variation >= 0 ? "#22c55e" : "#ef4444"}
-          delay={0.24}
-        />
-        <KpiCard
-          label="Taxa de Recebimento"
-          value={privateFinancialValue(`${taxaRecebimento.toFixed(1)}%`)}
-          sub={total > 0 ? `${fmt(totalPago)} de ${fmt(total)}` : "Sem receitas"}
-          icon={<RefreshCw size={16} />}
-          accent={taxaRecebimento >= 80 ? "#22c55e" : taxaRecebimento >= 50 ? "#fbbf24" : "#ef4444"}
-          delay={0.28}
-        />
+    <div className="fin-workspace">
+      <FinancialSectionHeader title="Receitas" description="O que entrou, o que falta receber e de onde vem sua receita." createLabel="Nova Receita" onCreate={() => setModal({ open: true })} />
+      <div className="fin-overview" aria-label="Resumo das receitas do mês">
+        <FinancialMetric label="Total do mês" value={fmt(total)} detail={`${active.length} lançamentos · sem cancelados`} tone="blue" onClick={() => setFilterStatus("todos")} selected={filterStatus === "todos"} />
+        <FinancialMetric label="Recebido" value={fmt(totalPago)} detail="Pagamentos confirmados" tone="green" onClick={() => setFilterStatus(filterStatus === "pago" ? "todos" : "pago")} selected={filterStatus === "pago"} />
+        <FinancialMetric label="A receber" value={fmt(totalPendente)} detail="Receitas pendentes" tone="amber" onClick={() => setFilterStatus(filterStatus === "pendente" ? "todos" : "pendente")} selected={filterStatus === "pendente"} />
+        <FinancialMetric label="Em atraso" value={fmt(totalAtrasado)} detail="Toque para consultar os atrasos" tone="red" onClick={() => setFilterStatus(filterStatus === "atrasado" ? "todos" : "atrasado")} selected={filterStatus === "atrasado"} />
       </div>
-
-      {/* ── 2. Analytics Row ── */}
-      {(byType.length > 0 || topClients.length > 0) && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-
-          {/* By type + chart stacked */}
-          <div className="flex flex-col gap-5">
-            {byType.length > 0 && (
-              <motion.div
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.3 }}
-                className="lc-card p-5"
-              >
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <h3 className="text-sm font-semibold text-[var(--text-title)]">Origem da Receita</h3>
-                    <p className="text-xs text-[var(--silver)] mt-0.5">Clique para filtrar a tabela</p>
-                  </div>
-                  {filterType !== "todos" && (
-                    <button onClick={() => setFilterType("todos")}
-                      className="flex items-center gap-1 text-xs text-[#4a8fd4] hover:underline">
-                      <X size={10} /> Limpar
-                    </button>
-                  )}
-                </div>
-                <div className="space-y-3">
-                  {byType.map(t => {
-                    const pct      = total > 0 ? (t.total / total) * 100 : 0;
-                    const isActive = filterType === t.type;
-                    return (
-                      <button key={t.type} onClick={() => setFilterType(isActive ? "todos" : t.type)}
-                        className="w-full text-left group">
-                        <div className="flex items-center justify-between mb-1.5">
-                          <div className="flex items-center gap-2">
-                            <span className="w-2 h-2 rounded-full shrink-0" style={{ background: t.hex }} />
-                            <span className={cn("text-xs font-medium transition-colors",
-                              isActive ? t.color : "text-[var(--silver)] group-hover:text-[var(--text-title)]")}>
-                              {t.label}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-3">
-                            <span className="text-[10px] text-[var(--text-muted)]">{privateFinancialValue(`${pct.toFixed(1)}%`)}</span>
-                            <span className={cn("text-xs font-semibold tabular-nums transition-colors",
-                              isActive ? "text-[var(--text-title)]" : "text-[var(--silver)] group-hover:text-[var(--text-title)]")}>
-                              {fmt(t.total)}
-                            </span>
-                          </div>
-                        </div>
-                        <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "var(--border)" }}>
-                          <motion.div
-                            initial={{ width: 0 }}
-                            animate={{ width: `${pct}%` }}
-                            transition={{ duration: 0.6, ease: "easeOut", delay: 0.35 }}
-                            className="h-full rounded-full"
-                            style={{ background: t.hex, opacity: isActive ? 1 : 0.55 }}
-                          />
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </motion.div>
-            )}
-
-            {/* Chart */}
-            <motion.div
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.35 }}
-              className="lc-card p-5"
-            >
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h3 className="text-sm font-semibold text-[var(--text-title)]">Evolução</h3>
-                  <p className="text-xs text-[var(--silver)] mt-0.5">Receitas no período</p>
-                </div>
-                <div className="flex gap-0.5 p-0.5 rounded-lg"
-                  style={{ background: "var(--glass-bg-soft)", border: "1px solid var(--glass-border)" }}>
-                  {(["day", "type"] as ChartView[]).map(v => (
-                    <button key={v} onClick={() => setChartView(v)}
-                      className={cn("px-2.5 py-1 text-[10px] font-medium rounded-md transition-all",
-                        chartView === v ? "text-[var(--text-title)]" : "text-[var(--silver)] hover:text-[var(--text-title)]")}
-                      style={chartView === v ? { background: "rgba(255,255,255,0.14)" } : {}}>
-                      {v === "day" ? "Por Dia" : "Por Tipo"}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              {(chartView === "day" ? dailyChartData : typeChartData).length === 0 ? (
-                <div className="h-[160px] flex items-center justify-center text-[var(--text-muted)] text-xs">
-                  Sem dados suficientes
-                </div>
-              ) : (
-                <ResponsiveContainer width="100%" height={160}>
-                  <BarChart
-                    data={(chartView === "day" ? dailyChartData : typeChartData) as Record<string, unknown>[]}
-                    margin={{ top: 4, right: 4, left: -20, bottom: 0 }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" vertical={false} />
-                    <XAxis dataKey={chartView === "day" ? "date" : "name"}
-                      tick={{ fill: "var(--icon)", fontSize: 10 }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fill: "var(--icon)", fontSize: 10 }} axisLine={false} tickLine={false}
-                      tickFormatter={fmtK} />
-                    <RechartsTooltip cursor={{ fill: "var(--hover)" }} content={<ChartTooltip />} />
-                    {chartView === "day" ? (
-                      <Bar dataKey="total" fill="#22c55e" fillOpacity={0.75} radius={[4, 4, 0, 0]} maxBarSize={32} />
-                    ) : (
-                      <Bar dataKey="total" radius={[4, 4, 0, 0]} maxBarSize={40}>
-                        {typeChartData.map((entry, i) => (
-                          <Cell key={i} fill={entry.hex} fillOpacity={0.8} />
-                        ))}
-                      </Bar>
-                    )}
-                  </BarChart>
-                </ResponsiveContainer>
-              )}
-            </motion.div>
-          </div>
-
-          {/* Top clients */}
-          {topClients.length > 0 && (
-            <motion.div
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.32 }}
-              className="lc-card p-5"
-            >
-              <div className="mb-4">
-                <h3 className="text-sm font-semibold text-[var(--text-title)]">Top Clientes</h3>
-                <p className="text-xs text-[var(--silver)] mt-0.5">Por receita no período</p>
-              </div>
-              <div className="space-y-4">
-                {topClients.map((c, i) => {
-                  const pct = total > 0 ? (c.total / total) * 100 : 0;
-                  const colors = ["#22c55e", "#60a5fa", "#a78bfa", "#f472b6", "#fbbf24"];
-                  const hex = colors[i % colors.length];
-                  return (
-                    <div key={i}>
-                      <div className="flex items-center justify-between mb-1.5">
-                        <div className="flex items-center gap-2.5">
-                          <div className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
-                            style={{ background: `${hex}22`, color: hex }}>
-                            {i + 1}
-                          </div>
-                          <span className="text-xs font-medium text-[var(--text-title)] truncate max-w-[140px]">{c.name}</span>
-                        </div>
-                        <div className="flex items-center gap-3 shrink-0">
-                          <span className="text-[10px] text-[var(--text-muted)]">{privateFinancialValue(`${pct.toFixed(1)}%`)}</span>
-                          <span className="text-xs font-semibold tabular-nums text-[var(--text-title)]">{fmt(c.total)}</span>
-                        </div>
-                      </div>
-                      <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "var(--border)" }}>
-                        <motion.div
-                          initial={{ width: 0 }}
-                          animate={{ width: `${pct}%` }}
-                          transition={{ duration: 0.6, ease: "easeOut", delay: 0.4 + i * 0.06 }}
-                          className="h-full rounded-full"
-                          style={{ background: hex, opacity: 0.7 }}
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Concentration warning */}
-              {topClients[0] && total > 0 && (topClients[0].total / total) > 0.5 && (
-                <div className="mt-4 px-3 py-2 rounded-xl text-xs"
-                  style={{ background: "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.18)" }}>
-                  <span className="text-amber-400 font-medium">Atenção: </span>
-                  <span className="text-[var(--silver)]">
-                    {privateFinancialValue(`${((topClients[0].total / total) * 100).toFixed(0)}%`)} da receita concentrada em 1 cliente
-                  </span>
-                </div>
-              )}
-            </motion.div>
-          )}
+      <FinancialAnalysis>
+        <div className="fin-chart-grid">
+          <FinancialActivityChart title="Evolução das receitas" description="Lançamentos do mês, incluindo valores ainda não recebidos. Cancelados excluídos." data={dailyChartData} />
+          <FinancialBreakdown title="Receitas por tipo" description="Selecione um tipo para filtrar os lançamentos." rows={byType.map(t => ({ id: t.type, label: t.label, total: t.total }))} selected={filterType} onSelect={id => setFilterType(filterType === id ? "todos" : id as RevenueType)} />
         </div>
-      )}
-
-      {/* ── 3. Insights ── */}
-      {insights.length > 0 && (
-        <motion.div
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.38 }}
-          className="lc-card p-4 flex items-start gap-3"
-          style={{ borderColor: "rgba(34,197,94,0.18)" }}
-        >
-          <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 mt-0.5"
-            style={{ background: "rgba(34,197,94,0.12)", color: "#22c55e" }}>
-            <Lightbulb size={14} />
-          </div>
-          <div className="flex flex-col gap-1">
-            {insights.map((ins, i) => (
-              <p key={i} className="text-xs text-[var(--silver)]">
-                <span className="text-emerald-400 font-medium">Insight · </span>{ins}
-              </p>
-            ))}
-          </div>
-        </motion.div>
-      )}
+      </FinancialAnalysis>
+      <details className="fin-details"><summary>Recorrência, ticket e concentração de clientes</summary>
+        <div className="fin-secondary-metrics">
+          <FinancialMetric label="MRR" value={fmt(mrr)} detail="Receita recorrente lançada no mês" tone="blue" />
+          <FinancialMetric label="Ticket por cliente" value={fmt(ticketMedio)} detail={`${uniqueClients} clientes pagantes`} />
+          <FinancialMetric label="Variação mensal" value={variation === null ? "—" : privateFinancialValue(`${variation >= 0 ? "+" : ""}${variation.toFixed(1)}%`)} detail={prevTotal > 0 ? `Mês anterior: ${fmt(prevTotal)}` : "Sem base no mês anterior"} />
+          <FinancialMetric label="Recebimento" value={privateFinancialValue(`${taxaRecebimento.toFixed(1)}%`)} detail="Recebido sobre o total lançado" tone="green" />
+        </div>
+        <FinancialBreakdown title="Principais clientes" description="Participação entre os cinco clientes com maior receita lançada." rows={topClients.map((c, index) => ({ id: String(index), label: c.name, total: c.total }))} />
+      </details>
+      {insights.length > 0 && <aside className="fin-panel fin-insights"><h3>Leitura do mês</h3>{insights.map(insight => <p key={insight} className="mt-2 text-xs text-[var(--muted-foreground)]">{insight}</p>)}</aside>}
 
       {/* ── 4. Filter bar ── */}
+      <FinancialFilters active={hasFilters}>
       <motion.div
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
@@ -773,12 +445,12 @@ export function GestaoReceitas({ year, month }: Props) {
         <div className="flex items-center gap-2 flex-wrap">
           <div className="relative">
             <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--silver)]" />
-            <input value={search} onChange={e => setSearch(e.target.value)}
+            <input aria-label="Buscar receitas" value={search} onChange={e => setSearch(e.target.value)}
               placeholder="Buscar receita ou cliente..."
               className="lc-filter-control rounded-xl pl-8 pr-3 py-2 text-sm outline-none w-48" />
           </div>
 
-          <select value={filterType} onChange={e => setFilterType(e.target.value as RevenueType | "todos")}
+          <select aria-label="Filtrar tipo de receitas" value={filterType} onChange={e => setFilterType(e.target.value as RevenueType | "todos")}
             className="lc-filter-control rounded-xl px-3 py-2 text-sm outline-none appearance-none">
             <option value="todos">Todos os tipos</option>
             {Object.entries(TYPE_CONFIG).map(([k, v]) => (
@@ -786,7 +458,7 @@ export function GestaoReceitas({ year, month }: Props) {
             ))}
           </select>
 
-          <select value={filterStatus} onChange={e => setFilterStatus(e.target.value as RevenueStatus | "todos")}
+          <select aria-label="Filtrar status da receita" value={filterStatus} onChange={e => setFilterStatus(e.target.value as RevenueStatus | "todos")}
             className="lc-filter-control rounded-xl px-3 py-2 text-sm outline-none appearance-none">
             <option value="todos">Todos os status</option>
             {Object.entries(STATUS_CONFIG).map(([k, v]) => (
@@ -794,7 +466,7 @@ export function GestaoReceitas({ year, month }: Props) {
             ))}
           </select>
 
-          <select value={filterPay} onChange={e => setFilterPay(e.target.value as PaymentMethod | "todos")}
+          <select aria-label="Filtrar pagamento" value={filterPay} onChange={e => setFilterPay(e.target.value as PaymentMethod | "todos")}
             className="lc-filter-control rounded-xl px-3 py-2 text-sm outline-none appearance-none">
             <option value="todos">Forma de pagamento</option>
             {Object.entries(PAYMENT_LABELS).map(([k, v]) => (
@@ -802,7 +474,7 @@ export function GestaoReceitas({ year, month }: Props) {
             ))}
           </select>
 
-          <select value={sort} onChange={e => setSort(e.target.value as SortKey)}
+          <select aria-label="Ordenar receitas" value={sort} onChange={e => setSort(e.target.value as SortKey)}
             className="lc-filter-control rounded-xl px-3 py-2 text-sm outline-none appearance-none">
             <option value="date_desc">Mais recentes</option>
             <option value="date_asc">Mais antigas</option>
@@ -819,18 +491,16 @@ export function GestaoReceitas({ year, month }: Props) {
           )}
         </div>
 
-        <PrimaryButton onClick={() => setModal({ open: true })} signature size="medium">
-          <TrendingUp size={15} />
-          Nova Receita
-        </PrimaryButton>
+
       </motion.div>
+      </FinancialFilters>
 
       {/* ── 5. Table ── */}
       <motion.div
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.44 }}
-        className="lc-card overflow-hidden"
+        className="fin-ledger lc-card overflow-hidden"
       >
         <div className="px-5 py-3.5 flex items-center justify-between"
           style={{ borderBottom: "1px solid var(--border)" }}>
@@ -845,6 +515,11 @@ export function GestaoReceitas({ year, month }: Props) {
           <p className="text-sm font-bold text-emerald-400 tabular-nums">{fmt(filteredTotal)}</p>
         </div>
 
+        {filtered.length > 0 && <div className="fin-mobile-ledger">{filtered.map(r => <article key={r.id}>
+          <header><div><h3>{r.description}</h3><p>{(r.client as { name?: string } | undefined)?.name ?? "Sem cliente"} · {TYPE_CONFIG[r.type].label} · {PAYMENT_LABELS[r.payment_method]}</p></div><strong>{fmt(r.amount)}</strong></header>
+          <div className="fin-entry-meta"><span className={STATUS_CONFIG[r.status].color}>{STATUS_CONFIG[r.status].label}</span><span>Lançado {format(parseISO(r.date), "dd/MM")}{r.paid_date ? ` · Recebido ${format(parseISO(r.paid_date), "dd/MM")}` : r.due_date ? ` · Vence ${format(parseISO(r.due_date), "dd/MM")}` : ""}</span></div>
+          <footer>{r.status !== "pago" && r.status !== "cancelado" && <button type="button" onClick={() => void handleMarkPaid(r.id)} aria-label={`Marcar ${r.description} como pago`}><Check size={15} />Receber</button>}<button type="button" onClick={() => setModal({ open: true, revenue: r })} aria-label={`Editar receita ${r.description}`}><Edit2 size={14} />Editar</button><button type="button" className="fin-entry-delete" onClick={() => void handleDelete(r.id)} aria-label={`Excluir receita ${r.description}`}><Trash2 size={14} />{deleting === r.id ? "Confirmar?" : "Excluir"}</button></footer>
+        </article>)}</div>}
         {filtered.length === 0 ? (
           <div className="p-12 text-center">
             {hasFilters ? (
@@ -865,7 +540,7 @@ export function GestaoReceitas({ year, month }: Props) {
             )}
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="hidden overflow-x-auto md:block">
             <table className="w-full text-sm">
               <thead>
                 <tr style={{ borderBottom: "1px solid var(--border)" }}>

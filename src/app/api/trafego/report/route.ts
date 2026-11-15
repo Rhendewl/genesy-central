@@ -40,20 +40,32 @@ export async function GET(request: NextRequest) {
   const selectedAccounts = accounts ?? [];
   if (!selectedAccounts.length) return NextResponse.json({ error: "Nenhuma conta Meta conectada disponível para esta seleção" }, { status: 400 });
 
-  const { data: campaigns, error: campaignsError } = await supabase
-    .from("campaigns")
-    .select("id,name,status")
-    .in("platform_account_id", selectedAccounts.map((account) => account.id));
-  if (campaignsError) return NextResponse.json({ error: campaignsError.message }, { status: 400 });
-  const campaignIds = (campaigns ?? []).map((campaign) => campaign.id);
-  const { data: metrics, error: metricsError } = campaignIds.length
-    ? await supabase.from("campaign_metrics").select("campaign_id,spend,leads,impressions,reach,clicks,link_clicks,conversions,unique_ctr").in("campaign_id", campaignIds).gte("date", since).lte("date", until)
-    : { data: [], error: null };
-  if (metricsError) return NextResponse.json({ error: metricsError.message }, { status: 400 });
-  if (!(metrics ?? []).length) return NextResponse.json({ error: "Não encontramos métricas para esta conta no período selecionado. Confirme se houve veiculação na Meta e tente sincronizar novamente." }, { status: 422 });
-
-  const campaignRows = (campaigns ?? []) as TrafficReportCampaignRow[];
-  const metricRows = (metrics ?? []) as TrafficReportMetricRow[];
+  // Page both datasets: PostgREST otherwise silently truncates large accounts.
+  const pageSize = 500;
+  const campaignRows: TrafficReportCampaignRow[] = [];
+  for (let offset = 0; ; offset += pageSize) {
+    const { data, error } = await supabase.from("campaigns")
+      .select("id,name,status")
+      .in("platform_account_id", selectedAccounts.map((account) => account.id))
+      .order("id").range(offset, offset + pageSize - 1);
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+    campaignRows.push(...(data ?? []));
+    if (!data || data.length < pageSize) break;
+  }
+  const metricRows: TrafficReportMetricRow[] = [];
+  // Bound the IN filter as well as the result page for accounts with many campaigns.
+  for (let batch = 0; batch < campaignRows.length; batch += 100) {
+    const ids = campaignRows.slice(batch, batch + 100).map((campaign) => campaign.id);
+    for (let offset = 0; ; offset += pageSize) {
+      const { data, error } = await supabase.from("campaign_metrics")
+        .select("campaign_id,spend,leads,messaging_results,impressions,reach,clicks,link_clicks,conversions,unique_ctr")
+        .in("campaign_id", ids).gte("date", since).lte("date", until)
+        .order("campaign_id").order("date").range(offset, offset + pageSize - 1);
+      if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+      metricRows.push(...(data ?? []));
+      if (!data || data.length < pageSize) break;
+    }
+  }
   if (campaignOptionsOnly) {
     return NextResponse.json({ campaigns: buildTrafficReportCampaignOptions(campaignRows, metricRows) }, { headers: { "Cache-Control": "private, no-store" } });
   }

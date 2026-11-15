@@ -1,3 +1,4 @@
+import { isInstagramEditorial } from "@/lib/marketing/editorial-instagram";
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { apiError, assertWorkspaceTaskVisible, createWorkspaceTaskForMarketing, getMarketingServerContext, syncMarketingTags } from "@/lib/marketing/server";
@@ -11,8 +12,9 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     if (resource === "contents") {
       const input = parseMarketingContentInput(body);
       const { assignee_ids = [], asset_ids = [], tag_names = [], create_workspace_task = false, ...record } = input;
-      const { data: currentContent, error: currentContentError } = await supabase.from("marketing_contents").select("workspace_task_id").eq("id", id).single();
+      const { data: currentContent, error: currentContentError } = await supabase.from("marketing_contents").select("workspace_task_id,notes").eq("id", id).single();
       if (currentContentError) throw new Error(currentContentError.message);
+      if (isInstagramEditorial(currentContent.notes)) throw Object.assign(new Error("Gerencie este envio nas publicações do Instagram no gerador de posts."), { status: 409 });
       const finalAssignees = Array.from(new Set([...(assignee_ids ?? []), ...(record.primary_assignee_id ? [record.primary_assignee_id] : [])]));
       let automaticTaskId: string | null = null;
       if (create_workspace_task) {
@@ -50,6 +52,6 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 
 export async function DELETE(_req: NextRequest, { params }: Params) {
   const { resource, id } = await params; const supabase = await createServerSupabaseClient();
-  try { const context = await getMarketingServerContext(supabase); if (resource === "checklist") { const { error } = await supabase.from("marketing_content_checklist_items").delete().eq("id", id); if (error) throw new Error(error.message); return NextResponse.json({ ok: true }); } if (!context.isAdmin) throw Object.assign(new Error("Somente administradores podem arquivar registros"), { status: 403 }); const table = resource === "contents" ? "marketing_contents" : resource === "ideas" ? "marketing_ideas" : resource === "assets" ? "marketing_assets" : null; if (!table) throw Object.assign(new Error("Recurso inválido"), { status: 400 }); const { error } = await supabase.from(table).update({ archived_at: new Date().toISOString(), updated_by: context.user.id }).eq("id", id); if (error) throw new Error(error.message); return NextResponse.json({ ok: true }); }
+  try { const context = await getMarketingServerContext(supabase); if (resource === "checklist") { const { error } = await supabase.from("marketing_content_checklist_items").delete().eq("id", id); if (error) throw new Error(error.message); return NextResponse.json({ ok: true }); } if (!context.isAdmin) throw Object.assign(new Error("Somente administradores podem arquivar registros"), { status: 403 }); const table = resource === "contents" ? "marketing_contents" : resource === "ideas" ? "marketing_ideas" : resource === "assets" ? "marketing_assets" : null; if (!table) throw Object.assign(new Error("Recurso inválido"), { status: 400 }); if (resource === "contents") { const current = await supabase.from(table).select("notes").eq("id", id).single(); if (current.error) throw current.error; if (isInstagramEditorial(current.data.notes)) throw Object.assign(new Error("Cancele este agendamento no gerador de posts."), { status: 409 }); } const { error } = await supabase.from(table).update({ archived_at: new Date().toISOString(), updated_by: context.user.id }).eq("id", id); if (error) throw new Error(error.message); return NextResponse.json({ ok: true }); }
   catch (error) { const parsed = apiError(error); return NextResponse.json({ error: parsed.message }, { status: parsed.status }); }
 }

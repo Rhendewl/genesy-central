@@ -8,6 +8,8 @@ vi.mock("@/lib/supabase-admin", () => ({ createAdminSupabaseClient: () => ({ sto
 vi.mock("@/lib/marketing/server", async (original) => ({ ...await original<object>(), getMarketingServerContext: mocks.context }));
 vi.mock("@/lib/crypto", () => ({ decryptToken: () => "secret", signState: () => "signed-ticket", verifyState: mocks.verify }));
 vi.mock("@/lib/instagram-api", () => ({ createInstagramStory: mocks.create, getInstagramContainerStatus: mocks.status, publishInstagramStory: mocks.publish }));
+vi.mock("@/lib/marketing/editorial-instagram", () => ({ recordInstagramPublication: vi.fn(async () => {}), syncInstagramEditorial: vi.fn(async () => 0) }));
+import { recordInstagramPublication } from "@/lib/marketing/editorial-instagram";
 import { POST } from "../route";
 const request = () => new NextRequest("https://test.local", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ticket: "signed" }) });
 let chain: { select: ReturnType<typeof vi.fn>; eq: ReturnType<typeof vi.fn>; single: ReturnType<typeof vi.fn> };
@@ -41,6 +43,7 @@ describe("Instagram story publishing boundaries", () => {
   it("publishes the same signed container when ready", async () => {
     mocks.status.mockResolvedValue({ status_code: "FINISHED" });
     expect(await (await POST(request())).json()).toEqual({ published: true, mediaId: "media" });
+    expect(recordInstagramPublication).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ organizationId: "org", containerId: "container", mediaId: "media" }));
     expect(mocks.publish).toHaveBeenCalledWith("ig", "secret", "container"); expect(mocks.create).not.toHaveBeenCalled(); expect(mocks.remove).toHaveBeenCalledWith(["asset.jpg"]);
   });
   it("confirms a previously published container without publishing twice", async () => {

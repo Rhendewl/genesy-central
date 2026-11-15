@@ -1,13 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import {createPortal} from "react-dom";
+import {useModalOpen} from "@/hooks/useModalOpen";
 import { X, Loader2 } from "lucide-react";
 import type { CrmStage, CrmStageMetricType, UpdateCrmStage } from "@/types/crm";
 
 // ── Color palette ──────────────────────────────────────────────────────────────
 
 const COLORS = [
-  "#6366f1", "#4a8fd4", "#22c55e", "#10b981",
+  "#4a8fd4", "#6366f1", "#22c55e", "#10b981",
   "#f59e0b", "#ef4444", "#ec4899", "#8b5cf6",
   "#06b6d4", "#f97316", "#7d99ad", "#a855f7",
 ];
@@ -85,7 +87,9 @@ export function StageFormModal({ open, stage, onClose, onSave }: Props) {
     setMetricType(stage?.metric_type ?? "");
   }, [open, stage]);
 
-  if (!open) return null;
+  useModalOpen(open);
+  useEffect(()=>{if(!open)return;const previous=document.body.style.overflow;document.body.style.overflow="hidden";const escape=(e:KeyboardEvent)=>{if(e.key==="Escape"&&!saving)onClose();};document.addEventListener("keydown",escape);return()=>{document.body.style.overflow=previous;document.removeEventListener("keydown",escape);};},[open,saving,onClose]);
+  if (!open || typeof document === "undefined") return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -111,14 +115,15 @@ export function StageFormModal({ open, stage, onClose, onSave }: Props) {
     }
   };
 
-  return (
+  return createPortal(
     <div
       className="lc-modal-backdrop fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ background: "rgba(0,0,0,0.60)" }}
-      onClick={e => { if (e.target === e.currentTarget) onClose(); }}
+      onClick={e => { if (e.target === e.currentTarget && !saving) onClose(); }}
     >
       <div
-        className="flex max-h-[calc(100dvh-2rem)] w-full max-w-md flex-col overflow-hidden rounded-2xl"
+        role="dialog" aria-modal="true" aria-labelledby="stage-form-title"
+        className="flex h-[650px] max-h-[90dvh] w-full max-w-lg flex-col overflow-hidden rounded-2xl"
         style={{ background: "var(--card)", border: "1px solid var(--border)" }}
       >
         {/* Header */}
@@ -126,12 +131,14 @@ export function StageFormModal({ open, stage, onClose, onSave }: Props) {
           className="flex items-center justify-between px-5 py-4 flex-shrink-0"
           style={{ borderBottom: "1px solid var(--border)" }}
         >
-          <p className="text-sm font-semibold" style={{ color: "var(--text-title)" }}>
+          <p id="stage-form-title" className="text-base font-semibold" style={{ color: "var(--text-title)" }}>
             {stage ? "Editar Etapa" : "Nova Etapa"}
           </p>
           <button
             type="button"
             onClick={onClose}
+            disabled={saving}
+            aria-label="Fechar etapa"
             className="p-1 rounded-lg hover:bg-[var(--hover)] transition-colors"
             style={{ color: "var(--muted-foreground)" }}
           >
@@ -140,8 +147,8 @@ export function StageFormModal({ open, stage, onClose, onSave }: Props) {
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="flex flex-col overflow-y-auto">
-          <div className="flex flex-col gap-4 px-5 py-5">
+        <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+          <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain px-5 py-5">
             {/* Name */}
             <div>
               <label className="block text-xs font-medium mb-1.5" style={{ color: "var(--text-title)" }}>
@@ -330,6 +337,6 @@ export function StageFormModal({ open, stage, onClose, onSave }: Props) {
           </div>
         </form>
       </div>
-    </div>
+    </div>, document.body
   );
 }

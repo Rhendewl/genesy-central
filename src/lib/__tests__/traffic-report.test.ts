@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { aggregateTrafficReport, buildTrafficReportCampaignOptions, defaultTrafficReportCampaignIds, trafficReportFilename } from "../traffic-report";
 
 describe("traffic report", () => {
-  it("lists campaigns in the period and selects by default only those with leads", () => {
+  it("lists all account campaigns including those without metrics and selects those with leads", () => {
     const campaigns = [
       { id: "a", name: "Campanha A", status: "ativa" },
       { id: "b", name: "Campanha B", status: "pausada" },
@@ -13,7 +13,8 @@ describe("traffic report", () => {
       { campaign_id: "b", spend: 200, leads: 0, impressions: 600, reach: 500, clicks: 10, conversions: 0 },
     ]);
 
-    expect(options.map((campaign) => campaign.id)).toEqual(["a", "b"]);
+    expect(options.map((campaign) => campaign.id)).toEqual(["a", "b", "c"]);
+    expect(options[2]).toMatchObject({ leads: 0, spend: 0 });
     expect(defaultTrafficReportCampaignIds(options)).toEqual(["a"]);
   });
 
@@ -30,6 +31,15 @@ describe("traffic report", () => {
     });
     expect(report.metrics).toMatchObject({ spend: 700, leads: 15, cpl: 700 / 15, ctr: 200 / 15000 * 100, clicks: 200, activeCampaigns: 1 });
     expect(report.campaigns.map((campaign) => campaign.id)).toEqual(["a", "b"]);
+  });
+
+  it("keeps every selected campaign, including those past the old ranking limit and without metrics", () => {
+    const campaigns = Array.from({ length: 12 }, (_, i) => ({ id: `campaign-${i}`, name: `Campanha ${i}`, status: "ativa" }));
+    const metrics = campaigns.slice(0, 11).map((campaign) => ({ campaign_id: campaign.id, spend: 10, leads: 1, impressions: 100, reach: 80, clicks: 5, conversions: 0 }));
+    const report = aggregateTrafficReport({ clientName: "Urban Exalt", since: "2026-11-01", until: "2026-11-06", campaigns, metrics });
+    expect(report.campaigns).toHaveLength(12);
+    expect(report.campaigns.find((campaign) => campaign.id === "campaign-11")).toMatchObject({ leads: 0, spend: 0 });
+    expect(report.metrics.spend).toBe(110);
   });
 
   it("creates a safe stable filename", () => {

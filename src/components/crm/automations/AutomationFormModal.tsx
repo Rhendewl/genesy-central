@@ -115,6 +115,7 @@ export function AutomationFormModal({ open, pipeline, automation, onClose, onSav
                 options={TRIGGER_DEFINITIONS.map(t => ({ value: t.type, label: t.label }))}
               />
               <TriggerConfigFields
+                pipelineId={pipeline?.id}
                 triggerType={triggerType}
                 triggerConfig={triggerConfig}
                 stages={stages}

@@ -1,5 +1,7 @@
 "use client";
 
+import { DateInput } from "@/components/ui/DateInput";
+
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { motion } from "framer-motion";
@@ -418,7 +420,7 @@ export function ObjectiveDetailPanel({
             </label>
             <label className="text-xs">
               Data de início
-              <input
+              <DateInput
                 aria-label="Data de início"
                 type="date"
                 className="mt-1 w-full rounded-lg border bg-[var(--background)] p-2"

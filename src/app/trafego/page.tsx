@@ -109,7 +109,7 @@ function TrafegoPageInner() {
 
   return (
     <div className="mx-auto max-w-7xl px-4 sm:px-6">
-      <Header title="Tráfego Pago" subtitle={tabSubtitle} actions={<div className="flex items-center gap-2"><TrafficReportGenerator accounts={metaAccounts} selectedAccountId={selectedAccountId} year={year} month={month} /><FinancialPrivacyButton /></div>} />
+      <Header title="Tráfego Pago" subtitle={tabSubtitle} actions={<FinancialPrivacyButton compact />} />
 
       <div className="sticky top-[calc(env(safe-area-inset-top,0px)+4.5rem)] md:top-0 z-30">
 
@@ -127,32 +127,37 @@ function TrafegoPageInner() {
           >
             {/* Linha de filtros */}
             {showPeriodNav && (
-              <div className="flex items-center gap-2 px-3 pt-3 pb-2.5">
-                <button onClick={prevMonth} className="w-7 h-7 rounded-lg flex items-center justify-center text-[var(--icon)] hover:text-[var(--text-title)] active:scale-90 transition-all">
-                  <ChevronLeft size={13} />
-                </button>
-                <span className="text-xs font-semibold text-[var(--text-title)] whitespace-nowrap">
-                  {MONTH_NAMES[month - 1].slice(0, 3)} {year}
-                </span>
-                {isCurrentMonth && (
-                  <span className="text-[10px] text-[#4a8fd4] bg-[#4a8fd4]/10 px-1.5 py-0.5 rounded-full font-medium">atual</span>
-                )}
-                <button onClick={nextMonth} disabled={isCurrentMonth} className="w-7 h-7 rounded-lg flex items-center justify-center text-[var(--icon)] disabled:opacity-30 active:scale-90 transition-all">
-                  <ChevronRight size={13} />
-                </button>
+              <div className="flex flex-wrap items-center gap-2 px-3 pt-3 pb-2.5">
+                <div className="flex items-center gap-1">
+                  <button onClick={prevMonth} className="w-7 h-7 rounded-lg flex items-center justify-center text-[var(--icon)] hover:text-[var(--text-title)] active:scale-90 transition-all">
+                    <ChevronLeft size={13} />
+                  </button>
+                  <span className="text-xs font-semibold text-[var(--text-title)] whitespace-nowrap">
+                    {MONTH_NAMES[month - 1].slice(0, 3)} {year}
+                  </span>
+                  {isCurrentMonth && (
+                    <span className="text-[10px] text-[#4a8fd4] bg-[#4a8fd4]/10 px-1.5 py-0.5 rounded-full font-medium">atual</span>
+                  )}
+                  <button onClick={nextMonth} disabled={isCurrentMonth} className="w-7 h-7 rounded-lg flex items-center justify-center text-[var(--icon)] disabled:opacity-30 active:scale-90 transition-all">
+                    <ChevronRight size={13} />
+                  </button>
+                </div>
                 {metaAccounts.length >= 1 && (
-                  <div className="ml-auto">
-                    <AccountSelector accounts={metaAccounts} selectedAccountId={selectedAccountId} onChange={setSelectedAccountId} />
+                  <div>
+                    <AccountSelector accounts={metaAccounts} selectedAccountId={selectedAccountId} onChange={setSelectedAccountId} compact />
                   </div>
                 )}
                 <button
                   onClick={() => void handleSync()}
                   disabled={!relevantAccounts.length || isSyncing}
-                  title="Sincronizar dados da Meta"
+                  title={isSyncing ? "Sincronizando dados da Meta…" : "Sincronizar dados da Meta"}
+                  aria-label="Sincronizar dados da Meta"
+                  aria-busy={isSyncing}
                   className="flex h-7 w-7 items-center justify-center rounded-lg text-[#4a8fd4] transition-colors hover:bg-[#4a8fd4]/10 disabled:opacity-40"
                 >
                   <RefreshCw size={13} className={isSyncing ? "animate-spin" : ""} />
                 </button>
+                <div className="ml-auto"><TrafficReportGenerator accounts={metaAccounts} selectedAccountId={selectedAccountId} year={year} month={month} /></div>
               </div>
             )}
             {showPeriodNav && <div className="mx-3 h-px" style={{ background: "var(--border)" }} />}
@@ -181,7 +186,7 @@ function TrafegoPageInner() {
           </div>
         </div>
 
-        {/* ── Desktop: barra full-width (sem alterações) ─────────── */}
+        {/* ── Desktop: ações e filtros ─────────────────────────── */}
         <div className="hidden md:block pt-2 pb-4">
           {showPeriodNav && (
             <div className="flex items-center gap-3 mb-4 flex-wrap">
@@ -206,12 +211,14 @@ function TrafegoPageInner() {
               <button
                 onClick={() => void handleSync()}
                 disabled={!relevantAccounts.length || isSyncing}
-                className="lc-filter-control ml-auto flex h-9 items-center gap-2 rounded-xl px-3 text-xs font-medium text-[#4a8fd4] disabled:opacity-40"
-                title="Atualiza manualmente os dados; a sincronização automática continua ativa"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-[#4a8fd4] transition-colors hover:bg-[#4a8fd4]/10 disabled:opacity-40"
+                title={isSyncing ? "Sincronizando dados da Meta…" : "Sincronizar dados da Meta"}
+                aria-label="Sincronizar dados da Meta"
+                aria-busy={isSyncing}
               >
                 <RefreshCw size={13} className={isSyncing ? "animate-spin" : ""} />
-                {isSyncing ? "Sincronizando…" : "Sincronizar"}
               </button>
+              <div className="ml-auto"><TrafficReportGenerator accounts={metaAccounts} selectedAccountId={selectedAccountId} year={year} month={month} /></div>
             </div>
           )}
           <div className="overflow-x-auto scrollbar-none">

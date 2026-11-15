@@ -6,6 +6,7 @@ export function sanitizeInstagramAutomationInput(body: Partial<InstagramAutomati
     type: "message" as const,
     text: String(step.text ?? "").trim(),
     delayMinutes: Math.round(Number(step.delayMinutes ?? 0)),
+    button: step.button && typeof step.button === "object" ? { label: String(step.button.label ?? "").trim().slice(0, 20), url: String(step.button.url ?? "").trim().slice(0, 2000) } : null,
   })) : [];
   const input: InstagramAutomationInput = {
     connectionId: String(body.connectionId ?? ""),

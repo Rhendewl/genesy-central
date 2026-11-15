@@ -1,5 +1,6 @@
 "use client";
 
+import { messagingCards } from "@/lib/messaging-results";
 import { useMemo, useState } from "react";
 import {
   LineChart, Line, ComposedChart,
@@ -11,7 +12,7 @@ import {
   DollarSign, Users, TrendingDown, Target,
   Eye, MousePointer2, Megaphone, Radio,
   Activity, ChevronDown, TrendingUp,
-  Zap,
+  Zap, MessageCircle,
 } from "lucide-react";
 import { useTrafegoMetrics } from "@/hooks/useTrafegoMetrics";
 import { useTrafegoGeo } from "@/hooks/useTrafegoGeo";
@@ -1028,6 +1029,10 @@ export function DashboardTrafego({ year, month, platformAccountId }: Props) {
         <PeriodSelector value={period} onChange={p => { setPeriod(p); setHeroPeriod(p); }} />
       </div>
 
+      <p className="rounded-xl border border-[var(--border)] bg-[var(--glass-bg-soft)] px-4 py-3 text-xs leading-relaxed text-[var(--muted-foreground)]">
+        Leads de mídia incluem formulários e conversas iniciadas no WhatsApp, Direct ou Messenger, conforme a atribuição da Meta. Para recalcular períodos já importados, selecione a conta e o mês desejado e use Sincronizar dados da Meta. Esses resultados não representam necessariamente pessoas únicas.
+      </p>
+
       {/* ── Row 1: 4 KPI cards ─────────────────────────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <KpiCardPremium
@@ -1044,7 +1049,7 @@ export function DashboardTrafego({ year, month, platformAccountId }: Props) {
         <KpiCardPremium
           title="Leads Totais"
           value={fmtNum(data.leads_total)}
-          sub="Leads capturados"
+          sub="Formulários + conversas"
           icon={<Users size={16} />}
           accent="#4a8fd4"
           change={changes.leads}
@@ -1073,6 +1078,12 @@ export function DashboardTrafego({ year, month, platformAccountId }: Props) {
           delay={0.18}
         />
       </div>
+
+      {messagingCards(data.messaging_results).length > 0 && <section aria-label="Conversas geradas no período" className="space-y-3">
+        <div><h2 className="text-sm font-semibold">Conversas geradas no período</h2><p className="mt-1 text-xs text-[var(--muted-foreground)]">Estes resultados já fazem parte dos leads totais. A separação usa o destino informado pela Meta.</p></div>
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">{messagingCards(data.messaging_results).map((metric,index)=><KpiCardPremium key={metric.key} title={metric.label} value={fmtNum(metric.value)} sub={metric.description} icon={<MessageCircle size={16}/>} accent={metric.color} delay={index*.04}/>)}</div>
+      </section>}
+      {data.messaging_history_pending && <p className="text-xs leading-relaxed text-[var(--muted-foreground)]">O detalhamento de conversas ainda não está disponível para parte deste período. Use Sincronizar para atualizar os dados históricos.</p>}
 
       {/* ── Row 2: Hero chart ───────────────────────────────────────────── */}
       <HeroChart

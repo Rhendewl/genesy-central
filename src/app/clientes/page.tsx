@@ -1,13 +1,14 @@
 "use client";
+import { ManagementModuleNavigation } from "@/components/financeiro/ManagementModuleNavigation";
 
 import { useEffect, useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { LayoutGrid, HeartPulse, Star, ChevronLeft, ChevronRight, BadgeDollarSign, ClipboardCheck } from "lucide-react";
+import { LayoutGrid, HeartPulse, Star, BadgeDollarSign, ClipboardCheck } from "lucide-react";
 import { Header } from "@/components/layout/Header";
 import { ClientesRentabilidade } from "@/components/financeiro/ClientesRentabilidade";
 import { SaudeOperacao } from "@/components/financeiro/SaudeOperacao";
+import { ContractsModule } from "@/components/clientes/ContractsModule";
 import { NpsModule } from "@/components/clientes/NpsModule";
-import { cn } from "@/lib/utils";
 import { CommercialAnalysisModule } from "@/components/clientes/CommercialAnalysisModule";
 import { MarketingVgvModule } from "@/components/marketing/MarketingVgvModule";
 import { FinancialPrivacyButton } from "@/components/ui/FinancialPrivacyButton";
@@ -17,10 +18,11 @@ import { useFinancialPrivacyStore } from "@/store/financial-privacy";
 // Clientes Page — Hub completo da carteira
 // ─────────────────────────────────────────────────────────────────────────────
 
-type TabId = "visao_geral" | "vgv" | "analise_comercial" | "saude" | "nps";
+type TabId = "contratos" | "visao_geral" | "vgv" | "analise_comercial" | "saude" | "nps";
 
 const TABS: { id: TabId; label: string; icon: React.ReactNode }[] = [
   { id: "visao_geral", label: "Visão Geral", icon: <LayoutGrid size={15} /> },
+  { id: "contratos", label: "Contratos", icon: <ClipboardCheck size={15} /> },
   { id: "vgv", label: "VGV", icon: <BadgeDollarSign size={15} /> },
   { id: "analise_comercial", label: "Análise Comercial", icon: <ClipboardCheck size={15} /> },
   { id: "saude",       label: "Saúde",       icon: <HeartPulse size={15} /> },
@@ -43,26 +45,13 @@ export default function ClientesPage() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const requestedTab = params.get("tab");
-    if (requestedTab === "vgv" || requestedTab === "analise_comercial" || requestedTab === "saude" || requestedTab === "nps") setActiveTab(requestedTab);
+    if (requestedTab === "contratos" || requestedTab === "vgv" || requestedTab === "analise_comercial" || requestedTab === "saude" || requestedTab === "nps") setActiveTab(requestedTab);
     if (requestedTab === "area_clientes") setActiveTab(params.get("area") === "analise_comercial" ? "analise_comercial" : "vgv");
   }, []);
 
-  const prevMonth = () => {
-    if (month === 1) { setMonth(12); setYear(y => y - 1); }
-    else setMonth(m => m - 1);
-  };
-
-  const nextMonth = () => {
-    const isCurrent = year === now.getFullYear() && month === now.getMonth() + 1;
-    if (isCurrent) return;
-    if (month === 12) { setMonth(1); setYear(y => y + 1); }
-    else setMonth(m => m + 1);
-  };
-
-  const isCurrentMonth = year === now.getFullYear() && month === now.getMonth() + 1;
-
   const subtitle = useMemo(() => {
     const tab = TABS.find(t => t.id === activeTab);
+    if (activeTab === "contratos") return "Modelos, documentos e assinaturas dos seus clientes";
     if (activeTab === "vgv") return "Vendas, campanhas e retorno do investimento";
     if (activeTab === "analise_comercial") return "Feedback dos corretores e inteligência comercial";
     return `${tab?.label} · ${MONTH_NAMES[month - 1]} ${year}`;
@@ -70,104 +59,11 @@ export default function ClientesPage() {
 
   return (
     <div className="mx-auto max-w-7xl px-4 sm:px-6">
-      <Header title="Clientes" subtitle={subtitle} actions={<FinancialPrivacyButton />} />
+      <h1 className="sr-only md:hidden">Clientes</h1>
+      <div className="hidden md:block"><Header title="Clientes" subtitle={subtitle} actions={<FinancialPrivacyButton />} /></div>
 
-      {/* Sticky nav */}
-      <div className="sticky top-[calc(env(safe-area-inset-top,0px)+4.5rem)] md:top-0 z-30">
+      <ManagementModuleNavigation label="Navegação de Clientes" tabs={TABS} value={activeTab} onChange={setActiveTab} year={year} month={month} onPeriodChange={(y, m) => { setYear(y); setMonth(m); }} hidePeriod={["contratos", "vgv", "analise_comercial"].includes(activeTab)} />
 
-        {/* ── Mobile: pílula glassmorphism ───────────────────────── */}
-        <div className="md:hidden pt-2 pb-3">
-          <div
-            className="rounded-[20px] overflow-hidden"
-            style={{
-              background:           "var(--bg-modal)",
-              backdropFilter:       "blur(24px) saturate(160%)",
-              WebkitBackdropFilter: "blur(24px) saturate(160%)",
-              border:               "1px solid var(--border-modal)",
-              boxShadow:            "0 4px 24px rgba(0,0,0,0.20)",
-            }}
-          >
-            {activeTab !== "vgv" && activeTab !== "analise_comercial" && <div className="flex items-center gap-2 px-3 pt-3 pb-2.5">
-              <button onClick={prevMonth} className="w-7 h-7 rounded-lg flex items-center justify-center text-[color-mix(in_srgb,var(--text-title)_50%,transparent)] hover:text-[var(--text-title)] active:scale-90 transition-all">
-                <ChevronLeft size={13} />
-              </button>
-              <span className="text-sm font-semibold text-[var(--text-title)]">
-                {MONTH_NAMES[month - 1].slice(0, 3)} {year}
-              </span>
-              {isCurrentMonth && (
-                <span className="text-[10px] text-[#4a8fd4] bg-[#4a8fd4]/10 px-1.5 py-0.5 rounded-full font-medium">atual</span>
-              )}
-              <button onClick={nextMonth} disabled={isCurrentMonth} className="w-7 h-7 rounded-lg flex items-center justify-center text-[color-mix(in_srgb,var(--text-title)_50%,transparent)] disabled:opacity-30 active:scale-90 transition-all">
-                <ChevronRight size={13} />
-              </button>
-            </div>}
-            {activeTab !== "vgv" && activeTab !== "analise_comercial" && <div className="mx-3 h-px" style={{ background: "var(--border)" }} />}
-            <div className="overflow-x-auto scrollbar-none px-2 py-2">
-              <div className="flex gap-0.5 min-w-max">
-                {TABS.map(tab => (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id)}
-                    className={cn(
-                      "flex min-h-11 items-center gap-1.5 whitespace-nowrap rounded-xl px-3 py-2 text-sm font-medium transition-all active:scale-95",
-                      activeTab === tab.id ? "text-[var(--text-title)]" : "text-[color-mix(in_srgb,var(--text-title)_50%,transparent)]",
-                    )}
-                    style={activeTab === tab.id ? {
-                      background: "var(--segment-active-bg)",
-                      boxShadow:  "var(--segment-active-shadow)",
-                    } : {}}
-                  >
-                    {tab.icon}
-                    <span>{tab.label}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* ── Desktop: barra full-width (sem alterações) ─────────── */}
-        <div className="hidden md:block pt-2 pb-4">
-          {activeTab !== "vgv" && activeTab !== "analise_comercial" && <div className="flex items-center gap-2 mb-4">
-            <button onClick={prevMonth} className="w-8 h-8 rounded-xl flex items-center justify-center text-[var(--silver)] hover:text-[var(--text-title)] hover:bg-[var(--hover)] transition-all">
-              <ChevronLeft size={16} />
-            </button>
-            <div className="lc-card px-4 py-2 flex items-center gap-2 min-w-[160px] justify-center">
-              <p className="text-[var(--text-title)] font-semibold text-sm">{MONTH_NAMES[month - 1]}</p>
-              <p className="text-[var(--silver)] text-sm">{year}</p>
-              {isCurrentMonth && (
-                <span className="text-xs text-[#4a8fd4] bg-[#4a8fd4]/10 px-2 py-0.5 rounded-full font-medium">atual</span>
-              )}
-            </div>
-            <button onClick={nextMonth} disabled={isCurrentMonth} className="w-8 h-8 rounded-xl flex items-center justify-center text-[var(--silver)] hover:text-[var(--text-title)] hover:bg-[var(--hover)] transition-all disabled:opacity-30 disabled:cursor-not-allowed">
-              <ChevronRight size={16} />
-            </button>
-          </div>}
-          <div className="overflow-x-auto scrollbar-none">
-            <div className="flex gap-1 p-1 rounded-2xl min-w-max" style={{ background: "var(--glass-bg-soft)", border: "1px solid var(--glass-border)" }}>
-              {TABS.map(tab => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={cn(
-                    "flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-medium transition-all whitespace-nowrap",
-                    activeTab === tab.id ? "text-[var(--text-title)]" : "text-[color-mix(in_srgb,var(--text-title)_50%,transparent)] hover:text-[var(--text-title)] hover:bg-[var(--hover)]",
-                  )}
-                  style={activeTab === tab.id ? {
-                    background: "var(--segment-active-bg)",
-                    boxShadow:  "var(--segment-active-shadow)",
-                  } : {}}
-                >
-                  {tab.icon}
-                  {tab.label}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Tab content */}
       <AnimatePresence mode="wait">
         <motion.div
           key={activeTab}
@@ -177,6 +73,7 @@ export default function ClientesPage() {
           transition={{ duration: 0.2 }}
           className="pb-8"
         >
+          {activeTab === "contratos" && <ContractsModule />}
           {activeTab === "visao_geral" && <ClientesRentabilidade year={year} month={month} />}
           {activeTab === "vgv" && <MarketingVgvModule embedded />}
           {activeTab === "analise_comercial" && <CommercialAnalysisModule />}

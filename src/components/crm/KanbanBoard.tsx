@@ -1,4 +1,6 @@
 "use client";
+import "./crm-mobile.css";
+import {useLeadActivityIndicators} from "@/hooks/useLeadActivityIndicators";
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -14,15 +16,18 @@ import {
 } from "@dnd-kit/core";
 import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import { motion } from "framer-motion";
-import { ChevronDown, Cog, Loader2, UserPlus } from "lucide-react";
+import { ChevronDown, Cog, LayoutGrid, List, Loader2, Search, X, UserPlus, SlidersHorizontal, Plus } from "lucide-react";
 import { toast } from "sonner";
 
+import { matchesLeadSearch } from "@/lib/crm/lead-search";
 import { useLeads, UNASSIGNED_STAGE_KEY } from "@/hooks/useLeads";
 import { usePipelines } from "@/hooks/usePipelines";
 import type { Lead } from "@/types";
 import type { CrmStage } from "@/types/crm";
 import { KanbanColumn } from "./KanbanColumn";
 import { LeadCard } from "./LeadCard";
+import { LeadList } from "./LeadList";
+import { useCrmViewPreferences } from "@/hooks/useCrmViewPreferences";
 import { LeadModal } from "./LeadModal";
 import { PeriodFilter, type DateFilter } from "./PeriodFilter";
 import { CrmSettingsModal } from "./settings/CrmSettingsModal";
@@ -50,13 +55,17 @@ interface PendingMove {
 }
 
 export function KanbanBoard() {
+  const [search, setSearch] = useState("");
+  const [mobileToolsOpen, setMobileToolsOpen] = useState(false);
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  useEffect(() => { if (mobileSearchOpen) searchInputRef.current?.focus(); }, [mobileSearchOpen]);
   const [dateFilter, setDateFilter] = useState<DateFilter | null>(null);
   const [isTouchDevice, setIsTouchDevice] = useState(false);
 
   const {
     leads,
     totalLeads,
-    leadsByStage,
     isLoading: leadsLoading,
     error,
     moveLead,
@@ -73,6 +82,8 @@ export function KanbanBoard() {
   } = usePipelines();
   const { member, isOwner } = useCurrentMember();
   const hasFullCrmAccess = isAdministrativeMember(member, isOwner === true);
+  const { preferences, updatePreferences } = useCrmViewPreferences(member?.id);
+  const moveLock = useRef(false);
 
   // ── Pipeline selection ─────────────────────────────────────────────────────
 
@@ -86,7 +97,8 @@ export function KanbanBoard() {
   // Auto-seleciona o primeiro pipeline ativo na montagem
   useEffect(() => {
     if (!selectedPipelineId && activePipelines.length > 0) {
-      setSelectedPipelineId(activePipelines[0].id);
+      const requested = new URLSearchParams(window.location.search).get("pipeline");
+      setSelectedPipelineId(activePipelines.find(p=>p.id===requested)?.id ?? activePipelines[0].id);
     }
   }, [activePipelines, selectedPipelineId]);
 
@@ -146,6 +158,31 @@ export function KanbanBoard() {
     })
   );
 
+  const requestMove = useCallback(async (leadId: string, targetStageId: string) => {
+    if (moveLock.current || pendingMove) return;
+    const lead = getLeadById(leadId);
+    if (!lead || lead.stage_id === targetStageId) return;
+    const target = stages.find(stage => stage.id === targetStageId);
+    if (!target) return;
+    if (target.require_note) {
+      setPendingMove({ leadId, targetStageId });
+      setPendingNote("");
+      setTimeout(() => noteInputRef.current?.focus(), 80);
+      return;
+    }
+    moveLock.current = true;
+    setIsMoveSubmitting(true);
+    try {
+      const result = await moveLead(leadId, targetStageId);
+      if (result.requireNote) {
+        setPendingMove({ leadId, targetStageId });
+        setPendingNote("");
+        setTimeout(() => noteInputRef.current?.focus(), 80);
+      } else if (!result.ok) toast.error(result.error ?? "Erro ao mover lead");
+    } catch { toast.error("Erro ao mover lead. Tente novamente."); }
+    finally { moveLock.current = false; setIsMoveSubmitting(false); }
+  }, [getLeadById, stages, moveLead, pendingMove]);
+
   // ── Drag handlers ──────────────────────────────────────────────────────────
 
   const handleDragStart = useCallback((event: DragStartEvent) => {
@@ -178,22 +215,9 @@ export function KanbanBoard() {
 
       if (draggedLead.stage_id === targetStageId) return;
 
-      // Verifica require_note da stage alvo (usando dado local já carregado)
-      const targetStage = stages.find((s) => s.id === targetStageId);
-      if (targetStage?.require_note) {
-        // Exibe dialog antes de mover — sem update otimista
-        setPendingMove({ leadId, targetStageId });
-        setPendingNote("");
-        setTimeout(() => noteInputRef.current?.focus(), 80);
-        return;
-      }
-
-      const result = await moveLead(leadId, targetStageId);
-      if (!result.ok && !result.requireNote) {
-        toast.error(result.error ?? "Erro ao mover lead");
-      }
+      await requestMove(leadId, targetStageId);
     },
-    [leads, stages, moveLead]
+    [leads, stages, requestMove]
   );
 
   const handleDragCancel = useCallback(() => setActiveId(null), []);
@@ -201,18 +225,19 @@ export function KanbanBoard() {
   // ── Note dialog handlers ───────────────────────────────────────────────────
 
   async function handleNoteSubmit() {
-    if (!pendingMove || !pendingNote.trim()) return;
+    if (!pendingMove || !pendingNote.trim() || moveLock.current) return;
+    moveLock.current = true;
     setIsMoveSubmitting(true);
-    const result = await moveLead(pendingMove.leadId, pendingMove.targetStageId, pendingNote.trim());
-    setIsMoveSubmitting(false);
-    setPendingMove(null);
-    setPendingNote("");
-    if (!result.ok) {
-      toast.error(result.error ?? "Erro ao mover lead");
-    }
+    try {
+      const result = await moveLead(pendingMove.leadId, pendingMove.targetStageId, pendingNote.trim());
+      if (result.ok) { setPendingMove(null); setPendingNote(""); }
+      else toast.error(result.error ?? "Erro ao mover lead");
+    } catch { toast.error("Erro ao mover lead. Tente novamente."); }
+    finally { moveLock.current = false; setIsMoveSubmitting(false); }
   }
 
   function handleNoteCancel() {
+    if (moveLock.current) return;
     setPendingMove(null);
     setPendingNote("");
   }
@@ -236,9 +261,15 @@ export function KanbanBoard() {
 
   // ── Derived ────────────────────────────────────────────────────────────────
 
+  const leadActivities=useLeadActivityIndicators(leads.map(lead=>lead.id));
   const activeLead    = activeId ? getLeadById(activeId) : null;
   const isFiltered    = dateFilter !== null;
-  const filteredCount = leads.length;
+  const visibleLeads = leads.filter((lead) => (lead.pipeline_id === selectedPipelineId || (!lead.pipeline_id && !lead.stage_id)) && matchesLeadSearch(lead, search));
+  const leadsByStage = visibleLeads.reduce<Record<string, Lead[]>>((groups, lead) => {
+    const key = lead.stage_id ?? UNASSIGNED_STAGE_KEY;
+    (groups[key] ??= []).push(lead); return groups;
+  }, {});
+  const filteredCount = visibleLeads.length;
   const isLoading     = leadsLoading || pipelinesLoading;
 
   // ── Loading skeleton ───────────────────────────────────────────────────────
@@ -292,10 +323,10 @@ export function KanbanBoard() {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       {/* Toolbar */}
-      <div className="mb-4 flex flex-none items-center justify-between gap-3 flex-wrap px-4 sm:px-6">
-        <div className="flex items-center gap-3 flex-wrap">
+      <div className="crm-kanban-toolbar mb-4 flex flex-none items-center justify-between gap-3 flex-wrap px-4 sm:px-6">
+        <div className="crm-kanban-context flex items-center gap-3 flex-wrap">
           {/* Lead count */}
-          <p className="text-sm text-[var(--text-body)]">
+          <p className="crm-kanban-count text-sm text-[var(--text-body)]"><span className="md:hidden" aria-label={`${filteredCount} leads nesta pipeline`}>{filteredCount}</span><span className="hidden md:inline">
             {isFiltered ? (
               <>
                 <span className="font-semibold text-[var(--text-title)]">{filteredCount}</span>
@@ -305,17 +336,18 @@ export function KanbanBoard() {
               </>
             ) : (
               <>
-                <span className="font-semibold text-[var(--text-title)]">{totalLeads}</span>
+                <span className="font-semibold text-[var(--text-title)]">{filteredCount}</span>
                 {" "}
-                {totalLeads === 1 ? "lead" : "leads"} no funil
+                {filteredCount === 1 ? "lead" : "leads"} no funil
               </>
-            )}
+            )}</span>
           </p>
 
           {/* Pipeline selector — só exibe quando há mais de um pipeline ativo */}
           {hasFullCrmAccess && activePipelines.length > 1 && (
-            <div className="relative">
+            <div className="crm-kanban-pipeline relative">
               <select
+                aria-label="Pipeline do funil"
                 value={selectedPipelineId ?? ""}
                 onChange={(e) => setSelectedPipelineId(e.target.value)}
                 className="h-8 appearance-none rounded-full pl-3 pr-8 text-xs text-[var(--text-title)] focus:outline-none cursor-pointer"
@@ -338,9 +370,24 @@ export function KanbanBoard() {
               />
             </div>
           )}
+          {(!hasFullCrmAccess || activePipelines.length <= 1) && <p className="crm-kanban-single-pipeline md:hidden">{selectedPipeline?.name ?? "Funil"}</p>}
+          <div className="crm-kanban-mobile-actions md:hidden">
+            <button type="button" aria-label={mobileSearchOpen?"Ocultar busca de leads":"Buscar leads"} aria-expanded={mobileSearchOpen} aria-controls="crm-kanban-search" onClick={()=>setMobileSearchOpen(value=>!value)} className={`crm-mobile-icon-button ${search?"is-active":""}`}><Search size={17}/></button>
+            <button type="button" aria-label={mobileToolsOpen?"Ocultar filtros e opções":"Filtros e opções do funil"} aria-expanded={mobileToolsOpen} aria-controls="crm-kanban-options" onClick={()=>setMobileToolsOpen(value=>!value)} className={`crm-mobile-icon-button ${isFiltered?"is-active":""}`}><SlidersHorizontal size={17}/>{isFiltered&&<span className="crm-mobile-active-dot"/>}</button>
+            <button type="button" aria-label="Adicionar novo lead" title="Novo lead" onClick={openCreateModal} className="crm-mobile-icon-button crm-mobile-add"><Plus size={19}/></button>
+          </div>
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap">
+        <div id="crm-kanban-options" className={`crm-kanban-actions flex items-center gap-2 flex-wrap ${mobileToolsOpen?"is-open":""}`}>
+          <div role="group" aria-label="Visualização do funil" className="flex h-[38.08px] items-stretch rounded-xl border border-[var(--glass-border)] bg-[var(--glass-bg-soft)] p-1">
+            {([{ id: "kanban", label: "Kanban", icon: LayoutGrid }, { id: "list", label: "Lista", icon: List }] as const).map(view => (
+              <button key={view.id} type="button" aria-label={view.label} title={view.label} aria-pressed={preferences.view === view.id} onClick={() => updatePreferences({ view: view.id })}
+                className="flex h-full min-h-0 items-center gap-2 rounded-lg px-3 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+                style={preferences.view === view.id ? { background: "var(--segment-active-bg)", boxShadow: "var(--segment-active-shadow)", color: "var(--text-title)" } : { color: "var(--muted-foreground)" }}>
+                <view.icon size={15} /><span className="hidden md:inline">{view.label}</span>
+              </button>
+            ))}
+          </div>
           {/* CRM settings */}
           {hasFullCrmAccess && selectedPipeline && (
             <button
@@ -375,7 +422,19 @@ export function KanbanBoard() {
         </div>
       </div>
 
-      {/* Board */}
+      <div id="crm-kanban-search" className={`crm-kanban-search flex-none px-4 pb-3 sm:px-6 ${mobileSearchOpen?"is-open":""}`}>
+        <label className="flex min-h-11 items-center gap-3 rounded-2xl border border-[var(--glass-border)] bg-[var(--glass-bg-soft)] px-4 focus-within:ring-2 focus-within:ring-sky-500/40">
+          <Search size={18} className="shrink-0 text-[var(--muted-foreground)]" aria-hidden="true" />
+          <input ref={searchInputRef} type="search" aria-label="Pesquisar lead por nome ou telefone" placeholder="Pesquisar lead por nome ou telefone…" value={search} onChange={(event) => setSearch(event.target.value)} className="min-h-11 min-w-0 flex-1 bg-transparent text-sm text-[var(--text-title)] outline-none placeholder:text-[var(--muted-foreground)]" />
+          {search && <button type="button" aria-label="Limpar pesquisa" onClick={() => setSearch("")} className="grid h-9 w-9 shrink-0 place-items-center rounded-lg hover:bg-[var(--hover)]"><X size={16} /></button>}
+        </label>
+        {search && <p role="status" className="mt-2 text-xs text-[var(--muted-foreground)]">{filteredCount ? `${filteredCount} ${filteredCount === 1 ? "lead encontrado" : "leads encontrados"}` : "Nenhum lead encontrado nesta pipeline com os filtros atuais."}</p>}
+      </div>
+      {preferences.view === "list" ? (
+        <LeadList leads={visibleLeads} stages={stages} pipelineId={selectedPipelineId} activities={leadActivities}
+          preferences={preferences} onPreferencesChange={updatePreferences} onOpen={openEditModal}
+          onMove={requestMove} moving={isMoveSubmitting || pendingMove !== null} />
+      ) : (
       <DndContext
         sensors={sensors}
         collisionDetection={closestCorners}
@@ -390,7 +449,7 @@ export function KanbanBoard() {
             borda) — na prática isso travava a rolagem e às vezes fazia ela
             "pular" pra última coluna assim que o snap vencia a disputa. */}
         <div
-          className="flex min-h-0 flex-1 items-stretch gap-4 overflow-x-auto overflow-y-hidden px-4 pb-4 sm:px-6"
+          className="flex min-h-0 flex-1 items-stretch gap-4 overflow-x-auto overflow-y-hidden scroll-px-4 px-4 pb-4 sm:scroll-px-6 sm:px-6"
           style={{
             scrollSnapType: activeId ? "none" : "x mandatory",
             WebkitOverflowScrolling: "touch",
@@ -406,6 +465,7 @@ export function KanbanBoard() {
               className="h-full flex-shrink-0"
             >
               <KanbanColumn
+                activities={leadActivities}
                 stage={stage}
                 leads={leadsByStage[stage.id] ?? []}
                 totalValue={(leadsByStage[stage.id] ?? []).reduce(
@@ -427,6 +487,7 @@ export function KanbanBoard() {
               className="h-full flex-shrink-0"
             >
               <KanbanColumn
+                activities={leadActivities}
                 stage={{
                   id:                 UNASSIGNED_STAGE_KEY,
                   pipeline_id:        selectedPipelineId ?? "",
@@ -463,15 +524,17 @@ export function KanbanBoard() {
         <DragOverlay dropAnimation={{ duration: 200, easing: "ease" }}>
           {activeLead ? (
             <div style={{ transform: "rotate(2deg)" }}>
-              <LeadCard lead={activeLead} isDragOverlay onEdit={() => {}} />
+              <LeadCard lead={activeLead} activity={leadActivities[activeLead.id]} isDragOverlay onEdit={() => {}} />
             </div>
           ) : null}
         </DragOverlay>
       </DndContext>
+      )}
 
       {/* ── Observação obrigatória dialog ──────────────────────────────────── */}
       {pendingMove && (
         <div
+          role="dialog" aria-modal="true" aria-labelledby="crm-move-note-title"
           className="lc-modal-backdrop fixed inset-0 z-[60] flex items-center justify-center p-4"
           style={{ background: "rgba(0,0,0,0.60)", backdropFilter: "blur(6px)" }}
         >
@@ -488,7 +551,7 @@ export function KanbanBoard() {
             }}
           >
             <div className="px-5 pt-5 pb-4 flex flex-col gap-3">
-              <p className="text-sm font-semibold" style={{ color: "var(--text-title)" }}>
+              <p id="crm-move-note-title" className="text-sm font-semibold" style={{ color: "var(--text-title)" }}>
                 Observação obrigatória
               </p>
               <p className="text-xs" style={{ color: "var(--muted-foreground)" }}>
@@ -548,12 +611,13 @@ export function KanbanBoard() {
       {/* Modal criar / editar */}
       <LeadModal
         isOpen={isModalOpen}
-        lead={editingLead}
+        lead={editingLead ? getLeadById(editingLead.id) ?? editingLead : null}
         stages={stages}
         pipelines={visiblePipelines}
         onClose={closeModal}
         onCreate={createLead}
         onUpdate={updateLead}
+        onMove={moveLead}
         onDelete={deleteLead}
         onTransfer={transferLead}
       />

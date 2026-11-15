@@ -1,9 +1,9 @@
 "use client";
 
+
 import { useDraggable } from "@dnd-kit/core";
-import { Calendar, Mail, Phone } from "lucide-react";
-import { format } from "date-fns";
-import { ptBR } from "date-fns/locale/pt-BR";
+import { Calendar, Clock3, FileText, Mail, Phone } from "lucide-react";
+import { formatArrival } from "@/lib/crm/operation-analytics";
 import type { Lead } from "@/types";
 import { cn } from "@/lib/utils";
 import { useTags } from "@/hooks/useTags";
@@ -27,14 +27,17 @@ import { privateFinancialValue } from "@/store/financial-privacy";
 //   Exibe até 3 tags; "+N" para o restante
 // ─────────────────────────────────────────────────────────────────────────────
 
+import type {LeadActivity} from "@/hooks/useLeadActivityIndicators";
+
 interface LeadCardProps {
+  activity?: LeadActivity;
   lead: Lead;
   isDragOverlay?: boolean;
   onEdit: () => void;
 }
 
-export function LeadCard({ lead, isDragOverlay = false, onEdit }: LeadCardProps) {
-  const { tags: allTags } = useTags();
+export function LeadCard({ lead, isDragOverlay = false, onEdit, activity }: LeadCardProps) {
+  const { tags: allTags } = useTags("crm", lead.pipeline_id);
   const { origins } = useLeadOrigins();
   const origin = origins.find(item => item.id === lead.origin_id) ?? origins.find(item => item.slug === lead.source);
 
@@ -89,16 +92,19 @@ export function LeadCard({ lead, isDragOverlay = false, onEdit }: LeadCardProps)
           Valores individuais aparecem no card de detalhes do lead. */}
       {(() => {
         const ig = LeadScoreEngine.calculateIG(lead.iq_score, lead.ie_score);
-        if (ig === null) return null;
+        const hasNotes=activity?.hasNotes||Boolean(lead.notes?.trim());
+        if (ig === null&&!hasNotes&&!activity?.hasReminder) return null;
         return (
           <div className="mt-1.5 flex items-center gap-1.5">
-            <span
-              className="rounded-full px-1.5 py-0.5 text-[9px] font-bold leading-none"
-              style={{ background: "rgba(139,92,246,0.15)", color: "#a78bfa", border: "1px solid rgba(167,139,250,0.25)" }}
+            {ig!==null&&<span
+              className="rounded-full px-1.5 py-0.5 text-[10px] font-bold leading-none"
+              style={{ background: "rgba(56,189,248,0.15)", color: "#72d6e4", border: "1px solid rgba(114,214,228,0.25)" }}
               title="IG — Índice Genesy (média de IQ e IE)"
             >
               IG {ig}
-            </span>
+            </span>}
+            {activity?.hasReminder&&<span className="lead-card-activity lead-card-reminder" title="Você tem um lembrete programado neste lead" aria-label="Lembrete programado"><Clock3 size={13}/></span>}
+            {hasNotes&&<span className="lead-card-activity lead-card-notes" title="Este lead possui notas" aria-label="Possui notas"><FileText size={13}/></span>}
           </div>
         );
       })()}
@@ -144,11 +150,7 @@ export function LeadCard({ lead, isDragOverlay = false, onEdit }: LeadCardProps)
         <div className="flex items-center gap-1.5">
           <Calendar size={10} className="flex-shrink-0" />
           <span>
-            {format(
-              new Date(lead.entered_at + "T00:00:00"),
-              "dd MMM yyyy",
-              { locale: ptBR }
-            )}
+            {formatArrival(lead)}
           </span>
         </div>
         {(lead.deal_value ?? 0) > 0 && (

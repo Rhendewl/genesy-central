@@ -1,3 +1,4 @@
+import { formatFormLeadName, formAttributionLines } from "@/lib/forms/crm-context";
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminSupabaseClient } from "@/lib/supabase-admin";
 import { LeadService } from "@/lib/crm/lead-service";
@@ -229,6 +230,7 @@ export async function POST(req: NextRequest, { params }: Params) {
 }
 
 interface CrmSettings {
+  name_suffix?: string;
   source?:         string;
   origin_id?:      string | null;
   pipeline_id?:    string | null;
@@ -285,6 +287,7 @@ async function createCrmLead(
     // sem pedir de novo) + montar dealValue/notas com o restante das respostas.
     const { name: leadName, phone: leadPhone, email: leadEmail, consumedStepIds } =
       extractContactFromAnswers(steps, answers);
+    const crmLeadName = formatFormLeadName(leadName, settings.name_suffix);
     const consumedSet = new Set(consumedStepIds);
 
     let dealValue              = 0;
@@ -324,6 +327,14 @@ async function createCrmLead(
     // Nunca escreve em "notes": esse campo é reservado para observações
     // manuais do CRM.
     const metaLines: string[] = [`Formulário: ${formName}`];
+    const { data: attributionSubmission } = await supabase.from("form_submissions")
+      .select("session_id").eq("id", submissionId).maybeSingle();
+    if (attributionSubmission?.session_id) {
+      const { data: attribution } = await supabase.from("form_sessions")
+        .select("utm_source, utm_medium, utm_campaign, utm_term, utm_content, fbclid, gclid, referrer")
+        .eq("id", attributionSubmission.session_id).maybeSingle();
+      metaLines.push(...formAttributionLines(attribution));
+    }
     if (settings.owner_name) metaLines.push(`Responsável: ${settings.owner_name}`);
     const noteSections: string[] = [metaLines.join("\n")];
     if (noteLines.length) noteSections.push(noteLines.join("\n"));
@@ -347,7 +358,7 @@ async function createCrmLead(
       await supabase
         .from("leads")
         .update({
-          name:       leadName ?? "Sem nome",
+          name:       crmLeadName,
           contact:    leadPhone ?? leadEmail ?? "",
           email:      leadEmail ?? null,
           tags:       settings.tag_ids ?? [],
@@ -378,7 +389,7 @@ async function createCrmLead(
 
     const commonFields = {
       user_id:     userId,
-      name:        leadName ?? "Sem nome",
+      name:        crmLeadName,
       contact:     leadPhone ?? leadEmail ?? "",
       email:       leadEmail ?? null,
       source:      settings.source ?? "formulario_genesy",

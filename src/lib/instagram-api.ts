@@ -150,13 +150,16 @@ export function replyToInstagramComment(commentId: string, message: string, acce
 export function sendInstagramMessage(
   userId: string,
   recipient: { id: string } | { comment_id: string },
-  message: string,
+  message: string | { text: string; button?: { label: string; url: string } },
   accessToken: string,
 ) {
+  const body = typeof message === "string" ? { text: message } : message.button ? {
+    attachment: { type: "template", payload: { template_type: "button", text: message.text, buttons: [{ type: "web_url", url: message.button.url, title: message.button.label }] } },
+  } : { text: message.text };
   return instagramPost<{ recipient_id?: string; message_id: string }>(
     `/${INSTAGRAM_GRAPH_VERSION}/${userId}/messages`,
     accessToken,
-    { recipient, message: { text: message } },
+    { recipient, message: body },
   );
 }
 
@@ -356,5 +359,25 @@ export function getInstagramContainerStatus(containerId: string, accessToken: st
 export function publishInstagramStory(userId: string, accessToken: string, containerId: string) {
   return instagramPost<{ id: string }>(`/${INSTAGRAM_GRAPH_VERSION}/${userId}/media_publish`, accessToken, {
     creation_id: containerId,
+  });
+}
+
+export function createInstagramFeedImage(userId: string, token: string, imageUrl: string, options: { caption?: string; altText?: string; carousel?: boolean } = {}) {
+  return instagramPost<{ id: string }>(`/${INSTAGRAM_GRAPH_VERSION}/${userId}/media`, token, {
+    image_url: imageUrl, ...(options.carousel ? { is_carousel_item: true } : { caption: options.caption }),
+    ...(options.altText ? { alt_text: options.altText } : {}),
+  });
+}
+
+export function createInstagramCarousel(userId: string, token: string, children: string[], caption: string) {
+  return instagramPost<{ id: string }>(`/${INSTAGRAM_GRAPH_VERSION}/${userId}/media`, token, {
+    media_type: "CAROUSEL", children: children.join(","), caption,
+  });
+}
+
+export function createInstagramVideo(userId: string, token: string, videoUrl: string, options: { story?: boolean; caption?: string } = {}) {
+  return instagramPost<{ id: string }>(`/${INSTAGRAM_GRAPH_VERSION}/${userId}/media`, token, {
+    media_type: options.story ? "STORIES" : "REELS", video_url: videoUrl,
+    ...(!options.story ? { caption: options.caption ?? "", share_to_feed: true } : {}),
   });
 }

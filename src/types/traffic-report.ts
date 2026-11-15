@@ -18,6 +18,8 @@ export interface TrafficReportData {
   until: string;
   generatedAt: string;
   metrics: {
+    messaging_history_pending?: boolean;
+    messaging_results?: import("@/lib/messaging-results").MessagingResults;
     spend: number;
     leads: number;
     cpl: number;

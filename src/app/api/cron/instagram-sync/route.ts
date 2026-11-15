@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminSupabaseClient } from "@/lib/supabase-admin";
-import { syncInstagramConnection } from "@/lib/instagram-sync";
+import { instagramSyncErrorMessage, syncInstagramConnection } from "@/lib/instagram-sync";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -26,7 +26,7 @@ async function handle(req: NextRequest) {
       const result = await syncInstagramConnection(supabase, connection);
       results.push({ id: connection.id, success: true, ...result });
     } catch (syncError) {
-      const message = syncError instanceof Error ? syncError.message : "Falha na sincronização";
+      const message = instagramSyncErrorMessage(syncError);
       await supabase.from("marketing_instagram_connections").update({
         status: "error", sync_error: message.slice(0, 500), updated_at: new Date().toISOString(),
       }).eq("id", connection.id);

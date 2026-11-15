@@ -1,5 +1,7 @@
 "use client";
 
+import { accentBorderStyle } from "@/components/ui/accent-border";
+
 import type { CSSProperties, ReactNode } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -41,7 +43,7 @@ export function SortableStageCard({ id, cardStyle, children }: SortableStageCard
   return (
     <div
       ref={setNodeRef}
-      className="lc-card p-4 transition-[box-shadow,opacity,transform]"
+      className="app-accent-border lc-card p-4 transition-[box-shadow,opacity,transform]"
       style={style}
     >
       {children({ attributes, listeners, setActivatorNodeRef, isDragging })}
@@ -58,11 +60,11 @@ interface StageDragOverlayPreviewProps {
 export function StageDragOverlayPreview({ title, meta, color = "var(--primary)" }: StageDragOverlayPreviewProps) {
   return (
     <div
-      className="min-w-[260px] max-w-[420px] rounded-2xl px-4 py-3"
+      className="app-accent-border min-w-[260px] max-w-[420px] rounded-2xl px-4 py-3"
       style={{
         background: "var(--card)",
         border: "1px solid var(--border-card-hover)",
-        borderLeft: `3px solid ${color}`,
+        ...accentBorderStyle(color),
         boxShadow: "0 28px 70px var(--shadow-lg), 0 0 0 1px rgba(255,255,255,0.04)",
       }}
     >

@@ -46,13 +46,13 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     //    montar a mensagem (título + responsáveis) sem uma segunda rodada.
     let { data: before, error: beforeError } = await db
       .from("workspace_tasks")
-      .select("title, status, user_id, board_id")
+      .select("title, status, user_id, board_id, completed_at")
       .eq("id", id)
       .maybeSingle();
     if (beforeError?.message.includes("board_id")) {
       const legacy = await db
         .from("workspace_tasks")
-        .select("title, status, user_id")
+        .select("title, status, user_id, completed_at")
         .eq("id", id)
         .maybeSingle();
       before = legacy.data ? { ...legacy.data, board_id: null } : null;
@@ -67,7 +67,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       .from("workspace_tasks")
       .update({
         status:       body.status,
-        completed_at: body.status === "concluido" ? new Date().toISOString() : null,
+        completed_at: body.status === "concluido" ? (before.status === "concluido" ? before.completed_at : new Date().toISOString()) : null,
       })
       .eq("id", id);
     if (statusErr) throw new Error(statusErr.message);

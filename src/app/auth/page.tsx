@@ -1,5 +1,6 @@
 "use client";
 
+import { crmNotificationAfterLogin } from "@/lib/crm/notification-url";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
@@ -45,7 +46,7 @@ export default function AuthPage() {
         throw new Error(hasProfile ? "ACCESS_DISABLED" : "ACCESS_REMOVED");
       }
 
-      router.push("/");
+      router.push(crmNotificationAfterLogin(window.location.search));
       router.refresh();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Erro inesperado.";

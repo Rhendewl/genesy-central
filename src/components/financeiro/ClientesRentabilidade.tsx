@@ -1,5 +1,10 @@
 "use client";
 
+import { FinancialSectionHeader, FinancialMetric, FinancialAnalysis } from "./FinancialSection";
+import { FinancialBreakdown } from "./FinancialActivityChart";
+import { createPortal } from "react-dom";
+import { DateInput } from "@/components/ui/DateInput";
+
 import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { format } from "date-fns";
@@ -7,7 +12,7 @@ import { ptBR } from "date-fns/locale";
 import {
   Plus, TrendingUp, TrendingDown, Users, DollarSign,
   X, Edit2, Trash2, ChevronDown, ChevronUp, Building2,
-  AlertTriangle, Percent,
+  AlertTriangle, Percent, Search, LayoutGrid, List, ArrowUpRight,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAgencyClients } from "@/hooks/useAgencyClients";
@@ -20,7 +25,7 @@ import { PrimaryButton } from "@/components/ui/PrimaryButton";
 import { useModalOpen } from "@/hooks/useModalOpen";
 import { privateFinancialValue, useFinancialPrivacyStore } from "@/store/financial-privacy";
 
-const currencyFormatter = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
+const currencyFormatter = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const fmtEditable = (v: number) => currencyFormatter.format(v);
 const fmt = (v: number) => privateFinancialValue(fmtEditable(v));
 
@@ -66,6 +71,7 @@ function ClienteModal({ client, onClose, onSave, onDelete }: ClientModalProps) {
 
   const [shares, setShares] = useState<CostShareDraft[]>([]);
   const [saving, setSaving]   = useState(false);
+  const [deleting,setDeleting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [error, setError]     = useState<string | null>(null);
 
@@ -109,10 +115,11 @@ function ClienteModal({ client, onClose, onSave, onDelete }: ClientModalProps) {
   const inputCls = "w-full rounded-xl bg-[var(--hover)] text-[var(--text-title)] text-sm px-3 py-2.5 outline-none placeholder:text-[var(--silver)]/50 focus:bg-[var(--glass-border)] transition-colors";
   const selectCls = "w-full rounded-xl bg-[var(--hover)] text-[var(--text-title)] text-sm px-3 py-2.5 outline-none focus:bg-[var(--glass-border)] transition-colors";
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
+  return createPortal(
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" onClick={onClose}>
       <div className="lc-modal-backdrop absolute inset-0" />
       <motion.div
+        role="dialog" aria-modal="true" aria-label={client ? "Editar Cliente" : "Novo Cliente"}
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.95 }}
@@ -125,7 +132,7 @@ function ClienteModal({ client, onClose, onSave, onDelete }: ClientModalProps) {
             <h2 className="text-lg font-bold text-[var(--text-title)]">{client ? "Editar Cliente" : "Novo Cliente"}</h2>
             <p className="text-xs text-[var(--text-muted)] mt-0.5">Preencha os dados do cliente e os custos vinculados</p>
           </div>
-          <button onClick={onClose} className="text-[var(--silver)] hover:text-[var(--text-title)] transition-colors p-1">
+          <button aria-label="Fechar cliente" onClick={onClose} className="text-[var(--silver)] hover:text-[var(--text-title)] transition-colors p-1">
             <X size={20} />
           </button>
         </div>
@@ -183,7 +190,7 @@ function ClienteModal({ client, onClose, onSave, onDelete }: ClientModalProps) {
 
           <div>
             <label className="block text-xs text-[var(--silver)] mb-1.5 font-medium">Início do Contrato</label>
-            <input
+            <DateInput
               type="date" value={form.contract_start ?? ""}
               onChange={e => set("contract_start", e.target.value || null)}
               className={inputCls} style={{ border: "none" }}
@@ -192,7 +199,7 @@ function ClienteModal({ client, onClose, onSave, onDelete }: ClientModalProps) {
 
           <div>
             <label className="block text-xs text-[var(--silver)] mb-1.5 font-medium">Fim do Contrato</label>
-            <input
+            <DateInput
               type="date" value={form.contract_end ?? ""}
               onChange={e => set("contract_end", e.target.value || null)}
               className={inputCls} style={{ border: "none" }}
@@ -371,7 +378,8 @@ function ClienteModal({ client, onClose, onSave, onDelete }: ClientModalProps) {
         <div className="flex gap-3 pt-5 mt-2">
           {client && onDelete && (
             <button
-              onClick={confirmDelete ? onDelete : () => setConfirmDelete(true)}
+              disabled={deleting || saving}
+              onClick={async()=>{if(!confirmDelete){setConfirmDelete(true);return;}setDeleting(true);try{await onDelete();}finally{setDeleting(false);}}}
               className={cn(
                 "px-4 py-2.5 rounded-xl text-sm font-medium transition-all border",
                 confirmDelete
@@ -379,7 +387,7 @@ function ClienteModal({ client, onClose, onSave, onDelete }: ClientModalProps) {
                   : "text-[var(--silver)] border-[var(--border)] hover:border-red-400/30 hover:text-red-400"
               )}
             >
-              {confirmDelete ? "Confirmar Exclusão" : "Excluir"}
+              {deleting ? "Excluindo..." : confirmDelete ? "Confirmar Exclusão" : "Excluir"}
             </button>
           )}
           <button
@@ -389,12 +397,12 @@ function ClienteModal({ client, onClose, onSave, onDelete }: ClientModalProps) {
           >
             Cancelar
           </button>
-          <PrimaryButton onClick={handleSave} disabled={saving} className="flex-1 py-2.5 text-sm">
+          <PrimaryButton onClick={handleSave} disabled={saving || deleting} className="flex-1 py-2.5 text-sm">
             {saving ? "Salvando..." : client ? "Salvar" : "Criar Cliente"}
           </PrimaryButton>
         </div>
       </motion.div>
-    </div>
+    </div>, document.body
   );
 }
 
@@ -414,6 +422,8 @@ export function ClientesRentabilidade({ year, month }: Props) {
   const { data, clientProfitability, isLoading, refetch: refetchDashboard } = useFinanceiroDashboard(year, month);
   const { saveShares } = useClientCostShares();
   const [modal, setModal]   = useState<{ open: boolean; client?: AgencyClient }>({ open: false });
+  const [search, setSearch] = useState("");
+  const [view, setView] = useState<"cards" | "table">("cards");
   const [sortKey, setSortKey] = useState<SortKey>("lucro");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
 
@@ -424,7 +434,9 @@ export function ClientesRentabilidade({ year, month }: Props) {
   const lucroTotal  = clientProfitability.reduce((s, p) => s + p.lucro, 0);
   const margemGeral = mrr > 0 ? (lucroTotal / mrr) * 100 : 0;
 
-  const sorted = [...clientProfitability].sort((a, b) =>
+  const matchesSearch = (name: string) => name.toLocaleLowerCase("pt-BR").includes(search.toLocaleLowerCase("pt-BR").trim());
+  const otherClients = clients.filter(c => c.status !== "ativo" && matchesSearch(c.name));
+  const sorted = [...clientProfitability].filter(p => matchesSearch(p.client.name)).sort((a, b) =>
     sortDir === "desc" ? b[sortKey] - a[sortKey] : a[sortKey] - b[sortKey]
   );
 
@@ -463,46 +475,54 @@ export function ClientesRentabilidade({ year, month }: Props) {
 
   const handleDelete = useCallback(async () => {
     if (modal.client) {
-      await deleteClient(modal.client.id);
+      const result=await deleteClient(modal.client.id);
+      if(result.error){toast.error(result.error);return;}
       setModal({ open: false });
-      refetchDashboard();
+      toast.success("Cliente excluído");
     }
-  }, [modal.client, deleteClient, refetchDashboard]);
+  }, [modal.client, deleteClient]);
 
   return (
-    <div className="space-y-4">
-      {/* Summary cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {[
-          { label: "Clientes Ativos",  value: privateFinancialValue(String(clientesAtivos)), icon: <Users size={18} />, accent: "#4a8fd4" },
-          { label: "MRR Total",        value: fmt(mrr),                       icon: <DollarSign size={18} />,   accent: "#10b981" },
-          { label: "Lucro Total",      value: fmt(lucroTotal),                icon: <TrendingUp size={18} />,   accent: lucroTotal >= 0 ? "#10b981" : "#ef4444" },
-          { label: "Margem Geral",     value: privateFinancialValue(`${margemGeral.toFixed(1)}%`), icon: <TrendingDown size={18} />, accent: margemGeral >= 30 ? "#10b981" : margemGeral >= 0 ? "#f59e0b" : "#ef4444" },
-        ].map((s, i) => (
-          <motion.div key={s.label} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.06 }}
-            className="lc-card px-5 py-4 flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
-              style={{ background: `${s.accent}22`, border: `1px solid ${s.accent}44`, color: s.accent }}>
-              {s.icon}
-            </div>
-            <div>
-              <p className="text-xs text-[var(--silver)]">{s.label}</p>
-              <p className="text-lg font-bold text-[var(--text-title)]">{s.value}</p>
-            </div>
-          </motion.div>
-        ))}
+    <div className="fin-workspace fin-client-workspace">
+      <FinancialSectionHeader title="Sua carteira" description="Clientes, recorrência e resultado estimado em uma visão clara." createLabel="Novo Cliente" onCreate={() => setModal({ open: true })} />
+      <div className="fin-overview">
+        <FinancialMetric label="Clientes ativos" value={privateFinancialValue(String(clientesAtivos))} detail={`${privateFinancialValue(String(clients.length))} cadastrados na carteira`} tone="blue" />
+        <FinancialMetric label="Receita recorrente" value={fmt(mrr)} detail="MRR contratado dos clientes ativos" tone="green" />
+        <FinancialMetric label="Resultado estimado" value={fmt(lucroTotal)} detail="Mensalidades menos custos do período" tone={lucroTotal >= 0 ? "green" : "red"} />
+        <FinancialMetric label="Margem da carteira" value={privateFinancialValue(`${margemGeral.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`)} detail="Resultado estimado sobre o MRR" tone={margemGeral >= 30 ? "green" : "amber"} />
       </div>
-
-      <div className="flex justify-between items-center">
-        <p className="text-sm text-[var(--silver)]">{privateFinancialValue(String(clients.length))} clientes cadastrados</p>
-        <PrimaryButton onClick={() => setModal({ open: true })} signature size="medium">
-          <Users size={16} />
-          Novo Cliente
-        </PrimaryButton>
+      <div className="fin-client-toolbar">
+        <label><Search size={16} className="shrink-0 text-[var(--muted-foreground)]" /><input aria-label="Buscar clientes" placeholder="Buscar cliente pelo nome…" value={search} onChange={event => setSearch(event.target.value)} /></label>
+        <select aria-label="Ordenar clientes" value={`${sortKey}:${sortDir}`} onChange={event => { const [key, direction] = event.target.value.split(":"); setSortKey(key as SortKey); setSortDir(direction as "asc" | "desc"); }}>
+          <option value="lucro:desc">Maior resultado</option><option value="lucro:asc">Menor resultado</option><option value="margem:desc">Maior margem</option><option value="margem:asc">Menor margem</option><option value="mensalidade:desc">Maior mensalidade</option><option value="mensalidade:asc">Menor mensalidade</option><option value="custo_total:desc">Maior custo</option><option value="custo_total:asc">Menor custo</option><option value="tempo_contrato_meses:desc">Mais tempo de contrato</option><option value="tempo_contrato_meses:asc">Menos tempo de contrato</option>
+        </select>
+        <div className="fin-segments" role="group" aria-label="Visualização dos clientes">
+          <button type="button" aria-label="Cards de clientes" title="Cards" aria-pressed={view === "cards"} onClick={() => setView("cards")}><LayoutGrid size={16} /></button>
+          <button type="button" aria-label="Tabela de clientes" title="Tabela" aria-pressed={view === "table"} onClick={() => setView("table")}><List size={16} /></button>
+        </div>
       </div>
+      <p className="text-xs text-[var(--muted-foreground)]">{privateFinancialValue(String(sorted.length))} {sorted.length === 1 ? "cliente ativo" : "clientes ativos"} nesta seleção · indicadores referentes à carteira do período</p>
+      {view === "cards" && <div className="fin-client-grid">
+        {isLoading ? <p className="p-6 text-xs text-[var(--muted-foreground)]">Carregando carteira…</p> : !sorted.length ? <p className="p-6 text-sm text-[var(--muted-foreground)]">{search ? "Nenhum cliente ativo encontrado para esta busca." : "Nenhum cliente ativo neste período. Cadastre um cliente pelo botão acima."}</p> : sorted.map(p => <article key={p.client.id} className={`fin-client-card ${p.lucro < 0 ? "is-negative" : ""}`}>
+          <header><span className="fin-client-avatar">{p.client.name.slice(0, 2).toUpperCase()}</span><div><b>{p.client.name}</b><p>{COMPANY_LABELS[p.client.company_type]} · {STATUS_CONFIG[p.client.status].label}</p></div></header>
+          <div className="fin-client-values"><div><small>Mensalidade</small><strong>{fmt(p.mensalidade)}</strong></div><div><small>Resultado estimado</small><strong style={{ color: p.lucro < 0 ? "#fb7185" : "var(--text-title)" }}>{fmt(p.lucro)}</strong></div></div>
+          <div className="fin-client-margin"><span><span>Margem · {privateFinancialValue(`${p.margem.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`)}</span><span>Custos {fmt(p.custo_total)}</span></span>
+            <div className="fin-share-track" aria-hidden="true"><i style={{ width: valuesHidden ? 0 : `${Math.max(0, Math.min(100, p.margem))}%`, background: p.lucro < 0 ? "#fb7185" : p.margem < 30 ? "#fbbf24" : "#34d399" }} /></div>
+            {p.custo_parceiros > 0 && <small className="text-[10px] text-[var(--muted-foreground)]">Inclui {fmt(p.custo_parceiros)} em parceiros</small>}
+          </div>
+          <footer><span>{p.client.contract_start ? `${privateFinancialValue(String(p.tempo_contrato_meses))} meses de contrato` : "Sem início de contrato"}</span><button type="button" onClick={() => setModal({ open: true, client: p.client })} aria-label={`Ver cliente ${p.client.name}`}>Ver cliente<ArrowUpRight size={14} /></button></footer>
+        </article>)}
+      </div>}
+      <FinancialAnalysis title="Análise da carteira"><div className="fin-chart-grid">
+        <FinancialBreakdown title="Concentração de receita" description="Participação no MRR contratado de toda a carteira ativa." rows={[...clientProfitability].sort((a, b) => b.mensalidade - a.mensalidade).slice(0, 5).map(p => ({ id: p.client.id, label: p.client.name, total: p.mensalidade }))} baseTotal={mrr} onSelect={id => setSearch(clients.find(c => c.id === id)?.name ?? "")} />
+        <section className="fin-panel"><h3>Como ler a rentabilidade</h3><p className="mt-3 text-xs leading-6 text-[var(--muted-foreground)]">O resultado estimado parte da mensalidade contratada e desconta os custos atribuídos ao cliente no período, incluindo parceiros. A receita efetivamente recebida fica em Financeiro → Receitas.</p><div className="mt-5 fin-secondary-metrics">
+          <FinancialMetric label="Atenção à margem" value={privateFinancialValue(String(clientProfitability.filter(p => p.margem < 30).length))} detail="Clientes com margem inferior a 30%" tone="amber" />
+          <FinancialMetric label="Resultado negativo" value={privateFinancialValue(String(clientProfitability.filter(p => p.lucro < 0).length))} detail="Clientes com custos acima da mensalidade" tone="red" />
+        </div></section>
+      </div></FinancialAnalysis>
 
       {/* Profitability table */}
-      <div className="lc-card overflow-hidden">
+      {view === "table" && <div className="fin-ledger lc-card overflow-hidden">
         {isLoading ? (
           <div className="p-8 text-center text-[var(--silver)] text-sm">Carregando...</div>
         ) : sorted.length === 0 ? (
@@ -565,7 +585,7 @@ export function ClientesRentabilidade({ year, month }: Props) {
                       </td>
                       <td className={cn("px-4 py-3 font-bold whitespace-nowrap", profitColor)}>{fmt(p.lucro)}</td>
                       <td className={cn("px-4 py-3 font-semibold whitespace-nowrap", marginColor)}>
-                        {privateFinancialValue(`${p.margem.toFixed(1)}%`)}
+                        {privateFinancialValue(`${p.margem.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`)}
                       </td>
                       <td className="px-4 py-3 text-[var(--silver)] whitespace-nowrap">
                         {p.client.contract_start ? privateFinancialValue(`${p.tempo_contrato_meses}m`) : "—"}
@@ -588,14 +608,14 @@ export function ClientesRentabilidade({ year, month }: Props) {
             </table>
           </div>
         )}
-      </div>
+      </div>}
 
       {/* Non-active clients */}
-      {clients.filter(c => c.status !== "ativo").length > 0 && (
+      {otherClients.length > 0 && (
         <div className="lc-card p-5">
           <p className="text-xs text-[var(--silver)] font-medium mb-3 uppercase tracking-wider">Outros Clientes</p>
           <div className="flex flex-wrap gap-2">
-            {clients.filter(c => c.status !== "ativo").map(c => {
+            {otherClients.map(c => {
               const sc = STATUS_CONFIG[c.status];
               return (
                 <button key={c.id} onClick={() => setModal({ open: true, client: c })}

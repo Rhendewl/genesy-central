@@ -37,6 +37,7 @@ export async function POST(req: NextRequest) {
     .from("crm_pipelines")
     .insert({
       name:        name.trim(),
+      default_assignee_id: typeof body.default_assignee_id === "string" ? body.default_assignee_id || null : null,
       description: (body.description as string | null) ?? null,
       color:       (body.color as string) ?? "#4a8fd4",
       icon:        (body.icon  as string) ?? "kanban",
@@ -45,6 +46,6 @@ export async function POST(req: NextRequest) {
     .select()
     .single();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
   return NextResponse.json({ pipeline: data }, { status: 201 });
 }

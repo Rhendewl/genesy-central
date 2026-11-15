@@ -1,13 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
+import { createAdminSupabaseClient } from "@/lib/supabase-admin";
 import { apiError, getMarketingServerContext } from "@/lib/marketing/server";
-import { syncInstagramConnection } from "@/lib/instagram-sync";
+import { instagramSyncErrorMessage, syncInstagramConnection } from "@/lib/instagram-sync";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
   const supabase = await createServerSupabaseClient();
   let connectionId: string | undefined;
+  let authorizedOrganizationId: string | undefined;
   try {
     const context = await getMarketingServerContext(supabase);
     if (!context.isAdmin) throw Object.assign(new Error("Apenas administradores podem sincronizar contas"), { status: 403 });
@@ -21,17 +24,21 @@ export async function POST(req: NextRequest) {
       .eq("organization_id", context.organizationId)
       .single();
     if (error || !connection) throw Object.assign(new Error("Conta do Instagram não encontrada"), { status: 404 });
-    const result = await syncInstagramConnection(supabase, connection);
+    authorizedOrganizationId = context.organizationId;
+    // The publication ledger is service-only. Elevate only after validating
+    // administrator access and resolving the account within its organization.
+    const result = await syncInstagramConnection(createAdminSupabaseClient(), connection);
     return NextResponse.json({ success: true, ...result });
   } catch (error) {
-    if (connectionId) {
+    const message = instagramSyncErrorMessage(error);
+    if (connectionId && authorizedOrganizationId) {
       await supabase.from("marketing_instagram_connections").update({
         status: "error",
-        sync_error: error instanceof Error ? error.message.slice(0, 500) : "Falha na sincronização",
+        sync_error: message.slice(0, 500),
         updated_at: new Date().toISOString(),
-      }).eq("id", connectionId);
+      }).eq("id", connectionId).eq("organization_id", authorizedOrganizationId);
     }
     const parsed = apiError(error);
-    return NextResponse.json({ error: parsed.message }, { status: parsed.status });
+    return NextResponse.json({ error: message }, { status: parsed.status });
   }
 }

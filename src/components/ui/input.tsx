@@ -1,9 +1,13 @@
+"use client";
+import { DateInput, DateTimeInput } from "./DateInput"
 import * as React from "react"
 import { Input as InputPrimitive } from "@base-ui/react/input"
 
 import { cn } from "@/lib/utils"
 
 function Input({ className, type, ...props }: React.ComponentProps<"input">) {
+  if (type === "date") return <DateInput className={cn("lc-form-control h-9 w-full rounded-lg border px-3 text-sm", className)} {...props} />
+  if (type === "datetime-local") return <DateTimeInput className={cn("lc-form-control h-9 w-full rounded-lg border px-3 text-sm", className)} {...props} />
   return (
     <InputPrimitive
       type={type}

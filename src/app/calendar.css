@@ -1,0 +1,43 @@
+
+/* Shared calendar: neutral outline; amber is reserved for lead reminders. */
+.app-date-positioner{z-index:1500;max-width:calc(100vw - 24px)}
+.app-date-popup,.app-date-calendar{--date-accent:#38bdf8;color:var(--text-title,var(--foreground));background:var(--card,#080b0d);border-radius:20px}
+.app-date-popup{border:1px solid var(--border-card,var(--border));box-shadow:0 18px 60px #0006;overflow:hidden;width:300px;max-width:calc(100vw - 24px);max-height:var(--available-height,90dvh);overflow-y:auto}
+.app-date-calendar{padding:14px;width:100%;font-size:13px}
+.app-date-calendar--reminder{--date-accent:#f4c66b}
+.app-date-month{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;gap:8px}
+.app-date-month strong{font-size:14px;text-transform:capitalize;font-weight:700}
+.app-date-month button{width:32px;height:32px;display:grid;place-items:center;border-radius:9px}
+.app-date-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:3px}
+.app-date-grid>span{text-align:center;font-size:12px;color:var(--text-card-secondary,var(--muted-foreground));padding:4px 0 8px}
+.app-date-grid button{height:34px;min-width:0;border:1px solid transparent;border-radius:10px;font-size:13px;transition:background .15s,border-color .15s}
+.app-date-grid button[aria-pressed=true]{color:var(--date-accent);background:color-mix(in srgb,var(--date-accent) 13%,transparent);border-color:color-mix(in srgb,var(--date-accent) 45%,transparent);font-weight:700}
+.app-date-grid button[aria-current=date]:not([aria-pressed=true]){box-shadow:inset 0 0 0 1px var(--border-card-hover);font-weight:700}
+.app-date-grid button:hover:not(:disabled),.app-date-month button:hover{background:var(--hover)}
+.app-date-grid button:disabled,.app-date-footer button:disabled{opacity:.3;cursor:not-allowed}
+.app-date-calendar button:focus-visible,.app-date-trigger:focus-visible{outline:2px solid var(--date-accent,#38bdf8);outline-offset:2px}
+.app-date-footer{margin-top:16px;border-top:1px solid var(--border-card,var(--border));padding-top:14px;display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:12px}
+.app-date-footer>span{color:var(--text-card-secondary,var(--muted-foreground))}
+.app-date-footer button{color:var(--date-accent);padding:4px 6px;border-radius:6px}
+.app-date-trigger{display:inline-flex;align-items:center;gap:10px;text-align:left;min-height:36px;min-width:0;max-width:100%;vertical-align:middle}
+.app-date-trigger svg{flex-shrink:0;color:var(--icon)}
+.app-date-trigger span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.app-date-trigger:disabled{opacity:.5;cursor:not-allowed}
+.app-date-native{position:absolute;width:1px;height:1px;padding:0;border:0;clip-path:inset(50%);overflow:hidden;white-space:nowrap}
+.app-date-clear{display:block;padding:0 20px 14px;color:var(--text-card-secondary);font-size:12px}
+.app-datetime-input{display:grid;grid-template-columns:minmax(0,1fr) minmax(90px,.6fr);gap:10px}
+.light .app-date-popup,.light .app-date-calendar{--date-accent:#0369a1}
+.light .app-date-calendar--reminder{--date-accent:#925b04}
+
+.app-reminder-date-popup{padding:0!important;overflow:hidden}
+.app-date-grid button[data-in-range=true]{background:color-mix(in srgb,var(--date-accent) 8%,transparent);border-radius:4px}
+.app-range-hint{padding:0 16px 14px;font-size:12px;color:var(--text-card-secondary)}
+.app-range-actions{display:flex;justify-content:flex-end;gap:10px;padding:12px 16px;border-top:1px solid var(--border-card)}
+.app-range-actions button{font-size:12px;padding:8px 10px;border-radius:9px}
+.app-range-actions button:last-child{background:color-mix(in srgb,#38bdf8 14%,transparent);color:var(--date-accent);border:1px solid color-mix(in srgb,#38bdf8 30%,transparent)}
+.app-range-actions button:disabled{opacity:.4;cursor:not-allowed}
+
+.app-accent-border{isolation:isolate}
+.app-accent-border::before{content:"";position:absolute;inset:-1px;pointer-events:none;border-radius:inherit;padding:1px;z-index:1;background:radial-gradient(ellipse 280px 400px at top left,var(--surface-accent,transparent),transparent 82%);mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);mask-composite:exclude;-webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);-webkit-mask-composite:xor;opacity:.85}
+
+.app-month-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.app-month-grid button{padding:12px;border:1px solid transparent;border-radius:10px;text-transform:capitalize}.app-month-grid button[aria-pressed=true]{color:var(--date-accent);border-color:color-mix(in srgb,var(--date-accent) 40%,transparent);background:color-mix(in srgb,var(--date-accent) 13%,transparent);font-weight:700}.app-month-grid button:hover{background:var(--hover)}.app-month-grid button:disabled{opacity:.3}

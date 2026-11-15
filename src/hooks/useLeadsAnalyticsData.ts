@@ -14,12 +14,21 @@ export interface StageHistoryRow {
   stage_id:    string;
   pipeline_id: string;
   moved_at:    string;
+  id?: string;
+  from_stage_id?: string | null;
+  from_column?: string | null;
+  to_column?: string | null;
 }
 
 // Linha mínima de crm_stages — só o necessário pra reconstruir o IE
 // histórico de cada movimento (LeadScoreEngine.calculateIE precisa de
 // order_index + total de etapas ativas da pipeline naquele momento).
 export interface StageOrderRow {
+  name?: string;
+  color?: string;
+  legacy_column?: string | null;
+  is_won?: boolean;
+  is_lost?: boolean;
   id:          string;
   pipeline_id: string;
   order_index: number;
@@ -100,16 +109,24 @@ export function useLeadsAnalyticsData(
       query = query.in("pipeline_id", ids);
     }
 
-    // Histórico de movimentação + posição das etapas — só usados para as
-    // métricas de tempo do IE (tempo até 100 / tempo entre faixas). Não têm
-    // filtro de pipeline: são poucas linhas por lead, mais simples buscar
-    // tudo do usuário do que replicar o filtro em duas queries relacionadas.
-    const [{ data, error: err }, { data: historyData }, { data: stagesData }, { data: goalsData }] = await Promise.all([
-      query,
-      supabase.from("crm_lead_stage_history").select("lead_id, stage_id, pipeline_id, moved_at").order("moved_at", { ascending: true }),
-      supabase.from("crm_stages").select("id, pipeline_id, order_index, is_active, metric_type"),
+    // Page every dataset: PostgREST's row cap must not silently truncate time metrics.
+    async function readAll(query: { range: (from: number, to: number) => PromiseLike<{ data: unknown[] | null; error: { message: string } | null }> }) {
+      const rows: unknown[] = [];
+      for (let offset = 0; ; offset += 500) {
+        const result = await query.range(offset, offset + 499);
+        if (result.error) return { data: null, error: result.error };
+        rows.push(...(result.data ?? []));
+        if ((result.data?.length ?? 0) < 500) return { data: rows, error: null };
+      }
+    }
+    let historyQuery = supabase.from("crm_lead_stage_history").select("*").order("moved_at", { ascending: true }).order("id");
+    let stagesQuery = supabase.from("crm_stages").select("id,pipeline_id,name,color,order_index,is_active,metric_type,legacy_column,is_won,is_lost").order("id");
+    if (ids !== null) { historyQuery = historyQuery.in("pipeline_id", ids); stagesQuery = stagesQuery.in("pipeline_id", ids); }
+    const [{ data, error: leadError }, { data: historyData, error: historyError }, { data: stagesData, error: stageError }, { data: goalsData, error: goalError }] = await Promise.all([
+      readAll(query.order("id")), readAll(historyQuery), readAll(stagesQuery),
       supabase.from("crm_goals").select("*").eq("is_active", true).order("starts_at", { ascending: false }),
     ]);
+    const err = leadError ?? historyError ?? stageError ?? goalError;
 
     if (!mountedRef.current || requestId !== requestIdRef.current) return;
 

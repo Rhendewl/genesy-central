@@ -8,7 +8,8 @@ import { cn } from "@/lib/utils";
 import { semanticChipStyle } from "@/lib/semantic-chip";
 
 interface TagSelectorProps {
-  scope?: "global" | "workspace";
+  scope?: "global" | "workspace" | "crm";
+  pipelineId?: string | null;
   value: string[];
   onChange: (tagIds: string[]) => void;
   disabled?: boolean;
@@ -16,8 +17,8 @@ interface TagSelectorProps {
   helperText?: string;
 }
 
-export function TagSelector({ value, onChange, disabled = false, className, helperText, scope = "global" }: TagSelectorProps) {
-  const { tags, createTag, deleteTag, updateTag, error } = useTags(scope);
+export function TagSelector({ value, onChange, disabled = false, className, helperText, scope = "global", pipelineId }: TagSelectorProps) {
+  const { tags, createTag, deleteTag, updateTag, error } = useTags(scope, pipelineId);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [creatorOpen, setCreatorOpen] = useState(false);
   const [name, setName] = useState("");

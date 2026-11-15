@@ -45,3 +45,16 @@ describe("persistOperationalAlert", () => {
     expect(result).toMatchObject({ created: 1, accepted: 1, failed: 0 });
   });
 });
+
+describe('owner-only alert delivery',()=>{
+ it('filters the specific authenticated owner and skips duplicate events without pushing twice',async()=>{
+  vi.clearAllMocks();
+  const filters:unknown[][]=[];
+  const recipients={select:()=>recipients,eq:(...args:unknown[])=>{filters.push(args);return recipients;},not:async()=>({data:[{id:'owner-profile',owner_id:'owner',auth_user_id:'owner'}],error:null})};
+  const notification={insert:()=>notification,select:()=>notification,single:async()=>({data:null,error:{code:'23505'}})};
+  const db={from:(table:string)=>table==='user_profiles'?recipients:notification};
+  const result=await persistOperationalAlert(db as never,{ownerUserId:'owner',recipientAuthUserId:'owner',eventId:'contract-signature:one',source:'client_contract',title:'Assinado',body:'Contrato',actionUrl:'/clientes?tab=contratos'});
+  expect(filters).toContainEqual(['owner_id','owner']);expect(filters).toContainEqual(['auth_user_id','owner']);expect(filters).toContainEqual(['is_active',true]);
+  expect(result.created).toBe(0);expect(dispatchPushToUser).not.toHaveBeenCalled();
+ });
+});

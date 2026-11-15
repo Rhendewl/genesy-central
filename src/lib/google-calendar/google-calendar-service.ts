@@ -12,6 +12,8 @@ export class GoogleAuthError extends Error {}
 
 export interface CreateEventParams {
   accessToken:     string;
+  eventId?: string;
+  reminderId?: string;
   googleCalendarId: string;   // "primary" or a specific calendar ID
   summary:         string;
   description:     string;
@@ -44,7 +46,7 @@ export async function createCalendarEvent(params: CreateEventParams): Promise<Go
   const {
     accessToken, googleCalendarId, summary, description,
     startDateTime, endDateTime, timezone,
-    attendeeEmail, location, conferenceUrl, reminders,
+    attendeeEmail, location, conferenceUrl, reminders, eventId, reminderId,
   } = params;
 
   const event: Record<string, unknown> = {
@@ -54,6 +56,13 @@ export async function createCalendarEvent(params: CreateEventParams): Promise<Go
     end:   { dateTime: endDateTime,   timeZone: timezone },
     reminders: reminders === undefined ? REMINDERS : { useDefault: false, overrides: reminders },
   };
+
+  if (eventId) {
+    if (!/^[a-v0-9]{5,1024}$/.test(eventId)) throw new Error("Invalid Google event identifier");
+    event.id = eventId;
+    event.extendedProperties = {private:{genesy_lead_reminder:reminderId ?? eventId}};
+    event.visibility = "private";
+  }
 
   if (attendeeEmail) {
     event.attendees = [{ email: attendeeEmail }];
@@ -82,9 +91,20 @@ export async function createCalendarEvent(params: CreateEventParams): Promise<Go
       "Content-Type": "application/json",
     },
     body: JSON.stringify(event),
+    signal: AbortSignal.timeout(20000),
   });
 
-  if (res.status === 401) {
+  if (res.status === 409 && eventId) {
+    const existing = await fetch(`${CALENDAR_API}/calendars/${encodeURIComponent(googleCalendarId)}/events/${eventId}`, {
+      headers: {Authorization: `Bearer ${accessToken}`}, signal: AbortSignal.timeout(20000),
+    });
+    if (existing.status === 401 || existing.status === 403) throw new GoogleAuthError("Google Calendar authorization expired");
+    if (!existing.ok) throw new Error("Could not confirm the existing reminder event");
+    const saved = await existing.json();
+    if (saved.status === "cancelled" || saved.extendedProperties?.private?.genesy_lead_reminder !== (reminderId ?? eventId)) throw new Error("Existing event does not match this reminder");
+    return {id:saved.id,htmlLink:saved.htmlLink};
+  }
+  if (res.status === 401 || res.status === 403) {
     throw new GoogleAuthError("Google Calendar authorization expired");
   }
   if (!res.ok) {
@@ -154,8 +174,9 @@ export async function deleteCalendarEvent(
     method:  "DELETE",
     headers: { Authorization: `Bearer ${accessToken}` },
   });
-  // 404 = already deleted — treat as success
-  if (!res.ok && res.status !== 404) {
+  if (res.status === 401 || res.status === 403) throw new GoogleAuthError("Google Calendar authorization expired");
+  // 404/410 = already deleted — treat as success
+  if (!res.ok && res.status !== 404 && res.status !== 410) {
     const err = await res.text();
     throw new Error(`Google Calendar event deletion failed (${res.status}): ${err}`);
   }

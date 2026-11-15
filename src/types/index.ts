@@ -91,6 +91,8 @@ export interface Lead {
   integration_notes: string | null;
   deal_value: number;
   entered_at: string;
+  /** Original arrival instant. Null means historical time is unknown. */
+  received_at?: string | null;
   created_at: string;
   updated_at: string;
   // IQ (Inteligência de Qualificação) — calculado uma vez a partir das
@@ -580,6 +582,7 @@ export type UpdateCampaign = Partial<NewCampaign>;
 // ── Métricas de Campanha ──────────────────────────────────────────────────────
 
 export interface CampaignMetric {
+  messaging_results?: import("@/lib/messaging-results").MessagingResults | null;
   id: string;
   user_id: string;
   campaign_id: string;
@@ -678,6 +681,8 @@ export type NewTrafficMonthlyGoal = Omit<TrafficMonthlyGoal, "id" | "user_id" | 
 // ── KPIs de Tráfego ───────────────────────────────────────────────────────────
 
 export interface TrafficDashboardData {
+  messaging_results?: import("@/lib/messaging-results").MessagingResults;
+  messaging_history_pending?: boolean;
   investimento_total: number;
   leads_total: number;
   cpl_medio: number;

@@ -1,10 +1,20 @@
 "use client";
 
+import "./lead-collaboration.css";
+import { splitIntegrationNotes } from "@/lib/crm/integration-attribution";
+import { LeadNotesPanel } from "./LeadNotesPanel";
+import { LeadRemindersPanel } from "./LeadRemindersPanel";
+import { LeadStageMover } from "@/components/crm/LeadStageMover";
+import { LeadStageTimeline } from "./LeadStageTimeline";
+import { formatArrival } from "@/lib/crm/operation-analytics";
+import { LeadContactActions } from "@/components/crm/LeadContactActions";
+
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useLeadAutosave } from "@/hooks/useLeadAutosave";
 import { useModalOpen } from "@/hooks/useModalOpen";
 import { AnimatePresence, motion } from "framer-motion";
-import { X, Loader2, Trash2, RefreshCw } from "lucide-react";
+import { X, Loader2, Trash2, RefreshCw, Check, CloudOff, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { Input } from "@/components/ui/input";
@@ -43,7 +53,7 @@ function friendlyError(raw: string): string {
 // LeadModal — criar e editar leads
 //
 // Criação: stage selecionável (stages do pipeline ativo)
-// Edição:  stage é exibida como read-only — mover via drag-and-drop no Kanban
+// Edição: movimentação rápida usa o mesmo serviço de movimentação do Kanban.
 // ─────────────────────────────────────────────────────────────────────────────
 
 interface LeadModalProps {
@@ -54,6 +64,7 @@ interface LeadModalProps {
   onClose: () => void;
   onCreate: (data: NewLead) => Promise<{ error: string | null }>;
   onUpdate: (id: string, data: UpdateLead) => Promise<{ error: string | null }>;
+  onMove: (id: string, stageId: string, note?: string) => Promise<{ ok: boolean; requireNote: boolean; error: string | null }>;
   onDelete: (id: string) => Promise<{ error: string | null }>;
   onTransfer: (leadId: string, targetStageId: string, note?: string, assigneeId?: string | null) => Promise<{ ok: boolean; requireNote: boolean; alreadyExists: boolean; error: string | null }>;
 }
@@ -82,6 +93,7 @@ export function LeadModal({
   onCreate,
   onUpdate,
   onDelete,
+  onMove,
   onTransfer,
 }: LeadModalProps) {
   const { profiles } = useUsers();
@@ -90,6 +102,13 @@ export function LeadModal({
   const firstInputRef = useRef<HTMLInputElement>(null);
 
   const [form, setForm]             = useState(emptyForm());
+  const [autosaveSession, setAutosaveSession] = useState<string | null>(null);
+  const initialDraft = useRef<UpdateLead>({});
+  const [originTouched, setOriginTouched] = useState(false);
+  const [hasNoteDraft,setHasNoteDraft] = useState(false);
+  const [noteSending,setNoteSending] = useState(false);
+  const [reminderOpen,setReminderOpen] = useState(false);
+  const [mobilePane,setMobilePane] = useState<"data"|"notes">("data");
   const [dealValue, setDealValue]   = useState(0);
   const [isSubmitting, setIsSubmitting]   = useState(false);
   const [isDeleting, setIsDeleting]       = useState(false);
@@ -109,6 +128,7 @@ export function LeadModal({
   const [mounted, setMounted] = useState(false);
 
   useModalOpen(isOpen);
+  const integrationData = splitIntegrationNotes(lead?.integration_notes);
   const isEditing = lead !== null;
 
   useEffect(() => {
@@ -118,9 +138,12 @@ export function LeadModal({
   // ── Preenche formulário ao abrir ───────────────────────────────────────────
 
   useEffect(() => {
+    if (!isOpen) { setAutosaveSession(null); return; }
     if (isOpen) {
       setError(null);
       setConfirmDelete(false);
+      setOriginTouched(false);
+      setHasNoteDraft(false); setNoteSending(false); setReminderOpen(false); setMobilePane("data");
       setRecalculatedIq(undefined);
       setTransferPipelineId("");
       setTransferAssigneeId("");
@@ -137,7 +160,15 @@ export function LeadModal({
           notes:       lead.notes ?? "",
           entered_at:  lead.entered_at,
         });
+        initialDraft.current = {
+          name: lead.name.trim(), contact: lead.contact.trim(), tags: lead.tags,
+          notes: lead.notes?.trim() || null, deal_value: lead.deal_value ?? 0,
+          entered_at: lead.entered_at, assigned_to: lead.assigned_to ?? null,
+          origin_id: lead.origin_id ?? null,
+          source: lead.source,
+        };
         setDealValue(lead.deal_value ?? 0);
+        setAutosaveSession(lead.id);
       } else {
         // Usa a primeira stage ativa como padrão ao criar
         setForm({ ...emptyForm(), stage_id: stages[0]?.id ?? null });
@@ -156,15 +187,32 @@ export function LeadModal({
     if (fallback) setForm(current => ({ ...current, origin_id: fallback.id }));
   }, [form.origin_id, isOpen, lead, origins]);
 
-  // ── Escape para fechar ─────────────────────────────────────────────────────
-
+  const draft = useMemo<UpdateLead>(() => ({
+    name: form.name.trim(), contact: form.contact.trim(), tags: form.tags,
+    notes: form.notes.trim() || null, deal_value: dealValue,
+    entered_at: form.entered_at, assigned_to: form.assigned_to, origin_id: originTouched ? form.origin_id : lead?.origin_id ?? null,
+    source: originTouched ? origins.find(origin => origin.id === form.origin_id)?.slug ?? lead?.source : lead?.source,
+  }), [form, dealValue, origins, lead?.source, lead?.origin_id, originTouched]);
+  const autosave = useLeadAutosave(isOpen && lead && autosaveSession === lead.id ? lead.id : null,
+    initialDraft.current, draft, Boolean(form.name.trim() && form.contact.trim() && form.entered_at && Number.isFinite(dealValue) && dealValue >= 0), onUpdate);
+  const flushDraft = async () => {
+    const saved = await autosave.flush();
+    if (!saved) setError("Suas alterações ainda não foram salvas. Confira os campos e tente novamente antes de fechar.");
+    else setError(null);
+    return saved;
+  };
+  const closeWithSave = async () => {
+    if(reminderOpen||noteSending)return;
+    if(hasNoteDraft&&!window.confirm("Há uma nota ainda não enviada. Fechar e descartar esse rascunho?"))return;
+    if(!isEditing||await flushDraft())onClose();
+  };
+  const closeRef = useRef(closeWithSave);
+  closeRef.current = closeWithSave;
   useEffect(() => {
-    function handleKey(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
-    }
+    function handleKey(event: KeyboardEvent) { if (event.key === "Escape") { event.preventDefault(); void closeRef.current(); } }
     if (isOpen) window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [isOpen, onClose]);
+  }, [isOpen]);
 
   // ── Derived: nome da stage atual (para exibição em modo edição) ────────────
 
@@ -184,8 +232,8 @@ export function LeadModal({
     [pipelines, lead],
   );
   const transferProfiles = useMemo(
-    () => activeProfiles.filter((profile) => profile.crm_pipeline_id === transferPipelineId),
-    [activeProfiles, transferPipelineId],
+    () => activeProfiles.filter((profile) => profile.crm_pipeline_id === transferPipelineId || profile.id === pipelines.find(pipeline => pipeline.id === transferPipelineId)?.default_assignee_id),
+    [activeProfiles, transferPipelineId, pipelines],
   );
 
   // ── Transferir para outra pipeline ──────────────────────────────────────────
@@ -210,6 +258,7 @@ export function LeadModal({
       return;
     }
 
+    if (!await flushDraft()) return;
     setIsTransferring(true);
     const result = await onTransfer(
       lead.id,
@@ -242,22 +291,9 @@ export function LeadModal({
     setIsSubmitting(true);
 
     if (isEditing) {
-      // Atualização: NÃO inclui stage_id — movimentos passam exclusivamente
-      // pelo LeadService via PATCH /api/crm/leads/[id]/move
-      const updatePayload: UpdateLead = {
-        name:        form.name.trim(),
-        contact:     form.contact.trim(),
-        tags:        form.tags,
-        notes:       form.notes.trim() || null,
-        deal_value:  dealValue,
-        entered_at:  form.entered_at,
-        assigned_to: form.assigned_to,
-        origin_id:    form.origin_id,
-        source:       origins.find(origin => origin.id === form.origin_id)?.slug ?? lead.source,
-      };
-      const result = await onUpdate(lead.id, updatePayload);
+      const saved = await flushDraft();
       setIsSubmitting(false);
-      if (result.error) { setError(friendlyError(result.error)); return; }
+      if (!saved) return;
     } else {
       // Criação: inclui stage_id + pipeline_id + kanban_column (compat legado)
       const selectedStage = stages.find((s) => s.id === form.stage_id);
@@ -320,6 +356,7 @@ export function LeadModal({
   async function handleDelete() {
     if (!isEditing) return;
     if (!confirmDelete) { setConfirmDelete(true); return; }
+    if (!await flushDraft()) return;
     setIsDeleting(true);
     const result = await onDelete(lead.id);
     setIsDeleting(false);
@@ -348,17 +385,17 @@ export function LeadModal({
               backdropFilter: "blur(12px) saturate(140%)",
               WebkitBackdropFilter: "blur(12px) saturate(140%)",
             }}
-            onClick={onClose}
+            onClick={() => void closeWithSave()}
           />
 
           {/* ── Centering wrapper ── */}
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
+          <div className={`fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none ${!isEditing ? "crm-lead-create-position" : ""}`}>
             <motion.div
               initial={{ opacity: 0, scale: 0.93, y: 14 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.96, y: 8 }}
               transition={{ type: "spring", stiffness: 420, damping: 34 }}
-              className="pointer-events-auto w-full max-w-md rounded-3xl"
+              className={`pointer-events-auto w-full rounded-3xl ${isEditing ? "lead-collaboration-modal" : "max-w-md"}`}
               style={{
                 background: "var(--bg-modal)",
                 backdropFilter: "blur(24px) saturate(160%)",
@@ -369,20 +406,20 @@ export function LeadModal({
               onClick={(e) => e.stopPropagation()}
             >
               {/* Scroll interno para telas pequenas */}
-              <div className="max-h-[90dvh] overflow-y-auto overscroll-contain rounded-3xl p-6">
+              <div className={isEditing ? "lead-collaboration-shell" : "crm-lead-create-scroll max-h-[90dvh] overflow-y-auto overscroll-contain rounded-3xl p-6"}>
 
                 {/* Header */}
-                <div className="mb-6 flex items-center justify-between">
+                <div className={isEditing ? "lead-collaboration-header" : "sticky -top-6 z-10 -mx-6 -mt-6 mb-5 flex items-center justify-between gap-3 border-b border-[var(--border)] px-6 py-4"} style={{ background: "var(--bg-modal)" }}>
                   <div>
                     <h2 className="text-[15px] font-semibold text-[var(--text-title)]">
-                      {isEditing ? "Editar lead" : "Novo lead"}
+                      {isEditing ? form.name || "Editar lead" : "Novo lead"}
                     </h2>
                     <p className="mt-0.5 text-[11px] text-[var(--muted-foreground)]">
-                      {isEditing ? "Atualize as informações do lead" : "Preencha os dados do lead"}
+                      {isEditing ? ({saved:"Todas as alterações salvas",pending:"Aguardando salvamento…",saving:"Salvando…",invalid:"Confira os campos para salvar",error:"Alterações não salvas · tente novamente"})[autosave.status] : "Preencha os dados do lead"}
                     </p>
                   </div>
                   <button
-                    onClick={onClose}
+                    onClick={() => void closeWithSave()}
                     className="flex h-8 w-8 items-center justify-center rounded-full text-[var(--muted-foreground)] transition-colors hover:bg-[var(--hover)] hover:text-[var(--text-title)]"
                     aria-label="Fechar"
                   >
@@ -390,8 +427,16 @@ export function LeadModal({
                   </button>
                 </div>
 
-                {/* Separador */}
-                <div className="mb-5 h-px bg-[var(--border)]" />
+                {isEditing && <nav className="lead-collab-mobile-tabs" aria-label="Áreas do card do lead"><button type="button" aria-pressed={mobilePane==="data"} onClick={()=>setMobilePane("data")}>Dados e lembretes</button><button type="button" aria-pressed={mobilePane==="notes"} onClick={()=>setMobilePane("notes")}>Notas {hasNoteDraft&&"· rascunho"}</button></nav>}
+                <div className={isEditing ? "lead-collaboration-columns" : ""} data-mobile-pane={mobilePane}>
+                  <div className={isEditing ? "lead-collab-data-column" : ""}>
+                  {isEditing && (
+                  <div className="mb-4 flex flex-wrap items-center gap-2 rounded-xl border border-[var(--border)] px-3 py-2 text-xs" role="status" aria-live="polite">
+                    {autosave.status === "saving" ? <Loader2 size={13} className="animate-spin" /> : autosave.status === "error" ? <CloudOff size={13} className="text-amber-400" /> : <Check size={13} className={autosave.status === "saved" ? "text-emerald-400" : "text-[var(--muted-foreground)]"} />}
+                    <span>{({ saved: "Todas as alterações salvas", pending: "Alterações aguardando salvamento…", saving: "Salvando alterações…", invalid: "Preencha nome, contato e data válidos para salvar", error: "Não foi possível salvar. Suas alterações estão neste card." })[autosave.status]}</span>
+                    {autosave.status === "error" && <button type="button" onClick={() => void flushDraft()} className="underline">Tentar novamente</button>}
+                  </div>
+                )}
 
                 {/* Form */}
                 <form onSubmit={handleSubmit} className="space-y-4">
@@ -425,18 +470,21 @@ export function LeadModal({
                       placeholder="+55 11 99999-9999"
                       className="border-[var(--border)] bg-[var(--input)] text-[var(--text-title)] placeholder:text-[var(--muted-foreground)] focus-visible:ring-[var(--silver)]/40"
                     />
+                    <LeadContactActions contact={form.contact} />
                   </div>
+
+                  {isEditing && lead && <div className="space-y-2"><p className="text-xs text-[var(--muted-foreground)]">Chegada registrada: <span className="text-[var(--text-title)]">{formatArrival(lead)}</span></p><LeadStageTimeline lead={lead} /></div>}
 
                   {/* Dados de Formulário/Agendamento — preenchido automaticamente pelas
                       integrações (resposta de formulário, agendamento de calendário).
                       Somente leitura: quem escreve aqui são essas rotas, não o usuário. */}
-                  {lead?.integration_notes && (
+                  {integrationData.answers && (
                     <div className="space-y-1.5">
                       <Label className="text-[11px] font-medium text-[var(--muted-foreground)]">
                         Dados de Formulário/Agendamento
                       </Label>
                       <div className="max-h-40 overflow-y-auto whitespace-pre-line rounded-xl border border-[var(--border)] bg-[var(--input)] px-3 py-2 text-xs text-[var(--muted-foreground)]">
-                        {lead.integration_notes}
+                        {integrationData.answers}
                       </div>
                     </div>
                   )}
@@ -477,7 +525,7 @@ export function LeadModal({
                         <div
                           className="flex h-9 w-full items-center rounded-md border border-[var(--border)] bg-[var(--input)] px-3 text-xs"
                           style={{ color: "var(--muted-foreground)" }}
-                          title="Para mover, arraste o card no Kanban"
+                          title="Use Mover lead abaixo para alterar a etapa"
                         >
                           <span className="truncate">{currentStageName || "—"}</span>
                         </div>
@@ -504,6 +552,92 @@ export function LeadModal({
                     </div>
                   </div>
 
+                  {isEditing && lead && <LeadStageMover key={`stage-mover-${lead.id}`} currentStageId={lead.stage_id ?? null} stages={[...(pipelines.find((pipeline) => pipeline.id === lead.pipeline_id)?.crm_stages ?? stages)].filter((stage) => stage.is_active).sort((a, b) => a.order_index - b.order_index)} onMove={(stageId, note) => onMove(lead.id, stageId, note)} />}
+                  {isEditing && lead && <LeadRemindersPanel key={`reminders-${lead.id}`} leadId={lead.id} leadName={form.name || lead.name} onDialogChange={setReminderOpen}/>}
+
+                  {!isEditing && <div className="space-y-1.5"><Label htmlFor="lead-notes">Nota inicial</Label><Textarea id="lead-notes" rows={3} value={form.notes} onChange={e=>setForm(p=>({...p,notes:e.target.value}))} placeholder="Contexto inicial sobre o lead"/></div>}
+
+                  <TagSelector
+                    key={lead?.pipeline_id ?? stages.find(stage => stage.id === form.stage_id)?.pipeline_id ?? "no-pipeline"}
+                    scope="crm"
+                    pipelineId={lead?.pipeline_id ?? stages.find(stage => stage.id === form.stage_id)?.pipeline_id}
+                    value={form.tags}
+                    onChange={(tags) => setForm((current) => ({ ...current, tags }))}
+                    helperText={process.env.NEXT_PUBLIC_CRM_PIPELINE_TAGS_ENABLED === "true" ? "As etiquetas pertencem somente a esta pipeline." : "As etiquetas são compartilhadas com o Marketing e o Workspace."}
+                  />
+
+                  {/* Responsável */}
+                  <div className="space-y-1.5">
+                    <Label htmlFor="lead-assigned-to" className="text-[11px] font-medium text-[var(--muted-foreground)]">
+                      Responsável
+                    </Label>
+                    <select
+                      id="lead-assigned-to"
+                      value={form.assigned_to ?? ""}
+                      onChange={(e) => setForm((p) => ({ ...p, assigned_to: e.target.value || null }))}
+                      className="h-9 w-full rounded-md border border-[var(--border)] bg-[var(--input)] px-3 text-xs text-[var(--text-title)] focus:outline-none focus:ring-1 focus:ring-[var(--silver)]/40"
+                    >
+                      <option value="">{!isEditing && pipelines.find(pipeline => pipeline.id === stages.find(stage => stage.id === form.stage_id)?.pipeline_id)?.default_assignee_id ? `Padrão da pipeline · ${activeProfiles.find(profile => profile.id === pipelines.find(pipeline => pipeline.id === stages.find(stage => stage.id === form.stage_id)?.pipeline_id)?.default_assignee_id)?.full_name ?? "Responsável configurado"}` : "Sem responsável"}</option>
+                      {activeProfiles.map((p) => (
+                        <option key={p.id} value={p.id} style={{ background: "var(--background)" }}>
+                          {p.full_name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label className="text-[11px] font-medium text-[var(--muted-foreground)]">Origem</Label>
+                    <LeadOriginSelector value={form.origin_id} onChange={(originId) => { setOriginTouched(true); setForm(current => ({ ...current, origin_id: originId })); }} />
+                  </div>
+
+                  {/* Qualificação — IQ / IE (só em edição, lead recém-criado ainda não tem) */}
+                  {isEditing && lead && (
+                    <div
+                      className="space-y-3 rounded-2xl p-3"
+                      style={{ background: "var(--hover)", border: "1px solid var(--border)" }}
+                    >
+                      <div className="flex items-center justify-between">
+                        <Label className="text-[11px] font-medium text-[var(--muted-foreground)]">
+                          Qualificação
+                        </Label>
+                        {lead.form_id && (
+                          <button
+                            type="button"
+                            onClick={handleRecalculate}
+                            disabled={isRecalculating}
+                            className="flex items-center gap-1 text-[10px] text-[var(--muted-foreground)] transition-colors hover:text-[var(--text-title)] disabled:opacity-50"
+                          >
+                            <RefreshCw size={10} className={isRecalculating ? "animate-spin" : ""} />
+                            Recalcular IQ
+                          </button>
+                        )}
+                      </div>
+
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between text-[10px]" style={{ color: "var(--muted-foreground)" }}>
+                          <span>IQ — Inteligência de Qualificação</span>
+                        </div>
+                        {(recalculatedIq ?? lead.iq_score) !== null ? (
+                          <ProgressBar percent={recalculatedIq ?? lead.iq_score ?? 0} />
+                        ) : (
+                          <p className="text-[10px]" style={{ color: "var(--muted-foreground)" }}>Não aplicável</p>
+                        )}
+                      </div>
+
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between text-[10px]" style={{ color: "var(--muted-foreground)" }}>
+                          <span>IE — Índice de Evolução</span>
+                        </div>
+                        {lead.ie_score !== null ? (
+                          <ProgressBar percent={lead.ie_score} />
+                        ) : (
+                          <p className="text-[10px]" style={{ color: "var(--muted-foreground)" }}>Sem etapa atribuída</p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Criar representação em outra pipeline (ex.: SDR → Closer) */}
                   {isEditing && lead && transferablePipelines.length > 0 && (
                     <div
@@ -520,7 +654,7 @@ export function LeadModal({
                             const nextPipelineId = e.target.value;
                             setTransferPipelineId(nextPipelineId);
                             const candidates = activeProfiles.filter((profile) => profile.crm_pipeline_id === nextPipelineId);
-                            setTransferAssigneeId(candidates[0]?.id ?? "");
+                            setTransferAssigneeId(pipelines.find(pipeline => pipeline.id === nextPipelineId)?.default_assignee_id ?? candidates[0]?.id ?? "");
                             setTransferNeedsNote(false);
                             setTransferNote("");
                           }}
@@ -574,99 +708,10 @@ export function LeadModal({
                     </div>
                   )}
 
-                  <div className="space-y-1.5">
-                    <Label className="text-[11px] font-medium text-[var(--muted-foreground)]">Origem</Label>
-                    <LeadOriginSelector value={form.origin_id} onChange={(originId) => setForm(current => ({ ...current, origin_id: originId }))} />
-                  </div>
-
-                  {/* Responsável */}
-                  <div className="space-y-1.5">
-                    <Label htmlFor="lead-assigned-to" className="text-[11px] font-medium text-[var(--muted-foreground)]">
-                      Responsável
-                    </Label>
-                    <select
-                      id="lead-assigned-to"
-                      value={form.assigned_to ?? ""}
-                      onChange={(e) => setForm((p) => ({ ...p, assigned_to: e.target.value || null }))}
-                      className="h-9 w-full rounded-md border border-[var(--border)] bg-[var(--input)] px-3 text-xs text-[var(--text-title)] focus:outline-none focus:ring-1 focus:ring-[var(--silver)]/40"
-                    >
-                      <option value="">Sem responsável</option>
-                      {activeProfiles.map((p) => (
-                        <option key={p.id} value={p.id} style={{ background: "var(--background)" }}>
-                          {p.full_name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <TagSelector
-                    value={form.tags}
-                    onChange={(tags) => setForm((current) => ({ ...current, tags }))}
-                    helperText="As etiquetas são compartilhadas com o Marketing e o Workspace."
-                  />
-
-                  {/* Qualificação — IQ / IE (só em edição, lead recém-criado ainda não tem) */}
-                  {isEditing && lead && (
-                    <div
-                      className="space-y-3 rounded-2xl p-3"
-                      style={{ background: "var(--hover)", border: "1px solid var(--border)" }}
-                    >
-                      <div className="flex items-center justify-between">
-                        <Label className="text-[11px] font-medium text-[var(--muted-foreground)]">
-                          Qualificação
-                        </Label>
-                        {lead.form_id && (
-                          <button
-                            type="button"
-                            onClick={handleRecalculate}
-                            disabled={isRecalculating}
-                            className="flex items-center gap-1 text-[10px] text-[var(--muted-foreground)] transition-colors hover:text-[var(--text-title)] disabled:opacity-50"
-                          >
-                            <RefreshCw size={10} className={isRecalculating ? "animate-spin" : ""} />
-                            Recalcular IQ
-                          </button>
-                        )}
-                      </div>
-
-                      <div className="space-y-1">
-                        <div className="flex items-center justify-between text-[10px]" style={{ color: "var(--muted-foreground)" }}>
-                          <span>IQ — Inteligência de Qualificação</span>
-                        </div>
-                        {(recalculatedIq ?? lead.iq_score) !== null ? (
-                          <ProgressBar percent={recalculatedIq ?? lead.iq_score ?? 0} />
-                        ) : (
-                          <p className="text-[10px]" style={{ color: "var(--muted-foreground)" }}>Não aplicável</p>
-                        )}
-                      </div>
-
-                      <div className="space-y-1">
-                        <div className="flex items-center justify-between text-[10px]" style={{ color: "var(--muted-foreground)" }}>
-                          <span>IE — Índice de Evolução</span>
-                        </div>
-                        {lead.ie_score !== null ? (
-                          <ProgressBar percent={lead.ie_score} />
-                        ) : (
-                          <p className="text-[10px]" style={{ color: "var(--muted-foreground)" }}>Sem etapa atribuída</p>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Notas — observações manuais (CRM e módulo Conversas) */}
-                  <div className="space-y-1.5">
-                    <Label htmlFor="lead-notes" className="text-[11px] font-medium text-[var(--muted-foreground)]">
-                      Notas
-                    </Label>
-                    <Textarea
-                      id="lead-notes"
-                      rows={3}
-                      value={form.notes}
-                      onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))}
-                      placeholder="Observações sobre o lead..."
-                      className="resize-none border-[var(--border)] bg-[var(--input)] text-[var(--text-title)] placeholder:text-[var(--muted-foreground)] focus-visible:ring-[var(--silver)]/40"
-                    />
-                  </div>
-
+                  {isEditing && <details className="group rounded-xl border border-[var(--border)] bg-[var(--input)] px-3 py-3">
+                    <summary className="flex cursor-pointer list-none items-center justify-between text-xs font-medium text-[var(--text-title)] [&::-webkit-details-marker]:hidden"><span>UTMs rastreadas{integrationData.attribution.length ? ` (${integrationData.attribution.length})` : ""}</span><ChevronDown size={16} className="transition-transform group-open:rotate-180" /></summary>
+                    {integrationData.attribution.length ? <dl className="mt-3 space-y-3">{integrationData.attribution.map((item,i)=><div key={`${item.key}-${i}`}><dt className="text-[10px] text-[var(--muted-foreground)]">{item.key}</dt><dd className="mt-1 break-words text-xs text-[var(--text-title)]">{item.value}</dd></div>)}</dl> : <p className="mt-3 text-xs text-[var(--muted-foreground)]">Nenhuma UTM registrada para este lead.</p>}
+                  </details>}
                   {/* Erro */}
                   {error && (
                     <p className="rounded-xl bg-red-500/10 px-3 py-2 text-xs text-red-400">
@@ -707,10 +752,13 @@ export function LeadModal({
                       className="lc-btn flex items-center gap-2 px-5 py-2 text-sm disabled:opacity-40"
                     >
                       {isSubmitting && <Loader2 size={14} className="animate-spin" />}
-                      {isEditing ? "Salvar alterações" : "Criar lead"}
+                      {isEditing ? "Concluir" : "Criar lead"}
                     </button>
                   </div>
                 </form>
+                  </div>
+                  {isEditing && lead && <div className="lead-collab-notes-column"><LeadNotesPanel key={lead.id} leadId={lead.id} legacyNotes={form.notes} onLegacyChange={notes=>setForm(p=>({...p,notes}))} onDraftChange={setHasNoteDraft} onSendingChange={setNoteSending}/></div>}
+                </div>
               </div>
             </motion.div>
           </div>

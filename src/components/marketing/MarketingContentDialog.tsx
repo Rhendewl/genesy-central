@@ -132,8 +132,8 @@ export function MarketingContentDialog({
         className="z-[120] flex h-[calc(100dvh-1rem)] max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-none flex-col gap-0 overflow-hidden rounded-2xl p-0 sm:h-[86dvh] sm:max-h-[900px] sm:w-[calc(100%-3rem)] sm:max-w-5xl sm:rounded-3xl"
       >
         <DialogHeader className="shrink-0 border-b border-[var(--border)] px-5 py-4 pr-14 sm:px-7 sm:py-5">
-          <DialogTitle>{content ? "Editar conteúdo" : planIdea ? "Planejar conteúdo" : "Novo conteúdo"}</DialogTitle>
-          <DialogDescription className="max-w-2xl">Organize o post e, se desejar, envie a execução diretamente para o Workspace.</DialogDescription>
+          <DialogTitle>{content?.synced_from_instagram ? "Post do Instagram" : content ? "Editar conteúdo" : planIdea ? "Planejar conteúdo" : "Novo conteúdo"}</DialogTitle>
+          <DialogDescription className="max-w-2xl">{content?.synced_from_instagram ? "Status e data sincronizados com o Instagram. Para cancelar um agendamento, acesse as publicações programadas no gerador de posts." : "Organize o post e, se desejar, envie a execução diretamente para o Workspace."}</DialogDescription>
         </DialogHeader>
 
         <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain px-3 py-3 sm:px-7 sm:py-6">

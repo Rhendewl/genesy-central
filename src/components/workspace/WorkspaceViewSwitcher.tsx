@@ -18,7 +18,8 @@ const OPTIONS: { id: WorkspaceView; label: string; icon: typeof LayoutGrid }[] =
 export function WorkspaceViewSwitcher({ view, onChange }: WorkspaceViewSwitcherProps) {
   return (
     <div
-      className="inline-flex items-center gap-0.5 rounded-full p-0.5"
+      role="group" aria-label="Visualização das tarefas"
+      className="workspace-view-switcher inline-flex items-center gap-0.5 rounded-full p-0.5"
       style={{ background: "var(--glass-bg-soft)", border: "1px solid var(--border-card)" }}
     >
       {OPTIONS.map((opt) => {
@@ -27,6 +28,10 @@ export function WorkspaceViewSwitcher({ view, onChange }: WorkspaceViewSwitcherP
         return (
           <button
             key={opt.id}
+            type="button"
+            aria-label={opt.label}
+            title={opt.label}
+            aria-pressed={active}
             onClick={() => onChange(opt.id)}
             className={cn(
               "flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors",
@@ -35,7 +40,7 @@ export function WorkspaceViewSwitcher({ view, onChange }: WorkspaceViewSwitcherP
             style={{ background: active ? "var(--tab-active-bg)" : "transparent" }}
           >
             <Icon size={13} />
-            {opt.label}
+            <span className="hidden md:inline">{opt.label}</span>
           </button>
         );
       })}

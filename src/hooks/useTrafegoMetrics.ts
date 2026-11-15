@@ -1,4 +1,5 @@
 "use client";
+import { summarizeMessaging } from "@/lib/messaging-results";
 
 import { useState, useEffect, useCallback } from "react";
 import { format, eachDayOfInterval, parseISO, startOfMonth, endOfMonth } from "date-fns";
@@ -211,6 +212,8 @@ export function useTrafegoMetrics(
         .slice(0, 5);
 
       setDashboard({
+        messaging_results: summarizeMessaging(m),
+        messaging_history_pending: m.some(row => !row.messaging_results),
         investimento_total, leads_total, cpl_medio, cpc_medio, cpm_medio,
         ctr_medio, conversoes_total, taxa_conversao, roas_geral: 0,
         clientes_ativos_midia, campanhas_ativas, impressoes_total,

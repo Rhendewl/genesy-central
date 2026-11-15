@@ -1,5 +1,9 @@
 "use client";
 
+import "./workspace-kanban.css";
+
+import { accentBorderStyle } from "@/components/ui/accent-border";
+
 import { useDroppable } from "@dnd-kit/core";
 import { AnimatePresence, motion } from "framer-motion";
 import { CheckCircle2, CircleDotDashed, ClipboardCheck, PlayCircle } from "lucide-react";
@@ -42,7 +46,7 @@ const STATUS_VISUALS: Record<WorkspaceTaskStatus, {
   },
 };
 
-export function TaskColumn({ status, label, tasks, onOpenTask, canMoveTask, themeColor }: TaskColumnProps) {
+export function TaskColumn({ status, label, tasks, onOpenTask, canMoveTask }: TaskColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id: status });
   const visual = STATUS_VISUALS[status];
   const Icon = visual.icon;
@@ -50,12 +54,12 @@ export function TaskColumn({ status, label, tasks, onOpenTask, canMoveTask, them
   return (
     <div
       ref={setNodeRef}
-      className="flex h-[clamp(420px,calc(100dvh-220px),720px)] w-72 flex-shrink-0 flex-col rounded-[20px] transition-all duration-200"
+      className="workspace-stage-column app-accent-border flex h-[clamp(420px,calc(100dvh-220px),720px)] w-72 flex-shrink-0 flex-col rounded-[20px] transition-all duration-200"
       style={{
         background:     isOver ? "var(--hover)" : "var(--glass-bg-soft)",
         backdropFilter: "blur(14px) saturate(140%)",
         border:         isOver ? "1px solid var(--border-card-hover)" : "1px solid var(--border-card)",
-        borderTop:      `2px solid ${themeColor ?? visual.color}`,
+        ...accentBorderStyle(visual.color),
         boxShadow:      isOver
           ? "0 8px 32px var(--shadow-md), inset 0 1px 0 rgba(255,255,255,0.08)"
           : "0 4px 20px var(--shadow-sm), inset 0 1px 0 rgba(255,255,255,0.04)",

@@ -5,6 +5,7 @@ import { startOfDay, startOfMonth, subDays, format, differenceInHours } from "da
 import { ptBR } from "date-fns/locale";
 import type { Lead } from "@/types";
 import { KANBAN_COLUMNS } from "@/types";
+import { analyzeOperation } from "@/lib/crm/operation-analytics";
 import { LeadScoreEngine } from "@/lib/crm/lead-score-engine";
 import type { StageHistoryRow, StageOrderRow } from "./useLeadsAnalyticsData";
 import type { CrmGoal, CrmStageMetricType } from "@/types/crm";
@@ -134,11 +135,6 @@ function sourceLabel(s: string): string {
   return SOURCE_LABELS[s] ?? s;
 }
 
-// Stages considered "qualified contact" (progressed beyond abordados)
-const CONTACTED_STAGES = new Set([
-  "em_andamento", "formulario_aplicado", "reuniao_agendada",
-  "reuniao_realizada", "no_show", "venda_realizada",
-]);
 const MEETING_STAGES = new Set([
   "reuniao_agendada", "reuniao_realizada", "venda_realizada",
 ]);
@@ -195,12 +191,15 @@ export function useLeadsAnalytics(
 
     // ── Rates ─────────────────────────────────────────────────────────────────
 
-    const contactRate = total === 0 ? 0
-      : (leads.filter(l => CONTACTED_STAGES.has(l.kanban_column)).length / total) * 100;
-    const meetingRate = total === 0 ? 0
-      : (leads.filter(l => MEETING_STAGES.has(l.kanban_column)).length / total) * 100;
-    const saleRate    = total === 0 ? 0
-      : (leads.filter(l => l.kanban_column === "venda_realizada").length / total) * 100;
+    const operation = analyzeOperation(leads, stageHistory, stages, now.getTime());
+    const reached = (lead: Lead, metric: string) => {
+      const matches = (id: string | null) => stages.some(stage => stage.id === id && (stage.metric_type === metric || (metric === "sale" && stage.is_won)));
+      return matches(lead.stage_id) || stageHistory.some(event => event.lead_id === lead.id && event.pipeline_id === lead.pipeline_id && matches(event.stage_id));
+    };
+    const won = (lead: Lead) => stages.length ? reached(lead, "sale") : lead.kanban_column === "venda_realizada";
+    const contactRate = total ? operation.timings.filter(t => t.firstAdvanceAt).length / total * 100 : 0;
+    const meetingRate = total ? leads.filter(lead => stages.length ? reached(lead,"meeting_scheduled") || reached(lead,"meeting_held") : MEETING_STAGES.has(lead.kanban_column)).length / total * 100 : 0;
+    const saleRate = total ? leads.filter(won).length / total * 100 : 0;
 
     // ── Leads per day (last 30 days) ──────────────────────────────────────────
 
@@ -234,7 +233,7 @@ export function useLeadsAnalytics(
 
     const sourceVendas = new Map<string, number>();
     leads
-      .filter(l => l.kanban_column === "venda_realizada")
+      .filter(won)
       .forEach(l => {
         const src = l.source || "manual";
         sourceVendas.set(src, (sourceVendas.get(src) ?? 0) + 1);
@@ -255,13 +254,9 @@ export function useLeadsAnalytics(
 
     // ── Stage funnel ──────────────────────────────────────────────────────────
 
-    const stageFunnel: FunnelStage[] = KANBAN_COLUMNS.map(col => ({
-      id:    col.id,
-      label: col.label,
-      color: col.color,
-      count: leads.filter(l => l.kanban_column === col.id).length,
-      pct:   0,
-    }));
+    const stageFunnel: FunnelStage[] = stages.length ? stages.filter(stage => stage.is_active).sort((a,b) => a.pipeline_id.localeCompare(b.pipeline_id) || a.order_index - b.order_index).map(stage => ({
+      id: stage.id, label: stage.name ?? "Etapa", color: stage.color ?? "#6366f1", count: leads.filter(l => l.stage_id === stage.id).length, pct: 0,
+    })) : KANBAN_COLUMNS.map(col => ({ id: col.id, label: col.label, color: col.color, count: leads.filter(l => l.kanban_column === col.id).length, pct: 0 }));
     const maxCount = Math.max(...stageFunnel.map(s => s.count), 1);
     stageFunnel.forEach(s => { s.pct = Math.round((s.count / maxCount) * 100); });
 
@@ -388,15 +383,12 @@ export function useLeadsAnalytics(
     }
 
     // Leads sem contato há +48h (ainda em novo_lead ou abordados)
-    const noContact = leads.filter(l =>
-      (l.kanban_column === "novo_lead" || l.kanban_column === "abordados") &&
-      differenceInHours(now, new Date(l.created_at)) > 48
-    );
+    const noContact = operation.timings.filter(t => t.waiting && t.waitingSince && now.getTime() - Date.parse(t.waitingSince) > 48 * 3600000);
     if (noContact.length > 0) {
       insights.push({
         type:        "no_contact",
         title:       `${noContact.length} lead${noContact.length > 1 ? "s" : ""} sem contato há +48h`,
-        description: "Parados em Novo Lead ou Abordados — risco de esfriamento",
+        description: "Ainda na etapa inicial, com chegada registrada há mais de 48 horas",
         status:      "critical",
         diagnosis:   "Fila de atendimento, distribuição por responsável e tempo até a primeira abordagem.",
         action:      "Priorize esses leads agora e defina um SLA de primeiro contato com alertas antes de 48 horas.",
@@ -405,7 +397,7 @@ export function useLeadsAnalytics(
     }
 
     // Maior queda no funil (entre etapas adjacentes)
-    const drops = KANBAN_COLUMNS
+    const drops = (stages.length ? [] : KANBAN_COLUMNS)
       .filter((_, i) => i < KANBAN_COLUMNS.length - 1)
       .map((col, i) => {
         const curr = stageFunnel.find(s => s.id === col.id)?.count ?? 0;
@@ -510,13 +502,16 @@ export function useLeadsAnalytics(
       b.count++;
     });
 
-    // Tempo até IE 100 — leads que já chegaram na última etapa não se movem
-    // mais, então updated_at (atualizado pela própria RPC de movimentação) É
-    // o momento em que chegaram lá. Sem necessidade de olhar o histórico.
-    const at100 = ieLeads.filter(l => l.ie_score === 100);
-    const avgTimeToIe100Hours = avgOf(
-      at100.map(l => differenceInHours(new Date(l.updated_at), new Date(l.created_at)))
-    );
+    // Only observed transitions can establish a time to the final IE stage.
+    const timesToFinal = operation.timings.flatMap(t => {
+      if (!t.arrival) return [];
+      const count = stages.filter(s => s.pipeline_id === t.lead.pipeline_id && s.is_active).length;
+      const hit = stageHistory.filter(h => h.lead_id === t.lead.id && h.pipeline_id === t.lead.pipeline_id)
+        .sort((a,b) => Date.parse(a.moved_at) - Date.parse(b.moved_at))
+        .find(h => { const stage = stages.find(s => s.id === h.stage_id); return stage && LeadScoreEngine.calculateIE(stage.order_index,count) === 100 && Date.parse(h.moved_at) >= Date.parse(t.arrival!) && Date.parse(h.moved_at) <= now.getTime(); });
+      return hit ? [(Date.parse(hit.moved_at) - Date.parse(t.arrival)) / 3600000] : [];
+    });
+    const avgTimeToIe100Hours = timesToFinal.length ? timesToFinal.reduce((a,b) => a+b,0) / timesToFinal.length : null;
 
     // Tempo médio entre faixas de evolução — reconstrói o IE de cada
     // movimentação histórica (crm_lead_stage_history + order_index da etapa
@@ -530,12 +525,14 @@ export function useLeadsAnalytics(
     });
     const historyByLead = new Map<string, StageHistoryRow[]>();
     stageHistory.forEach(h => {
+      if (!leads.some(l => l.id === h.lead_id && l.pipeline_id === h.pipeline_id) || Date.parse(h.moved_at) > now.getTime()) return;
       if (!historyByLead.has(h.lead_id)) historyByLead.set(h.lead_id, []);
       historyByLead.get(h.lead_id)!.push(h);
     });
 
     const bracketTransitionHours: number[] = [];
     historyByLead.forEach(rows => {
+      rows.sort((a,b) => Date.parse(a.moved_at)-Date.parse(b.moved_at));
       const totalActive = stagesByPipeline.get(rows[0]?.pipeline_id ?? "")?.length ?? 0;
       if (totalActive === 0) return;
 

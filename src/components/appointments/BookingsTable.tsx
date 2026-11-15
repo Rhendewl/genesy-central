@@ -1,4 +1,5 @@
 "use client";
+import { DateInput } from "@/components/ui/DateInput";
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { AnimatePresence, motion } from "framer-motion";
@@ -70,30 +71,11 @@ function fmtDateTime(iso: string): string {
   });
 }
 
-function fmtDateInput(value: string): string {
-  if (!value) return "dd/mm/aaaa";
-  const [year, month, day] = value.split("-");
-  if (!year || !month || !day) return value;
-  return `${day}/${month}/${year}`;
-}
 
-function toDateInputValue(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
 
-function buildMonthDays(monthDate: Date): Date[] {
-  const first = new Date(monthDate.getFullYear(), monthDate.getMonth(), 1);
-  const start = new Date(first);
-  start.setDate(first.getDate() - first.getDay());
-  return Array.from({ length: 42 }, (_, i) => {
-    const d = new Date(start);
-    d.setDate(start.getDate() + i);
-    return d;
-  });
-}
+
+
+
 
 function getOriginLabel(b: BookingWithCalendar): string {
   const url = b.attribution?.page_url;
@@ -179,110 +161,7 @@ function FilterSelect({
   );
 }
 
-function FilterDatePicker({
-  value, onChange, title,
-}: {
-  value: string;
-  onChange: (value: string) => void;
-  title: string;
-}) {
-  const [open, setOpen] = useState(false);
-  const [month, setMonth] = useState(() => value ? new Date(`${value}T00:00:00`) : new Date());
-  const ref = useRef<HTMLDivElement>(null);
-  const days = buildMonthDays(month);
-
-  useEffect(() => {
-    if (!open) return;
-    function onMouseDown(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    }
-    document.addEventListener("mousedown", onMouseDown);
-    return () => document.removeEventListener("mousedown", onMouseDown);
-  }, [open]);
-
-  useEffect(() => {
-    if (value) setMonth(new Date(`${value}T00:00:00`));
-  }, [value]);
-
-  return (
-    <div ref={ref} className="relative min-w-[130px]">
-      <button
-        type="button"
-        title={title}
-        onClick={() => setOpen(o => !o)}
-        className="lc-filter-control flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs outline-none"
-      >
-        <span className="flex-1 text-left tabular-nums">{fmtDateInput(value)}</span>
-        <Calendar size={12} className="shrink-0" />
-      </button>
-
-      {open && (
-        <div className="lc-modal-panel absolute right-0 top-full z-[80] mt-1.5 w-64 rounded-xl p-3">
-          <div className="mb-2 flex items-center justify-between">
-            <button
-              type="button"
-              onClick={() => setMonth(m => new Date(m.getFullYear(), m.getMonth() - 1, 1))}
-              className="rounded-lg p-1.5 hover:bg-[var(--hover)]"
-            >
-              <ChevronLeft size={14} />
-            </button>
-            <span className="text-xs font-semibold capitalize" style={{ color: "var(--text-title)" }}>
-              {month.toLocaleDateString("pt-BR", { month: "long", year: "numeric" })}
-            </span>
-            <button
-              type="button"
-              onClick={() => setMonth(m => new Date(m.getFullYear(), m.getMonth() + 1, 1))}
-              className="rounded-lg p-1.5 hover:bg-[var(--hover)]"
-            >
-              <ChevronRight size={14} />
-            </button>
-          </div>
-          <div className="grid grid-cols-7 gap-1 text-center text-[10px]" style={{ color: "var(--muted-foreground)" }}>
-            {["D", "S", "T", "Q", "Q", "S", "S"].map((d, i) => <span key={`${d}-${i}`}>{d}</span>)}
-          </div>
-          <div className="mt-1 grid grid-cols-7 gap-1">
-            {days.map(day => {
-              const dayValue = toDateInputValue(day);
-              const active = dayValue === value;
-              const outside = day.getMonth() !== month.getMonth();
-              return (
-                <button
-                  key={dayValue}
-                  type="button"
-                  onClick={() => {
-                    onChange(dayValue);
-                    setOpen(false);
-                  }}
-                  className="h-7 rounded-lg text-xs transition-colors hover:bg-[var(--hover)]"
-                  style={{
-                    background: active ? "var(--primary)" : "transparent",
-                    color: active ? "var(--primary-foreground)" : outside ? "var(--text-muted)" : "var(--text-title)",
-                    opacity: outside ? 0.55 : 1,
-                  }}
-                >
-                  {day.getDate()}
-                </button>
-              );
-            })}
-          </div>
-          {value && (
-            <button
-              type="button"
-              onClick={() => {
-                onChange("");
-                setOpen(false);
-              }}
-              className="mt-2 w-full rounded-lg py-1.5 text-xs transition-colors hover:bg-[var(--hover)]"
-              style={{ color: "var(--muted-foreground)" }}
-            >
-              Limpar data
-            </button>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
+function FilterDatePicker({value,onChange,title}:{value:string;onChange:(value:string)=>void;title:string}) {return <DateInput value={value} onChange={event=>onChange(event.target.value)} aria-label={title} placeholder="dd/mm/aaaa" className="lc-filter-control w-full rounded-xl px-3 py-2 text-sm"/>;}
 
 function SectionHead({ title }: { title: string }) {
   return (

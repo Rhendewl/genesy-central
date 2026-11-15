@@ -66,7 +66,7 @@ export function TaskObjectiveLinks({
               onClick={async () => {
                 if (
                   !window.confirm(
-                    "Desvincular tarefa? Sem vínculos, tarefas concluídas voltam à limpeza automática do Workspace.",
+                    "Desvincular tarefa deste objetivo? Ela continuará preservada no histórico do Workspace.",
                   )
                 )
                   return;

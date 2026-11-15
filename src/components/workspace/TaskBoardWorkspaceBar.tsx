@@ -1,6 +1,7 @@
 "use client";
+import { accentBorderStyle } from "@/components/ui/accent-border";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { FolderKanban, Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -20,9 +21,11 @@ interface Props {
   boardsHook: ReturnType<typeof useWorkspaceTaskBoards>;
   activeBoard: WorkspaceTaskBoard | null;
   onActiveChange: (boardId: string) => void;
+  mobileActions?: ReactNode;
+  mobileExpanded?: boolean;
 }
 
-export function TaskBoardWorkspaceBar({ boardsHook, activeBoard, onActiveChange }: Props) {
+export function TaskBoardWorkspaceBar({ boardsHook, activeBoard, onActiveChange, mobileActions, mobileExpanded }: Props) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<WorkspaceTaskBoard | null>(null);
   const [name, setName] = useState("");
@@ -82,21 +85,24 @@ export function TaskBoardWorkspaceBar({ boardsHook, activeBoard, onActiveChange 
   return (
     <>
       <div
-        className="relative overflow-hidden rounded-2xl border px-3 py-3 sm:px-4"
+        className="workspace-board-selector app-accent-border relative overflow-visible rounded-none border px-3 py-3 sm:px-4 md:overflow-hidden md:rounded-2xl"
         style={{
           background: "var(--glass-bg-soft)",
+          ...accentBorderStyle(activeBoard?.color),
           borderColor: activeBoard ? `${activeBoard.color}55` : "var(--glass-border)",
           boxShadow: activeBoard ? `inset 0 1px 0 ${activeBoard.color}25, 0 12px 36px ${activeBoard.color}10` : undefined,
         }}
       >
-        {activeBoard && (
-          <div
-            className="pointer-events-none absolute inset-x-0 top-0 h-0.5"
-            style={{ background: `linear-gradient(90deg, ${activeBoard.color}, transparent 80%)` }}
-          />
-        )}
+
         <div className="flex items-center gap-2">
-          <div className="flex min-w-0 flex-1 items-center gap-2 overflow-x-auto pb-0.5 [scrollbar-width:none]">
+          <label className="min-w-0 flex-1 md:hidden">
+            <span className="sr-only">Workspace de tarefas</span>
+            <select aria-label="Workspace de tarefas" value={activeBoard?.id ?? ""} disabled={boardsHook.isLoading || !boardsHook.boards.length} onChange={event => onActiveChange(event.target.value)} className="h-11 w-full min-w-0 rounded-xl border border-[var(--glass-border)] bg-[var(--input-bg)] px-2 text-sm text-[var(--text-title)]">
+              {!activeBoard && <option value="">{boardsHook.isLoading ? "Carregando…" : "Selecione"}</option>}
+              {boardsHook.boards.map(board => <option key={board.id} value={board.id}>{board.name}</option>)}
+            </select>
+          </label>
+          <div className="hidden min-w-0 flex-1 items-center gap-2 overflow-x-auto pb-0.5 [scrollbar-width:none] md:flex">
             <span className="flex shrink-0 items-center gap-2 pr-1 text-xs font-semibold text-[var(--muted-foreground)]">
               <FolderKanban size={15} />
               <span className="hidden sm:inline">Workspaces</span>
@@ -109,6 +115,7 @@ export function TaskBoardWorkspaceBar({ boardsHook, activeBoard, onActiveChange 
                 <button
                   key={board.id}
                   type="button"
+                  aria-pressed={selected}
                   onClick={() => onActiveChange(board.id)}
                   className="flex h-8 shrink-0 items-center gap-2 rounded-xl border px-3 text-xs font-semibold transition-all"
                   style={{
@@ -125,19 +132,24 @@ export function TaskBoardWorkspaceBar({ boardsHook, activeBoard, onActiveChange 
           </div>
 
           {boardsHook.canManage && (
-            <div className="flex shrink-0 items-center gap-1">
+            <div className="hidden shrink-0 items-center gap-1 md:flex">
               {activeBoard && (
                 <Button variant="ghost" size="icon-sm" onClick={openEdit} aria-label="Editar workspace">
                   <Pencil />
                 </Button>
               )}
-              <Button variant="outline" size="sm" onClick={openCreate}>
+              <Button variant="outline" size="sm" onClick={openCreate} aria-label="Novo workspace">
                 <Plus />
                 <span className="hidden sm:inline">Novo workspace</span>
               </Button>
             </div>
           )}
+          {mobileActions && <div className="flex shrink-0 items-center gap-1 md:hidden">{mobileActions}</div>}
         </div>
+        {boardsHook.canManage && <div className={`workspace-board-mobile-management md:hidden ${mobileExpanded ? "is-open" : ""}`}>
+          {activeBoard && <Button variant="ghost" size="sm" onClick={openEdit} aria-label="Editar workspace"><Pencil size={14} />Editar workspace</Button>}
+          <Button variant="outline" size="sm" onClick={openCreate} aria-label="Novo workspace"><Plus size={14} />Novo workspace</Button>
+        </div>}
       </div>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>

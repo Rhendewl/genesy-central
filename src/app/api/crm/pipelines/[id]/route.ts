@@ -26,7 +26,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
   if (!user) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
 
   const body = await req.json() as Record<string, unknown>;
-  const allowed = ["name", "description", "color", "icon", "order_index", "is_active"] as const;
+  const allowed = ["name", "description", "color", "icon", "order_index", "is_active", "default_assignee_id"] as const;
   const update: Record<string, unknown> = {};
   for (const key of allowed) {
     if (key in body) update[key] = body[key];
@@ -40,7 +40,8 @@ export async function PUT(req: NextRequest, { params }: Params) {
     .select()
     .single();
 
-  if (error || !data) return NextResponse.json({ error: "Pipeline não encontrado" }, { status: 404 });
+  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+  if (!data) return NextResponse.json({ error: "Pipeline não encontrado" }, { status: 404 });
   return NextResponse.json({ pipeline: data });
 }
 

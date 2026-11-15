@@ -1,5 +1,7 @@
 "use client";
 
+import { DateInput } from "@/components/ui/DateInput";
+
 import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { addDays, format } from "date-fns";
@@ -166,7 +168,7 @@ function GoalModal({ open, goal, pipelines, onClose, onSaved }: { open: boolean;
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain p-5">
         <Field label="Nome"><input required value={name} onChange={(e) => setName(e.target.value)} className="lc-form-control rounded-lg px-3 py-2 text-sm" /></Field>
         <Field label="Pipeline"><select value={pipelineId} onChange={(e) => setPipelineId(e.target.value)} className="lc-form-control crm-form-select rounded-lg px-3 py-2 text-sm"><option value="">Todas as pipelines</option>{pipelines.map((pipeline) => <option key={pipeline.id} value={pipeline.id}>{pipeline.name}</option>)}</select></Field>
-        <div className="grid grid-cols-2 gap-3"><Field label="Início"><input required type="date" value={startsAt} onChange={(e) => setStartsAt(e.target.value)} className="lc-form-control rounded-lg px-3 py-2 text-sm" /></Field><Field label="Fim"><input required type="date" min={startsAt} value={endsAt} onChange={(e) => setEndsAt(e.target.value)} className="lc-form-control rounded-lg px-3 py-2 text-sm" /></Field></div>
+        <div className="grid grid-cols-2 gap-3"><Field label="Início"><DateInput required type="date" value={startsAt} onChange={(e) => setStartsAt(e.target.value)} className="lc-form-control rounded-lg px-3 py-2 text-sm" /></Field><Field label="Fim"><DateInput required type="date" min={startsAt} value={endsAt} onChange={(e) => setEndsAt(e.target.value)} className="lc-form-control rounded-lg px-3 py-2 text-sm" /></Field></div>
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Meta de receita (R$)"><input required type="number" min="0.01" step="0.01" value={revenueTarget} onChange={(e) => setRevenueTarget(e.target.value)} placeholder="Ex: 100000" className="lc-form-control rounded-lg px-3 py-2 text-sm" /></Field>
           <Field label="Ticket médio previsto (R$)"><div className="relative"><input required type="number" min="0.01" step="0.01" value={averageTicket} onChange={(e) => setAverageTicket(e.target.value)} placeholder={recommendationLoading ? "Calculando pelo histórico..." : "Informe o ticket médio"} className="lc-form-control rounded-lg px-3 py-2 pr-9 text-sm" />{recommendationLoading && <Loader2 size={13} className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-[var(--muted-foreground)]" />}</div></Field>

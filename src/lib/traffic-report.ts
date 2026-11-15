@@ -1,7 +1,9 @@
+import { summarizeMessaging, type MessagingResults } from "./messaging-results";
 import type { TrafficReportCampaign, TrafficReportData } from "@/types/traffic-report";
 
 export type TrafficReportMetricRow = {
   campaign_id: string;
+  messaging_results?: MessagingResults | null;
   spend: number | string | null;
   leads: number | null;
   impressions: number | null;
@@ -37,7 +39,6 @@ export function buildTrafficReportCampaignOptions(campaigns: TrafficReportCampai
     metricsByCampaign.set(metric.campaign_id, current);
   });
   return campaigns
-    .filter((campaign) => metricsByCampaign.has(campaign.id))
     .map((campaign): TrafficReportCampaignOption => ({ id: campaign.id, name: campaign.name, ...(metricsByCampaign.get(campaign.id) ?? { leads: 0, spend: 0 }) }))
     .sort((a, b) => b.leads - a.leads || b.spend - a.spend || a.name.localeCompare(b.name, "pt-BR"));
 }
@@ -68,7 +69,7 @@ export function aggregateTrafficReport(params: {
     ? params.metrics.reduce((sum, metric) => sum + number(metric.unique_ctr) * number(metric.impressions), 0) / impressions
     : impressions > 0 ? clicks / impressions * 100 : 0;
 
-  const grouped = new Map<string, TrafficReportMetricRow[]>();
+  const grouped = new Map<string, TrafficReportMetricRow[]>(params.campaigns.map((campaign) => [campaign.id, []]));
   params.metrics.forEach((metric) => grouped.set(metric.campaign_id, [...(grouped.get(metric.campaign_id) ?? []), metric]));
   const rawCampaignSummaries: TrafficReportCampaign[] = Array.from(grouped.entries()).map(([campaignId, rows]) => {
     const campaign = campaignsById.get(campaignId);
@@ -122,6 +123,8 @@ export function aggregateTrafficReport(params: {
     until: params.until,
     generatedAt: params.generatedAt ?? new Date().toISOString(),
     metrics: {
+      messaging_results: summarizeMessaging(params.metrics),
+      messaging_history_pending: params.metrics.some(row=>!row.messaging_results),
       spend,
       leads,
       cpl: leads > 0 ? spend / leads : 0,
@@ -134,7 +137,7 @@ export function aggregateTrafficReport(params: {
       cpm: impressions > 0 ? spend / impressions * 1000 : 0,
       activeCampaigns: params.campaigns.filter((campaign) => campaign.status === "ativa").length,
     },
-    campaigns: campaignSummaries.slice(0, 8),
+    campaigns: campaignSummaries,
   };
 }
 

@@ -13,6 +13,7 @@ let authenticated: boolean;
 function query(table: string) {
   let rows = tables[table] ?? [];
   let single = false;
+  let offset = 0, limit = 1000;
   const builder = {
     select: () => builder,
     eq: (field: string, value: unknown) => {
@@ -23,8 +24,10 @@ function query(table: string) {
     in: (field: string, values: unknown[]) => { rows = rows.filter((row) => values.includes(row[field])); return builder; },
     gte: () => builder,
     lte: () => builder,
+    order: (field: string) => { rows = [...rows].sort((a, b) => String(a[field]).localeCompare(String(b[field]))); return builder; },
+    range: (from: number, to: number) => { offset = from; limit = to - from + 1; return builder; },
     maybeSingle: () => { single = true; return builder; },
-    then: (resolve: (result: unknown) => unknown) => Promise.resolve({ data: single ? rows[0] ?? null : rows, error: null }).then(resolve),
+    then: (resolve: (result: unknown) => unknown) => Promise.resolve({ data: single ? rows[0] ?? null : rows.slice(offset, offset + limit), error: null }).then(resolve),
   };
   return builder;
 }
@@ -78,6 +81,35 @@ describe("independent traffic reports", () => {
     const response = await GET(request("platform_account_id=unlinked&campaign_options=1"));
     expect(response.status).toBe(200);
     expect((await response.json()).campaigns.map((row: { id: string }) => row.id)).toEqual(["campaign"]);
+  });
+
+  it("lists imported campaigns even when the selected period has no metrics", async () => {
+    tables.campaign_metrics = [];
+    const response = await GET(request("platform_account_id=unlinked&campaign_options=1"));
+    expect(response.status).toBe(200);
+    expect((await response.json()).campaigns).toEqual([{ id: "campaign", name: "Campanha", leads: 0, spend: 0 }]);
+  });
+
+  it("reads every metrics page instead of truncating a large account", async () => {
+    tables.campaigns.push({ id: "late-campaign", platform_account_id: "unlinked", name: "Última campanha", status: "ativa" });
+    tables.campaign_metrics = [
+      ...Array.from({ length: 1001 }, () => ({ campaign_id: "campaign", spend: 1, leads: 1 })),
+      { campaign_id: "late-campaign", spend: 25, leads: 2 },
+    ];
+    const response = await GET(request("platform_account_id=unlinked&campaign_options=1"));
+    expect(response.status).toBe(200);
+    const { campaigns } = await response.json();
+    expect(campaigns).toHaveLength(2);
+    expect(campaigns.find((row: { id: string }) => row.id === "campaign").spend).toBe(1001);
+    expect(campaigns.find((row: { id: string }) => row.id === "late-campaign").spend).toBe(25);
+  });
+
+  it("paginates the campaign catalog and bounds metrics filters for large accounts", async () => {
+    tables.campaigns = Array.from({ length: 1001 }, (_, i) => ({ id: `campaign-${i}`, platform_account_id: "unlinked", name: `Campanha ${i}`, status: "ativa" }));
+    tables.campaign_metrics = [];
+    const response = await GET(request("platform_account_id=unlinked&campaign_options=1"));
+    expect(response.status).toBe(200);
+    expect((await response.json()).campaigns).toHaveLength(1001);
   });
 
   it("preserves consolidation of accounts already linked to a client", async () => {

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import {CLIENTS_CHANGED} from "@/lib/client-events";
 import { getSupabaseClient } from "@/lib/supabase";
 import {
   format, subMonths, startOfMonth, endOfMonth,
@@ -23,14 +24,16 @@ export function useFinanceiroDashboard(
   since?: string | null,
   until?: string | null,
 ): UseFinanceiroDashboardReturn {
+  const revision=useRef(0);
   const [data, setData] = useState<FinancialDashboardData | null>(null);
   const [clientProfitability, setClientProfitability] = useState<ClientProfitability[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetch = useCallback(async () => {
+  const fetch = useCallback(async (quiet=false) => {
+    const request=++revision.current;
     try {
-      setIsLoading(true);
+      if(!quiet)setIsLoading(true);
       setError(null);
       const supabase = getSupabaseClient();
 
@@ -69,6 +72,7 @@ export function useFinanceiroDashboard(
           .select("client_id, percentage"),
       ]);
 
+      if(request!==revision.current)return;
       // ── KPIs ──────────────────────────────────────────────────────────────────
       const faturamento       = (revenues ?? []).filter(r => r.status === "pago").reduce((s: number, r: { amount: number }) => s + Number(r.amount), 0);
       const totalDespesasDiretas = (expenses ?? []).reduce((s: number, e: { amount: number }) => s + Number(e.amount), 0);
@@ -225,13 +229,19 @@ export function useFinanceiroDashboard(
 
       setClientProfitability(profitability);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Erro ao carregar dashboard");
+      if(request===revision.current)setError(e instanceof Error ? e.message : "Erro ao carregar dashboard");
     } finally {
-      setIsLoading(false);
+      if(request===revision.current)setIsLoading(false);
     }
   }, [year, month, since, until]);
 
-  useEffect(() => { fetch(); }, [fetch]);
+  useEffect(() => {
+    void fetch();
+    const refresh=(event:Event)=>{const {id,kind}=(event as CustomEvent).detail;revision.current++;if(kind==='deleted')setClientProfitability(rows=>rows.filter(p=>p.client.id!==id));void fetch(true);};
+    window.addEventListener(CLIENTS_CHANGED,refresh);
+    const requests=revision; // Stable counter object; invalidate pending requests on cleanup.
+    return ()=>{requests.current++;window.removeEventListener(CLIENTS_CHANGED,refresh);};
+  }, [fetch]);
 
   return { data, clientProfitability, isLoading, error, refetch: fetch };
 }

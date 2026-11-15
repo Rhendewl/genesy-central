@@ -14,7 +14,7 @@ function makeDb() {
   const updates: Record<string, unknown>[] = [];
   const db = {
     from(table: string) {
-      if (table === "leads") return { select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: { assigned_to: "profile-1" } }) }) }) };
+      if (table === "leads") return { select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: { assigned_to: "profile-1", pipeline_id: "pipeline-2" } }) }) }) };
       if (table === "user_profiles") {
         return { select: () => ({ in: async () => ({ data: [{ id: "profile-1", auth_user_id: "auth-1" }], error: null }) }) };
       }
@@ -53,8 +53,8 @@ describe("notificationAction", () => {
     }, { recipientType: "lead_owner", title: "Novo contato", body: "Fale com {{nome}}" });
 
     expect(result.ok).toBe(true);
-    expect(inserted[0]).toMatchObject({ source: "workflow", action_url: "/crm", recipient_user_id: "profile-1" });
-    expect(pushMock).toHaveBeenCalledWith(db, "auth-1", "Novo contato", "Fale com Ana", expect.objectContaining({ url: "/crm" }));
+    expect(inserted[0]).toMatchObject({ source: "workflow", action_url: "/crm?pipeline=pipeline-2&lead=lead-1", recipient_user_id: "profile-1" });
+    expect(pushMock).toHaveBeenCalledWith(db, "auth-1", "Novo contato", "Fale com Ana", expect.objectContaining({ url: "/crm?pipeline=pipeline-2&lead=lead-1" }));
     expect(updates[0]).toMatchObject({ push_status: "accepted", push_subscriptions: 1, push_accepted: 1 });
   });
 

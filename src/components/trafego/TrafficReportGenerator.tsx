@@ -1,10 +1,12 @@
 "use client";
 
+import { DateInput } from "@/components/ui/DateInput";
+
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { endOfMonth, format, startOfMonth } from "date-fns";
 import { AnimatePresence, motion } from "framer-motion";
-import { Building2, CalendarDays, Check, FileDown, LoaderCircle, Megaphone, Sparkles, X } from "lucide-react";
+import { Building2, CalendarDays, Check, FileDown, LoaderCircle, Megaphone, RefreshCw, Sparkles, X } from "lucide-react";
 import { toast } from "sonner";
 import { createTrafficReportPdfBlob, saveTrafficReportPdf } from "@/lib/traffic-report-pdf";
 import type { TrafficReportFileHandle } from "@/lib/traffic-report-pdf";
@@ -23,6 +25,8 @@ export function TrafficReportGenerator({ accounts, selectedAccountId, year, mont
   const [until, setUntil] = useState("");
   const [loading, setLoading] = useState(false);
   const [campaignsLoading, setCampaignsLoading] = useState(false);
+  const [campaignsRefreshing, setCampaignsRefreshing] = useState(false);
+  const [campaignRevision, setCampaignRevision] = useState(0);
   const [campaignsError, setCampaignsError] = useState("");
   const [campaignOptions, setCampaignOptions] = useState<TrafficReportCampaignOption[]>([]);
   const [selectedCampaignIds, setSelectedCampaignIds] = useState<string[]>([]);
@@ -88,7 +92,28 @@ export function TrafficReportGenerator({ accounts, selectedAccountId, year, mont
     };
     void loadCampaigns();
     return () => controller.abort();
-  }, [accountId, clientId, open, since, until]);
+  }, [accountId, clientId, open, since, until, campaignRevision]);
+
+  async function refreshCampaigns() {
+    const targets = accountId ? connectedAccounts.filter((account) => account.id === accountId) : clientAccounts;
+    if (!targets.length || campaignsRefreshing) return;
+    setCampaignsRefreshing(true);
+    try {
+      await Promise.all(targets.map(async (account) => {
+        const response = await fetch("/api/meta/sync", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ platformAccountId: account.id, since, until }),
+        });
+        const json = await response.json() as { error?: string };
+        if (!response.ok) throw new Error(json.error ?? "Não foi possível atualizar as campanhas");
+      }));
+      setCampaignRevision((revision) => revision + 1);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível atualizar as campanhas");
+    } finally {
+      setCampaignsRefreshing(false);
+    }
+  }
 
   async function generate() {
     if ((!clientId && !accountId) || !since || !until) return toast.error("Selecione uma conta ou cliente e o período");
@@ -148,24 +173,25 @@ export function TrafficReportGenerator({ accounts, selectedAccountId, year, mont
   }
 
   return <>
-    <button type="button" onClick={() => setOpen(true)} className="lc-filter-control inline-flex h-9 items-center gap-2 rounded-xl px-3 text-xs font-semibold text-[var(--text-body)]" title="Gerar relatório de tráfego pago"><FileDown size={14} /><span className="hidden sm:inline">Gerar relatório</span><span className="sm:hidden">Relatório</span></button>
+    <button type="button" onClick={() => setOpen(true)} className="inline-flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-xl border border-[#d0d1d6] bg-[linear-gradient(120deg,#e7e8eb,#adb1b9)] px-[18px] py-3 text-sm font-semibold text-[#15171b] transition hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#adb1b9]" title="Gerar relatório de tráfego pago"><FileDown size={14} /><span className="hidden sm:inline">Gerar relatório</span><span className="sm:hidden">Relatório</span></button>
     {typeof document !== "undefined" && createPortal(<AnimatePresence>{open && <motion.div className="fixed inset-0 z-[10000] flex min-h-[100dvh] items-center justify-center overflow-y-auto bg-black/65 p-4 backdrop-blur-sm" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onMouseDown={(event) => { if (event.currentTarget === event.target && !loading) setOpen(false); }}>
       <motion.section role="dialog" aria-modal="true" aria-labelledby="traffic-report-title" initial={{ opacity: 0, y: 14, scale: .98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 8, scale: .98 }} className="my-auto w-full max-w-xl rounded-3xl border p-5 shadow-2xl sm:p-6" style={{ background: "var(--bg-modal)", borderColor: "var(--border-modal)" }}>
         <div className="flex items-start justify-between gap-4"><div><p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[.16em] text-[#9d7e4e]"><Sparkles size={12} />Relatório executivo</p><h2 id="traffic-report-title" className="mt-1 text-lg font-semibold text-[var(--text-title)]">Relatório de tráfego pago</h2><p className="mt-1 text-xs leading-5 text-[var(--muted-foreground)]">Escolha a conta e o período. O cliente é opcional e identifica o relatório.</p></div><button type="button" disabled={loading} onClick={() => setOpen(false)} aria-label="Fechar" className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border text-[var(--icon)]"><X size={15} /></button></div>
         <div className="mt-5 grid gap-4">
           <label><span className="mb-1.5 flex items-center gap-1.5 text-xs font-medium"><Building2 size={13} className="text-[#355366]" />Cliente do relatório (opcional)</span><select value={clientId} disabled={clientsLoading && !clients.length} onChange={(event) => { setClientId(event.target.value); }} className="lc-form-control crm-form-select"><option value="">{clientsLoading && !clients.length ? "Carregando clientes..." : "Usar nome da conta"}</option>{clients.map((client) => <option key={client.id} value={client.id}>{client.name}</option>)}</select></label>
           <label><span className="mb-1.5 block text-xs font-medium">Conta de anúncios</span><select value={accountId} onChange={(event) => setAccountId(event.target.value)} className="lc-form-control crm-form-select"><option value="">{clientId ? "Todas as contas vinculadas ao cliente" : "Selecionar conta"}</option>{connectedAccounts.map((account) => <option key={account.id} value={account.id}>{account.account_name}</option>)}</select></label>
-          <div className="grid grid-cols-2 gap-3"><label><span className="mb-1.5 flex items-center gap-1.5 text-xs font-medium"><CalendarDays size={13} />Início</span><input type="date" value={since} max={until || format(new Date(), "yyyy-MM-dd")} onChange={(event) => setSince(event.target.value)} className="lc-form-control" /></label><label><span className="mb-1.5 flex items-center gap-1.5 text-xs font-medium"><CalendarDays size={13} />Fim</span><input type="date" value={until} min={since} max={format(new Date(), "yyyy-MM-dd")} onChange={(event) => setUntil(event.target.value)} className="lc-form-control" /></label></div>
+          <div className="grid grid-cols-2 gap-3"><label><span className="mb-1.5 flex items-center gap-1.5 text-xs font-medium"><CalendarDays size={13} />Início</span><DateInput popupZIndex={10010} type="date" value={since} max={until || format(new Date(), "yyyy-MM-dd")} onChange={(event) => setSince(event.target.value)} className="lc-form-control" /></label><label><span className="mb-1.5 flex items-center gap-1.5 text-xs font-medium"><CalendarDays size={13} />Fim</span><DateInput popupZIndex={10010} type="date" value={until} min={since} max={format(new Date(), "yyyy-MM-dd")} onChange={(event) => setUntil(event.target.value)} className="lc-form-control" /></label></div>
           <section className="overflow-hidden rounded-2xl border" style={{ borderColor: "var(--glass-border)", background: "var(--glass-bg-soft)" }}>
             <div className="flex flex-wrap items-center gap-2 border-b px-3.5 py-3" style={{ borderColor: "var(--glass-border)" }}>
               <span className="grid h-8 w-8 place-items-center rounded-lg bg-[var(--hover)] text-[var(--primary)]"><Megaphone size={14} /></span>
               <div className="min-w-0 flex-1"><p className="text-xs font-semibold text-[var(--text-title)]">Campanhas do relatório</p><p className="text-[10px] text-[var(--muted-foreground)]">{campaignsLoading ? "Carregando campanhas do período…" : `${selectedCampaignIds.length} de ${campaignOptions.length} selecionadas`}</p></div>
-              {!campaignsLoading && campaignOptions.length > 0 && <div className="flex items-center gap-1 text-[10px]"><button type="button" onClick={() => setSelectedCampaignIds(defaultTrafficReportCampaignIds(campaignOptions))} className="rounded-lg px-2 py-1.5 text-[var(--text-body)] hover:bg-[var(--hover)]">Com leads</button><button type="button" onClick={() => setSelectedCampaignIds(campaignOptions.map((campaign) => campaign.id))} className="rounded-lg px-2 py-1.5 text-[var(--text-body)] hover:bg-[var(--hover)]">Todas</button><button type="button" onClick={() => setSelectedCampaignIds([])} className="rounded-lg px-2 py-1.5 text-[var(--muted-foreground)] hover:bg-[var(--hover)]">Limpar</button></div>}
+              {!campaignsLoading && campaignOptions.length > 0 && <div className="flex items-center gap-1 text-[10px]"><button type="button" onClick={() => setSelectedCampaignIds(defaultTrafficReportCampaignIds(campaignOptions))} className="rounded-lg px-2 py-1.5 text-[var(--text-body)] hover:bg-[var(--hover)]" title="Inclui formulários e conversas iniciadas atribuídas pela Meta">Com leads</button><button type="button" onClick={() => setSelectedCampaignIds(campaignOptions.map((campaign) => campaign.id))} className="rounded-lg px-2 py-1.5 text-[var(--text-body)] hover:bg-[var(--hover)]">Todas</button><button type="button" onClick={() => setSelectedCampaignIds([])} className="rounded-lg px-2 py-1.5 text-[var(--muted-foreground)] hover:bg-[var(--hover)]">Limpar</button></div>}
             </div>
+            <div className="flex items-center justify-between gap-2 border-b px-3.5 py-2" style={{ borderColor: "var(--glass-border)" }}><p className="text-[10px] text-[var(--muted-foreground)]">Todas as campanhas da conta; valores do período escolhido.</p><button type="button" disabled={campaignsRefreshing || campaignsLoading || (!accountId && !clientId)} onClick={() => void refreshCampaigns()} className="flex shrink-0 items-center gap-1.5 text-[10px] text-[#4a8fd4] disabled:opacity-40"><RefreshCw size={12} className={campaignsRefreshing ? "animate-spin" : ""} />{campaignsRefreshing ? "Atualizando…" : "Atualizar campanhas"}</button></div>
             <div className="max-h-52 overflow-y-auto p-2">
               {campaignsLoading ? <div className="flex items-center justify-center gap-2 py-8 text-xs text-[var(--muted-foreground)]"><LoaderCircle size={15} className="animate-spin" />Buscando campanhas</div>
                 : campaignsError ? <p className="px-2 py-6 text-center text-xs leading-5 text-red-400">{campaignsError}</p>
-                : campaignOptions.length === 0 ? <p className="px-2 py-6 text-center text-xs leading-5 text-[var(--muted-foreground)]">Nenhuma campanha com métricas neste período.</p>
+                : campaignOptions.length === 0 ? <p className="px-2 py-6 text-center text-xs leading-5 text-[var(--muted-foreground)]">Nenhuma campanha importada. Clique em Atualizar campanhas para buscar na Meta.</p>
                 : campaignOptions.map((campaign) => {
                   const checked = selectedCampaignIds.includes(campaign.id);
                   return <label key={campaign.id} className="flex cursor-pointer items-center gap-3 rounded-xl px-2.5 py-2.5 transition hover:bg-[var(--hover)]">
@@ -178,7 +204,7 @@ export function TrafficReportGenerator({ accounts, selectedAccountId, year, mont
           </section>
         </div>
         <div className="mt-5 rounded-xl border border-[#9d7e4e]/20 bg-[#9d7e4e]/[.06] p-3 text-[11px] leading-5 text-[var(--muted-foreground)]">Antes de gerar, a plataforma atualiza na Meta somente a conta e o período selecionados. No PWA e no celular, você poderá salvar em Arquivos ou compartilhar o PDF.</div>
-        <div className="mt-5 flex justify-end gap-2"><button type="button" disabled={loading} onClick={() => setOpen(false)} className="rounded-xl border px-4 py-2.5 text-xs">Cancelar</button><Button type="button" size="lg" disabled={(!clientId && !accountId) || !since || !until || campaignsLoading || selectedCampaignIds.length === 0} loading={loading} loadingLabel="Gerando PDF..." onClick={() => void generate()} icon={<FileDown size={14} />}>Gerar relatório</Button></div>
+        <div className="mt-5 flex justify-end gap-2"><button type="button" disabled={loading} onClick={() => setOpen(false)} className="rounded-xl border px-4 py-2.5 text-xs">Cancelar</button><Button type="button" size="lg" disabled={(!clientId && !accountId) || !since || !until || campaignsLoading || campaignsRefreshing || selectedCampaignIds.length === 0} loading={loading} loadingLabel="Gerando PDF..." onClick={() => void generate()} icon={<FileDown size={14} />}>Gerar relatório</Button></div>
       </motion.section>
     </motion.div>}</AnimatePresence>, document.body)}
   </>;

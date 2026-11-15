@@ -5,6 +5,7 @@ export interface InstagramAutomationStep {
   type: "message";
   text: string;
   delayMinutes: number;
+  button?: { label: string; url: string } | null;
 }
 
 export interface InstagramAutomationInput {

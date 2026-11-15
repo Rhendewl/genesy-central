@@ -36,13 +36,13 @@ export function WorkspaceSubNav({ rightSlot }: WorkspaceSubNavProps) {
 
   return (
     <div
-      className="px-4 pt-4 sm:px-6"
+      className="workspace-subnav px-4 pt-4 sm:px-6"
       style={{ borderBottom: "1px solid var(--border)" }}
     >
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+      <nav aria-label="Navegação do Workspace" className="flex items-center justify-between gap-2 sm:gap-4">
         <div
           ref={scrollerRef}
-          className="-mx-4 min-w-0 scroll-px-4 overflow-x-auto overscroll-x-contain px-4 sm:mx-0 sm:flex-1 sm:px-0 [&::-webkit-scrollbar]:hidden"
+          className="min-w-0 flex-1 scroll-px-4 overflow-x-auto overscroll-x-contain sm:scroll-px-0 [&::-webkit-scrollbar]:hidden"
           style={{
             scrollbarWidth: "none",
             WebkitOverflowScrolling: "touch",
@@ -57,6 +57,7 @@ export function WorkspaceSubNav({ rightSlot }: WorkspaceSubNavProps) {
                   ref={active ? activeLinkRef : undefined}
                   key={section.href}
                   href={section.href}
+                  aria-current={active ? "page" : undefined}
                   className={cn(
                     "flex shrink-0 items-center gap-1.5 px-3 pb-3 text-sm font-medium transition-colors",
                     active ? "text-[var(--text-title)]" : "text-[var(--muted-foreground)] hover:text-[var(--text-title)]"
@@ -71,7 +72,7 @@ export function WorkspaceSubNav({ rightSlot }: WorkspaceSubNavProps) {
           </div>
         </div>
         {rightSlot && <div className="shrink-0 pb-3">{rightSlot}</div>}
-      </div>
+      </nav>
     </div>
   );
 }

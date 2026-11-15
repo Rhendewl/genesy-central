@@ -1,5 +1,7 @@
 "use client";
 
+import { DateInput } from "@/components/ui/DateInput";
+
 import { useState, useEffect } from "react";
 import {
   Plus, Trash2, Loader2, CalendarDays, Copy,
@@ -159,7 +161,7 @@ function SlotPreview({
         Fuso: <strong style={{ color: "var(--text-title)" }}>{timezone}</strong>
       </p>
       <div className="flex items-center gap-2 mb-3">
-        <input
+        <DateInput
           type="date"
           value={dateStr}
           onChange={e => { setDateStr(e.target.value); setLoaded(false); }}

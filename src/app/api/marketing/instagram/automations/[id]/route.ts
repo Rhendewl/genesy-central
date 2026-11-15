@@ -11,6 +11,24 @@ async function contextForEdit() {
   return { supabase, context };
 }
 
+export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+  try {
+    const { supabase, context } = await contextForEdit();
+    const body = await req.json().catch(() => ({})) as { status?: unknown };
+    if (body.status !== "active" && body.status !== "paused") {
+      throw Object.assign(new Error("Escolha se a automação ficará ativa ou pausada."), { status: 400 });
+    }
+    const { data, error } = await supabase.from("marketing_instagram_automations")
+      .update({ status: body.status, updated_at: new Date().toISOString() })
+      .eq("id", params.id).eq("organization_id", context.organizationId).select("id,status").maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!data) throw Object.assign(new Error("Automação não encontrada"), { status: 404 });
+    return NextResponse.json({ automation: data });
+  } catch (error) {
+    const parsed = apiError(error); return NextResponse.json({ error: parsed.message }, { status: parsed.status });
+  }
+}
+
 export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
   try {
     const { supabase, context } = await contextForEdit();

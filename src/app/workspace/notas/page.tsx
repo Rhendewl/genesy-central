@@ -12,7 +12,6 @@ import { FoldersGrid } from "@/components/workspace/notes/FoldersGrid";
 import { FolderModal } from "@/components/workspace/notes/FolderModal";
 import type { WorkspaceNoteFolder } from "@/types/workspace-notes";
 import { GlassFolderIcon } from "@/components/ui/GlassFolderIcon";
-import { Button } from "@/components/ui/button";
 
 export default function WorkspaceNotasPage() {
   const { viewingMember } = useWorkspaceViewing();
@@ -48,13 +47,14 @@ export default function WorkspaceNotasPage() {
 
   return (
     <div className="flex flex-col pb-24">
-      <Header title="Workspace" subtitle="Suas notas organizadas em pastas" />
+      <div className="sr-only md:not-sr-only"><Header title="Workspace" subtitle="Suas notas organizadas em pastas" /></div>
 
-      <div className="flex flex-wrap items-center justify-between gap-3 px-4 pb-4 sm:px-6">
+      <div className="workspace-notes-toolbar flex flex-wrap items-center justify-between gap-3 px-4 pb-4 sm:px-6">
         <div className="flex flex-1 flex-wrap items-center gap-2">
           <div className="relative min-w-[200px] flex-1 sm:max-w-xs">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "var(--muted-foreground)" }} />
             <input
+              aria-label="Buscar pasta por nome"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Buscar pasta por nome..."
@@ -65,14 +65,9 @@ export default function WorkspaceNotasPage() {
 
         </div>
 
-        <Button
-          onClick={() => setModalMode("create")}
-          icon={<FolderPlus size={16} strokeWidth={2.2} />}
-          signature
-          size="medium"
-        >
-          Nova Pasta
-        </Button>
+        <button type="button" className="workspace-notes-create" aria-label="Nova pasta" title="Nova pasta" onClick={() => setModalMode("create")}>
+          <FolderPlus size={22} strokeWidth={1.8} />
+        </button>
       </div>
 
       <div className="flex-1 px-4 sm:px-6">

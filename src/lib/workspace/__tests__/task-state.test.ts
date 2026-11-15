@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { WorkspaceTask } from "@/types/workspace";
-import { shouldKeepWorkspaceTask, uniqueWorkspaceTasks, upsertWorkspaceTask } from "../task-state";
+import { isWorkspaceTaskHidden, shouldKeepWorkspaceTask, uniqueWorkspaceTasks, upsertWorkspaceTask } from "../task-state";
 
 function task(id: string, title: string): WorkspaceTask {
   return {
@@ -62,4 +62,12 @@ describe("workspace task state", () => {
       status: "em_andamento",
     }, now)).toBe(true);
   });
+});
+
+it("keeps completed status and data while deriving hidden history after 24 hours", () => {
+  const original = { ...task("history", "Histórico"), status: "concluido" as const, completed_at: "2026-10-28T15:00:00Z", notes: "Preservar" };
+  expect(isWorkspaceTaskHidden(original, new Date("2026-10-29T14:59:59Z"))).toBe(false);
+  expect(isWorkspaceTaskHidden(original, new Date("2026-10-29T15:00:00Z"))).toBe(true);
+  expect(original).toMatchObject({ status: "concluido", notes: "Preservar", completed_at: "2026-10-28T15:00:00Z" });
+  expect(isWorkspaceTaskHidden({ ...original, status: "a_fazer", completed_at: null })).toBe(false);
 });

@@ -1,5 +1,7 @@
 "use client";
 
+import { DateInput } from "@/components/ui/DateInput";
+
 // ─────────────────────────────────────────────────────────────────────────────
 // StepRenderer — fonte única de renderização de steps.
 // Usado pelo editor (PreviewPanel) e pela página pública /form/[slug].
@@ -349,7 +351,7 @@ export function StepRenderer({
 
       case "date":
         return (
-          <input
+          <DateInput
             type="date"
             className={inputBase}
             style={{ ...inputStyle, colorScheme: light ? "light" : "dark" } as React.CSSProperties}

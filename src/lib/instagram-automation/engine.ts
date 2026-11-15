@@ -109,7 +109,7 @@ async function scheduleRun(db: Db, automation: AutomationRow, eventId: string, e
     jobs.push({
       organization_id: automation.organization_id, run_id: run.id, step_index: stepIndex++,
       action_type: event.eventType === "comment" && index === 0 ? "private_reply" : "dm",
-      payload: { text: step.text.trim() }, scheduled_for: addMinutes(baseTime, cumulativeDelay),
+      payload: { text: step.text.trim(), ...(step.button ? { button: step.button } : {}) }, scheduled_for: addMinutes(baseTime, cumulativeDelay),
     });
   }
   if (automation.crm_enabled && automation.crm_stage_id) {
@@ -326,10 +326,10 @@ export async function processInstagramAutomationJob(db: Db, jobId: string) {
         externalMessageId = (await replyToInstagramComment(event.comment_id, text, accessToken)).id;
       } else if (job.action_type === "private_reply") {
         if (!event.comment_id) throw Object.assign(new Error("Comentário sem ID para resposta privada"), { permanent: true });
-        externalMessageId = (await sendInstagramMessage(connection.instagram_user_id, { comment_id: event.comment_id }, text, accessToken)).message_id;
+        externalMessageId = (await sendInstagramMessage(connection.instagram_user_id, { comment_id: event.comment_id }, { text, button: job.payload.button as { label: string; url: string } | undefined }, accessToken)).message_id;
       } else {
         if (!event.sender_scoped_id) throw Object.assign(new Error("Mensagem sem destinatário do Instagram"), { permanent: true });
-        externalMessageId = (await sendInstagramMessage(connection.instagram_user_id, { id: event.sender_scoped_id }, text, accessToken)).message_id;
+        externalMessageId = (await sendInstagramMessage(connection.instagram_user_id, { id: event.sender_scoped_id }, { text, button: job.payload.button as { label: string; url: string } | undefined }, accessToken)).message_id;
       }
     }
   } catch (caught) {

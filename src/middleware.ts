@@ -1,3 +1,4 @@
+import { crmNotificationAfterLogin } from "@/lib/crm/notification-url";
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
@@ -12,6 +13,8 @@ import { NextResponse, type NextRequest } from "next/server";
 // própria rota valida o header X-Cron-Secret, então fica de fora do
 // middleware de auth por sessão, como api/meta/webhook.
 const PUBLIC_ROUTES = [
+  "/assinar/",
+  "/api/public/assinaturas/",
   "/simular/",
   "/api/public/calculadora/",
   "/auth",
@@ -41,8 +44,8 @@ const PUBLIC_ROUTES = [
 ];
 // Redirect authenticated users away from these (login page only)
 const AUTH_REDIRECT_ROUTES = ["/auth"];
-const PUBLIC_SHARE_ROUTES = ["/simular/", "/portal/", "/form/", "/analise-comercial/", "/coleta/", "/agendar/", "/venda/"];
-const PUBLIC_SHARE_API_ROUTES = ["/api/public/calculadora/", "/api/portal/", "/api/form/", "/api/commercial-collections/", "/api/agendar/", "/api/public/vgv/"];
+const PUBLIC_SHARE_ROUTES = ["/assinar/", "/simular/", "/portal/", "/form/", "/analise-comercial/", "/coleta/", "/agendar/", "/venda/"];
+const PUBLIC_SHARE_API_ROUTES = ["/api/public/assinaturas/", "/api/public/calculadora/", "/api/portal/", "/api/form/", "/api/commercial-collections/", "/api/agendar/", "/api/public/vgv/"];
 
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
@@ -140,8 +143,8 @@ export async function middleware(request: NextRequest) {
   // Authenticated + trying to access /auth → redirect to dashboard
   if (user && hasActiveAccess && isAuthRedirectRoute) {
     const url = request.nextUrl.clone();
-    url.pathname = "/";
-    return NextResponse.redirect(url);
+    const destination=crmNotificationAfterLogin(url.search);
+    return NextResponse.redirect(new URL(destination,url.origin));
   }
 
   return supabaseResponse;

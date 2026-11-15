@@ -20,6 +20,7 @@ export async function GET(req: NextRequest) {
   const dueBefore   = url.searchParams.get("due_before")   ?? undefined;
   const dueAfter    = url.searchParams.get("due_after")    ?? undefined;
   const search      = url.searchParams.get("search")       ?? undefined;
+  const includeHistory = url.searchParams.get("include_history") === "1";
   const objectiveId = url.searchParams.get("objective_id");
   const boardId     = url.searchParams.get("board_id")     ?? undefined;
   // De quem é este Workspace — o próprio usuário por padrão, ou (se a RLS
@@ -68,7 +69,7 @@ export async function GET(req: NextRequest) {
       linkedTaskIds=(links ?? []).map(l=>l.task_id);
       assignedTaskIds=Array.from(new Set([...assignedTaskIds,...linkedTaskIds]));
     }
-    let query = supabase.from("workspace_tasks").select("*").order("position", { ascending: true });
+    let query = supabase.from("workspace_tasks").select("*").order("position", { ascending: true }).order("id");
     query = assignedTaskIds.length > 0
       ? query.or(`user_id.eq.${targetUserId},id.in.(${assignedTaskIds.join(",")})`)
       : query.eq("user_id", targetUserId);
@@ -88,14 +89,21 @@ export async function GET(req: NextRequest) {
       query = query.in("id", taskIds.length > 0 ? taskIds : ["00000000-0000-0000-0000-000000000000"]);
     }
 
-    const { data, error } = await query;
-    if (error) throw new Error(error.message);
-
-    const activeTasks = ((data ?? []) as WorkspaceTask[]).filter(task => linkedTaskIds.includes(task.id) || shouldKeepWorkspaceTask(task));
+    const data: WorkspaceTask[] = [];
+    for (let offset = 0; ; offset += 500) {
+      const result = await query.range(offset, offset + 499);
+      if (result.error) throw new Error(result.error.message);
+      data.push(...(result.data ?? []) as WorkspaceTask[]);
+      if ((result.data?.length ?? 0) < 500) break;
+    }
+    const activeTasks = data.filter(task => includeHistory || linkedTaskIds.includes(task.id) || shouldKeepWorkspaceTask(task));
     const taskIds = activeTasks.map((t) => t.id);
-    const { data: allAssignees } = taskIds.length > 0
-      ? await supabase.from("workspace_task_assignees").select("task_id,assignee_id").in("task_id", taskIds)
-      : { data: [] as { task_id: string; assignee_id: string }[] };
+    const allAssignees: { task_id: string; assignee_id: string }[] = [];
+    for (let offset = 0; offset < taskIds.length; offset += 200) {
+      const rows = await supabase.from("workspace_task_assignees").select("task_id,assignee_id").in("task_id", taskIds.slice(offset, offset + 200));
+      if (rows.error) throw new Error(rows.error.message);
+      allAssignees.push(...(rows.data ?? []));
+    }
 
     const assigneesByTask = new Map<string, string[]>();
     for (const row of allAssignees ?? []) {
@@ -172,6 +180,7 @@ export async function POST(req: NextRequest) {
         title:       body.title,
         description: body.description ?? null,
         status,
+        completed_at: status === "concluido" ? new Date().toISOString() : null,
         priority:    body.priority ?? "media",
         tags:        body.tags ?? [],
         due_date:    body.due_date ?? null,

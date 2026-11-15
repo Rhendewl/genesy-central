@@ -43,6 +43,8 @@ export default function MarketingDashboardPage() {
     return date >= rangeStart && date <= rangeEnd;
   }), [marketing.contents, rangeEnd, rangeStart]);
   const overdue = periodContents.filter((item) => item.scheduled_at && isBefore(new Date(item.scheduled_at), today) && item.status !== "published" && item.status !== "cancelled");
+  const planned = periodContents.filter((item) => ["planned", "in_production", "in_review", "approved"].includes(item.status)).length;
+  const scheduled = periodContents.filter((item) => item.status === "scheduled").length;
   const published = periodContents.filter((item) => item.status === "published").length;
   const inProduction = periodContents.filter((item) => ["in_production", "in_review", "approved"].includes(item.status)).length;
   const followers = instagram.connections.reduce((sum, item) => sum + Number(item.followers_count || 0), 0);
@@ -92,8 +94,9 @@ export default function MarketingDashboardPage() {
               </div>
             </section>
 
-            <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6">
-              <MetricCard icon={Layers3} label="Conteúdos planejados" value={periodContents.length} hint={`${inProduction} em produção`} accent="#27a3ff" />
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 xl:grid-cols-7">
+              <MetricCard icon={Layers3} label="Conteúdos planejados" value={planned} hint={`${inProduction} em produção`} accent="#27a3ff" />
+              <MetricCard icon={Clock3} label="Agendados" value={scheduled} hint="Aguardando publicação" accent="#a855f7" />
               <MetricCard icon={Send} label="Publicados" value={published} hint="Operação editorial" accent="#22c55e" />
               <MetricCard icon={AlertTriangle} label="Atrasados" value={overdue.length} hint={overdue.length ? "Requer atenção" : "Operação em dia"} accent={overdue.length ? "#ef4444" : "#64748b"} />
               <MetricCard icon={Users} label="Contas engajadas" value={report.totals.accountsEngaged} hint="Instagram" accent="#a855f7" />

@@ -2,11 +2,12 @@ import { WorkspaceSubNav } from "@/components/workspace/WorkspaceSubNav";
 import { WorkspaceMemberSwitcher } from "@/components/workspace/WorkspaceMemberSwitcher";
 import { WorkspaceViewingBanner } from "@/components/workspace/WorkspaceViewingBanner";
 import { WorkspaceViewingProvider } from "@/context/WorkspaceViewingContext";
+import "@/components/workspace/workspace-mobile.css";
 
 export default function WorkspaceLayout({ children }: { children: React.ReactNode }) {
   return (
     <div
-      className="module-shell-bg"
+      className="module-shell-bg workspace-module"
       style={{
         margin:       12,
         minHeight:    "calc(100dvh - 24px)",

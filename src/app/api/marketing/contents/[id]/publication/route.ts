@@ -1,3 +1,4 @@
+import { isInstagramEditorial } from "@/lib/marketing/editorial-instagram";
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { apiError, getMarketingServerContext } from "@/lib/marketing/server";
@@ -10,6 +11,9 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   const supabase = await createServerSupabaseClient();
   try {
     const context = await getMarketingServerContext(supabase);
+    const current = await supabase.from("marketing_contents").select("notes").eq("id", id).single();
+    if (current.error) throw current.error;
+    if (isInstagramEditorial(current.data.notes)) throw Object.assign(new Error("O status deste post é sincronizado automaticamente com o Instagram."), { status: 409 });
     const body = await req.json().catch(() => null) as Record<string, unknown> | null;
     const status = body?.status;
     if (typeof status !== "string" || !MARKETING_CONTENT_STATUSES.includes(status as MarketingContentStatus)) {

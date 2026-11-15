@@ -1,5 +1,7 @@
 "use client";
 
+import { accentBorderStyle } from "@/components/ui/accent-border";
+
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
@@ -48,9 +50,9 @@ export function NoteCard({ note, onDelete, folders, onMove }: NoteCardProps) {
       animate={{ opacity: 1, y: 0 }}
       whileHover={{ y: -2 }}
       transition={{ duration: 0.2 }}
-      className="group relative cursor-pointer overflow-hidden lc-card"
+      className="app-accent-border group relative cursor-pointer overflow-hidden lc-card"
       onClick={() => router.push(`/workspace/notas/${note.id}`)}
-      style={note.color ? { borderTop: `2px solid ${note.color}` } : undefined}
+      style={accentBorderStyle(note.color)}
     >
       {note.cover_url ? (
         // eslint-disable-next-line @next/next/no-img-element

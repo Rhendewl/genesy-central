@@ -1,4 +1,6 @@
 "use client";
+
+import { DateInput } from "@/components/ui/DateInput";
 import { useState } from "react";
 import { toast } from "sonner";
 import { getSupabaseClient } from "@/lib/supabase";
@@ -183,7 +185,7 @@ export function BscInlineDetails({
         <div className="grid grid-cols-2 gap-3">
           <label>
             Data de início
-            <input
+            <DateInput
               type="date"
               value={draft.start_date}
               onChange={(e) => update({ start_date: e.target.value })}
@@ -191,7 +193,7 @@ export function BscInlineDetails({
           </label>
           <label>
             Data de término
-            <input
+            <DateInput
               type="date"
               min={draft.start_date || undefined}
               value={draft.due_date}

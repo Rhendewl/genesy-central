@@ -1,17 +1,15 @@
 "use client";
 
+import { FinancialSectionHeader, FinancialMetric, FinancialFilters, FinancialAnalysis } from "./FinancialSection";
+import { FinancialActivityChart, FinancialBreakdown } from "./FinancialActivityChart";
+import { createPortal } from "react-dom";
+import { DateInput } from "@/components/ui/DateInput";
+
 import { useState, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid,
-  Tooltip as RechartsTooltip, ResponsiveContainer, Cell,
-} from "recharts";
 import { format, parseISO, endOfMonth, eachDayOfInterval } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import {
-  Plus, Search, X, Edit2, Trash2, Zap,
-  TrendingDown, TrendingUp, Tag, Layers, Lightbulb, ArrowUpDown,
-} from "lucide-react";
+import { Search, X, Edit2, Trash2, Zap } from "lucide-react";
 import { toast } from "sonner";
 import { useDespesas } from "@/hooks/useDespesas";
 import { useAgencyClients } from "@/hooks/useAgencyClients";
@@ -27,13 +25,6 @@ import { privateFinancialValue, useFinancialPrivacyStore } from "@/store/financi
 const fmt = (v: number) =>
   privateFinancialValue(new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v));
 
-const fmtK = (v: number) => {
-  if (Math.abs(v) >= 1000)
-    return privateFinancialValue(`R$${(v / 1000).toFixed(1)}k`);
-  return privateFinancialValue(new Intl.NumberFormat("pt-BR", {
-    style: "currency", currency: "BRL", maximumFractionDigits: 0,
-  }).format(v));
-};
 
 // ── Config ────────────────────────────────────────────────────────────────────
 
@@ -97,10 +88,11 @@ function DespesaModal({ expense, onClose, onSave, clients }: ModalProps) {
 
   const field = "w-full rounded-xl bg-[var(--hover)] text-[var(--text-title)] text-sm px-3 py-2.5 outline-none";
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
+  return createPortal(
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" onClick={onClose}>
       <div className="lc-modal-backdrop absolute inset-0" />
       <motion.div
+        role="dialog" aria-modal="true" aria-label={expense ? "Editar Despesa" : "Nova Despesa"}
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.95 }}
@@ -111,7 +103,7 @@ function DespesaModal({ expense, onClose, onSave, clients }: ModalProps) {
           <h2 className="text-lg font-bold text-[var(--text-title)]">
             {expense ? "Editar Despesa" : "Nova Despesa"}
           </h2>
-          <button onClick={onClose} className="text-[var(--silver)] hover:text-[var(--text-title)] transition-colors">
+          <button aria-label="Fechar despesa" onClick={onClose} className="text-[var(--silver)] hover:text-[var(--text-title)] transition-colors">
             <X size={20} />
           </button>
         </div>
@@ -154,7 +146,7 @@ function DespesaModal({ expense, onClose, onSave, clients }: ModalProps) {
           </div>
           <div>
             <label className="block text-xs text-[var(--silver)] mb-1.5 font-medium">Data *</label>
-            <input type="date" value={form.date ?? ""} onChange={e => set("date", e.target.value)}
+            <DateInput type="date" value={form.date ?? ""} onChange={e => set("date", e.target.value)}
               className={field} style={{ border: "none" }} />
           </div>
           <div>
@@ -190,83 +182,13 @@ function DespesaModal({ expense, onClose, onSave, clients }: ModalProps) {
           </PrimaryButton>
         </div>
       </motion.div>
-    </div>
+    </div>, document.body
   );
 }
-
-// ── KPI Card ──────────────────────────────────────────────────────────────────
-
-function KpiCard({
-  label, value, sub, icon, accent, trend, delay = 0,
-}: {
-  label: string;
-  value: string;
-  sub?: string;
-  icon: React.ReactNode;
-  accent: string;
-  trend?: { pct: number } | null;
-  delay?: number;
-}) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay }}
-      className="lc-card p-5 flex flex-col gap-3"
-    >
-      <div className="flex items-center justify-between">
-        <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
-          style={{ background: `${accent}1a`, color: accent }}>
-          {icon}
-        </div>
-        {trend != null && (
-          <span className={cn(
-            "flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full",
-            trend.pct >= 0
-              ? "text-red-400 bg-red-400/10"
-              : "text-emerald-400 bg-emerald-400/10"
-          )}>
-            {trend.pct >= 0 ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
-            {privateFinancialValue(`${Math.abs(trend.pct).toFixed(1)}%`)}
-          </span>
-        )}
-      </div>
-      <div>
-        <p className="text-2xl font-bold text-[var(--text-title)] leading-none mb-1">{value}</p>
-        <p className="text-xs text-[var(--silver)]">{label}</p>
-        {sub && <p className="text-[10px] text-[var(--text-muted)] mt-0.5">{sub}</p>}
-      </div>
-    </motion.div>
-  );
-}
-
-// ── Chart Tooltip ─────────────────────────────────────────────────────────────
-
-function ChartTooltip({
-  active, payload, label,
-}: {
-  active?: boolean;
-  payload?: Array<{ value: number }>;
-  label?: string;
-}) {
-  if (!active || !payload?.length) return null;
-  return (
-    <div className="rounded-xl px-3 py-2 text-xs shadow-xl"
-      style={{ background: "var(--chart-tooltip-bg)", border: "1px solid var(--chart-tooltip-border)" }}>
-      <p className="mb-1" style={{ color: "var(--chart-tooltip-label)" }}>{label}</p>
-      <p className="font-semibold" style={{ color: "var(--chart-tooltip-text)" }}>{fmt(payload[0].value)}</p>
-    </div>
-  );
-}
-
-// ── Main ──────────────────────────────────────────────────────────────────────
-
-interface Props { year: number; month: number; }
 
 type SortKey = "date_desc" | "date_asc" | "amount_desc" | "amount_asc";
-type ChartView = "day" | "category";
 
-export function GestaoDespesas({ year, month }: Props) {
+export function GestaoDespesas({ year, month }: { year: number; month: number }) {
   const valuesHidden = useFinancialPrivacyStore(state => state.valuesHidden);
   const monthStart = `${year}-${String(month).padStart(2, "0")}-01`;
   const monthEnd   = format(endOfMonth(new Date(year, month - 1)), "yyyy-MM-dd");
@@ -285,7 +207,6 @@ export function GestaoDespesas({ year, month }: Props) {
   const [filterCat,  setFilterCat]  = useState<ExpenseCategory | "todos">("todos");
   const [filterType, setFilterType] = useState<ExpenseType | "todos">("todos");
   const [sort,       setSort]       = useState<SortKey>("date_desc");
-  const [chartView,  setChartView]  = useState<ChartView>("day");
   const [modal,      setModal]      = useState<{ open: boolean; expense?: Expense }>({ open: false });
   const [deleting,   setDeleting]   = useState<string | null>(null);
 
@@ -332,14 +253,9 @@ export function GestaoDespesas({ year, month }: Props) {
           .filter(e => e.date === dayStr)
           .reduce((s, e) => s + e.amount, 0);
         return { date: format(day, "dd"), total: dayTotal };
-      })
-      .filter(d => d.total > 0);
+      });
   }, [expenses, year, month, monthEnd]);
 
-  const categoryChartData = useMemo(() =>
-    byCategory.map(c => ({ name: c.label, total: c.total, hex: c.hex })),
-    [byCategory]
-  );
 
   // ── Insights ───────────────────────────────────────────────────────────────
 
@@ -433,258 +349,28 @@ export function GestaoDespesas({ year, month }: Props) {
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
-    <div className="space-y-5">
-
-      {/* ── 1. KPI Row ── */}
-      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
-        <KpiCard
-          label="Despesa Total"
-          value={fmt(total)}
-          sub={`${expenses.length} lançamento${expenses.length !== 1 ? "s" : ""}`}
-          icon={<TrendingDown size={16} />}
-          accent="#ef4444"
-          trend={variation !== null ? { pct: variation } : null}
-          delay={0}
-        />
-        <KpiCard
-          label="Despesas Fixas"
-          value={fmt(totalFixa)}
-          sub={`${expenses.filter(e => e.type === "fixa").length} itens`}
-          icon={<Tag size={16} />}
-          accent="#60a5fa"
-          delay={0.04}
-        />
-        <KpiCard
-          label="Despesas Variáveis"
-          value={fmt(totalVar)}
-          sub={`${expenses.filter(e => e.type === "variavel").length} itens`}
-          icon={<Zap size={16} />}
-          accent="#fbbf24"
-          delay={0.08}
-        />
-        <KpiCard
-          label="Ticket Médio"
-          value={fmt(ticketMedio)}
-          sub="por lançamento"
-          icon={<ArrowUpDown size={16} />}
-          accent="#a78bfa"
-          delay={0.12}
-        />
-        <KpiCard
-          label="Maior Categoria"
-          value={topCategory ? fmt(topCategory.total) : "—"}
-          sub={topCategory?.label ?? "Sem dados"}
-          icon={<Layers size={16} />}
-          accent="#f472b6"
-          delay={0.16}
-        />
-        <KpiCard
-          label="Variação vs Anterior"
-          value={
-            variation !== null
-              ? privateFinancialValue(`${variation >= 0 ? "+" : ""}${variation.toFixed(1)}%`)
-              : "—"
-          }
-          sub={prevTotal > 0 ? `Anterior: ${fmt(prevTotal)}` : "Sem dados anteriores"}
-          icon={variation !== null && variation < 0
-            ? <TrendingDown size={16} />
-            : <TrendingUp size={16} />
-          }
-          accent={variation !== null && variation < 0 ? "#10b981" : "#ef4444"}
-          delay={0.20}
-        />
+    <div className="fin-workspace">
+      <FinancialSectionHeader title="Despesas" description="Custos fixos, variáveis e lançamentos da operação." createLabel="Nova Despesa" onCreate={() => setModal({ open: true })} />
+      <div className="fin-overview" aria-label="Resumo das despesas do mês">
+        <FinancialMetric label="Total do mês" value={fmt(total)} detail={`${expenses.length} lançamentos`} tone="amber" onClick={() => setFilterType("todos")} selected={filterType === "todos"} />
+        <FinancialMetric label="Custos fixos" value={fmt(totalFixa)} detail="Toque para consultar os fixos" tone="blue" onClick={() => setFilterType(filterType === "fixa" ? "todos" : "fixa")} selected={filterType === "fixa"} />
+        <FinancialMetric label="Custos variáveis" value={fmt(totalVar)} detail="Toque para consultar os variáveis" onClick={() => setFilterType(filterType === "variavel" ? "todos" : "variavel")} selected={filterType === "variavel"} />
+        <FinancialMetric label="Variação mensal" value={variation === null ? "—" : privateFinancialValue(`${variation >= 0 ? "+" : ""}${variation.toFixed(1)}%`)} detail={prevTotal > 0 ? `Mês anterior: ${fmt(prevTotal)}` : "Sem base no mês anterior"} tone={variation !== null && variation > 0 ? "red" : "green"} />
       </div>
-
-      {/* ── 2. Analytics Row ── */}
-      {(byCategory.length > 0 || dailyChartData.length > 0) && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-
-          {/* Category breakdown */}
-          {byCategory.length > 0 && (
-            <motion.div
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.25 }}
-              className="lc-card p-5"
-            >
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h3 className="text-sm font-semibold text-[var(--text-title)]">Por Categoria</h3>
-                  <p className="text-xs text-[var(--silver)] mt-0.5">Clique para filtrar a tabela</p>
-                </div>
-                {filterCat !== "todos" && (
-                  <button
-                    onClick={() => setFilterCat("todos")}
-                    className="flex items-center gap-1 text-xs text-[#4a8fd4] hover:underline"
-                  >
-                    <X size={10} /> Limpar
-                  </button>
-                )}
-              </div>
-              <div className="space-y-3">
-                {byCategory.map(c => {
-                  const pct     = total > 0 ? (c.total / total) * 100 : 0;
-                  const isActive = filterCat === c.category;
-                  return (
-                    <button
-                      key={c.category}
-                      onClick={() => setFilterCat(isActive ? "todos" : c.category)}
-                      className="w-full text-left group"
-                    >
-                      <div className="flex items-center justify-between mb-1.5">
-                        <div className="flex items-center gap-2">
-                          <span className="w-2 h-2 rounded-full shrink-0" style={{ background: c.hex }} />
-                          <span className={cn(
-                            "text-xs font-medium transition-colors",
-                            isActive ? c.color : "text-[var(--silver)] group-hover:text-[var(--text-title)]"
-                          )}>
-                            {c.label}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <span className="text-[10px] text-[var(--text-muted)]">{privateFinancialValue(`${pct.toFixed(1)}%`)}</span>
-                          <span className={cn(
-                            "text-xs font-semibold tabular-nums transition-colors",
-                            isActive ? "text-[var(--text-title)]" : "text-[var(--silver)] group-hover:text-[var(--text-title)]"
-                          )}>
-                            {fmt(c.total)}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="h-1.5 rounded-full overflow-hidden"
-                        style={{ background: "var(--border)" }}>
-                        <motion.div
-                          initial={{ width: 0 }}
-                          animate={{ width: `${pct}%` }}
-                          transition={{ duration: 0.6, ease: "easeOut", delay: 0.3 }}
-                          className="h-full rounded-full"
-                          style={{ background: c.hex, opacity: isActive ? 1 : 0.55 }}
-                        />
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </motion.div>
-          )}
-
-          {/* Chart */}
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-            className="lc-card p-5"
-          >
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h3 className="text-sm font-semibold text-[var(--text-title)]">Evolução</h3>
-                <p className="text-xs text-[var(--silver)] mt-0.5">Despesas no período</p>
-              </div>
-              <div
-                className="flex gap-0.5 p-0.5 rounded-lg"
-                style={{
-                  background: "var(--glass-bg-soft)",
-                  border: "1px solid var(--glass-border)",
-                }}
-              >
-                {(["day", "category"] as ChartView[]).map(v => (
-                  <button
-                    key={v}
-                    onClick={() => setChartView(v)}
-                    className={cn(
-                      "px-2.5 py-1 text-[10px] font-medium rounded-md transition-all",
-                      chartView === v
-                        ? "text-[var(--text-title)]"
-                        : "text-[var(--silver)] hover:text-[var(--text-title)]"
-                    )}
-                    style={chartView === v
-                      ? { background: "rgba(255,255,255,0.14)" }
-                      : {}
-                    }
-                  >
-                    {v === "day" ? "Por Dia" : "Categoria"}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {(chartView === "day" ? dailyChartData : categoryChartData).length === 0 ? (
-              <div className="h-[180px] flex items-center justify-center text-[var(--text-muted)] text-xs">
-                Sem dados suficientes
-              </div>
-            ) : (
-              <ResponsiveContainer width="100%" height={180}>
-                <BarChart
-                  data={(chartView === "day" ? dailyChartData : categoryChartData) as Record<string, unknown>[]}
-                  margin={{ top: 4, right: 4, left: -20, bottom: 0 }}
-                >
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                    stroke="var(--chart-grid)"
-                    vertical={false}
-                  />
-                  <XAxis
-                    dataKey={chartView === "day" ? "date" : "name"}
-                    tick={{ fill: "var(--icon)", fontSize: 10 }}
-                    axisLine={false} tickLine={false}
-                  />
-                  <YAxis
-                    tick={{ fill: "var(--icon)", fontSize: 10 }}
-                    axisLine={false} tickLine={false}
-                    tickFormatter={fmtK}
-                  />
-                  <RechartsTooltip
-                    cursor={{ fill: "var(--hover)" }}
-                    content={<ChartTooltip />}
-                  />
-                  {chartView === "day" ? (
-                    <Bar
-                      dataKey="total"
-                      fill="#ef4444"
-                      fillOpacity={0.75}
-                      radius={[4, 4, 0, 0]}
-                      maxBarSize={32}
-                    />
-                  ) : (
-                    <Bar dataKey="total" radius={[4, 4, 0, 0]} maxBarSize={40}>
-                      {categoryChartData.map((entry, i) => (
-                        <Cell key={i} fill={entry.hex} fillOpacity={0.8} />
-                      ))}
-                    </Bar>
-                  )}
-                </BarChart>
-              </ResponsiveContainer>
-            )}
-          </motion.div>
+      <FinancialAnalysis>
+        <div className="fin-chart-grid">
+          <FinancialActivityChart title="Evolução das despesas" description="Custos lançados em cada dia do mês." data={dailyChartData} color="#fbbf24" />
+          <FinancialBreakdown title="Onde estão os custos" description="Selecione uma categoria para filtrar os lançamentos." rows={byCategory.map(c => ({ id: c.category, label: c.label, total: c.total }))} selected={filterCat} onSelect={id => setFilterCat(filterCat === id ? "todos" : id as ExpenseCategory)} />
         </div>
-      )}
-
-      {/* ── 3. Insights ── */}
-      {insights.length > 0 && (
-        <motion.div
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.35 }}
-          className="lc-card p-4 flex items-start gap-3"
-          style={{ borderColor: "rgba(251,191,36,0.18)" }}
-        >
-          <div
-            className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 mt-0.5"
-            style={{ background: "rgba(251,191,36,0.12)", color: "#fbbf24" }}
-          >
-            <Lightbulb size={14} />
-          </div>
-          <div className="flex flex-col gap-1">
-            {insights.map((ins, i) => (
-              <p key={i} className="text-xs text-[var(--silver)]">
-                <span className="text-[#fbbf24] font-medium">Insight · </span>{ins}
-              </p>
-            ))}
-          </div>
-        </motion.div>
-      )}
+      </FinancialAnalysis>
+      <details className="fin-details"><summary>Indicadores de custo</summary><div className="fin-secondary-metrics">
+        <FinancialMetric label="Valor médio" value={fmt(ticketMedio)} detail="Por lançamento" />
+        <FinancialMetric label="Maior categoria" value={topCategory ? fmt(topCategory.total) : "—"} detail={topCategory?.label ?? "Sem lançamentos no período"} tone="amber" />
+      </div></details>
+      {insights.length > 0 && <aside className="fin-panel fin-insights"><h3>Leitura do mês</h3>{insights.map(insight => <p key={insight} className="mt-2 text-xs text-[var(--muted-foreground)]">{insight}</p>)}</aside>}
 
       {/* ── 4. Filter bar ── */}
+      <FinancialFilters active={hasFilters}>
       <motion.div
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
@@ -695,7 +381,7 @@ export function GestaoDespesas({ year, month }: Props) {
           <div className="relative">
             <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--silver)]" />
             <input
-              value={search}
+              aria-label="Buscar despesas" value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder="Buscar despesa..."
               className="lc-filter-control rounded-xl pl-8 pr-3 py-2 text-sm outline-none w-44"
@@ -703,7 +389,7 @@ export function GestaoDespesas({ year, month }: Props) {
           </div>
 
           <select
-            value={filterCat}
+            aria-label="Filtrar categoria" value={filterCat}
             onChange={e => setFilterCat(e.target.value as ExpenseCategory | "todos")}
             className="lc-filter-control rounded-xl px-3 py-2 text-sm outline-none appearance-none"
           >
@@ -714,7 +400,7 @@ export function GestaoDespesas({ year, month }: Props) {
           </select>
 
           <select
-            value={filterType}
+            aria-label="Filtrar tipo de despesas" value={filterType}
             onChange={e => setFilterType(e.target.value as ExpenseType | "todos")}
             className="lc-filter-control rounded-xl px-3 py-2 text-sm outline-none appearance-none"
           >
@@ -724,7 +410,7 @@ export function GestaoDespesas({ year, month }: Props) {
           </select>
 
           <select
-            value={sort}
+            aria-label="Ordenar despesas" value={sort}
             onChange={e => setSort(e.target.value as SortKey)}
             className="lc-filter-control rounded-xl px-3 py-2 text-sm outline-none appearance-none"
           >
@@ -745,22 +431,16 @@ export function GestaoDespesas({ year, month }: Props) {
           )}
         </div>
 
-        <PrimaryButton
-          onClick={() => setModal({ open: true })}
-          signature
-          size="medium"
-        >
-          <TrendingDown size={15} />
-          Nova Despesa
-        </PrimaryButton>
+
       </motion.div>
+      </FinancialFilters>
 
       {/* ── 5. Table ── */}
       <motion.div
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.42 }}
-        className="lc-card overflow-hidden"
+        className="fin-ledger lc-card overflow-hidden"
       >
         <div
           className="px-5 py-3.5 flex items-center justify-between"
@@ -779,6 +459,11 @@ export function GestaoDespesas({ year, month }: Props) {
           </p>
         </div>
 
+        {filtered.length > 0 && <div className="fin-mobile-ledger">{filtered.map(e => <article key={e.id}>
+          <header><div><h3>{e.description}</h3><p>{CATEGORY_CONFIG[e.category].label} · {e.type === "fixa" ? "Fixa" : "Variável"}{e.auto_imported ? " · Importada" : ""}</p></div><strong>{fmt(e.amount)}</strong></header>
+          <div className="fin-entry-meta"><span>{format(parseISO(e.date), "dd/MM/yyyy")}</span><span>{(e.client as { name?: string } | undefined)?.name ?? "Operação"}</span></div>
+          <footer>{!e.auto_imported && <button type="button" onClick={() => setModal({ open: true, expense: e })} aria-label={`Editar despesa ${e.description}`}><Edit2 size={14} />Editar</button>}<button type="button" className="fin-entry-delete" onClick={() => void handleDelete(e.id)} aria-label={`Excluir despesa ${e.description}`}><Trash2 size={14} />{deleting === e.id ? "Confirmar?" : "Excluir"}</button></footer>
+        </article>)}</div>}
         {filtered.length === 0 ? (
           <div className="p-12 text-center">
             {hasFilters ? (
@@ -803,7 +488,7 @@ export function GestaoDespesas({ year, month }: Props) {
             )}
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="hidden overflow-x-auto md:block">
             <table className="w-full text-sm">
               <thead>
                 <tr style={{ borderBottom: "1px solid var(--border)" }}>

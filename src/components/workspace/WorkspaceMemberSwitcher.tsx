@@ -37,7 +37,7 @@ export function WorkspaceMemberSwitcher() {
   const handleToggle = () => {
     if (!open && btnRef.current) {
       const r = btnRef.current.getBoundingClientRect();
-      setPos({ top: r.bottom + 6, left: r.left });
+      setPos({ top: r.bottom + 6, left: Math.max(16, Math.min(r.left, window.innerWidth - 236)) });
     }
     setOpen((o) => !o);
   };
@@ -45,16 +45,21 @@ export function WorkspaceMemberSwitcher() {
   return (
     <div className="relative">
       <button
+        type="button"
         ref={btnRef}
         onClick={handleToggle}
+        aria-label={`Selecionar membro: ${label}`}
+        title={label}
+        aria-expanded={open}
         className={cn(
-          "lc-card flex items-center gap-2 px-3.5 py-2 text-sm transition-all",
+          "workspace-member-trigger lc-card flex items-center gap-2 px-3.5 py-2 text-sm transition-all",
+          viewingMember && "is-viewing-member",
           open && "ring-1 ring-[var(--glass-border)]"
         )}
       >
         <Users size={13} style={{ color: viewingMember ? "#e0a344" : "var(--primary)" }} />
-        <span className="max-w-[140px] truncate font-medium text-[var(--text-title)]">{label}</span>
-        <ChevronDown size={13} className={cn("shrink-0 text-[var(--silver)] transition-transform", open && "rotate-180")} />
+        <span className="hidden md:inline max-w-[140px] truncate font-medium text-[var(--text-title)]">{label}</span>
+        <ChevronDown size={13} className={cn("hidden md:block shrink-0 text-[var(--silver)] transition-transform", open && "rotate-180")} />
       </button>
 
       {mounted && createPortal(

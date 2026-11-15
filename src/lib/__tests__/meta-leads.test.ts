@@ -8,3 +8,10 @@ it("preserves standard answers, multiple selections and custom responses", async
   expect(lead.answers).toEqual(fields); expect(lead.custom_fields).toContainEqual({ label: "State", value: "CE" }); expect(lead.custom_fields).toContainEqual({ label: "Interesses", value: "Casa; Apartamento" }); expect(lead.full_name).toBe("Ana Silva");
   expect(fetcher.mock.calls[0][0]).not.toContain("secret"); expect(fetcher.mock.calls[0][1].headers.Authorization).toBe("Bearer secret");
 });
+it("maps Meta WhatsApp number to the CRM contact without losing the original answer", async () => {
+  const fields = [{ name: "full_name", values: ["Ana Silva"] }, { name: "whatsapp_number", values: ["+5583999999999"] }];
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ field_data: fields }))));
+  const lead = await fetchMetaLead("123", "secret");
+  expect(lead.phone).toBe("+5583999999999");
+  expect(lead.answers).toEqual(fields);
+});

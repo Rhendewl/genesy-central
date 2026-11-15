@@ -1,0 +1,68 @@
+.crm-analysis { color: var(--text-title); }
+.crm-analysis-eyebrow { color: var(--muted-foreground); font-size: 10px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; }
+.crm-analysis-panel { min-width: 0; border: 1px solid var(--border); border-radius: 22px; background: var(--dock-bg); padding: 22px; }
+.crm-analysis-refresh { display: inline-flex; min-height: 42px; align-items: center; gap: 8px; border: 1px solid var(--border); border-radius: 12px; padding: 0 14px; font-size: 12px; color: var(--muted-foreground); transition: color .15s, background .15s; }
+.crm-analysis-refresh:hover { color: var(--text-title); background: var(--hover); }
+.crm-analysis-toolbar { display: grid; grid-template-columns: repeat(auto-fit,minmax(210px,1fr)); gap: 10px; padding: 10px; border: 1px solid var(--border); border-radius: 19px; background: var(--glass-bg-soft); }
+.crm-analysis-filter { display: flex; width: 100%; min-width: 0; min-height: 62px; align-items: center; gap: 11px; padding: 10px 13px; border: 1px solid transparent; border-radius: 12px; color: var(--text-title); background: var(--background); transition: border-color .15s; }
+.crm-analysis-filter:hover { border-color: var(--border); }
+.crm-analysis-filter-label { display: block; margin-bottom: 4px; color: var(--muted-foreground); font-size: 10px; font-weight: 500; }
+.crm-analysis-select { display: block; width: 100%; min-width: 0; padding: 0 12px 0 0; border: 0; background: transparent; font-size: 13px; font-weight: 500; color: var(--text-title); outline: none; }
+.crm-analysis-select option { color: var(--text-title); background: var(--background); }
+.crm-analysis-filter:focus-visible, .crm-analysis-refresh:focus-visible, .crm-analysis-stage:focus-visible, .crm-analysis-priority:focus-visible, .crm-analysis-select:focus-visible { outline: 2px solid #38bdf8; outline-offset: 3px; }
+.crm-analysis-summary { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 14px; }
+.crm-analysis-summary > article { display: flex; min-height: 215px; flex-direction: column; padding: 20px; }
+.crm-analysis-hero { background: linear-gradient(130deg,rgba(56,189,248,.1),transparent 80%),var(--dock-bg); border-color: rgba(56,189,248,.2); }
+.crm-analysis-bottleneck { background: linear-gradient(140deg,rgba(167,139,250,.075),transparent 80%),var(--dock-bg); }
+.crm-analysis-card-heading { display: flex; align-items: center; gap: 9px; font-size: 12px; font-weight: 500; }
+.crm-analysis-icon { display: grid; height: 34px; width: 34px; flex-shrink: 0; place-items: center; border: 1px solid var(--border); border-radius: 11px; background: var(--hover); }
+.crm-analysis-big-number { margin-top: 20px; margin-bottom: 7px; font-size: clamp(25px,2.7vw,38px); font-weight: 600; letter-spacing: -.04em; line-height: 1.15; }
+.crm-analysis-card-footer { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: auto; padding-top: 18px; font-size: 10px; color: var(--muted-foreground); }
+.crm-analysis-card-footer strong { font-weight: 600; color: var(--text-title); }
+.crm-analysis-ring { position: relative; display: grid; width: 62px; height: 62px; flex-shrink: 0; place-items: center; border-radius: 50%; }
+.crm-analysis-ring::before { position: absolute; inset: 6px; content: ''; border-radius: 50%; background: var(--background); }
+.crm-analysis-stage-section { padding: 24px; }
+.crm-analysis-metric-switch { display: flex; gap: 3px; padding: 4px; border: 1px solid var(--border); border-radius: 12px; background: var(--hover); }
+.crm-analysis-metric-switch button { min-height: 34px; min-width: 60px; padding: 0 12px; border-radius: 8px; color: var(--muted-foreground); font-size: 11px; }
+.crm-analysis-metric-switch button[aria-pressed=true] { color: var(--text-title); background: var(--background); box-shadow: 0 1px 5px rgba(0,0,0,.1); }
+.crm-analysis-stage-grid { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 10px; }
+.crm-analysis-stage { display: block; min-width: 0; padding: 17px; border: 1px solid var(--border); border-radius: 15px; background: var(--background); text-align: left; color: var(--text-title); transition: border-color .15s,box-shadow .15s,transform .15s; }
+.crm-analysis-stage:hover { border-color: rgba(56,189,248,.4); transform: translateY(-2px); }
+.crm-analysis-stage.is-bottleneck { border-color: rgba(167,139,250,.4); background: linear-gradient(140deg,rgba(167,139,250,.065),transparent),var(--background); }
+.crm-analysis-stage.is-selected { box-shadow: 0 0 0 2px rgba(56,189,248,.25); border-color: #38bdf8; }
+.crm-analysis-stage-step { display: grid; width: 25px; height: 25px; place-items: center; border: 1px solid var(--border); border-radius: 8px; color: var(--muted-foreground); font-size: 10px; }
+.crm-analysis-slow-badge { padding: 5px 7px; border-radius: 6px; background: rgba(167,139,250,.12); color: #a78bfa; font-size: 9px; font-weight: 600; }
+.crm-analysis-stage-track { display: block; height: 4px; margin: 17px 0 13px; overflow: hidden; border-radius: 8px; background: var(--hover); }
+.crm-analysis-stage-track > span { display: block; height: 100%; border-radius: inherit; transition: width .25s ease; }
+.crm-analysis-stage-detail { margin-top: 12px; padding: 20px; border: 1px solid rgba(56,189,248,.2); border-radius: 15px; background: rgba(56,189,248,.025); animation: crm-analysis-reveal .18s ease-out; }
+.crm-analysis-avatar { display: grid; width: 36px; height: 36px; flex-shrink: 0; place-items: center; border: 1px solid var(--border); border-radius: 12px; background: var(--hover); color: var(--muted-foreground); font-size: 11px; font-weight: 600; }
+.crm-analysis-count { display: grid; min-width: 30px; height: 30px; place-items: center; border: 1px solid var(--border); border-radius: 10px; font-size: 12px; }
+.crm-analysis-priority { display: flex; align-items: center; gap: 15px; padding: 13px; border: 1px solid var(--border); border-radius: 12px; background: var(--background); transition: background .15s; }
+.crm-analysis-priority:hover { background: var(--hover); }
+.crm-analysis-priority.is-overdue { border-left: 3px solid rgba(245,158,11,.6); }
+.crm-analysis-empty { display: flex; min-height: 130px; align-items: center; justify-content: center; flex-direction: column; gap: 12px; color: var(--muted-foreground); font-size: 12px; text-align: center; }
+.crm-analysis-method { max-width: 560px; }
+.crm-analysis-method p { margin-top: 10px; line-height: 1.7; }
+.crm-analysis-data-note { padding: 14px 18px; border: 1px solid var(--border); border-radius: 12px; color: var(--muted-foreground); font-size: 11px; }
+.crm-analysis-data-note summary { display: flex; align-items: center; gap: 7px; cursor: pointer; }
+.crm-analysis-data-note p { margin-top: 10px; line-height: 1.7; }
+.crm-analysis-period-popup, .crm-analysis-pipeline-popup { border: 1px solid var(--border); border-radius: 18px; background: var(--background); color: var(--text-title); box-shadow: 0 20px 60px rgba(0,0,0,.25); overflow: hidden; }
+.crm-analysis-period-popup { display: flex; max-width: calc(100vw - 24px); }
+.crm-analysis-period-presets { width: 168px; flex-shrink: 0; padding: 16px 8px; border-right: 1px solid var(--border); }
+.crm-analysis-period-popup .app-range-calendar { border: 0; box-shadow: none; border-radius: 0; background: transparent; }
+.crm-analysis-preset { display: flex; width: 100%; min-height: 37px; justify-content: space-between; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 9px; text-align: left; font-size: 12px; }
+.crm-analysis-preset:hover, .crm-analysis-preset[aria-pressed=true] { background: var(--hover); color: #38bdf8; }
+.crm-analysis-pipeline-popup { width: min(350px,calc(100vw - 24px)); max-height: var(--available-height,90dvh); overflow-y: auto; }
+.crm-analysis-pipeline-option { display: flex; width: 100%; min-height: 43px; align-items: center; gap: 11px; padding: 9px 12px; border-radius: 10px; font-size: 13px; }
+.crm-analysis-pipeline-option:hover, .crm-analysis-pipeline-option[aria-pressed=true] { background: var(--hover); }
+@keyframes crm-analysis-reveal { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+@media (max-width: 1279px) { .crm-analysis-summary { grid-template-columns: repeat(2,minmax(0,1fr)); } .crm-analysis-stage-grid { grid-template-columns: repeat(3,minmax(0,1fr)); } }
+@media (max-width: 767px) { .crm-analysis-stage-grid { grid-template-columns: repeat(2,minmax(0,1fr)); } .crm-analysis-panel, .crm-analysis-stage-section { padding: 17px; border-radius: 18px; } .crm-analysis-big-number { font-size: 31px; } .crm-analysis-card-footer { flex-wrap: wrap; } }
+@media (max-width: 479px) { .crm-analysis-toolbar { grid-template-columns: minmax(0,1fr); } .crm-analysis-summary { gap: 10px; } .crm-analysis-summary > article { padding: 14px; min-height: 205px; } .crm-analysis-card-heading { align-items: flex-start; font-size: 11px; } .crm-analysis-icon { width: 27px; height: 27px; border-radius: 8px; } .crm-analysis-big-number { font-size: 27px; } .crm-analysis-ring { width: 42px; height: 42px; } .crm-analysis-stage-grid { grid-template-columns: minmax(0,1fr); } .crm-analysis-period-popup { flex-direction: column; } .crm-analysis-period-presets { display: flex; width: 100%; max-width: 300px; flex-wrap: wrap; gap: 3px; padding: 10px; border: 0; border-bottom: 1px solid var(--border); } .crm-analysis-period-presets > p { display: none; } .crm-analysis-preset { width: auto; min-height: 31px; padding: 4px 8px; font-size: 10px; } }
+@media (prefers-reduced-motion: reduce) { .crm-analysis-stage, .crm-analysis-stage-track > span { transition: none; } .crm-analysis-stage-detail { animation: none; } }
+@media (max-width: 479px) { .crm-analysis-summary .crm-analysis-ring { display: none; } }
+.crm-analysis-stage-grid { align-items: start; }
+.crm-analysis-stage-wrapper { min-width: 0; }
+.crm-analysis-stage-wrapper > .crm-analysis-stage { width: 100%; }
+.crm-analysis-stage-wrapper.is-expanded { grid-column: span 2; }
+@media (max-width: 479px) { .crm-analysis-stage-wrapper.is-expanded { grid-column: span 1; } }

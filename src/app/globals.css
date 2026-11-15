@@ -578,10 +578,6 @@
       --bg-lead-card: rgba(248, 248, 248, 0.66);
     }
 
-    .light .app-background-layer {
-      opacity: 0.28 !important;
-    }
-
     .light .lc-card,
     .light .lc-card-base,
     .light .lc-glass,
@@ -1794,3 +1790,14 @@
   outline-offset: 2px;
   border-radius: 999px;
 }
+
+/* CRM: readable metadata and one horizontal scrolling surface for the board. */
+.crm-kanban-page { --muted-foreground: #aeb6c4; --text-card-subtle: #a6afbd; --text-empty: #929ba9; }
+.light .crm-kanban-page { --muted-foreground: #536071; --text-card-subtle: #536071; --text-empty: #657181; }
+.crm-kanban-column .lc-lead-card { min-width: 0; }
+.crm-kanban-column .lc-lead-card p { overflow-wrap: anywhere; min-width: 0; }
+.crm-kanban-column .lc-lead-card .text-\[10px\] { font-size: 12px; }
+.lead-card-activity{display:inline-flex;align-items:center;justify-content:center;width:23px;height:21px;border-radius:7px;border:1px solid transparent}
+.lead-card-reminder{color:#f9c76b;background:#f9c76b14;border-color:#f9c76b40}
+.lead-card-notes{color:#72d6e4;background:#72d6e414;border-color:#72d6e440}
+.light .lead-card-reminder{color:#94600a}.light .lead-card-notes{color:#147184}

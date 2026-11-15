@@ -3,9 +3,9 @@ import type { WorkspaceTask } from "@/types/workspace";
 export const COMPLETED_TASK_RETENTION_MS = 24 * 60 * 60 * 1000;
 
 /**
- * Tarefas concluídas permanecem no quadro por 24 horas. Depois disso o cron
- * as exclui; este filtro evita que o intervalo entre ticks ainda polua a UI e
- * os indicadores de tarefas ativas.
+ * Tarefas concluídas permanecem no quadro por 24 horas. Depois disso
+ * ficam ocultas no histórico; este filtro controla somente a lista ativa.
+ * Nenhuma tarefa é excluída por retenção.
  */
 export function shouldKeepWorkspaceTask(task: WorkspaceTask, now = new Date()): boolean {
   if (task.status !== "concluido") return true;
@@ -43,4 +43,9 @@ export function uniqueWorkspaceTasks(tasks: WorkspaceTask[]): WorkspaceTask[] {
     seen.add(task.id);
     return true;
   });
+}
+
+/** Hidden is a view of completed tasks, preserving their completion status for metrics. */
+export function isWorkspaceTaskHidden(task: WorkspaceTask, now = new Date()) {
+  return task.status === "concluido" && !shouldKeepWorkspaceTask(task, now);
 }

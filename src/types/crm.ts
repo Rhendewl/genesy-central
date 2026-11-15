@@ -5,6 +5,7 @@
 // ── Pipelines ─────────────────────────────────────────────────────────────────
 
 export interface CrmPipeline {
+  default_assignee_id?: string | null;
   id:          string;
   user_id:     string;
   name:        string;
@@ -18,6 +19,7 @@ export interface CrmPipeline {
 }
 
 export type NewCrmPipeline = {
+  default_assignee_id?: string | null;
   name:         string;
   description?: string | null;
   color?:       string;

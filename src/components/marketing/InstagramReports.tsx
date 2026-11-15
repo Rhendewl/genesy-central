@@ -177,6 +177,7 @@ export function InstagramReports({ start, end, compareStart, compareEnd }: { sta
                 </p>
                 <p className="mt-1 text-xs font-medium text-[var(--text-title)]">{formatter.format(Number(connection.followers_count))} seguidores · {formatter.format(Number(connection.media_count))} publicações</p>
                 {connection.sync_error && !isSyncing && <p className="mt-1 truncate text-xs text-amber-500" title={connection.sync_error}>{connection.sync_error}</p>}
+                {connection.sync_error?.toLowerCase().includes("reconecte a conta") && !isSyncing && <button type="button" onClick={instagram.connect} className="mt-2 rounded-lg border border-amber-500/30 px-2.5 py-1.5 text-xs font-semibold text-amber-500 transition hover:bg-amber-500/10">Reconectar Instagram</button>}
               </div>
               {instagram.isAdmin && (
                 <div className="flex gap-1.5">
@@ -388,7 +389,7 @@ function MediaCard({ item }: { item: MarketingInstagramMedia }) {
 
 function FormatRow({ name, publications, reach, index }: { name: string; publications: number; reach: number; index: number }) {
   const colors = ["#27a3ff", "#a855f7", "#ec4899"];
-  return <div className="rounded-xl border p-3"><div className="flex items-center gap-3"><span className="h-9 w-1 rounded-full" style={{ background: colors[index] }} /><div className="min-w-0 flex-1"><p className="text-xs font-semibold">{name}</p><p className="text-[10px] text-[var(--muted-foreground)]">{publications} {publications === 1 ? "publicação" : "publicações"}</p></div><div className="text-right"><p className="text-sm font-semibold">{formatter.format(reach)}</p><p className="text-[10px] text-[var(--muted-foreground)]">pessoas alcançadas</p></div></div></div>;
+  return <div className="rounded-xl border p-3"><div className="flex items-center gap-3"><span className="h-9 w-1 rounded-full" style={{ background: `linear-gradient(180deg, ${colors[index]}, transparent)` }} /><div className="min-w-0 flex-1"><p className="text-xs font-semibold">{name}</p><p className="text-[10px] text-[var(--muted-foreground)]">{publications} {publications === 1 ? "publicação" : "publicações"}</p></div><div className="text-right"><p className="text-sm font-semibold">{formatter.format(reach)}</p><p className="text-[10px] text-[var(--muted-foreground)]">pessoas alcançadas</p></div></div></div>;
 }
 
 function ChartCard({ title, description, actions, children }: { title: string; description: string; actions?: React.ReactNode; children: React.ReactNode }) {

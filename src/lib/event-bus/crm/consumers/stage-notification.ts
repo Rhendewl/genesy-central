@@ -1,3 +1,4 @@
+import { crmNotificationUrl } from "@/lib/crm/notification-url";
 // CRM Stage Notification Consumer — subscribed to lead.stage.entered.
 //
 // Checks if the user has a notification rule for the entered stage.
@@ -73,7 +74,7 @@ export function createCrmStageNotificationConsumer(db: Db): EventConsumer {
 
       await dispatchPushToUser(db, lead.user_id, title, body, {
         tag: `crm-stage-${event.id}`,
-        url: "/crm",
+        url: crmNotificationUrl(payload.pipelineId,payload.leadId),
       });
     },
   };

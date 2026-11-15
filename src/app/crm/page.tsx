@@ -5,6 +5,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ClipboardList, LayoutGrid, BarChart2, Settings2, Bell, Zap, FileBarChart, Target } from "lucide-react";
 import { ConversationIntelligence } from "@/components/crm/conversation-intelligence/ConversationIntelligence";
 import { MetaLeadForms } from "@/components/marketing/MetaLeadForms";
+import "@/components/crm/crm-mobile.css";
+import { CrmMobileNavigation } from "@/components/crm/CrmMobileNavigation";
 import { Header } from "@/components/layout/Header";
 import { KanbanBoard } from "@/components/crm/KanbanBoard";
 import { LeadsAnalytics } from "@/components/crm/LeadsAnalytics";
@@ -27,8 +29,8 @@ type TabId = "kanban" | "leads" | "metas" | "relatorios" | "pipelines" | "notifi
 
 const TABS: { id: TabId; label: string; icon: React.ReactNode }[] = [
   { id: "inteligencia-conversas", label: "Inteligência de Conversas", icon: <BarChart2 size={15} /> },
-  { id: "kanban",        label: "Kanban",       icon: <LayoutGrid size={15} /> },
-  { id: "leads",         label: "Leads",        icon: <BarChart2  size={15} /> },
+  { id: "kanban",        label: "Funil",       icon: <LayoutGrid size={15} /> },
+  { id: "leads",         label: "Análise do CRM",        icon: <BarChart2  size={15} /> },
   { id: "metas",         label: "Metas",        icon: <Target size={15} /> },
   { id: "relatorios",    label: "Relatórios",   icon: <FileBarChart size={15} /> },
   { id: "pipelines",     label: "Pipelines",    icon: <Settings2  size={15} /> },
@@ -40,7 +42,7 @@ const TABS: { id: TabId; label: string; icon: React.ReactNode }[] = [
 const SUBTITLES: Record<TabId, string> = {
   "inteligencia-conversas": "Conversas autorizadas e indicadores comerciais",
   kanban:       "Funil comercial de leads",
-  leads:        "Métricas e análise",
+  leads:        "Atendimento, evolução e gargalos da operação",
   metas:        "Objetivos comerciais e progresso do funil",
   relatorios:   "Atividades e desempenho comercial por período",
   pipelines:    "Gerenciar pipelines e etapas",
@@ -68,46 +70,12 @@ export default function CrmPage() {
       "mx-auto max-w-[1600px]",
       isKanban && "crm-kanban-page flex flex-col overflow-hidden",
     )}>
-      <Header title="CRM" subtitle={SUBTITLES[activeTab]} actions={<FinancialPrivacyButton />} />
+      <div className="hidden md:block"><Header title="CRM" subtitle={SUBTITLES[activeTab]} actions={<FinancialPrivacyButton />} /></div>
 
       {/* Tab bar */}
-      <div className="sticky top-[calc(env(safe-area-inset-top,0px)+4.5rem)] z-30 flex-none md:top-0">
+      <div className={cn("z-30 flex-none md:sticky md:top-0", isKanban ? "relative" : "sticky top-[calc(env(safe-area-inset-top,0px)+4.5rem)]")}>
 
-        {/* ── Mobile: pílula glassmorphism ───────────────────────── */}
-        <div className="md:hidden px-4 pt-2 pb-3">
-          <div
-            className="rounded-[20px] overflow-hidden"
-            style={{
-              background:           "var(--bg-tooltip)",
-              backdropFilter:       "blur(24px) saturate(160%)",
-              WebkitBackdropFilter: "blur(24px) saturate(160%)",
-              border:               "1px solid var(--border-tooltip)",
-              boxShadow:            "0 4px 24px rgba(0,0,0,0.20)",
-            }}
-          >
-            <div className="overflow-x-auto scrollbar-none px-2 py-2">
-              <div className="flex gap-0.5 min-w-max">
-                {visibleTabs.map(tab => (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id)}
-                    className={cn(
-                      "flex min-h-11 items-center gap-1.5 whitespace-nowrap rounded-xl px-3 py-2 text-sm font-medium transition-all active:scale-95",
-                      activeTab === tab.id ? "text-[var(--text-title)]" : "text-[var(--icon)]",
-                    )}
-                    style={activeTab === tab.id ? {
-                      background: "var(--segment-active-bg)",
-                      boxShadow:  "var(--segment-active-shadow)",
-                    } : {}}
-                  >
-                    {tab.icon}
-                    <span>{tab.label}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
+        <CrmMobileNavigation tabs={visibleTabs} value={activeTab} onChange={value => setActiveTab(value as TabId)} />
 
         {/* ── Desktop: barra full-width (sem alterações) ─────────── */}
         <div className="hidden md:block px-4 sm:px-6 pt-2 pb-4">

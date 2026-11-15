@@ -1,5 +1,7 @@
 "use client";
 
+import { DateInput } from "@/components/ui/DateInput";
+
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
@@ -244,13 +246,15 @@ export function PeriodFilter({ onChange }: PeriodFilterProps) {
   const showDateInputs    = open && (needsSpecificDate || needsCustomRange);
 
   return (
-    <div ref={containerRef} className="relative">
+    <div ref={containerRef} className="crm-period-filter relative">
       {/* ── Trigger button ────────────────────────────────────────────────── */}
       <button
         ref={buttonRef}
+        type="button"
+        aria-label={`Período dos leads: ${label}`}
         onClick={toggleOpen}
         className={cn(
-          "flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-all hover:scale-[1.02] active:scale-95 select-none",
+          "crm-period-trigger flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-all hover:scale-[1.02] active:scale-95 select-none",
           isActive
             ? "text-[var(--text-title)]"
             : "text-[var(--silver)] hover:text-[var(--text-title)]",
@@ -266,7 +270,7 @@ export function PeriodFilter({ onChange }: PeriodFilterProps) {
         }}
       >
         <Calendar size={13} />
-        <span className="hidden sm:inline max-w-[130px] truncate">{label}</span>
+        <span className="crm-period-label hidden sm:inline max-w-[130px] truncate">{label}</span>
         <ChevronDown
           size={12}
           className={cn("transition-transform duration-200", open && "rotate-180")}
@@ -349,7 +353,7 @@ export function PeriodFilter({ onChange }: PeriodFilterProps) {
                       <label className="block text-[10px] font-semibold text-[var(--muted-foreground)] uppercase tracking-widest mb-1.5">
                         Data
                       </label>
-                      <input
+                      <DateInput
                         type="date"
                         max={today}
                         value={specificDate}
@@ -365,7 +369,7 @@ export function PeriodFilter({ onChange }: PeriodFilterProps) {
                         <label className="block text-[10px] font-semibold text-[var(--muted-foreground)] uppercase tracking-widest mb-1.5">
                           De
                         </label>
-                        <input
+                        <DateInput
                           type="date"
                           max={customTo || today}
                           value={customFrom}
@@ -377,7 +381,7 @@ export function PeriodFilter({ onChange }: PeriodFilterProps) {
                         <label className="block text-[10px] font-semibold text-[var(--muted-foreground)] uppercase tracking-widest mb-1.5">
                           Até
                         </label>
-                        <input
+                        <DateInput
                           type="date"
                           min={customFrom || undefined}
                           max={today}

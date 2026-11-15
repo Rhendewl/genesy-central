@@ -1,5 +1,7 @@
 "use client";
 
+import { DateTimeInput } from "@/components/ui/DateInput";
+
 import { useRef, useState } from "react";
 import { addHours, format, setHours, setMinutes } from "date-fns";
 import { Bell, Plus, Trash2 } from "lucide-react";
@@ -96,14 +98,14 @@ export function CreateEventModal({ day, onClose, onCreated }: {
             </label>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <label className="flex min-w-0 flex-col gap-1.5">Início
-                <input required type="datetime-local" className={fieldClass} value={start} onChange={(e) => {
+                <DateTimeInput required type="datetime-local" className={fieldClass} value={start} onChange={(e) => {
                   const value = e.target.value;
                   setStart(value);
                   if (value && (!end || value >= end)) setEnd(format(addHours(new Date(value), 1), "yyyy-MM-dd'T'HH:mm"));
                 }} />
               </label>
               <label className="flex min-w-0 flex-col gap-1.5">Término
-                <input required type="datetime-local" className={fieldClass} value={end} min={start} onChange={(e) => setEnd(e.target.value)} />
+                <DateTimeInput required type="datetime-local" className={fieldClass} value={end} min={start} onChange={(e) => setEnd(e.target.value)} />
               </label>
             </div>
             <p className="-mt-2 text-xs text-[var(--muted-foreground)]">Fuso horário: {timezone}</p>

@@ -35,7 +35,7 @@ import type {
 
 export type TasksByStatus = Record<WorkspaceTaskStatus, WorkspaceTask[]>;
 
-export function useWorkspaceTasks(viewAsUserId?: string, activeBoardId?: string, objectiveId?: string, objectiveOnly = false) {
+export function useWorkspaceTasks(viewAsUserId?: string, activeBoardId?: string, objectiveId?: string, objectiveOnly = false, includeHistory = false) {
   const supabase = getSupabaseClient();
   const { member, isOwner } = useCurrentMember();
 
@@ -69,6 +69,7 @@ export function useWorkspaceTasks(viewAsUserId?: string, activeBoardId?: string,
       const params = new URLSearchParams();
       if (viewAsUserId) params.set("as_user_id", viewAsUserId);
       if (activeBoardId) params.set("board_id", activeBoardId);
+      if (includeHistory) params.set("include_history", "1");
       if (objectiveId) params.set("objective_id", objectiveId);
       if (objectiveOnly) params.set("objective_only", "1");
       const qs = params.size > 0 ? `?${params.toString()}` : "";
@@ -86,7 +87,7 @@ export function useWorkspaceTasks(viewAsUserId?: string, activeBoardId?: string,
         setTasks(uniqueWorkspaceTasks(json.tasks));
         return;
       }
-      const taskIds = json.tasks.map((t) => t.id);
+      const taskIds = json.tasks.filter(task => shouldKeepWorkspaceTask(task)).map((t) => t.id);
       const [checklistRes, commentsRes] = taskIds.length > 0
         ? await Promise.all([
             supabase.from("workspace_task_checklist_items").select("task_id,is_completed").in("task_id", taskIds),
@@ -124,7 +125,7 @@ export function useWorkspaceTasks(viewAsUserId?: string, activeBoardId?: string,
         setError(error instanceof Error ? error.message : "Não foi possível carregar as tarefas");
       }
     }
-  }, [activeBoardId, supabase, viewAsUserId, objectiveId, objectiveOnly]);
+  }, [activeBoardId, supabase, viewAsUserId, objectiveId, objectiveOnly, includeHistory]);
 
   const scheduleRealtimeRefresh = useCallback(() => {
     if (realtimeRefreshTimerRef.current) clearTimeout(realtimeRefreshTimerRef.current);
@@ -205,7 +206,7 @@ export function useWorkspaceTasks(viewAsUserId?: string, activeBoardId?: string,
   // Retira a tarefa da tela exatamente ao completar 24 horas, mesmo se o app
   // permanecer aberto entre duas execuções do cron de limpeza.
   useEffect(() => {
-    if (objectiveId) return;
+    if (objectiveId || includeHistory) return;
     const expirations = tasks
       .filter(task => task.status === "concluido")
       .map(task => Date.parse(task.completed_at ?? task.updated_at ?? task.created_at) + COMPLETED_TASK_RETENTION_MS)
@@ -218,7 +219,7 @@ export function useWorkspaceTasks(viewAsUserId?: string, activeBoardId?: string,
     }, Math.max(0, nextExpiration - Date.now()) + 50);
 
     return () => window.clearTimeout(timer);
-  }, [tasks, objectiveId]);
+  }, [tasks, objectiveId, includeHistory]);
 
   const tasksByStatus: TasksByStatus = useMemo(() => {
     const acc: TasksByStatus = { a_fazer: [], em_andamento: [], aguardando: [], concluido: [] };
@@ -382,7 +383,7 @@ export function useWorkspaceTasks(viewAsUserId?: string, activeBoardId?: string,
       const next = prev.map((t) => (t.id === id ? {
         ...t,
         status:       targetStatus,
-        completed_at: targetStatus === "concluido" ? new Date().toISOString() : null,
+        completed_at: targetStatus === "concluido" ? (task.status === "concluido" ? task.completed_at : new Date().toISOString()) : null,
       } : t));
       orderedIds.forEach((taskId, idx) => {
         const idxInNext = next.findIndex((t) => t.id === taskId);

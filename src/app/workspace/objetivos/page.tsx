@@ -1,8 +1,11 @@
 "use client";
 
+import { DateInput } from "@/components/ui/DateInput";
+
 import { useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Plus, Loader2 } from "lucide-react";
+import { WorkspaceMobileControls } from "@/components/workspace/WorkspaceMobileControls";
 import { Header } from "@/components/layout/Header";
 import { useWorkspaceObjectives } from "@/hooks/useWorkspaceObjectives";
 import { useWorkspaceViewing } from "@/context/WorkspaceViewingContext";
@@ -94,12 +97,12 @@ export default function WorkspaceObjetivosPage() {
 
   return (
     <div className="flex flex-col pb-24">
-      <Header
+      <div className="sr-only md:not-sr-only"><Header
         title="Workspace"
         subtitle="Objetivos estratégicos e resultados do BSC"
-      />
+      /></div>
 
-      <div className="flex flex-wrap items-center justify-end gap-3 px-4 pb-4 sm:px-6">
+      <div className="hidden md:flex flex-wrap items-center justify-end gap-3 px-4 pb-4 sm:px-6">
         <motion.button
           onClick={() => openCreate()}
           whileHover={{ scale: 1.03 }}
@@ -112,7 +115,8 @@ export default function WorkspaceObjetivosPage() {
       </div>
 
       <div className="flex-1 px-4 sm:px-6">
-        <div className="mb-5 flex flex-wrap items-center gap-3">
+        <WorkspaceMobileControls title="Objetivos" createLabel="Novo objetivo" onCreate={() => openCreate()} active={Boolean(search || status || horizon || assignee || priority || due || perspective || tagIds.length)}>
+        <div className="workspace-objective-views mb-5 flex flex-wrap items-center gap-3">
           <button
             className={`${view === "bsc" ? "lc-btn" : "rounded-lg border"} px-4 py-2 text-sm`}
             aria-pressed={view === "bsc"}
@@ -130,7 +134,7 @@ export default function WorkspaceObjetivosPage() {
           {
             <label className="text-xs">
               Objetivos vigentes no mês{" "}
-              <input
+              <DateInput
                 type="month"
                 aria-label="Mês do BSC"
                 className="rounded-lg border bg-transparent p-2"
@@ -214,7 +218,7 @@ export default function WorkspaceObjetivosPage() {
             </select>
             <label className="text-xs">
               Prazo até{" "}
-              <input
+              <DateInput
                 type="date"
                 value={due}
                 onChange={(e) => setDue(e.target.value)}
@@ -263,6 +267,7 @@ export default function WorkspaceObjetivosPage() {
             ))}
           </div>
         </details>
+        </WorkspaceMobileControls>
         {!objectivesHook.isLoading &&
           !objectivesHook.error &&
           (view === "bsc" ? (

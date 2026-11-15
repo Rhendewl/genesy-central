@@ -8,7 +8,8 @@ type Recipient = { id: string; owner_id: string; auth_user_id: string };
 
 export type OperationalAlertInput = {
   ownerUserId: string;
-  roles: string[];
+  roles?: string[];
+  recipientAuthUserId?: string;
   eventId: string;
   source: string;
   title: string;
@@ -17,13 +18,14 @@ export type OperationalAlertInput = {
 };
 
 export async function persistOperationalAlert(db: Db, input: OperationalAlertInput) {
-  const { data, error } = await db
+  let recipients = db
     .from("user_profiles")
     .select("id,owner_id,auth_user_id")
     .eq("owner_id", input.ownerUserId)
-    .eq("is_active", true)
-    .in("role", input.roles)
-    .not("auth_user_id", "is", null);
+    .eq("is_active", true);
+  if(input.roles) recipients=recipients.in("role",input.roles);
+  if(input.recipientAuthUserId) recipients=recipients.eq("auth_user_id",input.recipientAuthUserId);
+  const {data,error}=await recipients.not("auth_user_id", "is", null);
   if (error) throw new Error(`Erro ao consultar destinatários: ${error.message}`);
 
   let created = 0;

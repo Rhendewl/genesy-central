@@ -1,3 +1,4 @@
+import { classifyMessaging, type MessagingResults } from "./messaging-results";
 // ─────────────────────────────────────────────────────────────────────────────
 // Meta Graph API v21.0 client
 // All functions run server-side only (API routes / server components).
@@ -551,39 +552,37 @@ export async function getVideoThumbnail(videoId: string, token: string): Promise
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 export function getActionCount(actions: MetaInsightAction[] | undefined, ...types: string[]): number {
-  if (!actions) return 0;
-  return actions
-    .filter(a => types.includes(a.action_type))
-    .reduce((sum, a) => sum + parseInt(a.value, 10), 0);
+  return (actions ?? []).reduce((sum, action) => {
+    if (!types.includes(action.action_type)) return sum;
+    const count = Number(action.value);
+    return Number.isSafeInteger(count) && count >= 0 ? sum + count : sum;
+  }, 0);
 }
 
-/**
- * Extract lead count WITHOUT double-counting.
- *
- * Meta API caveat: `onsite_conversion.lead_grouped` is an aggregation that
- * ALREADY INCLUDES `lead` and `leadgen.other`. Summing all three types
- * doubles the count.
- *
- * Priority:
- *   1. onsite_conversion.lead_grouped  (most complete, avoids double-count)
- *   2. lead + leadgen.other            (direct form submissions)
- *   3. offsite_conversion.fb_pixel_lead (website pixel leads)
+/** Media lead results, rather than unique CRM contacts.
+ * Aggregate lead views overlap their form/pixel components: compare totals,
+ * never sum an aggregate with its aliases. Conversation-start results are
+ * included once; messaging contacts, replies, message depth and clicks are
+ * different metrics and must not inflate this count.
  */
+export function extractConversations(actions: MetaInsightAction[] | undefined): number {
+ if (!actions?.length) return 0;
+  const canonicalConversation = "onsite_conversion.messaging_conversation_started_7d";
+  return actions.some(action => action.action_type === canonicalConversation)
+    ? getActionCount(actions, canonicalConversation)
+    : getActionCount(actions, "messaging_conversation_started_7d");
+}
+
 export function extractLeads(actions: MetaInsightAction[] | undefined): number {
-  if (!actions) return 0;
-
-  // Priority 1: grouped (already aggregates lead + leadgen.other)
-  const grouped = getActionCount(actions, "onsite_conversion.lead_grouped");
-  if (grouped > 0) return grouped;
-
-  // Priority 2: direct form submissions (no grouped aggregation present)
-  const direct =
-    getActionCount(actions, "lead") +
-    getActionCount(actions, "leadgen.other");
-  if (direct > 0) return direct;
-
-  // Priority 3: website pixel leads
-  return getActionCount(actions, "offsite_conversion.fb_pixel_lead");
+  if (!actions?.length) return 0;
+  const onsite = Math.max(
+    getActionCount(actions, "onsite_conversion.lead_grouped"),
+    getActionCount(actions, "leadgen.other"),
+  );
+  const website = getActionCount(actions, "offsite_conversion.fb_pixel_lead");
+  const formAndWebsiteLeads = Math.max(getActionCount(actions, "lead"), onsite + website);
+  const conversations = extractConversations(actions);
+  return formAndWebsiteLeads + conversations;
 }
 
 /**
@@ -616,4 +615,32 @@ export function mapObjective(obj: string): string {
     OUTCOME_ENGAGEMENT: "engajamento",
   };
   return map[obj] ?? "outro";
+}
+
+async function metaPages<T>(path: string, token: string): Promise<T[]> {
+ const all: T[] = [];
+ let page = await metaGet<{data?:T[];paging?:{next?:string}}>(path,token);
+ for (;;) {
+  all.push(...(page.data ?? []));
+  if (!page.paging?.next) return all;
+  const response = await fetch(page.paging.next, {next:{revalidate:0}});
+  if(!response.ok) throw new Error(`Meta API ${response.status} ao detalhar conversas`);
+  page=await response.json();
+ }
+}
+export async function getMessagingBreakdown(adAccountId:string,token:string,since:string,until:string,insights:MetaInsightRow[]):Promise<Map<string,MessagingResults>> {
+ const totals=insights.filter(row=>extractConversations(row.actions)>0);
+ const result=new Map<string,MessagingResults>();
+ if(!totals.length)return result;
+ const cleanId=adAccountId.replace(/^act_/, "");
+ const timeRange=encodeURIComponent(JSON.stringify({since,until}));
+ const [adsets, rows]=await Promise.all([
+  metaPages<{id:string;destination_type?:string}>(`/act_${cleanId}/adsets?fields=id,destination_type&limit=500`,token),
+  metaPages<{adset_id:string;campaign_id:string;date_start:string;actions?:MetaInsightAction[]}>(`/act_${cleanId}/insights?fields=adset_id,campaign_id,date_start,actions&time_range=${timeRange}&time_increment=1&level=adset&limit=500`,token),
+ ]);
+ const destinations=new Map(adsets.map(row=>[row.id,row.destination_type]));
+ const grouped=new Map<string,{count:number;destination?:string}[]>();
+ for(const row of rows){const key=`${row.campaign_id}:${row.date_start}`;const count=extractConversations(row.actions);if(count>0)grouped.set(key,[...(grouped.get(key)??[]),{count,destination:destinations.get(row.adset_id)}]);}
+ for(const row of totals){const key=`${row.campaign_id}:${row.date_start}`;result.set(key,classifyMessaging(extractConversations(row.actions),grouped.get(key)??[]));}
+ return result;
 }

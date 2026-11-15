@@ -21,6 +21,7 @@ interface TaskBoardProps {
   onOpenTask: (taskId: string) => void;
   visibleTasks?: WorkspaceTask[];
   themeColor?: string;
+  hiddenTasks?: WorkspaceTask[];
 }
 
 // O ponteiro é a fonte de verdade para movimentos com mouse/toque. O antigo
@@ -32,7 +33,7 @@ const taskCollisionDetection: CollisionDetection = (args) => {
   return pointerHits.length > 0 ? pointerHits : closestCorners(args);
 };
 
-export function TaskBoard({ tasksHook, onOpenTask, visibleTasks, themeColor }: TaskBoardProps) {
+export function TaskBoard({ tasksHook, onOpenTask, visibleTasks, themeColor, hiddenTasks }: TaskBoardProps) {
   const {
     tasksByStatus, getTaskById, moveTask, canEditTask, canExecuteTask,
     discardTask, restoreDiscardedTask, commitDiscardedTask,
@@ -192,6 +193,10 @@ export function TaskBoard({ tasksHook, onOpenTask, visibleTasks, themeColor }: T
             </motion.div>
           ))}
 
+          {hiddenTasks && <section aria-label="Tarefas ocultas" className="flex h-[clamp(420px,calc(100dvh-220px),720px)] w-72 shrink-0 flex-col rounded-[20px] border border-[var(--border)] bg-[var(--glass-bg-soft)]">
+            <div className="border-b border-[var(--border)] p-4"><h2 className="text-sm font-semibold">Ocultas · {hiddenTasks.length}</h2><p className="mt-1 text-xs text-[var(--muted-foreground)]">Concluídas há mais de 24 horas. Clique para consultar ou reabrir.</p></div>
+            <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain p-3">{hiddenTasks.map(task => <TaskCard key={task.id} task={task} canDrag={false} onClick={() => onOpenTask(task.id)} />)}{!hiddenTasks.length && <p className="p-2 text-xs text-[var(--muted-foreground)]">Nenhuma tarefa oculta nos filtros atuais.</p>}</div>
+          </section>}
           <TaskTrashDropZone />
         </div>
       </div>

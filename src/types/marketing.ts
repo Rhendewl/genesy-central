@@ -14,6 +14,7 @@ export type MarketingAssetCategory = typeof MARKETING_ASSET_CATEGORIES[number];
 
 export interface MarketingMember { id: string; auth_user_id: string; full_name: string; avatar_url: string | null; role: string; }
 export interface MarketingContent {
+  synced_from_instagram?: boolean;
   id: string; organization_id: string; origin_idea_id: string | null; workspace_task_id: string | null; title: string; description: string | null;
   status: MarketingContentStatus; platform: MarketingPlatform; format: MarketingFormat; scheduled_at: string | null; delivery_at: string | null;
   published_at: string | null; primary_assignee_id: string | null; priority: MarketingPriority; caption: string | null;

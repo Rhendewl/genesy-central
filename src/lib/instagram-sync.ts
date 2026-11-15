@@ -1,3 +1,4 @@
+import { syncInstagramEditorial } from "@/lib/marketing/editorial-instagram";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { decryptToken, encryptToken } from "@/lib/crypto";
 import { getInstagramAccountDailyExactMetrics, getInstagramAccountDailyInsights, getInstagramMedia, getInstagramMediaMetrics, getInstagramProfile, refreshInstagramToken } from "@/lib/instagram-api";
@@ -9,6 +10,15 @@ type InstagramConnection = {
   encrypted_access_token: string;
   token_expires_at: string | null;
 };
+
+export function instagramSyncErrorMessage(error: unknown): string {
+  if (error && typeof error === "object" && "message" in error && typeof error.message === "string" && /error validating access token|session has been invalidated|oauthexception|error code 190|code 190/i.test(error.message)) {
+    return "A sessão do Instagram foi encerrada (por exemplo, após uma troca de senha). Reconecte a conta para renovar o acesso e tente sincronizar novamente.";
+  }
+  if(error&&typeof error==="object"&&"message" in error&&typeof error.message==="string"&&/null value in column "organization_id".*marketing_contents|Server marketing writes require/.test(error.message)) return "Não foi possível vincular a publicação à organização. Tente sincronizar novamente; se persistir, avise o administrador.";
+  if (error && typeof error === "object" && "message" in error && typeof error.message === "string" && error.message.trim()) return error.message;
+  return "Falha na sincronização";
+}
 
 function normalizePermalink(value: string | null | undefined) {
   return value?.trim().replace(/\?.*$/, "").replace(/\/$/, "") ?? "";
@@ -27,6 +37,8 @@ async function loadMetricsInBatches(media: Awaited<ReturnType<typeof getInstagra
 }
 
 export async function syncInstagramConnection(supabase: SupabaseClient, connection: InstagramConnection) {
+  if (!connection.organization_id) throw new Error("Conexão do Instagram sem organização. Reconecte a conta pelo Marketing.");
+  await syncInstagramEditorial(supabase, connection.organization_id);
   let accessToken = decryptToken(connection.encrypted_access_token);
   let encryptedToken = connection.encrypted_access_token;
   let tokenExpiresAt = connection.token_expires_at;
@@ -43,7 +55,7 @@ export async function syncInstagramConnection(supabase: SupabaseClient, connecti
   const historyStart = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
   const historyEnd = new Date().toISOString().slice(0, 10);
   const exactHistoryStart = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-  const [profile, media, contentsResult, accountInsights, exactAccountInsights] = await Promise.all([
+  const [profile, media, contentsResult, accountInsights, exactAccountInsights, publicationLedger] = await Promise.all([
     getInstagramProfile(accessToken),
     getInstagramMedia(accessToken),
     supabase
@@ -53,7 +65,10 @@ export async function syncInstagramConnection(supabase: SupabaseClient, connecti
       .not("publication_url", "is", null),
     getInstagramAccountDailyInsights(connection.instagram_user_id, accessToken, historyStart, historyEnd),
     getInstagramAccountDailyExactMetrics(connection.instagram_user_id, accessToken, exactHistoryStart, historyEnd),
+    supabase.from("marketing_instagram_scheduled_posts").select("id,media_id").eq("organization_id", connection.organization_id).eq("connection_id", connection.id).eq("status", "published"),
   ]);
+  if (publicationLedger.error) throw publicationLedger.error;
+  const contentByMediaId = new Map((publicationLedger.data ?? []).filter((row) => row.media_id).map((row) => [row.media_id, row.id]));
   if (contentsResult.error) throw new Error(contentsResult.error.message);
 
   const contentByUrl = new Map(
@@ -64,7 +79,7 @@ export async function syncInstagramConnection(supabase: SupabaseClient, connecti
   const rows = metricRows.map(({ item, metrics }) => ({
     organization_id: connection.organization_id,
     connection_id: connection.id,
-    marketing_content_id: contentByUrl.get(normalizePermalink(item.permalink)) ?? null,
+    marketing_content_id: contentByMediaId.get(item.id) ?? contentByUrl.get(normalizePermalink(item.permalink)) ?? null,
     instagram_media_id: item.id,
     media_type: item.media_type,
     media_product_type: item.media_product_type ?? null,
@@ -89,6 +104,13 @@ export async function syncInstagramConnection(supabase: SupabaseClient, connecti
     updated_at: now,
   }));
 
+  for (const item of media) {
+    const contentId = contentByMediaId.get(item.id);
+    if (contentId && item.permalink) {
+      const linked = await supabase.from("marketing_contents").update({ publication_url: item.permalink, thumbnail_url: item.thumbnail_url ?? item.media_url ?? null }).eq("id", contentId).eq("organization_id", connection.organization_id);
+      if (linked.error) throw linked.error;
+    }
+  }
   if (rows.length) {
     const saved = await supabase
       .from("marketing_instagram_media")

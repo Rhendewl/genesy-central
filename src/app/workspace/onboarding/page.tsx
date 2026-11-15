@@ -8,6 +8,7 @@ import { OnboardingProjectCard } from "@/components/workspace/onboarding/Onboard
 import { NewOnboardingWizard } from "@/components/workspace/onboarding/NewOnboardingWizard";
 import { useOnboardingProjects } from "@/hooks/useOnboardingProjects";
 import { ONBOARDING_PROJECT_STATUSES, type OnboardingProjectStatus } from "@/types/onboarding";
+import { WorkspaceMobileControls } from "@/components/workspace/WorkspaceMobileControls";
 import { Button } from "@/components/ui/button";
 
 export default function OnboardingDashboardPage() {
@@ -24,7 +25,7 @@ export default function OnboardingDashboardPage() {
       <OnboardingSubNav />
 
       <div className="flex flex-col gap-3 px-4 pb-4 pt-4 sm:px-6">
-        <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="hidden md:flex flex-wrap items-center justify-between gap-3">
           <h1 className="text-lg font-bold" style={{ color: "var(--text-title)" }}>Onboardings</h1>
           <Button
             onClick={() => setWizardOpen(true)}
@@ -36,10 +37,12 @@ export default function OnboardingDashboardPage() {
           </Button>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <WorkspaceMobileControls title="Onboardings" createLabel="Novo onboarding" onCreate={() => setWizardOpen(true)} active={Boolean(search || mine || statusFilter)}>
+        <div className="workspace-onboarding-filters flex flex-wrap items-center gap-2 mb-3">
           <div className="flex min-w-[200px] flex-1 items-center gap-2 rounded-lg px-3 py-2" style={{ background: "var(--hover)", border: "1px solid var(--glass-border)" }}>
             <Search size={14} style={{ color: "var(--muted-foreground)" }} />
             <input
+              aria-label="Buscar onboardings"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Buscar por nome..."
@@ -48,6 +51,7 @@ export default function OnboardingDashboardPage() {
             />
           </div>
           <button
+            aria-pressed={mine}
             onClick={() => setMine((v) => !v)}
             className="rounded-full px-3 py-1.5 text-xs font-medium"
             style={{
@@ -62,6 +66,7 @@ export default function OnboardingDashboardPage() {
 
         <div className="flex flex-wrap gap-1.5">
           <button
+            aria-pressed={!statusFilter}
             onClick={() => setStatusFilter(null)}
             className="rounded-full px-2.5 py-1 text-[11px] font-medium"
             style={{
@@ -75,6 +80,7 @@ export default function OnboardingDashboardPage() {
           {ONBOARDING_PROJECT_STATUSES.map((s) => (
             <button
               key={s.id}
+              aria-pressed={statusFilter === s.id}
               onClick={() => setStatusFilter(statusFilter === s.id ? null : s.id)}
               className="rounded-full px-2.5 py-1 text-[11px] font-medium transition-all"
               style={{
@@ -87,6 +93,7 @@ export default function OnboardingDashboardPage() {
             </button>
           ))}
         </div>
+        </WorkspaceMobileControls>
       </div>
 
       <div className="flex-1 px-4 sm:px-6">

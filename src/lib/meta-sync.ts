@@ -1,3 +1,4 @@
+import { classifyMessaging } from "./messaging-results";
 // ─────────────────────────────────────────────────────────────────────────────
 // Meta Ads — core sync logic
 // Importado pelos API routes /connect e /sync.
@@ -7,6 +8,8 @@
 import { format, startOfMonth, endOfToday } from "date-fns";
 import {
   getCampaigns,
+  getMessagingBreakdown,
+  extractConversations,
   getInsights,
   getInsightsGeo,
   getAdsWithCreatives,
@@ -125,6 +128,10 @@ export async function syncMetaAccount(params: SyncParams): Promise<SyncResult> {
       });
     }
 
+    let messagingBreakdown: Awaited<ReturnType<typeof getMessagingBreakdown>> = new Map();
+    try { messagingBreakdown = await getMessagingBreakdown(adAccountId,accessToken,since,until,insights); }
+    catch { warnings.push("A Meta não retornou a separação de conversas por destino. O total foi preservado; tente sincronizar novamente."); }
+
     // ── Sync campaigns ───────────────────────────────────────────────────────
 
     const metaCampaignIds = metaCampaigns.map(campaign => campaign.id);
@@ -239,10 +246,8 @@ export async function syncMetaAccount(params: SyncParams): Promise<SyncResult> {
       // Unique CTR from Meta API — matches "CTR Único" in Meta Ads Manager
       const uniqueCtr   = parseFloat(row.unique_ctr        ?? "0");
 
-      // ── Leads — priority logic, NO double-counting ──────────────────────────
-      // WRONG (old):  lead + leadgen.other + onsite_conversion.lead_grouped
-      //               → lead_grouped ALREADY INCLUDES the others → 2x count
-      // CORRECT:      use lead_grouped if present, otherwise sum direct types
+      // Form/website leads + conversations started (WhatsApp, Direct, Messenger).
+      // The shared extractor excludes overlapping lead aliases and message steps.
       const leads = extractLeads(row.actions);
 
       // ── Conversions — Meta's primary optimization result ────────────────────
@@ -272,6 +277,7 @@ export async function syncMetaAccount(params: SyncParams): Promise<SyncResult> {
         unique_ctr:          uniqueCtr,
         spend,
         leads,
+        messaging_results: messagingBreakdown.get(`${row.campaign_id}:${row.date_start}`) ?? classifyMessaging(extractConversations(row.actions),[]),
         conversions,
         reach,
         frequency:           freq,

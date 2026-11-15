@@ -32,14 +32,30 @@ describe("Meta lead routing", () => {
   it("creates a lead in the selected stage with every answer and source metadata", async () => {
     const { db, filters } = database({ meta_page_subscriptions: [{ data: { encrypted_page_token: "encrypted" } }], meta_form_subscriptions: [{ data: [active] }], leads: [{ data: null }], crm_stages: [{ data: { id: "stage" } }] });
     expect(await captureMetaLead(db, event, "owner")).toMatchObject({ status: "processed", lead_id: "lead" });
-    expect(mocks.createLead).toHaveBeenCalledWith(expect.objectContaining({ user_id: "owner", stageId: "stage", name: "Ana", contact: "85999999999", leadgen_id: "222", meta_form_answers: [{ name: "interesses", values: ["Casa", "Apartamento"] }], integration_notes: expect.stringContaining("Casa; Apartamento") }));
+    expect(mocks.createLead).toHaveBeenCalledWith(expect.objectContaining({ user_id: "owner", stageId: "stage", name: "Ana | Cadastro", deal_value: 0, contact: "85999999999", leadgen_id: "222", meta_form_answers: [{ name: "interesses", values: ["Casa", "Apartamento"] }], integration_notes: expect.stringContaining("Casa; Apartamento") }));
     expect(filters).toContainEqual(["crm_stages", "crm_pipelines.user_id", "owner"]);
+  });
+  it("uses the original Meta arrival even when recovered later, in the CRM timezone", async () => {
+    mocks.fetchLead.mockResolvedValue({ full_name: "Ana", phone: "85999999999", email: null, custom_fields: [], answers: [], created_time: "2026-11-13T01:15:00Z" });
+    const { db } = database({ meta_page_subscriptions: [{ data: { encrypted_page_token: "encrypted" } }], meta_form_subscriptions: [{ data: [active] }], leads: [{ data: null }], crm_stages: [{ data: { id: "stage" } }] });
+    await captureMetaLead(db, event, "owner");
+    expect(mocks.createLead).toHaveBeenCalledWith(expect.objectContaining({ received_at: "2026-11-13T01:15:00.000Z", entered_at: "2026-11-12" }));
   });
   it("assigns new leads to the configured active account member", async () => {
     const { db, filters } = database({ meta_page_subscriptions: [{ data: { encrypted_page_token: "encrypted" } }], meta_form_subscriptions: [{ data: [{ ...active, assigned_to: "member" }] }], leads: [{ data: null }], crm_stages: [{ data: { id: "stage" } }], user_profiles: [{ data: { id: "member", auth_user_id: "auth-member" } }] });
     await captureMetaLead(db, event, "owner");
     expect(mocks.createLead).toHaveBeenCalledWith(expect.objectContaining({ assigned_to: "member" }));
     expect(filters).toContainEqual(["user_profiles", "owner_id", "owner"]);
+  });
+  it("applies the form business value while preserving the assignee, original answers and form metadata", async () => {
+    const { db } = database({ meta_page_subscriptions: [{ data: { encrypted_page_token: "encrypted" } }], meta_form_subscriptions: [{ data: [{ ...active, crm_deal_value: 450000.75, assigned_to: "member" }] }], leads: [{ data: null }], crm_stages: [{ data: { id: "stage" } }], user_profiles: [{ data: { id: "member", auth_user_id: "auth-member" } }] });
+    await captureMetaLead(db, event, "owner");
+    expect(mocks.createLead).toHaveBeenCalledWith(expect.objectContaining({ name: "Ana | Cadastro", form_name: "Cadastro", deal_value: 450000.75, assigned_to: "member", meta_form_answers: [{ name: "interesses", values: ["Casa", "Apartamento"] }] }));
+  });
+  it("keeps a plain name when the legacy route has no form name", async () => {
+    const { db } = database({ meta_page_subscriptions: [{ data: { encrypted_page_token: "encrypted", capture_unconfigured_forms: true } }], meta_form_subscriptions: [{ data: [] }], leads: [{ data: null }], crm_stages: [{ data: { id: "stage" } }] });
+    await captureMetaLead(db, event, "owner");
+    expect(mocks.createLead).toHaveBeenCalledWith(expect.objectContaining({ name: "Ana", deal_value: 0 }));
   });
   it("rejects removed or foreign assignees before fetching the lead", async () => {
     const { db } = database({ meta_page_subscriptions: [{ data: { encrypted_page_token: "encrypted" } }], meta_form_subscriptions: [{ data: [{ ...active, assigned_to: "foreign" }] }], leads: [{ data: null }], crm_stages: [{ data: { id: "stage" } }], user_profiles: [{ data: null }] });

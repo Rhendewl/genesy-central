@@ -1,0 +1,38 @@
+/* Stage colors stay semantic even when a workspace has its own theme. */
+.workspace-stage-column.app-accent-border::before,
+.workspace-trash-card.app-accent-border::before {
+  inset: 0;
+  opacity: 1;
+  background: linear-gradient(180deg,
+    var(--surface-accent) 0%,
+    color-mix(in srgb, var(--surface-accent) 65%, transparent) 20%,
+    color-mix(in srgb, var(--surface-accent) 28%, transparent) 60%,
+    color-mix(in srgb, var(--surface-accent) 10%, transparent) 100%);
+}
+.workspace-stage-column::after {
+  content: "";
+  position: absolute;
+  top: -1px;
+  left: 8%;
+  right: 8%;
+  height: 116px;
+  border-radius: inherit;
+  background: radial-gradient(ellipse at 50% 0%,
+    color-mix(in srgb, var(--surface-accent) 24%, transparent),
+    transparent 74%);
+  filter: blur(18px);
+  pointer-events: none;
+  z-index: 0;
+}
+.workspace-stage-column > div {
+  position: relative;
+  z-index: 1;
+}
+.workspace-trash-card {
+  --workspace-trash-title: #ff707b;
+  --workspace-trash-body: #f2b6be;
+}
+.light .workspace-trash-card {
+  --workspace-trash-title: #b71930;
+  --workspace-trash-body: #7f2433;
+}

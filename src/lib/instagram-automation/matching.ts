@@ -26,7 +26,7 @@ export function matchesInstagramKeywords(
 
 export function validateInstagramSequence(input: {
   triggerType: string;
-  steps: Array<{ text?: unknown; delayMinutes?: unknown }>;
+  steps: Array<{ text?: unknown; delayMinutes?: unknown; button?: { label?: unknown; url?: unknown } | null }>;
 }) {
   if (!Array.isArray(input.steps) || input.steps.length === 0) {
     return "Adicione ao menos uma mensagem à sequência";
@@ -41,6 +41,11 @@ export function validateInstagramSequence(input: {
     const text = typeof step.text === "string" ? step.text.trim() : "";
     const delay = Number(step.delayMinutes ?? 0);
     if (!text || text.length > 1000) return "Cada mensagem deve ter entre 1 e 1.000 caracteres";
+    if (step.button) {
+      let url: URL;
+      try { url = new URL(String(step.button.url ?? "")); } catch { return "Informe um link válido para o botão"; }
+      if (url.protocol !== "https:" || url.username || url.password || !String(step.button.label ?? "").trim() || String(step.button.label).length > 20) return "O botão precisa de um título curto e um link HTTPS seguro";
+    }
     if (!Number.isFinite(delay) || delay < 0 || delay > 1380) return "O intervalo deve ficar entre 0 e 1.380 minutos";
     if (index > 0 && delay < 1) return "Aguarde ao menos 1 minuto entre mensagens consecutivas";
     cumulativeDelay += delay;
