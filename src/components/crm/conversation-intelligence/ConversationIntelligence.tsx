@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAgencyClients } from "@/hooks/useAgencyClients";
+import { MetaReviewTools } from "./MetaReviewTools";
 import {
   launchMetaSignup,
   META_SIGNUP_HELP,
@@ -399,6 +400,7 @@ export function ConversationIntelligence({ clientId }: { clientId?: string }) {
           </details>
         </>
       )}
+      {!clientId && <MetaReviewTools />}
       {!clientId && data?.connection && (
         <form
           className="space-y-3 rounded-2xl border p-4"
