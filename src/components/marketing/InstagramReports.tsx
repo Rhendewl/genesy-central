@@ -292,7 +292,7 @@ export function InstagramReports({ start, end, compareStart, compareEnd }: { sta
           <div className="mt-5 grid gap-5 lg:grid-cols-[1fr_1.6fr]">
             <ChartCard title="Mix de formatos" description="Volume publicado e alcance acumulado por categoria">
               <div className="space-y-3 pt-2">
-                {report.formats.map((formatItem, index) => <FormatRow key={formatItem.name} {...formatItem} index={index} />)}
+                {[...report.formats].sort((a, b) => b.reach - a.reach).map((formatItem, index) => <FormatRow key={formatItem.name} {...formatItem} index={index} />)}
               </div>
             </ChartCard>
             <ChartCard title="Desempenho dos conteúdos" description="Métricas somadas apenas para avaliar as publicações do período">
