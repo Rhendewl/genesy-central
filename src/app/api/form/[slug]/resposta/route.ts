@@ -380,11 +380,26 @@ async function createCrmLead(
     if (orParts.length) {
       const { data: dupe } = await supabase
         .from("leads")
-        .select("id")
+        .select("id,source")
         .eq("user_id", userId)
         .or(orParts.join(","))
         .maybeSingle();
-      if (dupe) is_duplicate = true;
+      if (dupe) {
+        // O formulário institucional captura o contato antes de abrir este
+        // formulário completo. Quando for o mesmo telefone/e-mail, enriquece
+        // o lead do site em vez de criar uma segunda oportunidade no CRM.
+        if (dupe.source === "site_genesy") {
+          const notesWithBookings = await appendLinkedBookingNotes(supabase, dupe.id, integrationNotes);
+          await supabase.from("leads").update({
+            name: crmLeadName, email: leadEmail ?? null, tags: settings.tag_ids ?? [],
+            integration_notes: notesWithBookings, iq_score: iqScore,
+            deal_value: settings.value_mode === "fixed" ? (settings.fixed_value ?? 0) : dealValue,
+          }).eq("id", dupe.id);
+          await supabase.from("form_submissions").update({ lead_id: dupe.id }).eq("id", submissionId);
+          return;
+        }
+        is_duplicate = true;
+      }
     }
 
     const commonFields = {

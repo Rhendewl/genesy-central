@@ -21,6 +21,7 @@ import {
   Moon,
   Megaphone,
   Calculator,
+  MousePointerClick,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useGlobalStore } from "@/store";
@@ -36,6 +37,7 @@ const NAV_ITEMS = [
   { href: "/financeiro",    label: "Financeiro",icon: Wallet,          exactMatch: false, permKey: "financeiro" },
   { href: "/marketing",     label: "Marketing", icon: Megaphone,       exactMatch: false, permKey: "marketing" },
   { href: "/performance",   label: "Performance", icon: BarChart3,     exactMatch: false, permKey: "performance" },
+  { href: "/site-analytics", label: "Site Genesy", icon: MousePointerClick, exactMatch: false, permKey: "admin" },
   { href: "/formularios",   label: "Formulários", icon: NotepadText,  exactMatch: false, permKey: "formularios" },
   { href: "/agendamentos",  label: "Agenda",      icon: Calendar,  exactMatch: false, permKey: "agendamentos" },
   { href: "/calculadora", label: "Calculadora de Fluxo de Pagamento", icon: Calculator, exactMatch: false, permKey: "calculadora" },
@@ -258,6 +260,7 @@ export function Dock() {
   const visibleItems = useMemo(() => {
     if (isOwner === null || isOwner === true) return NAV_ITEMS;
     if (!member || !member.is_active) return NAV_ITEMS.filter((i) => i.permKey === "dashboard");
+    if (member.role === "admin") return NAV_ITEMS;
     const perms = member.permissions;
     return NAV_ITEMS.filter((i) => perms.includes(i.permKey));
   }, [member, isOwner]);
