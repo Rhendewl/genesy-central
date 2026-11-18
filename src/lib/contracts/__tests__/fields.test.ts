@@ -33,4 +33,8 @@ describe('contract derived values',()=>{
    expect(r).toMatchObject({testemunha_1_nome:'Gabi',testemunha_1_cpf:'12345678901',testemunha_2_nome:'Alex',testemunha_2_cpf:''});
  });
 
+ it('fills numbered contracting-party fields from their own signer rows',()=>{
+  expect(derivedFields('{{contratante_1_nome}} {{contratante_2_nome}} {{contratante_2_documento}}',{},[{role:'cliente',name:'Principal',document:'111'},{role:'testemunha',name:'Testemunha'},{role:'cliente',name:'Adicional',document:'222'}])).toMatchObject({contratante_1_nome:'Principal',contratante_2_nome:'Adicional',contratante_2_documento:'222'});
+ });
+
 });

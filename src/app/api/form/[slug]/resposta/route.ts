@@ -1,3 +1,4 @@
+import { distributeFormLead } from "@/lib/crm/lead-roulette";
 import { formatFormLeadName, formAttributionLines } from "@/lib/forms/crm-context";
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminSupabaseClient } from "@/lib/supabase-admin";
@@ -261,14 +262,21 @@ async function createCrmLead(
       .eq("adapter", "crm")
       .maybeSingle();
 
-    if (!integration?.enabled) return;
 
-    const settings = (integration.settings ?? {}) as CrmSettings;
+
+    if (!integration?.enabled) {
+      const roulette = await supabase.from("crm_lead_roulettes").select("id")
+        .eq("user_id", userId).eq("source_kind", "genesy").eq("form_id", formId).eq("page_id", "").maybeSingle();
+      if (roulette.error) throw new Error(roulette.error.message);
+      if (!roulette.data) return;
+    }
+
+    const settings = (integration?.settings ?? {}) as CrmSettings;
 
     // Requer pipeline_id + stage_id (novo fluxo) ou kanban_column (legado)
     const hasNewConfig = !!settings.pipeline_id && !!settings.stage_id;
     const hasLegacy    = !!settings.kanban_column;
-    if (!hasNewConfig && !hasLegacy) return;
+
 
     // 2. Carregar form + steps
     const { data: formData } = await supabase
@@ -335,7 +343,7 @@ async function createCrmLead(
         .eq("id", attributionSubmission.session_id).maybeSingle();
       metaLines.push(...formAttributionLines(attribution));
     }
-    if (settings.owner_name) metaLines.push(`Responsável: ${settings.owner_name}`);
+    // Responsibility is displayed from assigned_to; a roulette may override the fixed form owner.
     const noteSections: string[] = [metaLines.join("\n")];
     if (noteLines.length) noteSections.push(noteLines.join("\n"));
     const integrationNotes = noteSections.join("\n\n") || null;
@@ -407,6 +415,12 @@ async function createCrmLead(
       is_duplicate,
       iq_score:    iqScore,
     };
+
+    const distribution = await distributeFormLead(supabase, {
+      ownerId: userId, source: "genesy", formId, eventId: submissionId, payload: commonFields,
+    });
+    if (distribution.matched) return;
+    if (!integration?.enabled || (!hasNewConfig && !hasLegacy)) return;
 
     let createdLeadId: string | null = null;
 
@@ -514,8 +528,9 @@ async function syncNpsResponse(
       .eq("adapter", "nps")
       .maybeSingle();
 
-    if (!integration?.enabled) return;
 
+
+    if (!integration?.enabled) return;
     const settings = (integration.settings ?? {}) as NpsIntegrationSettings;
     if (!settings.client_id || !settings.nps_step_id) return;
 

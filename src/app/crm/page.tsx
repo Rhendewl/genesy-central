@@ -1,9 +1,9 @@
 "use client";
 
+import { LeadRoulettes } from "@/components/crm/admin/LeadRoulettes";
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ClipboardList, LayoutGrid, BarChart2, Settings2, Bell, Zap, FileBarChart, Target } from "lucide-react";
-import { ConversationIntelligence } from "@/components/crm/conversation-intelligence/ConversationIntelligence";
 import { MetaLeadForms } from "@/components/marketing/MetaLeadForms";
 import "@/components/crm/crm-mobile.css";
 import { CrmMobileNavigation } from "@/components/crm/CrmMobileNavigation";
@@ -25,10 +25,9 @@ import { useFinancialPrivacyStore } from "@/store/financial-privacy";
 // CRM Page — Kanban / Leads / Pipelines
 // ─────────────────────────────────────────────────────────────────────────────
 
-type TabId = "kanban" | "leads" | "metas" | "relatorios" | "pipelines" | "notificacoes" | "automacoes" | "formularios-meta" | "inteligencia-conversas";
+type TabId = "roletas" | "kanban" | "leads" | "metas" | "relatorios" | "pipelines" | "notificacoes" | "automacoes" | "formularios-meta";
 
 const TABS: { id: TabId; label: string; icon: React.ReactNode }[] = [
-  { id: "inteligencia-conversas", label: "Inteligência de Conversas", icon: <BarChart2 size={15} /> },
   { id: "kanban",        label: "Funil",       icon: <LayoutGrid size={15} /> },
   { id: "leads",         label: "Análise do CRM",        icon: <BarChart2  size={15} /> },
   { id: "metas",         label: "Metas",        icon: <Target size={15} /> },
@@ -36,11 +35,12 @@ const TABS: { id: TabId; label: string; icon: React.ReactNode }[] = [
   { id: "pipelines",     label: "Pipelines",    icon: <Settings2  size={15} /> },
   { id: "notificacoes",  label: "Notificações", icon: <Bell       size={15} /> },
   { id: "formularios-meta", label: "Formulários Meta", icon: <ClipboardList size={15} /> },
+  { id: "roletas", label: "Roletas", icon: <Settings2 size={15} /> },
   { id: "automacoes",    label: "Automações",   icon: <Zap        size={15} /> },
 ];
 
 const SUBTITLES: Record<TabId, string> = {
-  "inteligencia-conversas": "Conversas autorizadas e indicadores comerciais",
+  roletas: "Distribuição equilibrada por formulário e pipeline",
   kanban:       "Funil comercial de leads",
   leads:        "Atendimento, evolução e gargalos da operação",
   metas:        "Objetivos comerciais e progresso do funil",
@@ -58,11 +58,9 @@ export default function CrmPage() {
   useEffect(() => { if (new URLSearchParams(window.location.search).get("tab") === "formularios-meta") setActiveTab("formularios-meta"); }, []);
   const { member, isOwner } = useCurrentMember();
   const hasFullCrmAccess = isAdministrativeMember(member, isOwner === true);
-  const canUseConversationIntelligence = Boolean((isOwner || member?.permissions.includes("crm")) && (isOwner || ["admin", "comercial", "gestor_comercial"].includes(member?.role ?? "")));
-  const allowedTabs = TABS.filter(tab => tab.id !== "inteligencia-conversas" || canUseConversationIntelligence);
   const visibleTabs = hasFullCrmAccess
-    ? allowedTabs
-    : allowedTabs.filter(tab => tab.id === "kanban" || tab.id === "leads" || tab.id === "inteligencia-conversas");
+    ? TABS
+    : TABS.filter(tab => tab.id === "kanban" || tab.id === "leads");
   const isKanban = activeTab === "kanban";
 
   return (
@@ -115,7 +113,6 @@ export default function CrmPage() {
             isKanban ? "flex min-h-0 flex-1 flex-col" : "pb-8",
           )}
         >
-          {canUseConversationIntelligence && activeTab === "inteligencia-conversas" && <ConversationIntelligence />}
           {activeTab === "kanban"       && <KanbanBoard />}
           {activeTab === "leads"        && <LeadsAnalytics />}
           {hasFullCrmAccess && activeTab === "metas" && <CrmGoals />}
@@ -126,6 +123,7 @@ export default function CrmPage() {
               <CrmNotificacoesTab />
             </div>
           )}
+          {hasFullCrmAccess && activeTab === "roletas" && <LeadRoulettes />}
           {hasFullCrmAccess && activeTab === "formularios-meta" && <MetaLeadForms />}
           {hasFullCrmAccess && activeTab === "automacoes" && <AutomationsAdmin />}
         </motion.div>

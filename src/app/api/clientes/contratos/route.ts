@@ -141,6 +141,7 @@ export async function POST(req: NextRequest) {
         b.signers.length > 20
       )
         throw new Error("Inclua entre 1 e 20 assinadores");
+      let clientSignerCount=0;
       const signers: {id:string;name:string;email:string;role:unknown;token_hash:string}[] = b.signers.map((s: Record<string, unknown>) => {
         const id = randomUUID();
         const email = typeof s.email === "string" ? s.email.trim().toLowerCase() : "";
@@ -148,6 +149,10 @@ export async function POST(req: NextRequest) {
           throw new Error("E-mail de assinador inválido");
         if (!ROLES.includes(s.role as (typeof ROLES)[number]))
           throw new Error("Papel do assinador inválido");
+        if(s.role === "cliente") {
+          clientSignerCount++;
+          if(clientSignerCount>1) requiredText(s.document,`CPF/CNPJ do contratante ${clientSignerCount}`,30);
+        }
         return {
           id,
           name: s.role === "testemunha" && (typeof s.name !== "string" || !s.name.trim()) ? "Testemunha" : requiredText(s.name, "Nome do assinador"),
@@ -162,7 +167,12 @@ export async function POST(req: NextRequest) {
         signers.push({ id, name: profile.name, email: user.email!, role: "contratada", token_hash: contentHash(signerToken(id)) });
       }
       const signerDocuments: Record<string, string> = {};
-      b.signers.forEach((s: Record<string,unknown>, i:number) => { signerDocuments[signers[i].id] = typeof s.document === "string" && s.document.trim() ? s.document.slice(0,30) : s.role === "cliente" ? client.document : s.role === "contratada" ? profile.document : ""; });
+      let primaryClient=true;
+      b.signers.forEach((s: Record<string,unknown>, i:number) => {
+        const fallback=s.role === "cliente" && primaryClient ? client.document : s.role === "contratada" ? profile.document : "";
+        signerDocuments[signers[i].id] = typeof s.document === "string" && s.document.trim() ? s.document.trim().slice(0,30) : fallback;
+        if(s.role === "cliente")primaryClient=false;
+      });
       signers.filter(s=>s.role === "contratada").forEach(s=>{signerDocuments[s.id] ||= profile.document;});
       if (!signers.some((s: { role: unknown }) => s.role === "cliente"))
         throw new Error("Inclua ao menos um assinador como cliente");

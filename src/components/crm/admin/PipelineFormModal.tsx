@@ -130,13 +130,13 @@ export function PipelineFormModal({ open, pipeline, onClose, onSave }: Props) {
           </div>
 
           <div className="rounded-xl border border-sky-500/30 bg-sky-500/10 p-3">
-            <label htmlFor="pipeline-default-assignee" className="mb-2 block text-sm font-semibold">Responsável padrão dos leads</label>
+            <label htmlFor="pipeline-default-assignee" className="mb-2 block text-sm font-semibold">Proprietário da pipeline / responsável padrão</label>
             <select id="pipeline-default-assignee" value={defaultAssignee} disabled={loadingUsers || saving} onChange={(event) => setDefaultAssignee(event.target.value)} className="min-h-11 w-full rounded-lg border border-[var(--border)] bg-[var(--input)] px-3 text-sm">
               <option value="">Sem atribuição automática</option>
               {profiles.filter(profile => profile.is_active && profile.auth_user_id).map(profile => <option key={profile.id} value={profile.id}>{profile.full_name}</option>)}
               {defaultAssignee && !profiles.some(profile => profile.id === defaultAssignee && profile.is_active && profile.auth_user_id) && <option value={defaultAssignee}>Responsável indisponível · escolha outro</option>}
             </select>
-            <p className="mt-2 text-xs text-[var(--muted-foreground)]">Novos leads recebem este responsável antes das notificações. Uma escolha manual de responsável tem prioridade. O usuário precisa ter acesso à pipeline.</p>
+            <p className="mt-2 text-xs text-[var(--muted-foreground)]">Novos leads recebem este responsável antes das notificações. Uma escolha manual de responsável tem prioridade. O proprietário também recebe acesso à pipeline. Na roleta, ele é sempre o responsável pelos leads destinados a esta pipeline.</p>
             {pipeline && <p className="mt-2 text-xs text-[var(--muted-foreground)]">Alterar o padrão vale para novos leads; os responsáveis dos leads existentes são preservados.</p>}
           </div>
 

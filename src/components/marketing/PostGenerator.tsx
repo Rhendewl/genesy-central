@@ -16,6 +16,7 @@ import {
   Type, Undo2, Upload, UserRound, X,
 } from "lucide-react";
 import { toast } from "sonner";
+import { advercase } from "@/lib/marketing/post-font";
 import { Button } from "@/components/ui/button";
 import { InstagramFeedDialog, feedJpeg } from "./InstagramFeedDialog";
 import { InstagramStoryDialog, storyJpeg } from "./InstagramStoryDialog";
@@ -371,7 +372,7 @@ function TweetMiniature() {
 }
 
 function StoriesMiniature() {
-  return <div className="relative h-64 w-44 overflow-hidden rounded-[20px] bg-black p-5 text-white shadow-2xl"><div className="absolute left-5 right-5 top-10 aspect-video rounded-lg bg-gradient-to-br from-[#27a3ff] to-[#8047ff]" /><p className="absolute bottom-10 left-5 right-5 font-[Advercase] text-2xl font-normal leading-[.9]">Conteúdo que ocupa espaço na memória.</p></div>;
+  return <div className="relative h-64 w-44 overflow-hidden rounded-[20px] bg-black p-5 text-white shadow-2xl"><div className="absolute left-5 right-5 top-10 aspect-video rounded-lg bg-gradient-to-br from-[#27a3ff] to-[#8047ff]" /><p className="absolute bottom-10 left-5 right-5 text-2xl font-normal leading-[.9]" style={{ fontFamily: advercase.style.fontFamily }}>Conteúdo que ocupa espaço na memória.</p></div>;
 }
 
 function PostEditor({ template, onBack }: { template: PostTemplate; onBack: () => void }) {
@@ -1547,7 +1548,7 @@ function PostCanvas({ slide, profile, template, width, height, editable = false,
     })}
   </> : <BalancedContent safeLeft={safeLeft} safeWidth={safeWidth} gap={template === "tweet" ? 44 : 52}>{profileBlock}{layoutItems}</BalancedContent>;
 
-  return <div ref={setRefs} data-post-canvas={template} className="relative overflow-hidden" style={{ width, height, background: slide.background, color: slide.foreground, fontFamily: template === "tweet" ? "Arial, Helvetica, sans-serif" : "Advercase, Georgia, serif", fontWeight: 400 }} onPointerDown={(event) => {
+  return <div ref={setRefs} data-post-canvas={template} className="relative overflow-hidden" style={{ width, height, background: slide.background, color: slide.foreground, fontFamily: template === "tweet" ? "Arial, Helvetica, sans-serif" : advercase.style.fontFamily, fontWeight: 400 }} onPointerDown={(event) => {
     if (!editable || event.button !== 0) return;
     const target = event.target as Element;
     if (!target.closest("[data-canvas-media]")) setSelectedMediaKey(null);
@@ -1767,7 +1768,7 @@ function TextBlockItem({ block, editor, editable, active, editing, foreground, s
   };
   const textGesture = usePostTextGesture(editable && !editing && !free, onSelect, onEdit, active);
   const toolbarButtonClass = "grid h-14 w-14 shrink-0 place-items-center rounded-xl text-white/90 transition hover:bg-white/15 hover:text-white disabled:cursor-not-allowed disabled:opacity-30";
-  return <div {...(free ? {} : textGesture)} data-text-block-id={block.id} className={cn("relative mx-auto min-w-0 max-w-full", editable && (editing ? "cursor-text select-text" : free ? "cursor-move select-none" : "cursor-text"), active && "z-[80]")} style={{ width: `${width}%`, color: foreground, fontFamily: story ? "Advercase, Georgia, serif" : "Arial, Helvetica, sans-serif", fontSize: block.fontSize, fontWeight: 400, lineHeight: block.lineHeight, letterSpacing: `${Number.isFinite(block.letterSpacing) ? block.letterSpacing : defaultPostLetterSpacing(story ? "stories" : "tweet")}em`, overflowWrap: "anywhere", wordBreak: "break-word" }}>
+  return <div {...(free ? {} : textGesture)} data-text-block-id={block.id} className={cn("relative mx-auto min-w-0 max-w-full", editable && (editing ? "cursor-text select-text" : free ? "cursor-move select-none" : "cursor-text"), active && "z-[80]")} style={{ width: `${width}%`, color: foreground, fontFamily: story ? advercase.style.fontFamily : "Arial, Helvetica, sans-serif", fontSize: block.fontSize, fontWeight: 400, lineHeight: block.lineHeight, letterSpacing: `${Number.isFinite(block.letterSpacing) ? block.letterSpacing : defaultPostLetterSpacing(story ? "stories" : "tweet")}em`, overflowWrap: "anywhere", wordBreak: "break-word" }}>
     {editable && active && !editing && <div data-text-action className="absolute bottom-[calc(100%+18px)] right-0 z-[100] hidden items-center gap-1 rounded-[18px] border border-white/20 bg-[#168fe0] p-1.5 shadow-[0_14px_32px_rgba(0,0,0,.42)] lg:flex">
       <button type="button" data-text-action data-text-drag-handle data-free-drag-handle={free ? "true" : undefined} aria-label="Mover caixa de texto" title={free ? "Arraste para posicionar livremente" : "Arraste para reorganizar"} className={cn(toolbarButtonClass, "touch-none cursor-grab active:cursor-grabbing")} onPointerDown={free ? undefined : onReorderStart} onPointerMove={free ? undefined : onReorderMove} onPointerUp={free ? undefined : onReorderEnd} onPointerCancel={free ? undefined : onReorderEnd}><Move size={25} /></button>
       {!free && <><button type="button" data-text-action aria-label="Mover caixa de texto para cima" title="Mover para cima" disabled={!canMoveUp} className={toolbarButtonClass} onPointerDown={stopToolbarPointer} onClick={(event) => { event.stopPropagation(); onMoveUp?.(); }}><ArrowUp size={25} /></button><button type="button" data-text-action aria-label="Mover caixa de texto para baixo" title="Mover para baixo" disabled={!canMoveDown} className={toolbarButtonClass} onPointerDown={stopToolbarPointer} onClick={(event) => { event.stopPropagation(); onMoveDown?.(); }}><ArrowDown size={25} /></button></>}

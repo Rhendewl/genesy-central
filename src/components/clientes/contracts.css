@@ -464,3 +464,5 @@ button:focus-visible {
 @font-face{font-family:ShadowsIntoLight;src:url('/fonts/signatures/ShadowsIntoLight.ttf');font-display:swap}
 .contract-template-library{display:flex;flex-direction:column;gap:16px;margin-bottom:24px}
 .contract-template-library>header{margin-bottom:0}.contract-template-card summary{cursor:pointer;font-size:13px;font-weight:600}
+.contract-signer-card{padding:16px 0;border-bottom:1px solid var(--border)}
+.contract-signer-card h4{font-size:13px;font-weight:600;margin-bottom:12px}

@@ -32,6 +32,14 @@ export function derivedFields(body: string, input: Record<string,string>, signer
   const result: Record<string,string> = { ...locationDefaults(), data_assinatura: today(), data_contrato: today(), ...input };
   const keys = Array.from(new Set(Array.from(body.matchAll(/\{\{\s*(\w+)\s*\}\}/g), m=>m[1])));
   const witnesses = signers.filter(s=>s.role === 'testemunha');
+  const clients = signers.filter(s=>s.role === 'cliente');
+  for(const key of keys){
+    const match=key.match(/^(?:cliente|contratante)_(\d+)_(nome|documento|cpf|cnpj|email)$/);
+    if(!match)continue;
+    const person=clients[Number(match[1])-1];
+    const prop=match[2]==='nome'?'name':match[2]==='email'?'email':'document';
+    result[key]=typeof person?.[prop]==='string' ? person[prop]!.trim() : '';
+  }
   for (const key of keys) {
     const match = key.match(/^testemunha_(\d+)_(nome|cpf|documento|email)$/);
     if (!match) continue;

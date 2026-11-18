@@ -96,3 +96,9 @@ Aplicar `20261106020000_contract_client_type_and_deletion.sql` antes de publicar
 A exclusão de contrato exige confirmação no aplicativo e valida propriedade no servidor. O cliente cadastrado é preservado. A exclusão de cliente agora confirma que o banco removeu a linha, exibe erros sem fechar a janela como se tivesse dado certo e sincroniza as listas e os indicadores montados imediatamente. Respostas antigas de carregamento são ignoradas para não recolocar itens removidos.
 
 Tipo de Cliente na emissão: Imobiliária, Corretor, Construtora ou Outro. Modelos/contratos antigos sem tipo continuam usando Outro. Contratos já emitidos mantêm seus dados originais.
+
+## Vários contratantes
+
+Em Quem assina, Adicionar contratante cria uma nova linha com nome e CPF/CNPJ próprios e e-mail opcional. Apenas o primeiro contratante acompanha automaticamente os dados do cliente principal. Os demais preservam suas identidades ao editar o cliente principal. Cada pessoa tem link e assinatura próprios; o contrato só conclui após todas as pessoas da lista assinarem.
+
+Campos opcionais de modelo: `{{contratante_1_nome}}`, `{{contratante_2_nome}}`, `{{contratante_2_documento}}` e `{{contratante_2_email}}`, repetindo o índice para outros contratantes. Também são aceitos os prefixos `cliente_N_` e os sufixos cpf/cnpj. Eles são preenchidos a partir dos assinadores, sem solicitar os mesmos dados em campos personalizados separados. A carteira continua recebendo um cadastro para o cliente principal do contrato.
