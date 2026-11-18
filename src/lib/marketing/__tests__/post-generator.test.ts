@@ -63,7 +63,7 @@ describe("postElementToPng", () => {
   const raster = "data:image/png;base64,cHJlcGFyZWQ=";
 
   beforeEach(() => {
-    Object.defineProperty(document, "fonts", { configurable: true, value: { ready: Promise.resolve() } });
+    Object.defineProperty(document, "fonts", { configurable: true, value: { ready: Promise.resolve(), load: vi.fn().mockResolvedValue([]) } });
     vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => { callback(0); return 1; });
     vi.spyOn(HTMLImageElement.prototype, "complete", "get").mockReturnValue(true);
     vi.spyOn(HTMLImageElement.prototype, "naturalWidth", "get").mockReturnValue(1200);
@@ -77,6 +77,23 @@ describe("postElementToPng", () => {
   afterEach(() => {
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
+  });
+
+  it("aguarda as fontes regular e negrito antes de rasterizar o post", async () => {
+    const element = document.createElement("div");
+    element.style.fontFamily = "Advercase";
+    let release!: () => void;
+    const pending = new Promise<void>(resolve => { release = resolve; });
+    const load = vi.fn().mockReturnValue(pending);
+    Object.defineProperty(document, "fonts", { configurable: true, value: { ready: Promise.resolve(), load } });
+    const exported = postElementToPng(element, 1080, 1920);
+    await Promise.resolve();
+    expect(toBlobMock).not.toHaveBeenCalled();
+    expect(load).toHaveBeenCalledWith("400 32px Advercase");
+    expect(load).toHaveBeenCalledWith("700 32px Advercase");
+    release();
+    await exported;
+    expect(toBlobMock).toHaveBeenCalledTimes(1);
   });
 
   it("incorpora fundo e imagem complementar no PNG sem modificar o editor", async () => {

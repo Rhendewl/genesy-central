@@ -1,3 +1,4 @@
+import { distributeFormLead } from "@/lib/crm/lead-roulette";
 import { crmDate } from "@/lib/crm/operation-analytics";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { decryptToken } from "@/lib/crypto";
@@ -27,7 +28,12 @@ export async function captureMetaLead(db: SupabaseClient, event: MetaLeadEvent, 
   if (existing.error) throw new Error(existing.error.message);
   if (existing.data) return { status: "duplicate", step: "already_captured", lead_id: existing.data.id };
 
+  const roulette = await db.from("crm_lead_roulettes").select("id")
+    .eq("user_id", ownerId).eq("source_kind", "meta").eq("form_id", event.form_id).eq("page_id", event.page_id).maybeSingle();
+  if (roulette.error) throw new Error(roulette.error.message);
   let stageId = routing.route?.crm_stage_id;
+  const assignedTo = routing.route?.assigned_to ?? null;
+  if (!roulette.data) {
   if (stageId) {
     const stage = await db.from("crm_stages").select("id,crm_pipelines!inner(user_id,is_active)")
       .eq("id", stageId).eq("pipeline_id", routing.route!.crm_pipeline_id!).eq("is_active", true)
@@ -41,10 +47,10 @@ export async function captureMetaLead(db: SupabaseClient, event: MetaLeadEvent, 
     if (legacy.error || !legacy.data) throw new Error("Escolha o CRM e a etapa de entrada em CRM → Formulários Meta.");
     stageId = legacy.data.id;
   }
-  const assignedTo = routing.route?.assigned_to ?? null;
   if (assignedTo) {
     const assignee = await db.from("user_profiles").select("id,auth_user_id").eq("id", assignedTo).eq("owner_id", ownerId).eq("is_active", true).maybeSingle();
     if (assignee.error || !assignee.data?.auth_user_id) throw new Error("O responsável configurado não está disponível. Atualize o responsável deste formulário.");
+  }
   }
   let encrypted = page.encrypted_page_token;
   if (!encrypted && page.platform_account_id) {
@@ -63,8 +69,8 @@ export async function captureMetaLead(db: SupabaseClient, event: MetaLeadEvent, 
     ...lead.custom_fields.map((field) => `${field.label}: ${field.value}`)].join("\n");
   const formName = routing.route?.form_name?.trim();
   const leadName = lead.full_name?.trim() || lead.first_name?.trim() || "Lead Meta";
-  const result = await new LeadService(db).createLead({
-    assigned_to: assignedTo, user_id: ownerId, stageId: stageId!, name: `${leadName}${formName ? ` | ${formName}` : ""}`,
+  const payload = {
+    user_id: ownerId, name: `${leadName}${formName ? ` | ${formName}` : ""}`,
     deal_value: Number(routing.route?.crm_deal_value ?? 0),
     contact: lead.phone || lead.email || "", email: lead.email, source: "meta_lead_ads",
     page_id: event.page_id, leadgen_id: event.leadgen_id, form_id: event.form_id,
@@ -72,7 +78,16 @@ export async function captureMetaLead(db: SupabaseClient, event: MetaLeadEvent, 
     meta_form_answers: lead.answers, integration_notes: notes,
     received_at: receivedAt,
     entered_at: receivedAt ? crmDate(receivedAt) : undefined,
+  };
+  const distribution = await distributeFormLead(db, {
+    ownerId, source: "meta", formId: event.form_id, pageId: event.page_id,
+    eventId: event.leadgen_id, payload,
   });
+  if (distribution.matched) return {
+    status: distribution.status === "distributed" ? "processed" : distribution.status === "pending" ? "skipped" : "duplicate",
+    step: distribution.status === "pending" ? "roulette_pending" : "done", lead_id: distribution.lead_id,
+  };
+  const result = await new LeadService(db).createLead({ ...payload, assigned_to: assignedTo, stageId: stageId! });
   if (!result.ok) {
     // A simultaneous delivery may have won the database uniqueness race.
     const concurrent = await db.from("leads").select("id").eq("user_id", ownerId).eq("leadgen_id", event.leadgen_id).maybeSingle();

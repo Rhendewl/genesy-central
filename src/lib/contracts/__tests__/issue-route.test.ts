@@ -47,6 +47,15 @@ describe('contract issuance',()=>{
   mocks.adminFrom.mockClear();owner.maybeSingle.mockResolvedValue({data:null,error:null} as never);
   expect((await send({action:'delete',id:'other-owner'})).status).toBe(400);expect(mocks.adminFrom).not.toHaveBeenCalled();
  });
+ it('keeps each contracting signer identity separate and requires additional documents',async()=>{
+  const b=body();b.signers.push(Object.assign({name:'Segundo contratante',role:'cliente'},{document:'12345678901'}));
+  expect((await send(b)).status).toBe(200);
+  const args=mocks.rpc.mock.calls[0][1];
+  expect(args.p_doc.client_data.signer_documents[args.p_signers[1].id]).toBe('98765432000199');
+  expect(args.p_doc.client_data.signer_documents[args.p_signers[4].id]).toBe('12345678901');
+  const invalid=body();invalid.signers.push({name:'Sem documento',role:'cliente'});
+  expect((await send(invalid)).status).toBe(400);
+ });
  it('still rejects malformed supplied email',async()=>{
   const b=body();Object.assign(b.signers[2],{email:'invalido'});
   expect((await send(b)).status).toBe(400);expect(mocks.rpc).not.toHaveBeenCalled();

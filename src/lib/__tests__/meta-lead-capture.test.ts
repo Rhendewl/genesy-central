@@ -1,7 +1,8 @@
 // @vitest-environment node
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
-const mocks = vi.hoisted(() => ({ createLead: vi.fn(), fetchLead: vi.fn() }));
+const mocks = vi.hoisted(() => ({ createLead: vi.fn(), fetchLead: vi.fn(), distribute: vi.fn() }));
+vi.mock("@/lib/crm/lead-roulette", () => ({ distributeFormLead: mocks.distribute }));
 vi.mock("@/lib/crypto", () => ({ decryptToken: () => "token" }));
 vi.mock("@/lib/meta-leads", () => ({ fetchMetaLead: mocks.fetchLead }));
 vi.mock("@/lib/crm/lead-service", () => ({ LeadService: class { createLead = mocks.createLead; } }));
@@ -19,7 +20,7 @@ function database(responses: Record<string, unknown[]>) {
 }
 describe("Meta lead routing", () => {
   beforeEach(() => {
-    vi.clearAllMocks(); mocks.createLead.mockResolvedValue({ ok: true, leadId: "lead" });
+    vi.clearAllMocks(); mocks.distribute.mockResolvedValue({ matched: false }); mocks.createLead.mockResolvedValue({ ok: true, leadId: "lead" });
     mocks.fetchLead.mockResolvedValue({ full_name: "Ana", first_name: "Ana", phone: "85999999999", email: "ana@example.test", campaign_name: "Campanha", ad_name: "Anúncio", custom_fields: [{ label: "Interesses", value: "Casa; Apartamento" }], answers: [{ name: "interesses", values: ["Casa", "Apartamento"] }] });
   });
   it("keeps explicitly paused forms paused even if no forms remain active", () => {
@@ -61,6 +62,19 @@ describe("Meta lead routing", () => {
     const { db } = database({ meta_page_subscriptions: [{ data: { encrypted_page_token: "encrypted" } }], meta_form_subscriptions: [{ data: [{ ...active, assigned_to: "foreign" }] }], leads: [{ data: null }], crm_stages: [{ data: { id: "stage" } }], user_profiles: [{ data: null }] });
     await expect(captureMetaLead(db, event, "owner")).rejects.toThrow("responsável");
     expect(mocks.fetchLead).not.toHaveBeenCalled();
+    expect(mocks.createLead).not.toHaveBeenCalled();
+  });
+  it("routes through the roulette without validating the obsolete fixed destination", async () => {
+    mocks.distribute.mockResolvedValue({ matched: true, status: "distributed", lead_id: "rotated" });
+    const { db } = database({ meta_page_subscriptions: [{ data: { encrypted_page_token: "encrypted" } }], meta_form_subscriptions: [{ data: [active] }], leads: [{ data: null }], crm_lead_roulettes: [{ data: { id: "roulette" } }] });
+    expect(await captureMetaLead(db, event, "owner")).toMatchObject({ status: "processed", lead_id: "rotated" });
+    expect(mocks.createLead).not.toHaveBeenCalled();
+    expect(mocks.distribute).toHaveBeenCalledWith(db, expect.objectContaining({ ownerId: "owner", source: "meta", eventId: "222", pageId: "111" }));
+  });
+  it("keeps pending roulette entries away from fixed pipelines", async () => {
+    mocks.distribute.mockResolvedValue({ matched: true, status: "pending" });
+    const { db } = database({ meta_page_subscriptions: [{ data: { encrypted_page_token: "encrypted" } }], meta_form_subscriptions: [{ data: [active] }], leads: [{ data: null }], crm_lead_roulettes: [{ data: { id: "roulette" } }] });
+    expect(await captureMetaLead(db, event, "owner")).toMatchObject({ step: "roulette_pending" });
     expect(mocks.createLead).not.toHaveBeenCalled();
   });
   it("never retrieves or inserts an already captured event", async () => {

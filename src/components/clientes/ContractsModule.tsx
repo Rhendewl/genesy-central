@@ -146,9 +146,11 @@ export function ContractsModule() {
     );
   }, [documents]);
   useEffect(() => {
-    setSigners(items => items.map(s => s.role === "contratada"
-      ? { ...s, name: profile.name, document: profile.document }
-      : s.role === "cliente" ? { ...s, name: client.name, document: client.document, email: client.email } : s));
+    setSigners(items => {
+      const primaryClient=items.findIndex(s=>s.role === "cliente");
+      const primaryIssuer=items.findIndex(s=>s.role === "contratada");
+      return items.map((s,i)=>i === primaryIssuer ? {...s,name:profile.name,document:profile.document} : i === primaryClient ? {...s,name:client.name,document:client.document,email:client.email} : s);
+    });
   }, [profile.name, profile.document, client.name, client.document, client.email]);
   useEffect(()=>{
     const id=new URLSearchParams(window.location.search).get("contract");
@@ -173,7 +175,7 @@ export function ContractsModule() {
     () =>
       templateFields(selectedTemplate?.body ?? "").filter(
         (k) =>
-          !k.startsWith("testemunha") && ![
+          !k.startsWith("testemunha") && !/^(?:cliente|contratante)_\d+_(?:nome|documento|cpf|cnpj|email)$/.test(k) && ![
             "contratada_nome",
             "contratada_documento",
             "contratada_endereco",
@@ -587,8 +589,11 @@ export function ContractsModule() {
             <p>
               Todas as pessoas da lista precisam assinar. Nome e CPF das testemunhas podem ser preenchidos por elas ao assinar. Cada pessoa recebe um link próprio para ler e assinar. E-mail é opcional; quando informado, a assinatura será confirmada por código. Sem e-mail, o aceite será registrado pelo link privado.
             </p>
+            <p>Use “Adicionar contratante” para incluir outras pessoas que assinam como clientes. Cada uma terá seus próprios dados e link de assinatura.</p>
             {signers.map((s, i) => (
-              <div className="contract-signer-row" key={i}>
+              <div key={i} className="contract-signer-card">
+              <h4>{s.role === "cliente" ? `Contratante ${signers.slice(0,i+1).filter(x=>x.role === "cliente").length}${i === signers.findIndex(x=>x.role === "cliente") ? " · Principal" : ""}` : labels[s.role]}</h4>
+              <div className="contract-signer-row">
                 <Field
                   required={s.role !== "testemunha"}
                   label={s.role === "testemunha" ? "Nome da Testemunha (opcional)" : "Nome"}
@@ -610,16 +615,17 @@ export function ContractsModule() {
                     )
                   }
                 />
-                <Field label="CPF / CNPJ" value={s.document} onChange={v=>setSigners(a=>a.map((x,j)=>j===i?{...x,document:v}:x))}/>
+                <Field required={s.role === "cliente"} label="CPF / CNPJ" value={s.document} onChange={v=>setSigners(a=>a.map((x,j)=>j===i?{...x,document:v}:x))}/>
                 <label className="contract-field">
                   <span>Papel</span>
                   <select
                     value={s.role}
+                    disabled={s.role === "cliente" && i === signers.findIndex(x=>x.role === "cliente")}
                     onChange={(e) =>
                       setSigners((a) =>
                         a.map((x, j) =>
                           j === i
-                            ? { ...x, role: e.target.value as ContractRole, ...(e.target.value === "contratada" ? {name:profile.name,document:profile.document} : e.target.value === "cliente" ? {name:client.name,document:client.document,email:client.email} : {}) }
+                            ? { ...x, role: e.target.value as ContractRole, ...(e.target.value === "contratada" ? {name:profile.name,document:profile.document} : e.target.value === "cliente" && !a.some((other,index)=>index!==i && other.role === "cliente") ? {name:client.name,document:client.document,email:client.email} : {}) }
                             : x,
                         ),
                       )
@@ -632,7 +638,7 @@ export function ContractsModule() {
                     ))}
                   </select>
                 </label>
-                {i > 0 && (
+                {i > 0 && !(s.role === "cliente" && i === signers.findIndex(x=>x.role === "cliente")) && (
                   <button
                     type="button"
                     aria-label="Remover assinador"
@@ -644,7 +650,9 @@ export function ContractsModule() {
                   </button>
                 )}
               </div>
+              </div>
             ))}
+            <button type="button" className="contract-chip" disabled={signers.length >= 20} onClick={()=>setSigners(items=>[...items,{name:"",email:"",document:"",role:"cliente"}])}><Plus size={16}/> Adicionar contratante</button>
             <button
               type="button"
               disabled={signers.length >= 20}

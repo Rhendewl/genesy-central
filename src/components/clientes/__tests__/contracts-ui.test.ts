@@ -132,6 +132,17 @@ it("shows pending contracts, per-signer links and configurable template fields",
     expect(rows[1].querySelector('input')!.value).toBe('Cliente exemplo');
     expect(rows[1].querySelectorAll('input')[2].value).toBe('12345678000199');
     expect(host.querySelectorAll('input[type="email"][required]')).toHaveLength(0);
+    const addClient=Array.from(host.querySelectorAll<HTMLButtonElement>('button')).find(b=>b.textContent?.includes('Adicionar contratante'))!;
+    await act(async()=>addClient.click());
+    let additional=host.querySelectorAll('.contract-signer-row')[4];
+    await fill(additional.querySelectorAll('input')[0],'Segundo contratante');
+    await fill(additional.querySelectorAll('input')[2],'12345678901');
+    await fill(inputFor('Razão social'),'Cliente principal atualizado');
+    additional=host.querySelectorAll('.contract-signer-row')[4];
+    expect(additional.querySelector('select')!.value).toBe('cliente');
+    expect(additional.querySelectorAll('input')[0].value).toBe('Segundo contratante');
+    expect(additional.querySelectorAll('input')[2].value).toBe('12345678901');
+    expect(host.querySelectorAll('.contract-signer-row')[1].querySelector('input')!.value).toBe('Cliente principal atualizado');
     snapshot("new");
 
   } finally {

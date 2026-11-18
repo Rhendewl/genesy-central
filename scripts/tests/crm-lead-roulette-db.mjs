@@ -1,0 +1,106 @@
+import { createRequire } from 'node:module';
+import { readFileSync } from 'node:fs';
+import assert from 'node:assert/strict';
+const require=createRequire(import.meta.url);
+const {PGlite}=require('@electric-sql/pglite');
+const db=new PGlite();
+const id=n=>`00000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
+const [owner,other,ana,bob,pa,pb,sa,sb,form,form2]=Array.from({length:10},(_,i)=>id(i+1));
+await db.exec(`
+CREATE SCHEMA auth; CREATE ROLE authenticated; CREATE ROLE service_role;
+CREATE TABLE auth.users(id uuid PRIMARY KEY); INSERT INTO auth.users VALUES('${owner}'),('${other}');
+CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql AS $$SELECT nullif(current_setting('test.uid',true),'')::uuid$$;
+CREATE FUNCTION effective_owner_id() RETURNS uuid LANGUAGE sql AS $$SELECT '${owner}'::uuid$$;
+CREATE FUNCTION current_member_has_full_crm_access() RETURNS boolean LANGUAGE sql AS $$SELECT auth.uid()='${owner}'::uuid$$;
+CREATE FUNCTION can_view_lead(uuid) RETURNS boolean LANGUAGE sql AS $$SELECT true$$;
+CREATE TABLE user_profiles(id uuid PRIMARY KEY,owner_id uuid,auth_user_id uuid,is_active boolean,crm_pipeline_id uuid);
+INSERT INTO user_profiles VALUES('${ana}','${owner}','${id(51)}',true,'${pa}'),('${bob}','${owner}','${id(52)}',true,'${pb}');
+CREATE TABLE crm_pipelines(id uuid PRIMARY KEY,user_id uuid,is_active boolean DEFAULT true,default_assignee_id uuid);
+INSERT INTO crm_pipelines(id,user_id,default_assignee_id) VALUES('${pa}','${owner}','${ana}'),('${pb}','${owner}','${bob}');
+CREATE TABLE crm_stages(id uuid PRIMARY KEY,user_id uuid,pipeline_id uuid,is_active boolean DEFAULT true,legacy_column text DEFAULT 'novo_lead',order_index integer DEFAULT 0);
+INSERT INTO crm_stages(id,user_id,pipeline_id) VALUES('${sa}','${owner}','${pa}'),('${sb}','${owner}','${pb}');
+CREATE TABLE forms(id uuid PRIMARY KEY,user_id uuid,deleted_at timestamptz);
+INSERT INTO forms VALUES('${form}','${owner}',null),('${form2}','${owner}',null),('${id(90)}','${other}',null);
+CREATE TABLE meta_form_subscriptions(user_id uuid,form_id text,page_id text);
+INSERT INTO meta_form_subscriptions VALUES('${owner}','meta-form','page');
+CREATE TABLE leads(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),user_id uuid,name text CHECK(name<>'FAIL'),contact text,email text,source text,form_id text,form_name text,page_id text,leadgen_id text,campaign_name text,ad_name text,meta_form_answers jsonb,origin_id uuid,tags uuid[],deal_value numeric,integration_notes text,entered_at date,received_at timestamptz,iq_score numeric,ie_score numeric,is_duplicate boolean,pipeline_id uuid,stage_id uuid,kanban_column text,assigned_to uuid);
+CREATE UNIQUE INDEX meta_unique ON leads(user_id,leadgen_id) WHERE leadgen_id IS NOT NULL;
+CREATE TABLE form_submissions(id uuid PRIMARY KEY,user_id uuid,form_id uuid,lead_id uuid);
+CREATE TABLE crm_lead_stage_history(lead_id uuid,pipeline_id uuid,stage_id uuid,from_column text,to_column text,moved_by uuid,note text);
+SELECT set_config('test.uid','${owner}',false);
+`);
+await db.exec(readFileSync('supabase/migrations/20261116190000_crm_lead_roulette.sql','utf8'));
+await db.exec(readFileSync('supabase/migrations/20261116210000_crm_roulette_management.sql','utf8'));
+async function save(formId,stages=[sa,sb],source='genesy',rid=null,enabled=true) {
+ return (await db.query('SELECT crm_save_lead_roulette($1,$2,$3,$4,$5,$6,$7) id',[rid,'Equipe',source,formId,source==='meta'?'page':'',stages,enabled])).rows[0].id;
+}
+async function submit(n, opts={}) {
+ const formId=opts.form??form; const source=opts.source??'genesy';const event=source==='meta'?String(n):id(n);
+ if(source==='genesy') await db.query('INSERT INTO form_submissions(id,user_id,form_id) VALUES($1,$2,$3) ON CONFLICT DO NOTHING',[event,owner,formId]);
+ return (await db.query('SELECT crm_distribute_form_lead($1,$2,$3,$4,$5,$6) result',[owner,source,formId,source==='meta'?'page':'',event,{name:opts.name??'Contato',source:source==='meta'?'meta_lead_ads':'formulario_genesy',assigned_to:other,pipeline_id:id(90)}])).rows[0].result;
+}
+const r=await save(form);
+const results=await Promise.all(Array.from({length:10},(_,i)=>submit(100+i)));
+assert.deepEqual(results.map(r=>r.pipeline_id),Array.from({length:10},(_,i)=>i%2?pb:pa));
+assert.equal((await db.query('SELECT count(*)::int n FROM leads')).rows[0].n,10);
+const replay=await submit(100);assert.equal(replay.status,'duplicate');assert.equal(replay.lead_id,results[0].lead_id);
+assert.equal((await submit(110)).pipeline_id,pa);
+assert.equal((await db.query('SELECT assigned_to FROM leads WHERE id=$1',[results[0].lead_id])).rows[0].assigned_to,ana);
+assert.equal((await db.query('SELECT count(*)::int n FROM crm_lead_stage_history')).rows[0].n,11);
+const second=await save(form2);assert.equal((await submit(120,{form:form2})).pipeline_id,pa);
+await save(form,[sa,sb],'genesy',r,false);assert.equal((await submit(130)).status,'pending');
+await submit(130,{name:'Atualizado'});
+await save(form,[sa,sb],'genesy',r,true);
+const recovered=(await db.query('SELECT crm_distribute_form_lead($1,$2,$3,$4,$5,$6) result',[owner,'genesy',form,'',id(130),null])).rows[0].result;
+assert.equal(recovered.pipeline_id,pb);
+assert.equal((await db.query('SELECT name FROM leads WHERE id=$1',[recovered.lead_id])).rows[0].name,'Atualizado');
+await db.exec(`UPDATE user_profiles SET is_active=false WHERE id='${ana}';`);
+assert.equal((await submit(131)).pipeline_id,pb);
+await db.exec(`UPDATE user_profiles SET is_active=false WHERE id='${bob}';`);
+assert.equal((await submit(132)).status,'pending');
+await db.exec(`UPDATE user_profiles SET is_active=true;`);
+assert.equal((await submit(132)).pipeline_id,pa);
+await assert.rejects(submit(140,{name:'FAIL'}),/check constraint/);
+assert.equal((await submit(140)).pipeline_id,pb); // failed insert did not consume a turn
+await assert.rejects(save(form,[sa,sa]),/uma etapa/);
+await assert.rejects(save(id(90)),/Formulário inválido/);
+await assert.rejects(save(form),/unique constraint/);
+await save('meta-form',[sa,sb],'meta');
+assert.equal((await submit(150,{source:'meta',form:'meta-form'})).pipeline_id,pa);
+assert.equal((await submit(150,{source:'meta',form:'meta-form'})).status,'duplicate');
+assert.equal((await submit(151,{source:'meta',form:'meta-form'})).pipeline_id,pb);
+// Keep receipt idempotency even if a lead is later deleted.
+await db.query('DELETE FROM leads WHERE id=$1',[results[0].lead_id]);
+await db.exec(`UPDATE form_submissions SET lead_id=NULL WHERE id='${id(100)}';`);
+assert.equal((await submit(100)).status,'duplicate');
+// Deletion preserves history, refuses pending receipts, and releases the form.
+await db.query('SELECT crm_set_roulette_state($1,false,false)',[r]);
+await submit(172);
+await assert.rejects(db.query('SELECT crm_set_roulette_state($1,NULL,true)',[r]),/pendentes/);
+await db.query('SELECT crm_set_roulette_state($1,true,false)',[r]);
+await submit(172);
+await submit(140);
+await db.query('SELECT crm_set_roulette_state($1,NULL,true)',[second]);
+assert.ok((await db.query('SELECT deleted_at FROM crm_lead_roulettes WHERE id=$1',[second])).rows[0].deleted_at);
+assert.equal((await db.query('SELECT count(*)::int n FROM crm_lead_distribution WHERE roulette_id=$1',[second])).rows[0].n,1);
+assert.equal((await submit(170,{form:form2})).matched,false);
+assert.notEqual(await save(form2),second);
+await db.query('SELECT crm_set_roulette_state($1,false,false)',[r]);
+assert.equal((await submit(171)).status,'pending');
+await db.query('SELECT crm_set_roulette_state($1,true,false)',[r]);
+assert.equal((await submit(171)).status,'distributed');
+// Isolated recipient access, even when two members share a pipeline.
+await db.exec(`ALTER TABLE leads ENABLE ROW LEVEL SECURITY;
+CREATE POLICY tenant_leads ON leads FOR ALL TO authenticated USING(user_id=effective_owner_id() AND can_access_crm_pipeline(pipeline_id));
+GRANT USAGE ON SCHEMA auth TO authenticated; GRANT SELECT,UPDATE ON leads TO authenticated; GRANT SELECT ON user_profiles TO authenticated;
+UPDATE user_profiles SET crm_pipeline_id='${pa}' WHERE id='${bob}';
+SELECT set_config('test.uid','${id(52)}',false); SET ROLE authenticated;`);
+assert.equal((await db.query(`SELECT count(*)::int n FROM leads WHERE assigned_to='${ana}'`)).rows[0].n,0);
+assert.ok((await db.query(`SELECT count(*)::int n FROM leads WHERE assigned_to='${bob}'`)).rows[0].n>0);
+await assert.rejects(db.query('SELECT * FROM crm_copy_lead_to_pipeline($1,$2)',[results[2].lead_id,sa]),/LEAD_NOT_FOUND/);
+await assert.rejects(db.query('UPDATE leads SET roulette_id=NULL WHERE assigned_to=$1',[bob]),/administradores/);
+await assert.rejects(save(form,[sa,sb],'genesy',r),/administradores/);
+await assert.rejects(db.query('SELECT crm_distribute_form_lead($1,$2,$3,$4,$5,$6)',[owner,'genesy',form,'',id(160),{}]),/permission denied/);
+await db.exec('RESET ROLE');
+console.log('OK: balanced independent queues, repeat delivery, ownership, pause/retry, unavailable recipients, rollback, validation, Meta idempotency, deletion tombstone and recipient/role isolation.');
+await db.close();

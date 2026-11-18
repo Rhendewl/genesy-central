@@ -80,8 +80,19 @@ const exportOptions = (width: number, height: number) => ({
   skipAutoScale: true,
 });
 
-export async function postElementToPng(element: HTMLElement, width: number, height: number) {
+async function waitForPostFonts(element: HTMLElement) {
+  // Explicitly request canvas fonts before waiting: ready alone can resolve
+  // before an off-screen export clone has triggered its font requests.
+  const textBlocks = element.querySelectorAll<HTMLElement>(".post-rich-text");
+  const families = new Set([element, ...Array.from(textBlocks)].map(node => getComputedStyle(node).fontFamily).filter(Boolean));
+  await Promise.all(Array.from(families, async family => {
+    await Promise.all([400, 700].map(weight => document.fonts.load(`${weight} 32px ${family}`)));
+  }));
   await document.fonts.ready;
+}
+
+export async function postElementToPng(element: HTMLElement, width: number, height: number) {
+  await waitForPostFonts(element);
   await waitForExportImages(element);
   const { clone, cleanup } = await prepareExportClone(element, width, height);
   try {
@@ -154,7 +165,7 @@ async function cropTransparentPng(blob: Blob) {
 }
 
 export async function postTextElementToPng(element: HTMLElement) {
-  await document.fonts.ready;
+  await waitForPostFonts(element);
   await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
   const width = Math.max(1, element.scrollWidth);
   const height = Math.max(1, element.scrollHeight);
