@@ -221,10 +221,11 @@ export default function Home() {
     let stopped = false;
     const params = new URLSearchParams(window.location.search);
     const visitorKey = "genesy_site_visitor";
-    let visitorId = localStorage.getItem(visitorKey);
+    let visitorId: string | null = null;
+    try { visitorId = localStorage.getItem(visitorKey); } catch { visitorId = null; }
     if (!visitorId) {
-      visitorId = crypto.randomUUID();
-      localStorage.setItem(visitorKey, visitorId);
+      visitorId = typeof crypto !== "undefined" && typeof crypto.randomUUID === "function" ? crypto.randomUUID() : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`;
+      try { localStorage.setItem(visitorKey, visitorId); } catch { /* navegação privada */ }
     }
     const device = window.matchMedia("(max-width: 767px)").matches ? "mobile" : window.matchMedia("(max-width: 1100px)").matches ? "tablet" : "desktop";
     const browser = /Edg/i.test(navigator.userAgent) ? "Edge" : /Chrome/i.test(navigator.userAgent) ? "Chrome" : /Safari/i.test(navigator.userAgent) ? "Safari" : /Firefox/i.test(navigator.userAgent) ? "Firefox" : "Outro";
