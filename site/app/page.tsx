@@ -371,14 +371,14 @@ export default function Home() {
       };
       // O primeiro número já aparece enquanto a seção ainda está entrando na tela.
       const entering = rect.top < window.innerHeight * 0.45;
-      storyHeadline.classList.toggle("is-shown", entering && progress < 0.2);
-      storyHeadline.classList.toggle("is-hiding", progress >= 0.2);
-      setStoryPanel(storyStatOne, 0.215, 0.39);
+      storyHeadline.classList.toggle("is-shown", entering && progress < 0.111);
+      storyHeadline.classList.toggle("is-hiding", progress >= 0.111);
+      setStoryPanel(storyStatOne, 0.128, 0.322);
 
-      const layerEnter = softRange(progress, 0.38, 0.47);
-      const consultationEnter = range(progress, 0.47, 0.53);
-      const consultationExit = softRange(progress, 0.86, 0.91);
-      const ctaEnter = softRange(progress, 0.87, 0.93);
+      const layerEnter = softRange(progress, 0.311, 0.411);
+      const consultationEnter = range(progress, 0.411, 0.478);
+      const consultationExit = softRange(progress, 0.844, 0.9);
+      const ctaEnter = softRange(progress, 0.856, 0.922);
       const consultationVisibility = consultationEnter * (1 - consultationExit);
 
       results.style.opacity = "1";
@@ -392,9 +392,9 @@ export default function Home() {
       // Desktop: ficam lado a lado e vão se somando. Mobile: aparecem um de cada vez.
       const isMobile = window.matchMedia("(max-width: 780px)").matches;
       const itemEnters = [
-        range(progress, 0.54, 0.6),
-        range(progress, 0.64, 0.7),
-        range(progress, 0.74, 0.8),
+        range(progress, 0.489, 0.556),
+        range(progress, 0.6, 0.667),
+        range(progress, 0.711, 0.778),
       ];
       consultationCardItems.forEach((item, index) => {
         const enter = itemEnters[index];
