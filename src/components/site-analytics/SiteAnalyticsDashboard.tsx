@@ -18,7 +18,7 @@ type Overview = {
   leads: Array<{ id: string; name: string; phone: string; profile: string | null; monthly_vgv: string | null; sync_status: string; sync_error: string | null; crm_lead_id: string | null; created_at: string }>;
 };
 type Pipeline = { id: string; name: string; crm_stages: Array<{ id: string; name: string; order_index: number; is_active: boolean }> };
-type SettingsPayload = { settings: { crm_pipeline_id: string | null; crm_stage_id: string | null } | null; pipelines: Pipeline[]; canManage: boolean };
+type SettingsPayload = { settings: { crm_pipeline_id: string | null; crm_stage_id: string | null; deal_value?: number | string | null } | null; pipelines: Pipeline[]; canManage: boolean };
 
 const LABELS: Record<string, string> = { direto: "Direto", instagram: "Instagram", facebook: "Facebook", google: "Google", mobile: "Celular", desktop: "Computador", tablet: "Tablet", desconhecido: "Não identificado", top: "Topo", numeros: "Números", depoimentos: "Depoimentos", sistema: "Sistema Genesy", faq: "FAQ", cta: "Formulário" };
 const label = (name: string) => LABELS[name] ?? name;
@@ -38,6 +38,7 @@ export function SiteAnalyticsDashboard() {
   const [config, setConfig] = useState<SettingsPayload | null>(null);
   const [pipelineId, setPipelineId] = useState("");
   const [stageId, setStageId] = useState("");
+  const [dealValue, setDealValue] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const stages = useMemo(() => config?.pipelines.find(p => p.id === pipelineId)?.crm_stages.filter(s => s.is_active).sort((a,b) => a.order_index-b.order_index) ?? [], [config, pipelineId]);
@@ -47,14 +48,14 @@ export function SiteAnalyticsDashboard() {
     const [overviewRes, settingsRes] = await Promise.all([fetch(`/api/site-analytics/overview?days=${days}`), fetch("/api/site-analytics/settings")]);
     const overview = await overviewRes.json(); const settings = await settingsRes.json();
     if (!overviewRes.ok || !settingsRes.ok) toast.error(overview.error ?? settings.error ?? "Não foi possível carregar os dados");
-    else { setData(overview); setConfig(settings); setPipelineId(settings.settings?.crm_pipeline_id ?? ""); setStageId(settings.settings?.crm_stage_id ?? ""); }
+    else { setData(overview); setConfig(settings); setPipelineId(settings.settings?.crm_pipeline_id ?? ""); setStageId(settings.settings?.crm_stage_id ?? ""); setDealValue(String(Number(settings.settings?.deal_value ?? 0) || "")); }
     setLoading(false);
   }
   useEffect(() => { void load(); }, [days]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function saveSettings() {
     setSaving(true);
-    const response = await fetch("/api/site-analytics/settings", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pipeline_id: pipelineId || null, stage_id: stageId || null }) });
+    const response = await fetch("/api/site-analytics/settings", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pipeline_id: pipelineId || null, stage_id: stageId || null, deal_value: dealValue || 0 }) });
     const json = await response.json(); setSaving(false);
     if (!response.ok) return toast.error(json.error ?? "Não foi possível salvar");
     toast.success("Sincronização com o CRM configurada"); await load();
@@ -80,7 +81,7 @@ export function SiteAnalyticsDashboard() {
     </div>
     <div className="grid gap-4 xl:grid-cols-[1.45fr_.55fr]">
       <section className="lc-card p-5"><div className="mb-4"><h2 className="text-sm font-semibold">Evolução dos acessos</h2><p className="text-[11px]" style={{ color: "var(--muted-foreground)" }}>Sessões, visualizações e leads ao longo do período</p></div><div className="h-64"><ResponsiveContainer width="100%" height="100%"><AreaChart data={data.timeline}><defs><linearGradient id="siteArea" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#34d399" stopOpacity={.36}/><stop offset="100%" stopColor="#34d399" stopOpacity={0}/></linearGradient></defs><XAxis dataKey="date" tickFormatter={v => v.slice(5).split("-").reverse().join("/")} axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: "var(--muted-foreground)" }}/><Tooltip contentStyle={{ background: "var(--background)", border: "1px solid var(--border)", borderRadius: 12, fontSize: 11 }}/><Area type="monotone" dataKey="sessions" name="Acessos" stroke="#34d399" fill="url(#siteArea)" strokeWidth={2}/><Area type="monotone" dataKey="leads" name="Leads" stroke="#60a5fa" fill="transparent" strokeWidth={2}/></AreaChart></ResponsiveContainer></div></section>
-      <section className="lc-card p-5"><h2 className="flex items-center gap-2 text-sm font-semibold"><Settings2 size={15}/> Pipeline do CRM</h2><p className="mt-1 text-[11px]" style={{ color: "var(--muted-foreground)" }}>Novos leads entram automaticamente na etapa escolhida.</p><div className="mt-5 space-y-3"><select value={pipelineId} onChange={e => { setPipelineId(e.target.value); setStageId(""); }} disabled={!config?.canManage} className="lc-form-control w-full"><option value="">Não sincronizar</option>{config?.pipelines.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select><select value={stageId} onChange={e => setStageId(e.target.value)} disabled={!pipelineId || !config?.canManage} className="lc-form-control w-full"><option value="">Selecionar etapa</option>{stages.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select>{config?.canManage && <button onClick={() => void saveSettings()} disabled={saving || (!!pipelineId && !stageId)} className="w-full rounded-xl bg-emerald-500 px-4 py-3 text-xs font-bold text-emerald-950 transition hover:bg-emerald-400 disabled:opacity-50">{saving ? "Salvando…" : "Salvar integração"}</button>}</div></section>
+      <section className="lc-card p-5"><h2 className="flex items-center gap-2 text-sm font-semibold"><Settings2 size={15}/> Pipeline do CRM</h2><p className="mt-1 text-[11px]" style={{ color: "var(--muted-foreground)" }}>Novos leads entram automaticamente na etapa escolhida, com o valor do negócio definido abaixo.</p><div className="mt-5 space-y-3"><select value={pipelineId} onChange={e => { setPipelineId(e.target.value); setStageId(""); }} disabled={!config?.canManage} className="lc-form-control w-full"><option value="">Não sincronizar</option>{config?.pipelines.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select><select value={stageId} onChange={e => setStageId(e.target.value)} disabled={!pipelineId || !config?.canManage} className="lc-form-control w-full"><option value="">Selecionar etapa</option>{stages.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select><label className="block text-[11px]" style={{ color: "var(--muted-foreground)" }}>Valor do negócio (R$)<input type="number" min={0} step="0.01" inputMode="decimal" value={dealValue} onChange={e => setDealValue(e.target.value)} disabled={!config?.canManage} placeholder="0,00" className="lc-form-control mt-1 w-full" /></label>{config?.canManage && <button onClick={() => void saveSettings()} disabled={saving || (!!pipelineId && !stageId)} className="w-full rounded-xl bg-emerald-500 px-4 py-3 text-xs font-bold text-emerald-950 transition hover:bg-emerald-400 disabled:opacity-50">{saving ? "Salvando…" : "Salvar integração"}</button>}</div></section>
     </div>
     <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
       <Ranking title="Funil do site" subtitle="Do acesso até virar lead" rows={data.funnel} empty="Sem acessos no período." />

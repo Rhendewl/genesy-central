@@ -17,7 +17,9 @@ export async function PUT(req: NextRequest) {
   const context = await siteAnalyticsContext();
   if (!context) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
   if (!context.canManage) return NextResponse.json({ error: "Apenas administradores podem alterar a integração" }, { status: 403 });
-  const body = await req.json().catch(() => null) as { pipeline_id?: string | null; stage_id?: string | null; assigned_to?: string | null } | null;
+  const body = await req.json().catch(() => null) as { pipeline_id?: string | null; stage_id?: string | null; assigned_to?: string | null; deal_value?: number | string | null } | null;
+  const dealValue = Number(String(body?.deal_value ?? 0).replace(",", "."));
+  if (!Number.isFinite(dealValue) || dealValue < 0) return NextResponse.json({ error: "Valor do negócio inválido" }, { status: 400 });
   const admin = createAdminSupabaseClient();
   if (body?.stage_id) {
     const { data: stage } = await admin.from("crm_stages").select("id,pipeline_id,crm_pipelines!inner(user_id)")
@@ -28,6 +30,7 @@ export async function PUT(req: NextRequest) {
     user_id: context.ownerId, site_key: "genesycompany", name: "Site Genesy", domain: "genesycompany.com",
     form_slug: "formgenesysite", crm_pipeline_id: body?.pipeline_id ?? null,
     crm_stage_id: body?.stage_id ?? null, assigned_to: body?.assigned_to ?? null,
+    deal_value: Math.round(dealValue * 100) / 100,
     updated_at: new Date().toISOString(),
   }, { onConflict: "user_id,site_key" }).select("*").single();
   return NextResponse.json(error ? { error: error.message } : { settings: data }, { status: error ? 500 : 200 });

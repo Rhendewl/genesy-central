@@ -64,7 +64,7 @@ export async function syncSiteLead(leadId: string) {
   if (lead.crm_lead_id) return { ok: true, crmLeadId: lead.crm_lead_id };
 
   const { data: settings } = await db.from("site_analytics_settings")
-    .select("crm_pipeline_id,crm_stage_id,assigned_to")
+    .select("crm_pipeline_id,crm_stage_id,assigned_to,deal_value")
     .eq("user_id", lead.user_id).eq("site_key", lead.site_key).maybeSingle();
   if (!settings?.crm_stage_id) {
     await db.from("site_analytics_leads").update({ sync_status: "disabled", sync_error: null }).eq("id", lead.id);
@@ -88,7 +88,7 @@ export async function syncSiteLead(leadId: string) {
     tags: [],
     notes: null,
     integration_notes: notes,
-    deal_value: 0,
+    deal_value: Number(settings.deal_value ?? 0) || 0,
   });
   if (!result.ok || !result.leadId) {
     await db.from("site_analytics_leads").update({ sync_status: "failed", sync_error: result.error }).eq("id", lead.id);
