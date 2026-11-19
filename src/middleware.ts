@@ -39,6 +39,9 @@ const PUBLIC_ROUTES = [
   "/api/google-calendar/callback",
   "/api/marketing/instagram/webhook",
   "/api/cron/",
+  // Coleta pública do site institucional (sessões, eventos e leads) — CORS
+  // controlado em src/lib/site-analytics.ts. Não inclui /api/site-analytics.
+  "/api/site/",
   "/api/conversas/webhook/",
   "/api/crm/conversation-intelligence/webhook",
 ];
