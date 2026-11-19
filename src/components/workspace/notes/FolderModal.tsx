@@ -4,7 +4,7 @@ import { useState } from "react";
 import { X, Loader2 } from "lucide-react";
 import { useAgencyClients } from "@/hooks/useAgencyClients";
 import type { NewWorkspaceNoteFolder, WorkspaceNoteFolder } from "@/types/workspace-notes";
-import { GlassFolderIcon } from "@/components/ui/GlassFolderIcon";
+import { GlassAppIcon } from "@/components/ui/GlassAppIcon";
 
 const COLOR_SWATCHES = ["#4a8fd4", "#6b9b6f", "#e0a344", "#e05c5c", "#9b7fe0", "#7c878e"];
 
@@ -65,7 +65,7 @@ export function FolderModal({ folder, onClose, onSave, onDelete }: FolderModalPr
 
         <div className="flex flex-col gap-4 px-5 py-4">
           <div className="flex justify-center rounded-2xl py-2" style={{ background: `radial-gradient(circle, ${color ?? "#7c878e"}24 0%, transparent 68%)` }}>
-            <GlassFolderIcon color={color ?? "#7c878e"} className="h-24 w-28" />
+            <GlassAppIcon kind="notes" color={color ?? "#7c878e"} className="h-24 w-24" />
           </div>
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-medium" style={{ color: "var(--muted-foreground)" }}>Nome</label>

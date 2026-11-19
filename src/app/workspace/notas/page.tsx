@@ -11,7 +11,7 @@ import { useWorkspaceViewing } from "@/context/WorkspaceViewingContext";
 import { FoldersGrid } from "@/components/workspace/notes/FoldersGrid";
 import { FolderModal } from "@/components/workspace/notes/FolderModal";
 import type { WorkspaceNoteFolder } from "@/types/workspace-notes";
-import { GlassFolderIcon } from "@/components/ui/GlassFolderIcon";
+import { GlassAppIcon } from "@/components/ui/GlassAppIcon";
 
 export default function WorkspaceNotasPage() {
   const { viewingMember } = useWorkspaceViewing();
@@ -85,7 +85,7 @@ export default function WorkspaceNotasPage() {
             >
               <div className="glass-folder-glow pointer-events-none absolute inset-0 opacity-70" style={{ "--folder-color": "#75828e" } as React.CSSProperties} />
               <span className="absolute right-2.5 top-2.5 rounded-full px-1.5 py-0.5 text-[8px] uppercase tracking-wide backdrop-blur-md" style={{ background: "var(--hover)", color: "var(--muted-foreground)" }}>Sistema</span>
-              <GlassFolderIcon color="#75828e" className="relative h-16 w-[4.5rem] sm:h-20 sm:w-24" />
+              <GlassAppIcon kind="notes" color="#75828e" className="relative h-16 w-16 sm:h-20 sm:w-20" />
               <p className="relative text-sm font-semibold" style={{ color: "var(--text-title)" }}>Sem pasta</p>
               <p className="relative mt-0.5 text-[11px]" style={{ color: "var(--muted-foreground)" }}>
                 {looseNotes.length} {looseNotes.length === 1 ? "nota" : "notas"}

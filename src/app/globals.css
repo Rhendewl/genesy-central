@@ -1837,3 +1837,71 @@
 .lead-card-reminder{color:#f9c76b;background:#f9c76b14;border-color:#f9c76b40}
 .lead-card-notes{color:#72d6e4;background:#72d6e414;border-color:#72d6e440}
 .light .lead-card-reminder{color:#94600a}.light .lead-card-notes{color:#147184}
+
+/* ── Ícones de vidro (pastas de Notas, Formulários e Agendas) ───────────────── */
+.glass-app-icon {
+  position: relative; display: inline-grid; place-items: center; flex-shrink: 0;
+  container-type: size;
+}
+.glass-app-icon__box { position: relative; width: 90cqmin; height: 90cqmin; }
+.glass-app-icon__plate,
+.glass-app-icon__glass,
+.glass-app-icon__face {
+  position: absolute; width: 84%; height: 84%; border-radius: 30%;
+}
+.glass-app-icon__plate {
+  right: 0; top: 0;
+  background: linear-gradient(135deg,
+    color-mix(in srgb, var(--gai-color) 72%, #ffffff),
+    color-mix(in srgb, var(--gai-color) 84%, #000000));
+  box-shadow: 0 10px 22px -12px color-mix(in srgb, var(--gai-color) 70%, transparent);
+  animation: gai-plate-in .7s cubic-bezier(.22, 1, .36, 1) both;
+  transition: transform .45s cubic-bezier(.22, 1, .36, 1);
+}
+.glass-app-icon__glass {
+  left: 0; bottom: 0; overflow: hidden;
+  background: color-mix(in srgb, #dfdfdf 14%, transparent);
+  -webkit-backdrop-filter: blur(6px) saturate(1.45); backdrop-filter: blur(6px) saturate(1.45);
+  box-shadow:
+    inset 1.5px 2px 0 rgba(255, 255, 255, .34),
+    inset -1px -1.5px 0 rgba(0, 0, 0, .22),
+    inset 0 0 0 1px rgba(255, 255, 255, .13),
+    0 12px 24px -14px rgba(0, 0, 0, .55);
+  animation: gai-glass-in .6s cubic-bezier(.22, 1, .36, 1) both;
+  transition: transform .45s cubic-bezier(.22, 1, .36, 1);
+}
+.glass-app-icon__glass::before {
+  content: ""; position: absolute; inset: 0; border-radius: inherit;
+  background: linear-gradient(150deg, rgba(255, 255, 255, .3), rgba(255, 255, 255, .04) 38%, transparent 60%, rgba(0, 0, 0, .12));
+}
+.glass-app-icon__face {
+  left: 0; bottom: 0; display: grid; place-items: center; color: #fff;
+  animation: gai-glass-in .6s .08s cubic-bezier(.22, 1, .36, 1) both;
+  transition: transform .45s cubic-bezier(.22, 1, .36, 1);
+}
+.glass-app-icon__face svg {
+  width: 44%; height: 44%; filter: drop-shadow(0 1px 3px rgba(0, 0, 0, .3));
+}
+.group:hover .glass-app-icon__glass,
+.group:hover .glass-app-icon__face { transform: translateY(-7%); }
+.group:hover .glass-app-icon__plate { transform: translate(4%, -4%); }
+@keyframes gai-plate-in {
+  from { opacity: 0; transform: translate(-18%, 18%); }
+  to { opacity: 1; transform: translate(0, 0); }
+}
+@keyframes gai-glass-in {
+  from { opacity: 0; transform: scale(.92); }
+  to { opacity: 1; transform: scale(1); }
+}
+.light .glass-app-icon__face svg { filter: drop-shadow(0 1px 2px rgba(0, 0, 0, .35)); }
+.light .glass-app-icon__glass {
+  background: color-mix(in srgb, #ffffff 16%, transparent);
+  box-shadow:
+    inset 1.5px 2px 0 rgba(255, 255, 255, .7),
+    inset -1px -1.5px 0 rgba(24, 24, 27, .1),
+    inset 0 0 0 1px rgba(24, 24, 27, .08),
+    0 12px 22px -14px rgba(24, 24, 27, .35);
+}
+@media (prefers-reduced-motion: reduce) {
+  .glass-app-icon__plate, .glass-app-icon__glass, .glass-app-icon__face { animation: none; transition: none; }
+}

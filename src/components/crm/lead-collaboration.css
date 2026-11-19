@@ -17,11 +17,21 @@
 @media(max-width:767px){.lead-collab-data-column{border:0}.lead-collab-notes-column{padding:12px}.lead-notes-panel{border-radius:22px}.lead-note-composer>label{gap:5px}.lead-note-composer>label>span{font-size:10px}.lead-note-composer-actions>small{font-size:10px}.lead-reminders-top>button:not(.lead-reminders-toggle){font-size:11px}.lead-reminders-toggle small{font-size:11px}.lead-schedule-fields{grid-template-columns:1.2fr 1fr}}
 .lead-reminders-toggle small{font-weight:400}.lead-collab-data-column input[type=date]{color-scheme:dark}.light .lead-collab-data-column input[type=date]{color-scheme:light}/* Notes have their own blue accent; reminders retain the amber palette. */.lead-notes-panel{--lead-accent:#38bdf8}.light .lead-notes-panel{--lead-accent:#0369a1}.lead-collab-mobile-tabs button:last-child[aria-pressed=true]{color:#38bdf8;background:#38bdf810;border-color:#38bdf830}.light .lead-collab-mobile-tabs button:last-child[aria-pressed=true]{color:#0369a1}
 
-/* A fine graphite border with a softly shifting silver glow. */
-.lead-note-composer textarea{border:1px solid transparent;min-height:110px;background:linear-gradient(var(--bg-modal),var(--bg-modal)) padding-box,linear-gradient(115deg,#151515,#484848,#939393,#252525,#151515) border-box;background-size:100% 100%,300% 300%;animation:lead-compose-gradient 9s ease infinite;box-shadow:0 4px 20px #00000020;padding:14px;font-size:16px;transition:box-shadow .2s}
-.lead-note-composer textarea:focus{border-color:transparent;box-shadow:0 0 0 2px #80808018,0 6px 24px #00000030}
-@keyframes lead-compose-gradient{0%,100%{background-position:0 0,0% 50%}50%{background-position:0 0,100% 50%}}
-@media(prefers-reduced-motion:reduce){.lead-note-composer textarea{animation:none}}
+/* Campo de nova nota: contorno discreto com pontos de brilho que percorrem a borda devagar. */
+@property --lead-glow-angle{syntax:'<angle>';inherits:false;initial-value:0deg}
+.lead-note-field{position:relative;border-radius:12px;isolation:isolate;--lead-glow-hi:rgba(255,255,255,.9);--lead-glow-tone:#7dd3fc;--lead-glow-soft:.45}
+.light .lead-note-field{--lead-glow-hi:#0369a1;--lead-glow-tone:#38bdf8;--lead-glow-soft:.3}
+.lead-note-field::before,.lead-note-field::after{content:"";position:absolute;border-radius:inherit;pointer-events:none;background:conic-gradient(from var(--lead-glow-angle),transparent 0deg,var(--lead-glow-tone) 26deg,var(--lead-glow-hi) 44deg,transparent 78deg,transparent 175deg,var(--lead-glow-tone) 208deg,var(--lead-glow-hi) 222deg,transparent 250deg,transparent 360deg);animation:lead-glow-spin 9s linear infinite}
+.lead-note-field::before{inset:0;z-index:2;padding:1px;-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask:linear-gradient(#000 0 0) content-box exclude,linear-gradient(#000 0 0)}
+.lead-note-field::after{inset:-2px;z-index:0;filter:blur(9px);opacity:var(--lead-glow-soft);transition:opacity .3s}
+.lead-note-field:focus-within{--lead-glow-soft:.7}
+.light .lead-note-field:focus-within{--lead-glow-soft:.45}
+.lead-note-composer .lead-note-field textarea{position:relative;z-index:1;display:block;min-height:110px;border:1px solid rgba(255,255,255,.09);border-radius:12px;background:var(--bg-modal);box-shadow:0 4px 20px #00000020;padding:14px;font-size:16px;transition:box-shadow .2s,border-color .2s}
+.light .lead-note-composer .lead-note-field textarea{border-color:rgba(15,23,42,.1);box-shadow:0 4px 18px rgba(15,23,42,.06)}
+.lead-note-composer .lead-note-field textarea:focus{border-color:rgba(255,255,255,.14);box-shadow:0 6px 24px #00000030}
+.light .lead-note-composer .lead-note-field textarea:focus{border-color:rgba(3,105,161,.22);box-shadow:0 6px 22px rgba(15,23,42,.09)}
+@keyframes lead-glow-spin{to{--lead-glow-angle:360deg}}
+@media(prefers-reduced-motion:reduce){.lead-note-field::before,.lead-note-field::after{animation:none}}
 
 /* Keep new-lead creation below the floating mobile header, with internal scrolling. */
 @media(max-width:767px){

@@ -12,7 +12,7 @@ import { Header } from "@/components/layout/Header";
 import { useFormularios } from "@/hooks/useFormularios";
 import { toast } from "sonner";
 import type { Form, FormFolder, FormOrigin } from "@/types";
-import { GlassFolderIcon } from "@/components/ui/GlassFolderIcon";
+import { GlassAppIcon } from "@/components/ui/GlassAppIcon";
 import { Button } from "@/components/ui/button";
 import { buildPublicUrl } from "@/lib/public-url";
 import {
@@ -367,7 +367,7 @@ function FolderNameModal({ open, initialName = "", initialColor = "#4a8fd4", tit
           <button type="button" onClick={onClose}><X size={15} style={{ color: "var(--muted-foreground)" }} /></button>
         </div>
         <div className="mb-3 flex justify-center rounded-2xl py-3" style={{ background: `radial-gradient(circle, ${color}22 0%, transparent 68%)` }}>
-          <GlassFolderIcon color={color} className="h-24 w-28" />
+          <GlassAppIcon kind="forms" color={color} className="h-24 w-24" />
         </div>
         <input autoFocus value={name} onChange={(event) => setName(event.target.value)} maxLength={80} placeholder="Nome da pasta"
           className="mb-4 w-full rounded-lg px-3 py-2.5 text-sm outline-none"
@@ -404,7 +404,7 @@ function FolderNavigation({ folders, forms, onSelect, onRename, onDelete }: {
       style={{ "--folder-color": color } as React.CSSProperties}>
       <div className="glass-folder-glow pointer-events-none absolute inset-0 opacity-70" style={{ "--folder-color": color } as React.CSSProperties} />
       <div className="relative flex h-full flex-col items-center justify-center gap-1">
-        <GlassFolderIcon color={color} className="h-16 w-[4.5rem] sm:h-20 sm:w-24" />
+        <GlassAppIcon kind="forms" color={color} className="h-16 w-16 sm:h-20 sm:w-20" />
         <div className="w-full text-center">
           <p className="truncate text-sm font-semibold" style={{ color: "var(--text-title)" }}>{name}</p>
           <p className="mt-0.5 text-[11px]" style={{ color: "var(--muted-foreground)" }}>{count} {count === 1 ? "formulário" : "formulários"}</p>
@@ -455,7 +455,7 @@ function FolderNavigation({ folders, forms, onSelect, onRename, onDelete }: {
       </div>
       {folders.length === 0 && unfiled === 0 && (
         <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed py-16 text-center" style={{ borderColor: "var(--border)" }}>
-          <GlassFolderIcon color="#75828e" className="h-28 w-32 opacity-70" />
+          <GlassAppIcon kind="forms" color="#75828e" className="h-28 w-28 opacity-70" />
           <p className="mt-2 text-sm font-medium" style={{ color: "var(--text-title)" }}>Nenhuma pasta criada</p>
           <p className="mt-1 text-xs" style={{ color: "var(--muted-foreground)" }}>Crie a primeira pasta para organizar seus formulários.</p>
         </div>
@@ -660,7 +660,7 @@ export default function FormulariosPage() {
                   style={{ color: "var(--muted-foreground)" }} title="Voltar para pastas">
                   <ArrowLeft size={17} />
                 </button>
-                <GlassFolderIcon color={selectedFolderRecord?.color ?? "#75828e"} className="h-14 w-16 flex-shrink-0" />
+                <GlassAppIcon kind="forms" color={selectedFolderRecord?.color ?? "#75828e"} className="h-14 w-14 flex-shrink-0" />
                 <div className="min-w-0">
                   <p className="text-[10px] font-semibold uppercase tracking-[0.16em]" style={{ color: "var(--muted-foreground)" }}>Dentro da pasta</p>
                   <h2 className="truncate text-base font-semibold" style={{ color: "var(--text-title)" }}>

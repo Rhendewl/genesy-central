@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { MoreHorizontal, Trash2, Pencil } from "lucide-react";
 import type { WorkspaceNoteFolder } from "@/types/workspace-notes";
-import { GlassFolderIcon } from "@/components/ui/GlassFolderIcon";
+import { GlassAppIcon } from "@/components/ui/GlassAppIcon";
 
 interface FolderCardProps {
   folder:   WorkspaceNoteFolder;
@@ -33,7 +33,7 @@ export function FolderCard({ folder, onEdit, onDelete }: FolderCardProps) {
     >
       <div className="glass-folder-glow pointer-events-none absolute inset-0 opacity-70" style={{ "--folder-color": color } as React.CSSProperties} />
       <div className="relative">
-        <GlassFolderIcon color={color} className="h-16 w-[4.5rem] sm:h-20 sm:w-24" />
+        <GlassAppIcon kind="notes" color={color} className="h-16 w-16 sm:h-20 sm:w-20" />
       </div>
 
       <button type="button" onClick={(event) => { event.stopPropagation(); setMenuOpen((open) => !open); }}

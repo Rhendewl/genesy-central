@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Archive, Check, Clock, Link2, MoreHorizontal } from "lucide-react";
-import { GlassCalendarIcon } from "@/components/ui/GlassCalendarIcon";
+import { GlassAppIcon } from "@/components/ui/GlassAppIcon";
 import type { AppointmentCalendar } from "@/types/appointments";
 import { buildPublicUrl } from "@/lib/public-url";
 
@@ -12,7 +12,7 @@ export function CalendarCard({ calendar, onArchive }: { calendar: AppointmentCal
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
   const [copied, setCopied] = useState(false);
-  const color = calendar.status === "active" ? "#4a8fd4" : "#75828e";
+  const color = calendar.status === "active" ? (calendar.settings?.page?.brand_color || "#4a8fd4") : "#75828e";
 
   function handleCopyLink(event: React.MouseEvent) {
     event.stopPropagation();
@@ -55,7 +55,7 @@ export function CalendarCard({ calendar, onArchive }: { calendar: AppointmentCal
       </div>
 
       <div className="relative flex h-full min-w-0 flex-col items-center justify-center px-1 pb-7 pt-5">
-        <GlassCalendarIcon color={color} className="h-16 w-16 sm:h-20 sm:w-20" />
+        <GlassAppIcon kind="calendar" color={color} className="h-16 w-16 sm:h-20 sm:w-20" />
         <h3 className="mt-[-2px] w-full truncate text-xs font-semibold text-[var(--text-title)] sm:text-sm">{calendar.name}</h3>
         <p className="mt-1 flex max-w-full items-center gap-1 truncate text-[10px] text-[var(--muted-foreground)] sm:text-[11px]"><Clock size={10} className="shrink-0" />{calendar.duration_minutes} min<span className="hidden sm:inline">· {calendar.timezone.replace("America/", "")}</span></p>
       </div>

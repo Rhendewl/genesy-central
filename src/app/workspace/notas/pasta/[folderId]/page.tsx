@@ -10,7 +10,7 @@ import { useWorkspaceNotes } from "@/hooks/useWorkspaceNotes";
 import { useWorkspaceViewing } from "@/context/WorkspaceViewingContext";
 import { NotesGrid } from "@/components/workspace/notes/NotesGrid";
 import { FolderModal } from "@/components/workspace/notes/FolderModal";
-import { GlassFolderIcon } from "@/components/ui/GlassFolderIcon";
+import { GlassAppIcon } from "@/components/ui/GlassAppIcon";
 import { Button } from "@/components/ui/button";
 
 export default function WorkspaceFolderPage() {
@@ -72,7 +72,7 @@ export default function WorkspaceFolderPage() {
           <div className="px-4 pb-4 sm:px-6">
             <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
               <div className="flex items-center gap-2.5">
-                <GlassFolderIcon color={folder.color ?? "#7c878e"} className="h-14 w-16 shrink-0" />
+                <GlassAppIcon kind="notes" color={folder.color ?? "#7c878e"} className="h-14 w-14 shrink-0" />
                 <div>
                   <h1 className="text-lg font-bold" style={{ color: "var(--text-title)" }}>{folder.name}</h1>
                   {folder.client_name && (
