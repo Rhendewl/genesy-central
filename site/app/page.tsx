@@ -343,8 +343,44 @@ export default function Home() {
       stage.querySelectorAll<HTMLElement>(".transition-consult-card"),
     );
     const transitionCta = stage.querySelector<HTMLElement>(".transition-cta-wrap");
+    const focusVisual = stage.querySelector<HTMLElement>(".lead-form-visual");
+    const focusPhoto = stage.querySelector<HTMLImageElement>(".lead-form-photo");
+    const focusReticle = stage.querySelector<HTMLElement>(".focus-reticle");
     const nav = document.querySelector<HTMLElement>(".nav");
     if (!scene || !results || !storyHeadline || !storyStatOne || !consultation || !transitionCta) return;
+
+    // Posiciona a mira em cima do rosto, considerando o recorte da foto (object-fit: cover).
+    const placeReticle = () => {
+      if (!focusVisual || !focusPhoto || !focusReticle) return;
+      const w = focusVisual.clientWidth;
+      const h = focusVisual.clientHeight;
+      if (!w || !h) return;
+      const natW = focusPhoto.naturalWidth || 1086;
+      const natH = focusPhoto.naturalHeight || 1448;
+      const scale = Math.max(w / natW, h / natH);
+      const renderW = natW * scale;
+      const renderH = natH * scale;
+      const pos = getComputedStyle(focusPhoto).objectPosition.split(" ");
+      const px = (parseFloat(pos[0]) || 50) / 100;
+      const py = (parseFloat(pos[1] ?? "50") || 50) / 100;
+      const offX = (w - renderW) * px;
+      const offY = (h - renderH) * py;
+      // Área do rosto na foto original (proporções medidas na imagem).
+      // Se a foto estiver muito recortada (celular), a mira encolhe para caber inteira.
+      const margin = 12;
+      const fit = Math.min(1, (h - 2 * margin) / (renderH * 0.32), (w - 2 * margin) / (renderW * 0.36));
+      const boxW = renderW * 0.36 * fit;
+      const boxH = renderH * 0.32 * fit;
+      const centerX = offX + renderW * 0.55;
+      const centerY = offY + renderH * 0.44;
+      const left = centerX - boxW / 2;
+      const top = Math.min(Math.max(centerY - boxH / 2, margin), h - margin - boxH);
+      focusReticle.style.left = `${left}px`;
+      focusReticle.style.top = `${top}px`;
+      focusReticle.style.width = `${boxW}px`;
+      focusReticle.style.height = `${boxH}px`;
+      focusReticle.classList.toggle("label-inside", top < 36);
+    };
 
     let ticking = false;
     const smooth = (value: number) => value * value * (3 - 2 * value);
@@ -412,6 +448,20 @@ export default function Home() {
       transitionCta.style.transform = `translateY(${14 * (1 - ctaEnter)}px)`;
       transitionCta.style.pointerEvents = ctaEnter > 0.92 ? "auto" : "none";
 
+      // Foto começa desfocada e entra em foco com a rolagem; no fim, a mira "trava" no rosto.
+      const focus = range(progress, 0.875, 0.95);
+      if (focusPhoto) {
+        const blur = 16 * (1 - focus);
+        focusPhoto.style.filter = blur > 0.05 ? `blur(${blur}px)` : "none";
+        focusPhoto.style.transform = `scale(${1.06 - 0.06 * focus})`;
+      }
+      if (focusReticle) {
+        const lock = range(focus, 0.3, 0.9);
+        focusReticle.style.setProperty("--lock", `${lock}`);
+        focusReticle.style.opacity = `${Math.min(1, focus * 2.2)}`;
+        focusReticle.classList.toggle("is-locked", focus > 0.97);
+      }
+
       const activeRect = rect;
       const darkVideo = layerEnter > 0.55 && ctaEnter < 0.45 && activeRect.bottom > 80;
       nav?.classList.toggle("nav-dark", darkVideo);
@@ -424,15 +474,22 @@ export default function Home() {
     };
 
     const onResize = () => {
+      placeReticle();
       updateTransition();
     };
 
+    placeReticle();
     updateTransition();
+    focusPhoto?.addEventListener("load", placeReticle);
+    const visualObserver = focusVisual && "ResizeObserver" in window ? new ResizeObserver(placeReticle) : null;
+    if (focusVisual) visualObserver?.observe(focusVisual);
     window.addEventListener("scroll", onScroll, { passive: true });
     window.addEventListener("resize", onResize);
     return () => {
       window.removeEventListener("scroll", onScroll);
       window.removeEventListener("resize", onResize);
+      focusPhoto?.removeEventListener("load", placeReticle);
+      visualObserver?.disconnect();
       nav?.classList.remove("nav-dark");
     };
   }, []);
@@ -700,6 +757,14 @@ export default function Home() {
                 decoding="async"
                 alt="Lancaster Matos"
               />
+              <div className="focus-reticle" aria-hidden="true">
+                <span className="focus-label">Você é o meu foco</span>
+                <i className="focus-corner focus-tl" />
+                <i className="focus-corner focus-tr" />
+                <i className="focus-corner focus-bl" />
+                <i className="focus-corner focus-br" />
+                <b className="focus-cross" />
+              </div>
               <div className="instagram-badge">
                 <img
                   src="/webp/img-perfil-instagram.webp"
