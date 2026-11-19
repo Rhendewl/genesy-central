@@ -486,43 +486,60 @@
 @layer components {
   /* Cards de pasta compartilham o mesmo glass em Formulários e Notas. No
      tema claro a cor escolhida ganha presença sem perder transparência. */
+  /* Cards de pasta (Formulários, Notas e Agendas): fundo preto translúcido e
+     neutro; a cor escolhida aparece só numa linha fina no canto superior esquerdo. */
   .glass-folder-card {
     background: linear-gradient(
       145deg,
-      color-mix(in srgb, var(--folder-color) 13%, var(--card)),
+      color-mix(in srgb, #000 22%, var(--card)),
       color-mix(in srgb, var(--card) 88%, transparent)
     );
-    border-color: color-mix(in srgb, var(--folder-color) 35%, var(--border));
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 18px 50px color-mix(in srgb, var(--folder-color) 7%, transparent);
+    border-color: transparent !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 18px 50px rgba(0, 0, 0, 0.25);
     backdrop-filter: blur(22px) saturate(145%);
     -webkit-backdrop-filter: blur(22px) saturate(145%);
   }
 
   .glass-folder-glow {
-    background: radial-gradient(circle at 28% 18%, color-mix(in srgb, var(--folder-color) 30%, transparent), transparent 48%),
-      linear-gradient(120deg, rgba(255, 255, 255, 0.08), transparent 42%);
+    border-radius: 19px;
+    padding: 1px;
+    opacity: 1 !important;
+    background:
+      radial-gradient(150% 115% at 0% 0%,
+        var(--folder-color) 0%,
+        color-mix(in srgb, var(--folder-color) 60%, transparent) 24%,
+        color-mix(in srgb, var(--folder-color) 18%, transparent) 42%,
+        transparent 60%),
+      linear-gradient(rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.09));
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
   }
 
   .light .glass-folder-card {
     background: linear-gradient(
       145deg,
-      color-mix(in srgb, var(--folder-color) 30%, rgba(255, 255, 255, 0.66)),
-      color-mix(in srgb, var(--folder-color) 16%, rgba(239, 243, 247, 0.58))
+      rgba(255, 255, 255, 0.72),
+      rgba(239, 243, 247, 0.6)
     ) !important;
-    border-color: color-mix(in srgb, var(--folder-color) 58%, rgba(71, 85, 105, 0.30)) !important;
+    border-color: transparent !important;
     box-shadow:
       inset 0 1px 0 rgba(255, 255, 255, 0.86),
-      inset 0 -1px 0 color-mix(in srgb, var(--folder-color) 20%, transparent),
-      0 14px 38px color-mix(in srgb, var(--folder-color) 20%, transparent),
-      0 4px 14px rgba(15, 23, 42, 0.08) !important;
+      0 14px 34px rgba(15, 23, 42, 0.08),
+      0 4px 14px rgba(15, 23, 42, 0.06) !important;
     backdrop-filter: blur(24px) saturate(175%);
     -webkit-backdrop-filter: blur(24px) saturate(175%);
   }
 
   .light .glass-folder-glow {
-    background: radial-gradient(circle at 24% 15%, color-mix(in srgb, var(--folder-color) 48%, transparent), transparent 50%),
-      linear-gradient(125deg, rgba(255, 255, 255, 0.48), transparent 46%) !important;
-    opacity: 0.82 !important;
+    background:
+      radial-gradient(150% 115% at 0% 0%,
+        var(--folder-color) 0%,
+        color-mix(in srgb, var(--folder-color) 60%, transparent) 24%,
+        color-mix(in srgb, var(--folder-color) 18%, transparent) 42%,
+        transparent 60%),
+      linear-gradient(rgba(15, 23, 42, 0.1), rgba(15, 23, 42, 0.1)) !important;
+    opacity: 1 !important;
   }
 
   .light .glass-folder-icon {
