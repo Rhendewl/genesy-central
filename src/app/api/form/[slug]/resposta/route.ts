@@ -386,12 +386,28 @@ async function createCrmLead(
     if (leadPhone) orParts.push(`contact.eq.${leadPhone}`);
     if (leadEmail) orParts.push(`email.eq.${leadEmail}`);
     if (orParts.length) {
-      const { data: dupe } = await supabase
+      let { data: dupe } = await supabase
         .from("leads")
         .select("id,source")
         .eq("user_id", userId)
         .or(orParts.join(","))
+        .limit(1)
         .maybeSingle();
+      // O site institucional grava o WhatsApp como digitado; o formulário pode
+      // formatar diferente. Compara só os dígitos para não duplicar o lead do site.
+      const phoneDigits = leadPhone?.replace(/\D/g, "") ?? "";
+      if (!dupe && phoneDigits.length >= 8) {
+        const { data: recentSiteLeads } = await supabase
+          .from("leads")
+          .select("id,source,contact")
+          .eq("user_id", userId)
+          .eq("source", "site_genesy")
+          .gte("created_at", new Date(Date.now() - 24 * 3600 * 1000).toISOString())
+          .order("created_at", { ascending: false })
+          .limit(50);
+        const match = (recentSiteLeads ?? []).find((lead: { contact: string | null }) => (lead.contact ?? "").replace(/\D/g, "").slice(-8) === phoneDigits.slice(-8));
+        if (match) dupe = { id: match.id, source: match.source };
+      }
       if (dupe) {
         // O formulário institucional captura o contato antes de abrir este
         // formulário completo. Quando for o mesmo telefone/e-mail, enriquece
