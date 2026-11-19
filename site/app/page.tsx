@@ -5,7 +5,6 @@ import Beams from "./Beams";
 import GlassSurface from "./GlassSurface";
 import Stack from "./Stack";
 
-const FORM_URL = "https://dash.genesycompany.com/form/formgenesysite";
 const ANALYTICS_URL = "https://dash.genesycompany.com/api/site/genesycompany";
 const TESTIMONIAL_IMAGES = Array.from({ length: 10 }, (_, index) => `/testimonials/${index + 1}.webp`);
 const HERO_WORDS = ["incorporadora", "imobiliária", "construtora"];
@@ -90,7 +89,7 @@ function SectionTag({ children }: { children: React.ReactNode }) {
 
 function CTA({
   children,
-  href = FORM_URL,
+  href = "#cta",
   light = false,
 }: {
   children: React.ReactNode;
@@ -210,6 +209,8 @@ const faqs = [
 export default function Home() {
   const [openFaq, setOpenFaq] = useState<number | null>(0);
   const [submittingLead, setSubmittingLead] = useState(false);
+  const [leadSent, setLeadSent] = useState(false);
+  const [leadError, setLeadError] = useState<string | null>(null);
   const transitionRef = useRef<HTMLDivElement>(null);
   const systemRef = useRef<HTMLDivElement>(null);
   const navProgressRef = useRef<HTMLSpanElement>(null);
@@ -288,17 +289,22 @@ export default function Home() {
     event.preventDefault();
     if (submittingLead) return;
     setSubmittingLead(true);
+    setLeadError(null);
     const form = event.currentTarget;
     const data = new FormData(form);
-    const query = new URLSearchParams();
-    data.forEach((value, key) => query.set(key, String(value)));
+    // Envia o texto escolhido (ex.: "Até R$ 500 mil"), não o código interno da opção.
+    const optionText = (name: string) => form.querySelector<HTMLSelectElement>(`select[name="${name}"]`)?.selectedOptions[0]?.text ?? data.get(name);
     try {
-      await fetch(`${ANALYTICS_URL}/lead`, {
+      const response = await fetch(`${ANALYTICS_URL}/lead`, {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token: siteSessionToken.current, name: data.get("nome"), phone: data.get("whatsapp"), profile: data.get("perfil"), monthly_vgv: data.get("vgv"), website: data.get("website") }),
+        body: JSON.stringify({ token: siteSessionToken.current, name: data.get("nome"), phone: data.get("whatsapp"), profile: optionText("perfil"), monthly_vgv: optionText("vgv"), website: data.get("website") }),
       });
+      if (!response.ok) throw new Error(`status ${response.status}`);
+      setLeadSent(true);
+    } catch {
+      setLeadError("Não foi possível enviar agora. Tente novamente em instantes ou fale com a gente pelo WhatsApp.");
     } finally {
-      window.location.assign(`${FORM_URL}?${query.toString()}`);
+      setSubmittingLead(false);
     }
   }
 
@@ -542,7 +548,7 @@ export default function Home() {
               <a href="#sistema">Sistema</a>
               <a href="#faq">FAQ</a>
             </div>
-            <a href={FORM_URL} className="nav-cta">
+            <a href="#cta" className="nav-cta">
               Agendar
             </a>
           </nav>
@@ -643,7 +649,13 @@ export default function Home() {
                 <h2><span>Saiba como iremos te</span><span>fazer vender mais.</span></h2>
                 <p>Preencha os dados abaixo para<br />agendar uma reunião.</p>
               </div>
-              <form className="lead-form t-stagger-line t-stagger-line--2" action={FORM_URL} method="get" onSubmit={submitLead}>
+              {leadSent ? (
+                <div className="lead-form lead-form-success t-stagger-line t-stagger-line--2" role="status">
+                  <strong>Recebemos seus dados!</strong>
+                  <p>Em breve nossa equipe vai falar com você pelo WhatsApp para agendar a reunião.</p>
+                </div>
+              ) : (
+              <form className="lead-form t-stagger-line t-stagger-line--2" onSubmit={submitLead}>
                 <input type="text" name="website" tabIndex={-1} autoComplete="off" aria-hidden="true" style={{ position: "absolute", left: "-9999px" }} />
                 <label>
                   <span>Nome</span>
@@ -675,7 +687,9 @@ export default function Home() {
                   </select>
                 </label>
                 <button type="submit" disabled={submittingLead}>{submittingLead ? "Enviando…" : "Enviar respostas"}</button>
+                {leadError && <p className="lead-form-error" role="alert">{leadError} <a href="https://wa.me/5583996873667">Abrir WhatsApp</a></p>}
               </form>
+              )}
             </div>
             <div className="lead-form-visual t-stagger-line t-stagger-line--3">
               <img
@@ -847,7 +861,7 @@ export default function Home() {
             <a href="https://instagram.com/genesycompany">Instagram · @genesycompany</a>
             <a href="https://wa.me/5583996873667">WhatsApp · 83 99687-3667</a>
           </div>
-          <div className="footer-consult"><h5>Consultoria</h5><a href={FORM_URL}>Agendar diagnóstico ↗</a><p><i /> Vagas / semana <strong>02 restantes</strong></p></div>
+          <div className="footer-consult"><h5>Consultoria</h5><a href="#cta">Agendar diagnóstico</a><p><i /> Vagas / semana <strong>02 restantes</strong></p></div>
         </div>
         <div className="container footer-bottom">
           <span>© Genesy Company — Todos os direitos reservados desde 2019.</span>

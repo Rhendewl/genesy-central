@@ -903,3 +903,10 @@ footer a:hover { color:#fff; }
   *, *::before, *::after { animation-duration:.01ms!important; animation-iteration-count:1!important; transition-duration:.01ms!important; }
   [data-reveal] { opacity:1; transform:none; }
 }
+
+/* Confirmação e erro do formulário do site (lead criado direto no CRM). */
+.lead-form-success { color:#fff; padding:28px 24px; border-radius:22px; background:rgba(7,141,72,.16); border:1px solid rgba(56,217,119,.35); }
+.lead-form-success strong { display:block; font-size:20px; margin-bottom:8px; }
+.lead-form-success p { margin:0; color:rgba(255,255,255,.78); font-size:15px; line-height:1.5; }
+.lead-form-error { margin:10px 0 0; color:#ffb4b4; font-size:13px; line-height:1.4; }
+.lead-form-error a { color:#fff; text-decoration:underline; }
