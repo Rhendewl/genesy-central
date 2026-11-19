@@ -10,9 +10,12 @@ export const SITE_ORIGINS = new Set([
   "http://localhost:3001",
 ]);
 
+// Origens extras (ex.: endereço temporário de teste), separadas por vírgula.
+const EXTRA_ORIGINS = new Set((process.env.SITE_EXTRA_ORIGINS ?? "").split(",").map(value => value.trim()).filter(Boolean));
+
 export function siteCors(request: NextRequest) {
   const origin = request.headers.get("origin") ?? "";
-  const allowed = SITE_ORIGINS.has(origin) ? origin : "https://genesycompany.com";
+  const allowed = SITE_ORIGINS.has(origin) || EXTRA_ORIGINS.has(origin) ? origin : "https://genesycompany.com";
   return {
     "Access-Control-Allow-Origin": allowed,
     "Access-Control-Allow-Methods": "POST, PATCH, OPTIONS",

@@ -11,7 +11,7 @@ export async function GET(req: NextRequest) {
   const admin = createAdminSupabaseClient();
   const [{ data: sessions }, { data: events }, { data: leads }] = await Promise.all([
     admin.from("site_analytics_sessions").select("id,visitor_id,started_at,active_seconds,page_views,device,referrer,utm_source,utm_campaign").eq("user_id", context.ownerId).gte("started_at", since).order("started_at", { ascending: false }),
-    admin.from("site_analytics_events").select("event_type,section,created_at").eq("user_id", context.ownerId).gte("created_at", since),
+    admin.from("site_analytics_events").select("event_type,section,metadata,session_id,created_at").eq("user_id", context.ownerId).gte("created_at", since),
     admin.from("site_analytics_leads").select("id,name,phone,profile,monthly_vgv,sync_status,sync_error,crm_lead_id,created_at").eq("user_id", context.ownerId).gte("created_at", since).order("created_at", { ascending: false }).limit(200),
   ]);
   const sessionRows = sessions ?? [];
@@ -28,7 +28,46 @@ export async function GET(req: NextRequest) {
   leadRows.forEach(row => { const item = byDay.get(row.created_at.slice(0, 10)); if (item) item.leads++; });
   const sections: Record<string, number> = {};
   (events ?? []).forEach(event => { if (event.event_type === "section_view" && event.section) sections[event.section] = (sections[event.section] ?? 0) + 1; });
+  // Origem do tráfego: UTM tem prioridade; senão, domínio de referência; senão "Direto".
+  const sourceOf = (row: { utm_source?: string | null; referrer?: string | null }) => {
+    if (row.utm_source) return row.utm_source.toLowerCase();
+    if (row.referrer) {
+      try {
+        const host = new URL(row.referrer).hostname.replace(/^www\./, "").replace(/^l\./, "").replace(/^lm\./, "").replace(/^m\./, "");
+        if (host.endsWith("genesycompany.com")) return "direto";
+        if (/instagram/.test(host)) return "instagram";
+        if (/facebook|fb\.com/.test(host)) return "facebook";
+        if (/google\./.test(host)) return "google";
+        return host;
+      } catch { return "direto"; }
+    }
+    return "direto";
+  };
+  const count = (values: string[]) => {
+    const totals: Record<string, number> = {};
+    values.forEach(value => { totals[value] = (totals[value] ?? 0) + 1; });
+    return Object.entries(totals).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
+  };
+  const sources = count(sessionRows.map(sourceOf)).slice(0, 8);
+  const campaigns = count(sessionRows.filter(row => row.utm_campaign).map(row => String(row.utm_campaign))).slice(0, 8);
+  const devices = count(sessionRows.map(row => row.device || "desconhecido"));
+  const clickRows = (events ?? []).filter(event => event.event_type === "click");
+  const clicks = count(clickRows.map(event => {
+    const meta = (event.metadata ?? {}) as { label?: string; kind?: string };
+    return meta.kind === "whatsapp" ? "WhatsApp" : meta.kind === "instagram" ? "Instagram" : (meta.label || "Clique").slice(0, 40);
+  })).slice(0, 10);
+  const formSessions = new Set((events ?? []).filter(event => event.section === "cta" || (event.event_type === "click" && ["formulario", "botao"].includes(String((event.metadata as { kind?: string } | null)?.kind)))).map(event => event.session_id)).size;
+  const engaged = sessionRows.filter(row => (row.active_seconds ?? 0) >= 30).length;
+  const funnel = [
+    { name: "Acessos", value: sessionRows.length },
+    { name: "Ficaram 30s+", value: engaged },
+    { name: "Chegaram ao formulário", value: formSessions },
+    { name: "Viraram lead", value: leadRows.length },
+  ];
+
   return NextResponse.json({
+    sources, campaigns, devices, clicks, funnel,
+    whatsapp_clicks: clickRows.filter(event => (event.metadata as { kind?: string } | null)?.kind === "whatsapp").length,
     summary: { sessions: sessionRows.length, visitors, views, avg_seconds: avgSeconds, leads: leadRows.length, conversion_rate: sessionRows.length ? Number((leadRows.length / sessionRows.length * 100).toFixed(1)) : 0 },
     timeline: Array.from(byDay.values()), sections: Object.entries(sections).map(([name, value]) => ({ name, value })).sort((a,b) => b.value-a.value),
     leads: leadRows,
