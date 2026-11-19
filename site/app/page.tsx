@@ -339,13 +339,12 @@ export default function Home() {
     const storyHeadline = stage.querySelector<HTMLElement>(".results-story-headline");
     const storyStatOne = stage.querySelector<HTMLElement>(".results-story-stat-one");
     const consultation = stage.querySelector<HTMLElement>(".transition-consult-copy");
-    const consultationCards = stage.querySelector<HTMLElement>(".transition-consult-cards");
-    const consultationCardItems = Array.from(
+        const consultationCardItems = Array.from(
       stage.querySelectorAll<HTMLElement>(".transition-consult-card"),
     );
     const transitionCta = stage.querySelector<HTMLElement>(".transition-cta-wrap");
     const nav = document.querySelector<HTMLElement>(".nav");
-    if (!scene || !results || !storyHeadline || !storyStatOne || !consultation || !consultationCards || !transitionCta) return;
+    if (!scene || !results || !storyHeadline || !storyStatOne || !consultation || !transitionCta) return;
 
     let ticking = false;
     const smooth = (value: number) => value * value * (3 - 2 * value);
@@ -370,13 +369,16 @@ export default function Home() {
         element.classList.toggle("is-shown", active);
         element.classList.toggle("is-hiding", progress >= end);
       };
-      setStoryPanel(storyHeadline, 0.015, 0.22);
-      setStoryPanel(storyStatOne, 0.24, 0.44);
+      // O primeiro número já aparece enquanto a seção ainda está entrando na tela.
+      const entering = rect.top < window.innerHeight * 0.45;
+      storyHeadline.classList.toggle("is-shown", entering && progress < 0.2);
+      storyHeadline.classList.toggle("is-hiding", progress >= 0.2);
+      setStoryPanel(storyStatOne, 0.215, 0.39);
 
-      const layerEnter = softRange(progress, 0.42, 0.52);
-      const consultationEnter = range(progress, 0.52, 0.59);
-      const consultationExit = softRange(progress, 0.875, 0.925);
-      const ctaEnter = softRange(progress, 0.885, 0.94);
+      const layerEnter = softRange(progress, 0.38, 0.47);
+      const consultationEnter = range(progress, 0.47, 0.53);
+      const consultationExit = softRange(progress, 0.86, 0.91);
+      const ctaEnter = softRange(progress, 0.87, 0.93);
       const consultationVisibility = consultationEnter * (1 - consultationExit);
 
       results.style.opacity = "1";
@@ -385,21 +387,24 @@ export default function Home() {
       results.style.pointerEvents = layerEnter > 0.04 ? "none" : "auto";
       scene.style.transform = `translateY(${(1 - layerEnter) * 100}%)`;
       consultation.style.opacity = `${consultationVisibility}`;
-      consultation.style.transform = `translate(-50%,${28 * (1 - consultationEnter) - 18 * consultationExit}px)`;
-      consultationCards.style.opacity = `${1 - consultationExit}`;
-      const cardEnters = [
-        range(progress, 0.58, 0.62),
-        range(progress, 0.7, 0.74),
-        range(progress, 0.82, 0.86),
+      consultation.style.transform = `translate(-50%,calc(-50% + ${28 * (1 - consultationEnter) - 18 * consultationExit}px))`;
+      // Cada item surge de baixo para cima, saindo do desfoque para o nítido.
+      // Desktop: ficam lado a lado e vão se somando. Mobile: aparecem um de cada vez.
+      const isMobile = window.matchMedia("(max-width: 780px)").matches;
+      const itemEnters = [
+        range(progress, 0.54, 0.6),
+        range(progress, 0.64, 0.7),
+        range(progress, 0.74, 0.8),
       ];
-      consultationCardItems.forEach((card, index) => {
-        const cardEnter = cardEnters[index];
-        const laterCards = cardEnters.slice(index + 1);
-        const depth = laterCards.reduce((total, value) => total + value, 0);
-        const visibility = cardEnter * Math.max(0.34, 1 - depth * 0.28) * (1 - consultationExit);
-        card.style.opacity = `${visibility}`;
-        card.style.transform = `translateY(${28 * (1 - cardEnter) - depth * 14}px) scale(${0.975 + cardEnter * 0.025 - depth * 0.018})`;
-        card.style.zIndex = `${10 + index}`;
+      consultationCardItems.forEach((item, index) => {
+        const enter = itemEnters[index];
+        const leave = isMobile && index < itemEnters.length - 1 ? itemEnters[index + 1] : 0;
+        const opacity = enter * (1 - leave);
+        const y = 46 * (1 - enter) - 30 * leave;
+        const blur = 12 * (1 - enter) + 10 * leave;
+        item.style.opacity = `${opacity}`;
+        item.style.transform = `translateY(${y}px)`;
+        item.style.filter = blur > 0.05 ? `blur(${blur}px)` : "none";
       });
       transitionCta.classList.toggle("is-shown", ctaEnter > 0.06);
       transitionCta.classList.toggle("is-hiding", ctaEnter <= 0.06);
@@ -626,21 +631,15 @@ export default function Home() {
         <div className="container transition-consult-copy">
           <span className="transition-consult-eyebrow">Consultoria gratuita</span>
           <h2>O que você recebe<br />na nossa consultoria?</h2>
-        </div>
-        <div className="transition-consult-cards">
-          {CONSULTATION_CARDS.map((card, index) => (
-            <article
-              className="transition-consult-card"
-              key={card.title}
-            >
-              <div className="transition-card-top">
-                <span>0{index + 1}</span>
+          <div className="transition-consult-cards">
+            {CONSULTATION_CARDS.map((card) => (
+              <article className="transition-consult-card" key={card.title}>
                 <i aria-hidden="true">{card.icon}</i>
-              </div>
-              <h3>{card.title}</h3>
-              <p>{card.text}</p>
-            </article>
-          ))}
+                <h3>{card.title}</h3>
+                <p>{card.text}</p>
+              </article>
+            ))}
+          </div>
         </div>
         <div className="transition-cta-wrap t-stagger">
           <div className="container lead-form-layout">
