@@ -214,6 +214,7 @@ export default function Home() {
   // O efeito de feixes (WebGL) só liga depois da primeira interação da pessoa
   // (mexer o mouse, tocar, rolar ou usar o teclado). Assim a página abre leve e rápida.
   const [beamsOn, setBeamsOn] = useState(false);
+  const leadSectionRef = useRef<HTMLElement>(null);
   const transitionRef = useRef<HTMLDivElement>(null);
   const systemRef = useRef<HTMLDivElement>(null);
   const navProgressRef = useRef<HTMLSpanElement>(null);
@@ -345,10 +346,8 @@ export default function Home() {
         const consultationCardItems = Array.from(
       stage.querySelectorAll<HTMLElement>(".transition-consult-card"),
     );
-    const transitionCta = stage.querySelector<HTMLElement>(".transition-cta-wrap");
-    const focusPhoto = stage.querySelector<HTMLImageElement>(".lead-form-photo");
     const nav = document.querySelector<HTMLElement>(".nav");
-    if (!scene || !results || !storyHeadline || !storyStatOne || !consultation || !transitionCta) return;
+    if (!scene || !results || !storyHeadline || !storyStatOne || !consultation) return;
 
     let ticking = false;
     const smooth = (value: number) => value * value * (3 - 2 * value);
@@ -375,15 +374,13 @@ export default function Home() {
       };
       // O primeiro número já aparece enquanto a seção ainda está entrando na tela.
       const entering = rect.top < window.innerHeight * 0.45;
-      storyHeadline.classList.toggle("is-shown", entering && progress < 0.111);
-      storyHeadline.classList.toggle("is-hiding", progress >= 0.111);
-      setStoryPanel(storyStatOne, 0.128, 0.322);
+      storyHeadline.classList.toggle("is-shown", entering && progress < 0.13);
+      storyHeadline.classList.toggle("is-hiding", progress >= 0.13);
+      setStoryPanel(storyStatOne, 0.15, 0.378);
 
-      const layerEnter = softRange(progress, 0.311, 0.411);
-      const consultationEnter = range(progress, 0.411, 0.478);
-      const consultationExit = softRange(progress, 0.844, 0.9);
-      const ctaEnter = softRange(progress, 0.856, 0.922);
-      const consultationVisibility = consultationEnter * (1 - consultationExit);
+      const layerEnter = softRange(progress, 0.365, 0.482);
+      const consultationEnter = range(progress, 0.482, 0.561);
+      const consultationVisibility = consultationEnter;
 
       results.style.opacity = "1";
       results.style.transform = "none";
@@ -391,14 +388,14 @@ export default function Home() {
       results.style.pointerEvents = layerEnter > 0.04 ? "none" : "auto";
       scene.style.transform = `translateY(${(1 - layerEnter) * 100}%)`;
       consultation.style.opacity = `${consultationVisibility}`;
-      consultation.style.transform = `translate(-50%,calc(-50% + ${28 * (1 - consultationEnter) - 18 * consultationExit}px))`;
+      consultation.style.transform = `translate(-50%,calc(-50% + ${28 * (1 - consultationEnter)}px))`;
       // Cada item surge de baixo para cima, saindo do desfoque para o nítido.
       // Desktop: ficam lado a lado e vão se somando. Mobile: aparecem um de cada vez.
       const isMobile = window.matchMedia("(max-width: 780px)").matches;
       const itemEnters = [
-        range(progress, 0.489, 0.556),
-        range(progress, 0.6, 0.667),
-        range(progress, 0.711, 0.778),
+        range(progress, 0.574, 0.653),
+        range(progress, 0.704, 0.783),
+        range(progress, 0.835, 0.913),
       ];
       consultationCardItems.forEach((item, index) => {
         const enter = itemEnters[index];
@@ -410,22 +407,8 @@ export default function Home() {
         item.style.transform = `translateY(${y}px)`;
         item.style.filter = blur > 0.05 ? `blur(${blur}px)` : "none";
       });
-      transitionCta.classList.toggle("is-shown", ctaEnter > 0.06);
-      transitionCta.classList.toggle("is-hiding", ctaEnter <= 0.06);
-      transitionCta.style.opacity = `${ctaEnter}`;
-      transitionCta.style.transform = `translateY(${14 * (1 - ctaEnter)}px)`;
-      transitionCta.style.pointerEvents = ctaEnter > 0.92 ? "auto" : "none";
-
-      // Foto começa desfocada e entra em foco com a rolagem.
-      const focus = range(progress, 0.875, 0.95);
-      if (focusPhoto) {
-        const blur = 16 * (1 - focus);
-        focusPhoto.style.filter = blur > 0.05 ? `blur(${blur}px)` : "none";
-        focusPhoto.style.transform = `scale(${1.06 - 0.06 * focus})`;
-      }
-
       const activeRect = rect;
-      const darkVideo = layerEnter > 0.55 && ctaEnter < 0.45 && activeRect.bottom > 80;
+      const darkVideo = layerEnter > 0.55 && activeRect.bottom > 80;
       nav?.classList.toggle("nav-dark", darkVideo);
     };
 
@@ -528,6 +511,37 @@ export default function Home() {
     );
     els.forEach((el) => observer.observe(el));
     return () => observer.disconnect();
+  }, []);
+
+  // Seção do formulário: o conteúdo surge ao entrar na tela e a foto sai do desfoque com a rolagem.
+  useEffect(() => {
+    const section = leadSectionRef.current;
+    if (!section) return;
+    const photo = section.querySelector<HTMLImageElement>(".lead-form-photo");
+    let frame = 0;
+    const update = () => {
+      frame = 0;
+      const rect = section.getBoundingClientRect();
+      const vh = window.innerHeight;
+      section.classList.toggle("is-shown", rect.top < vh * 0.78 && rect.bottom > vh * 0.15);
+      if (!photo) return;
+      const raw = Math.min(1, Math.max(0, (vh * 0.95 - rect.top) / (vh * 0.75)));
+      const focus = raw * raw * (3 - 2 * raw);
+      const blur = 16 * (1 - focus);
+      photo.style.filter = blur > 0.05 ? `blur(${blur}px)` : "none";
+      photo.style.transform = `scale(${1.06 - 0.06 * focus})`;
+    };
+    const onScroll = () => {
+      if (!frame) frame = requestAnimationFrame(update);
+    };
+    update();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+    };
   }, []);
 
   useEffect(() => {
@@ -666,7 +680,59 @@ export default function Home() {
             ))}
           </div>
         </div>
-        <div className="transition-cta-wrap t-stagger">
+        </div>
+        <div className="container results-stage-content results-story">
+          <div className="results-story-panel results-story-stat results-story-headline t-stagger">
+            <strong className="t-stagger-line">
+              <SpinningCounter value="+ R$150.000.000" label="Mais de cento e cinquenta milhões de reais" />
+            </strong>
+            <p className="t-stagger-line t-stagger-line--2">em valor geral de vendas para o mercado imobiliário</p>
+          </div>
+          <div className="results-story-panel results-story-stat results-story-stat-one t-stagger">
+            <strong className="t-stagger-line">
+              <SpinningCounter value="+ R$1.000.000" label="Mais de um milhão de reais" />
+            </strong>
+            <p className="t-stagger-line t-stagger-line--2">gerenciados em anúncios online</p>
+          </div>
+        </div>
+      </section>
+      <span className="consultation-anchor" id="consultoria" />
+      </div>
+
+      <section className="section testimonials" id="depoimentos">
+        <div className="container testimonials-layout">
+          <div className="testimonials-stack-wrap" data-reveal>
+            <Stack
+              cards={TESTIMONIAL_IMAGES.map((src, index) => (
+                <img
+                  key={src}
+                  src={src}
+                  width={960}
+                  height={1200}
+                  loading={index === 0 ? "eager" : "lazy"}
+                  decoding="async"
+                  alt={`Resultado de cliente Genesy ${index + 1}`}
+                  draggable={false}
+                />
+              ))}
+              visible={5}
+              spread={0.72}
+              depth={0.5}
+              radius={26}
+              autoplay
+              autoplayDelay={3200}
+              pauseOnHover
+              sendToBackOnClick
+            />
+          </div>
+          <div className="testimonials-heading" data-reveal>
+            <h2><span>Resultados de quem</span><span>já confiou em nós</span></h2>
+            <p>Arraste ou toque nas imagens para ver o próximo resultado.</p>
+          </div>
+        </div>
+      </section>
+
+      <section className="lead-section t-stagger" id="cta" ref={leadSectionRef}>
           <div className="container lead-form-layout">
             <div className="lead-form-copy">
               <div className="t-stagger-line">
@@ -738,58 +804,6 @@ export default function Home() {
               </div>
             </div>
           </div>
-        </div>
-        </div>
-        <div className="container results-stage-content results-story">
-          <div className="results-story-panel results-story-stat results-story-headline t-stagger">
-            <strong className="t-stagger-line">
-              <SpinningCounter value="+ R$150.000.000" label="Mais de cento e cinquenta milhões de reais" />
-            </strong>
-            <p className="t-stagger-line t-stagger-line--2">em valor geral de vendas para o mercado imobiliário</p>
-          </div>
-          <div className="results-story-panel results-story-stat results-story-stat-one t-stagger">
-            <strong className="t-stagger-line">
-              <SpinningCounter value="+ R$1.000.000" label="Mais de um milhão de reais" />
-            </strong>
-            <p className="t-stagger-line t-stagger-line--2">gerenciados em anúncios online</p>
-          </div>
-        </div>
-      </section>
-      <span className="consultation-anchor" id="consultoria" />
-      <span className="form-anchor" id="cta" />
-      </div>
-
-      <section className="section testimonials" id="depoimentos">
-        <div className="container testimonials-layout">
-          <div className="testimonials-stack-wrap" data-reveal>
-            <Stack
-              cards={TESTIMONIAL_IMAGES.map((src, index) => (
-                <img
-                  key={src}
-                  src={src}
-                  width={960}
-                  height={1200}
-                  loading={index === 0 ? "eager" : "lazy"}
-                  decoding="async"
-                  alt={`Resultado de cliente Genesy ${index + 1}`}
-                  draggable={false}
-                />
-              ))}
-              visible={5}
-              spread={0.72}
-              depth={0.5}
-              radius={26}
-              autoplay
-              autoplayDelay={3200}
-              pauseOnHover
-              sendToBackOnClick
-            />
-          </div>
-          <div className="testimonials-heading" data-reveal>
-            <h2><span>Resultados de quem</span><span>já confiou em nós</span></h2>
-            <p>Arraste ou toque nas imagens para ver o próximo resultado.</p>
-          </div>
-        </div>
       </section>
 
       <section className="section system" id="sistema">
