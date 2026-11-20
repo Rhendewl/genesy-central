@@ -789,8 +789,8 @@ footer a:hover { color:#fff; }
   .testimonials-heading h2 { font-size:clamp(34px,9.5vw,44px); }
   .testimonials-heading h2 span { white-space:nowrap; }
   .testimonials-heading p { max-width:300px; margin:18px auto 0; font-size:14px; }
-  .testimonials-layout { gap:96px; }
-  .drag-hint { top:-56px; }
+  .testimonials-layout { gap:118px; }
+  .drag-hint { top:-62px; }
   .testimonials-stack-wrap {
     grid-row:2; width:min(330px,78vw); margin:0 auto; transform:translateX(-8px);
   }
