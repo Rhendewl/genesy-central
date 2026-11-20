@@ -887,47 +887,37 @@ footer a:hover { color:#fff; }
 .lead-form-error { margin:10px 0 0; color:#ffb4b4; font-size:13px; line-height:1.4; }
 .lead-form-error a { color:#fff; text-decoration:underline; }
 
-/* Foto do formulário: entra em foco com a rolagem + mira de câmera no rosto */
+/* Foto do formulário: entra em foco com a rolagem */
 .lead-form-visual .lead-form-photo {
   filter:blur(16px); transform:scale(1.06); will-change:filter,transform;
 }
-.focus-reticle {
-  position:absolute; z-index:2; left:30%; top:20%; width:36%; height:32%;
-  pointer-events:none; opacity:0;
-  transform:scale(calc(1.45 - .45 * var(--lock,0))); transform-origin:center;
-}
-.focus-corner {
-  position:absolute; width:clamp(14px,16%,24px); height:clamp(14px,16%,24px);
-  border:0 solid rgba(255,255,255,.92); filter:drop-shadow(0 0 6px rgba(0,0,0,.35));
-}
-.focus-tl { left:0; top:0; border-top-width:1.5px; border-left-width:1.5px; }
-.focus-tr { right:0; top:0; border-top-width:1.5px; border-right-width:1.5px; }
-.focus-bl { left:0; bottom:0; border-bottom-width:1.5px; border-left-width:1.5px; }
-.focus-br { right:0; bottom:0; border-bottom-width:1.5px; border-right-width:1.5px; }
-.focus-cross {
-  position:absolute; left:50%; top:50%; width:12px; height:12px; transform:translate(-50%,-50%);
-  opacity:calc(.25 + .45 * var(--lock,0));
-}
-.focus-cross::before,
-.focus-cross::after { content:""; position:absolute; background:rgba(255,255,255,.85); }
-.focus-cross::before { left:50%; top:0; width:1px; height:100%; transform:translateX(-50%); }
-.focus-cross::after { top:50%; left:0; height:1px; width:100%; transform:translateY(-50%); }
-.focus-label {
-  position:absolute; left:50%; bottom:calc(100% + 10px); white-space:nowrap;
-  padding:6px 10px; border-radius:6px; color:#fff;
-  font:500 10px/1 ui-monospace,SFMono-Regular,Menlo,monospace; letter-spacing:.16em; text-transform:uppercase;
-  background:rgba(10,12,14,.72); border:1px solid rgba(255,255,255,.18);
-  -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px);
-  opacity:0; transform:translate(-50%,6px); filter:blur(4px);
-  transition:opacity .45s cubic-bezier(.22,1,.36,1),transform .45s cubic-bezier(.22,1,.36,1),filter .45s cubic-bezier(.22,1,.36,1);
-}
-.focus-reticle.label-inside .focus-label { bottom:auto; top:10px; }
-.focus-reticle.is-locked .focus-label { opacity:1; transform:translate(-50%,0); filter:blur(0); transition-delay:.18s; }
-.focus-reticle.is-locked .focus-corner { animation:focus-lock .22s steps(1,end) 2; }
-@keyframes focus-lock { 50% { opacity:.2; } }
-@media (max-width:780px) {
-  .focus-label { font-size:9px; padding:5px 8px; letter-spacing:.14em; }
-}
 @media (prefers-reduced-motion: reduce) {
   .lead-form-visual .lead-form-photo { filter:none; transform:none; }
+}
+
+/* Botão "Enviar respostas": contorno iluminado sutil — um feixe de luz percorre a borda devagar */
+/* sem isolation/transform: o halo (::after, z-index -1) fica atrás do botão e só aparece em volta */
+.lead-form button { position:relative; top:0; transition:top .25s,box-shadow .25s,background .25s; }
+.lead-form button:hover { transform:none; top:-2px; }
+.lead-form button::before,
+.lead-form button::after {
+  content:""; position:absolute; inset:-1.5px; border-radius:inherit; pointer-events:none;
+  background:
+    linear-gradient(105deg, transparent 38%, rgba(225,255,236,.95) 48%, rgba(255,255,255,1) 50%, rgba(225,255,236,.95) 52%, transparent 62%) 0 0 / 260% 100% no-repeat,
+    linear-gradient(rgba(255,255,255,.16), rgba(255,255,255,.16));
+  animation:cta-glow-sweep 4.8s cubic-bezier(.45,0,.25,1) infinite;
+}
+.lead-form button::before {
+  padding:1.5px; z-index:1;
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0); -webkit-mask-composite:xor;
+  mask:linear-gradient(#000 0 0) content-box exclude,linear-gradient(#000 0 0);
+}
+/* halo suave atrás do botão, aparecendo só em volta dele */
+.lead-form button::after { inset:-2px; z-index:-1; filter:blur(8px); opacity:.55; }
+@keyframes cta-glow-sweep {
+  0% { background-position:110% 0, 0 0; }
+  55%, 100% { background-position:-10% 0, 0 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lead-form button::before, .lead-form button::after { animation:none; }
 }
