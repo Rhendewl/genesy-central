@@ -18,7 +18,7 @@ export function siteCors(request: NextRequest) {
   const allowed = SITE_ORIGINS.has(origin) || EXTRA_ORIGINS.has(origin) ? origin : "https://genesycompany.com";
   return {
     "Access-Control-Allow-Origin": allowed,
-    "Access-Control-Allow-Methods": "POST, PATCH, OPTIONS",
+    "Access-Control-Allow-Methods": "GET, POST, PATCH, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type",
     "Access-Control-Max-Age": "86400",
     Vary: "Origin",

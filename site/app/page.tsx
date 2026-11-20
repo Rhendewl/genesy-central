@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Beams from "./Beams";
 import GlassSurface from "./GlassSurface";
 import Stack from "./Stack";
+import { loadPixel, newEventId, pixelIdentifiers, trackPixel } from "./meta-pixel";
 
 const ANALYTICS_URL = "https://dash.genesycompany.com/api/site/genesycompany";
 const TESTIMONIAL_IMAGES = Array.from({ length: 10 }, (_, index) => `/testimonials/${index + 1}.webp`);
@@ -221,6 +222,9 @@ export default function Home() {
   const systemRef = useRef<HTMLDivElement>(null);
   const navProgressRef = useRef<HTMLSpanElement>(null);
   const siteSessionToken = useRef<string | null>(null);
+  // Pixel do Facebook: ativo quando configurado no módulo Site Genesy da plataforma.
+  const pixelOn = useRef(false);
+  const pixelEventRef = useRef<((name: string, params?: Record<string, unknown>) => void) | null>(null);
 
   useEffect(() => {
     let activeSeconds = 0;
@@ -254,6 +258,7 @@ export default function Home() {
         if (entry.isIntersecting && section && !viewed.has(section)) {
           viewed.add(section);
           events.push({ type: "section_view", section, path: window.location.pathname, idempotency_key: `${siteSessionToken.current}:${section}` });
+          if (section === "cta") pixelEventRef.current?.("ViewContent", { content_name: "Formulário" });
         }
       });
       sendEvents(events);
@@ -267,8 +272,18 @@ export default function Home() {
       const kind = /wa\.me|whatsapp/i.test(href) ? "whatsapp" : /instagram\.com/i.test(href) ? "instagram" : href.startsWith("#") ? "navegacao" : href.includes("/form/") ? "formulario" : target.tagName === "BUTTON" ? "botao" : "link";
       const section = target.closest<HTMLElement>("section[id]")?.id ?? (target.closest("nav, header") ? "menu" : target.closest("footer") ? "rodape" : null);
       sendEvents([{ type: "click", section, path: window.location.pathname, metadata: { label, href, kind } }]);
+      if (kind === "whatsapp") pixelEventRef.current?.("Contact", { content_name: "WhatsApp" });
     };
     document.addEventListener("click", onClick, { capture: true });
+    // Dispara um evento do Pixel e registra no painel (o servidor repete pela API de Conversões).
+    const pixelEvent = (name: string, params: Record<string, unknown> = {}) => {
+      if (!pixelOn.current) return;
+      const eventId = newEventId();
+      const loaded = trackPixel(name, eventId, params);
+      sendEvents([{ type: "pixel", metadata: { event: name, event_id: eventId, loaded, ...pixelIdentifiers() } }]);
+    };
+    pixelEventRef.current = pixelEvent;
+    const configReady = fetch(`${ANALYTICS_URL}/config`).then(response => response.ok ? response.json() : null).catch(() => null);
     fetch(`${ANALYTICS_URL}/session`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) })
       .then(response => response.ok ? response.json() : null)
       .then(json => {
@@ -276,6 +291,15 @@ export default function Home() {
         siteSessionToken.current = json.token;
         document.querySelectorAll<HTMLElement>("section[id]").forEach(section => observer.observe(section));
         sendEvents([{ type: "page_view", path: window.location.pathname, idempotency_key: `${json.token}:page` }]);
+        return configReady;
+      })
+      .then(async config => {
+        const pixelId = config?.meta_pixel_id;
+        if (!pixelId || stopped) return;
+        await loadPixel(String(pixelId));
+        pixelOn.current = true;
+        pixelEvent("PageView");
+        if (viewed.has("cta")) pixelEvent("ViewContent", { content_name: "Formulário" });
       }).catch(() => undefined);
     const heartbeat = window.setInterval(() => {
       const now = Date.now();
@@ -300,10 +324,17 @@ export default function Home() {
     const data = new FormData(form);
     // Envia o texto escolhido (ex.: "Até R$ 500 mil"), não o código interno da opção.
     const optionText = (name: string) => form.querySelector<HTMLSelectElement>(`select[name="${name}"]`)?.selectedOptions[0]?.text ?? data.get(name);
+    // Lead no Pixel: o navegador dispara e o servidor repete com o mesmo id (sem contar duas vezes).
+    let pixel: Record<string, unknown> | null = null;
+    if (pixelOn.current) {
+      const eventId = newEventId();
+      const loaded = trackPixel("Lead", eventId, { content_name: "Formulário do site" });
+      pixel = { event: "Lead", event_id: eventId, loaded, ...pixelIdentifiers() };
+    }
     try {
       const response = await fetch(`${ANALYTICS_URL}/lead`, {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token: siteSessionToken.current, name: data.get("nome"), phone: data.get("whatsapp"), profile: optionText("perfil"), monthly_vgv: optionText("vgv"), website: data.get("website") }),
+        body: JSON.stringify({ token: siteSessionToken.current, name: data.get("nome"), phone: data.get("whatsapp"), profile: optionText("perfil"), monthly_vgv: optionText("vgv"), website: data.get("website"), pixel }),
       });
       if (!response.ok) throw new Error(`status ${response.status}`);
       setLeadSent(true);

@@ -10,7 +10,9 @@ export async function GET() {
     admin.from("site_analytics_settings").select("*").eq("user_id", context.ownerId).eq("site_key", "genesycompany").maybeSingle(),
     admin.from("crm_pipelines").select("id,name,is_active,crm_stages(id,name,order_index,is_active)").eq("user_id", context.ownerId).eq("is_active", true).order("created_at"),
   ]);
-  return NextResponse.json({ settings, pipelines: pipelines ?? [], canManage: context.canManage });
+  // O token da API de Conversões nunca sai do servidor: só informamos se existe.
+  const safe = settings ? (({ meta_capi_token_encrypted, ...rest }) => ({ ...rest, has_capi_token: Boolean(meta_capi_token_encrypted) }))(settings) : null;
+  return NextResponse.json({ settings: safe, pipelines: pipelines ?? [], canManage: context.canManage });
 }
 
 export async function PUT(req: NextRequest) {
@@ -32,7 +34,7 @@ export async function PUT(req: NextRequest) {
     crm_stage_id: body?.stage_id ?? null, assigned_to: body?.assigned_to ?? null,
     deal_value: Math.round(dealValue * 100) / 100,
     updated_at: new Date().toISOString(),
-  }, { onConflict: "user_id,site_key" }).select("*").single();
-  return NextResponse.json(error ? { error: error.message } : { settings: data }, { status: error ? 500 : 200 });
+  }, { onConflict: "user_id,site_key" }).select("id").single();
+  return NextResponse.json(error ? { error: error.message } : { ok: true, id: data?.id }, { status: error ? 500 : 200 });
 }
 
