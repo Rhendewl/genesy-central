@@ -215,6 +215,8 @@ export default function Home() {
   // (mexer o mouse, tocar, rolar ou usar o teclado). Assim a página abre leve e rápida.
   const [beamsOn, setBeamsOn] = useState(false);
   const leadSectionRef = useRef<HTMLElement>(null);
+  // Some o aviso de "arraste" assim que a pessoa mexe nos cards pela primeira vez.
+  const [dragHintGone, setDragHintGone] = useState(false);
   const transitionRef = useRef<HTMLDivElement>(null);
   const systemRef = useRef<HTMLDivElement>(null);
   const navProgressRef = useRef<HTMLSpanElement>(null);
@@ -701,7 +703,21 @@ export default function Home() {
 
       <section className="section testimonials" id="depoimentos">
         <div className="container testimonials-layout">
-          <div className="testimonials-stack-wrap" data-reveal>
+          <div
+            className={`testimonials-stack-wrap${dragHintGone ? " drag-hint-gone" : ""}`}
+            data-reveal
+            onPointerDown={() => setDragHintGone(true)}
+          >
+            <div className="drag-hint" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M22 14a8 8 0 0 1-8 8" />
+                <path d="M18 11v-1a2 2 0 0 0-2-2a2 2 0 0 0-2 2" />
+                <path d="M14 10V9a2 2 0 0 0-2-2a2 2 0 0 0-2 2v1" />
+                <path d="M10 9.5V4a2 2 0 0 0-2-2a2 2 0 0 0-2 2v10" />
+                <path d="M18 11a2 2 0 1 1 4 0v3a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15" />
+              </svg>
+              <span>Arraste</span>
+            </div>
             <Stack
               cards={TESTIMONIAL_IMAGES.map((src, index) => (
                 <img

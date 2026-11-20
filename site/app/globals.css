@@ -418,8 +418,26 @@ h1 em, h2 em { color:var(--steel); font-style:normal; font-weight:450; }
 }
 .testimonials-heading h2 span { display:block; }
 .testimonials-heading p {
-  max-width:390px; margin:28px 0 0 auto; color:#6e7a82; font-size:13px; line-height:1.6;
+  max-width:390px; margin:28px 0 0 auto; color:#2b363d; font-size:15px; font-weight:500; line-height:1.55;
 }
+/* Aviso de que os cards podem ser arrastados: mãozinha deslizando acima da pilha */
+.testimonials-stack-wrap { position:relative; width:min(400px,34vw); margin-top:56px; }
+.drag-hint {
+  position:absolute; left:50%; top:-58px; z-index:5; transform:translateX(-50%);
+  display:flex; align-items:center; gap:8px; padding:7px 14px 7px 10px; border-radius:999px;
+  color:#0f1417; background:rgba(255,255,255,.78); border:1px solid rgba(15,20,23,.1);
+  box-shadow:0 8px 24px rgba(15,20,23,.08);
+  -webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px);
+  font-size:12px; font-weight:600; letter-spacing:.02em; pointer-events:none;
+  transition:opacity .4s ease, transform .4s ease;
+}
+.drag-hint svg { width:20px; height:20px; animation:drag-hint-swipe 1.8s cubic-bezier(.45,0,.25,1) infinite; }
+@keyframes drag-hint-swipe {
+  0%, 100% { transform:translateX(-5px) rotate(-8deg); }
+  50% { transform:translateX(7px) rotate(6deg); }
+}
+.drag-hint-gone .drag-hint { opacity:0; transform:translate(-50%,6px); }
+@media (prefers-reduced-motion: reduce) { .drag-hint svg { animation:none; } }
 .number-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin-top:68px; }
 .number-card { border-radius:28px; padding:27px; min-height:365px; display:flex; flex-direction:column; overflow:hidden; transition:opacity .08s linear; }
 .number-card.featured { background:var(--ink); color:#fff; box-shadow:0 30px 70px rgba(18,23,26,.22); transform:translateY(-14px); }
@@ -770,7 +788,9 @@ footer a:hover { color:#fff; }
   .testimonials-heading { grid-row:1; text-align:center; justify-self:center; max-width:100%; }
   .testimonials-heading h2 { font-size:clamp(34px,9.5vw,44px); }
   .testimonials-heading h2 span { white-space:nowrap; }
-  .testimonials-heading p { max-width:300px; margin:18px auto 0; }
+  .testimonials-heading p { max-width:300px; margin:18px auto 0; font-size:14px; }
+  .testimonials-layout { gap:96px; }
+  .drag-hint { top:-56px; }
   .testimonials-stack-wrap {
     grid-row:2; width:min(330px,78vw); margin:0 auto; transform:translateX(-8px);
   }
