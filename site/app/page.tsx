@@ -211,6 +211,9 @@ export default function Home() {
   const [submittingLead, setSubmittingLead] = useState(false);
   const [leadSent, setLeadSent] = useState(false);
   const [leadError, setLeadError] = useState<string | null>(null);
+  // O efeito de feixes (WebGL) só liga depois da primeira interação da pessoa
+  // (mexer o mouse, tocar, rolar ou usar o teclado). Assim a página abre leve e rápida.
+  const [beamsOn, setBeamsOn] = useState(false);
   const transitionRef = useRef<HTMLDivElement>(null);
   const systemRef = useRef<HTMLDivElement>(null);
   const navProgressRef = useRef<HTMLSpanElement>(null);
@@ -575,6 +578,17 @@ export default function Home() {
     return () => observer.disconnect();
   }, []);
 
+  useEffect(() => {
+    if (beamsOn) return;
+    const events = ["pointermove", "pointerdown", "touchstart", "wheel", "scroll", "keydown"] as const;
+    const start = () => {
+      events.forEach((name) => window.removeEventListener(name, start));
+      setBeamsOn(true);
+    };
+    events.forEach((name) => window.addEventListener(name, start, { passive: true, once: true }));
+    return () => events.forEach((name) => window.removeEventListener(name, start));
+  }, [beamsOn]);
+
   return (
     <main>
       <div className="nav-blur-shell" aria-hidden="true">
@@ -621,14 +635,16 @@ export default function Home() {
 
       <section className="hero" id="top">
         <div className="hero-beams" aria-hidden="true">
-          <Beams
-            color="#afb7bf"
-            beamWidth={140}
-            rotation={30}
-            speed={1}
-            glow={0.6}
-            opacity={0.65}
-          />
+          {beamsOn && (
+            <Beams
+              color="#afb7bf"
+              beamWidth={140}
+              rotation={30}
+              speed={1}
+              glow={0.6}
+              opacity={0.65}
+            />
+          )}
         </div>
         <div className="ambient ambient-a" />
         <div className="ambient ambient-b" />
@@ -666,7 +682,7 @@ export default function Home() {
                 [1, 2, 3, 4, 5, 6, 7, 8].map((logo) => (
                   <div className="client-logo" key={`${set}-${logo}`} aria-hidden={set === 2}>
                     <img
-                      src={`/client-marquee/${logo}.png`}
+                      src={`/client-marquee/${logo}.webp`}
                       width={300}
                       height={80}
                       loading="lazy"
@@ -751,8 +767,8 @@ export default function Home() {
               <img
                 className="lead-form-photo"
                 src="/webp/img-lancaster.webp"
-                width={1084}
-                height={1462}
+                width={720}
+                height={960}
                 loading="lazy"
                 decoding="async"
                 alt="Lancaster Matos"
