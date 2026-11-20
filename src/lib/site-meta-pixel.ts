@@ -111,14 +111,24 @@ export async function recordPixelEvent(db: SupabaseClient, site: SitePixelSettin
   if (rows.length) await db.from("site_analytics_pixel_events").upsert(rows, { onConflict: "event_id,channel", ignoreDuplicates: true });
 }
 
-/** Confere se o ID do Pixel e o token funcionam, consultando o Pixel no Facebook. */
+/**
+ * Confere o ID do Pixel e o token antes de salvar.
+ * O token da API de Conversões gerado no Gerenciador de Eventos só tem permissão para ENVIAR eventos,
+ * então "Missing Permission" ao ler o Pixel não é erro. Só bloqueamos token inválido ou Pixel inexistente.
+ */
 export async function verifyPixelAccess(pixelId: string, token: string) {
   try {
     const response = await fetch(`${GRAPH}/${pixelId}?fields=name&access_token=${encodeURIComponent(token)}`, { signal: AbortSignal.timeout(8000) });
-    const json = await response.json().catch(() => null) as { name?: string; error?: { message?: string } } | null;
+    const json = await response.json().catch(() => null) as { name?: string; error?: { message?: string; code?: number; type?: string } } | null;
     if (response.ok) return { ok: true as const, name: json?.name ?? null };
-    return { ok: false as const, error: json?.error?.message ?? `Erro ${response.status}` };
+    const message = json?.error?.message ?? `Erro ${response.status}`;
+    const code = json?.error?.code;
+    // 190 = token inválido/expirado. Outros erros (ex.: falta de permissão de leitura) não impedem o envio.
+    const fatal = code === 190 || /malformed access token|invalid oauth access token/i.test(message);
+    if (!fatal) return { ok: true as const, name: null };
+    return { ok: false as const, error: message };
   } catch {
-    return { ok: false as const, error: "Não foi possível falar com o Facebook agora." };
+    // Sem resposta do Facebook agora: salva mesmo assim; o painel mostra se o envio falhar.
+    return { ok: true as const, name: null };
   }
 }

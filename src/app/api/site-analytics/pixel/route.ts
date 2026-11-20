@@ -31,7 +31,7 @@ export async function PUT(req: NextRequest) {
   let pixelName: string | null = null;
   if (encrypted && pixelId) {
     const check = await verifyPixelAccess(pixelId, newToken || decryptToken(encrypted));
-    if (!check.ok) return NextResponse.json({ error: `O Facebook recusou o token ou o ID do Pixel: ${check.error}` }, { status: 400 });
+    if (!check.ok) return NextResponse.json({ error: `O token não é válido ou expirou. Gere um novo no Gerenciador de Eventos. (${check.error})` }, { status: 400 });
     pixelName = check.name;
   }
 
