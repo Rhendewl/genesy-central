@@ -102,13 +102,18 @@ async function sendConversionsApi(site: SitePixelSettings, event: PixelEventInpu
 export async function recordPixelEvent(db: SupabaseClient, site: SitePixelSettings, sessionId: string | null, event: PixelEventInput, req: NextRequest,
   extra: { visitorId?: string | null; name?: string | null; phone?: string | null; logBrowser?: boolean } = {}) {
   if (!pixelActive(site)) return;
-  const rows: Array<Record<string, unknown>> = [];
-  if (extra.logBrowser !== false) {
-    rows.push({ user_id: site.user_id, site_key: site.site_key, session_id: sessionId, event_name: event.event, event_id: event.event_id, channel: "browser", status: event.loaded ? "sent" : "blocked" });
-  }
   const server = await sendConversionsApi(site, event, req, extra);
-  if (server) rows.push({ user_id: site.user_id, site_key: site.site_key, session_id: sessionId, event_name: event.event, event_id: event.event_id, channel: "server", status: server.status, error: server.error });
-  if (rows.length) await db.from("site_analytics_pixel_events").upsert(rows, { onConflict: "event_id,channel", ignoreDuplicates: true });
+  // Registro no painel: usa a tabela de eventos do site (precisa de uma sessão do visitante).
+  if (!sessionId) return;
+  const row = (channel: "browser" | "server", status: string, error: string | null = null) => ({
+    user_id: site.user_id, session_id: sessionId, event_type: "pixel", path: null, section: null, duration_seconds: null,
+    metadata: { event: event.event, event_id: event.event_id, channel, status, error },
+    idempotency_key: `pixel:${event.event_id}:${channel}`,
+  });
+  const rows = [];
+  if (extra.logBrowser !== false) rows.push(row("browser", event.loaded ? "sent" : "blocked"));
+  if (server) rows.push(row("server", server.status, server.error));
+  if (rows.length) await db.from("site_analytics_events").upsert(rows, { onConflict: "idempotency_key", ignoreDuplicates: true });
 }
 
 /**

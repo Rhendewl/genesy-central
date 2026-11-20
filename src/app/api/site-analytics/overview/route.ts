@@ -9,11 +9,10 @@ export async function GET(req: NextRequest) {
   const days = Math.min(365, Math.max(1, Number(req.nextUrl.searchParams.get("days") ?? 30)));
   const since = new Date(Date.now() - days * DAY).toISOString();
   const admin = createAdminSupabaseClient();
-  const [{ data: sessions }, { data: events }, { data: leads }, { data: pixelEvents }, { data: pixelSettings }] = await Promise.all([
+  const [{ data: sessions }, { data: events }, { data: leads }, { data: pixelSettings }] = await Promise.all([
     admin.from("site_analytics_sessions").select("id,visitor_id,started_at,active_seconds,page_views,device,referrer,utm_source,utm_campaign").eq("user_id", context.ownerId).gte("started_at", since).order("started_at", { ascending: false }),
     admin.from("site_analytics_events").select("event_type,section,metadata,session_id,created_at").eq("user_id", context.ownerId).gte("created_at", since),
     admin.from("site_analytics_leads").select("id,name,phone,profile,monthly_vgv,sync_status,sync_error,crm_lead_id,created_at").eq("user_id", context.ownerId).gte("created_at", since).order("created_at", { ascending: false }).limit(200),
-    admin.from("site_analytics_pixel_events").select("event_name,channel,status,error,created_at").eq("user_id", context.ownerId).gte("created_at", since).order("created_at", { ascending: false }).limit(20000),
     admin.from("site_analytics_settings").select("meta_pixel_enabled,meta_pixel_id,meta_capi_token_encrypted").eq("user_id", context.ownerId).eq("site_key", "genesycompany").maybeSingle(),
   ]);
   const sessionRows = sessions ?? [];
@@ -68,7 +67,10 @@ export async function GET(req: NextRequest) {
   ];
 
   // Pixel do Facebook: quantos eventos o site enviou (navegador) e quantos foram pelo servidor.
-  const pixelRows = pixelEvents ?? [];
+  const pixelRows = (events ?? []).filter(event => event.event_type === "pixel").map(event => {
+    const meta = (event.metadata ?? {}) as { event?: string; channel?: string; status?: string; error?: string | null };
+    return { event_name: meta.event ?? "", channel: meta.channel ?? "", status: meta.status ?? "", error: meta.error ?? null, created_at: event.created_at };
+  }).sort((a, b) => b.created_at.localeCompare(a.created_at));
   const pixelOrder = ["PageView", "ViewContent", "Contact", "Lead"];
   const pixelTotals = pixelOrder.map(name => {
     const rows = pixelRows.filter(row => row.event_name === name);
