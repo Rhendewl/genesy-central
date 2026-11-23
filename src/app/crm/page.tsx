@@ -55,7 +55,7 @@ export default function CrmPage() {
   const valuesHidden = useFinancialPrivacyStore((state) => state.valuesHidden);
   void valuesHidden;
   const [activeTab, setActiveTab] = useState<TabId>("kanban");
-  useEffect(() => { if (new URLSearchParams(window.location.search).get("tab") === "formularios-meta") setActiveTab("formularios-meta"); }, []);
+  useEffect(() => { const tab = new URLSearchParams(window.location.search).get("tab"); if (TABS.some(item => item.id === tab)) setActiveTab(tab as TabId); }, []);
   const { member, isOwner } = useCurrentMember();
   const hasFullCrmAccess = isAdministrativeMember(member, isOwner === true);
   const visibleTabs = hasFullCrmAccess

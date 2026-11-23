@@ -13,7 +13,7 @@ let rows: Record<string, unknown>;
 beforeEach(() => {
   vi.clearAllMocks(); mocks.context.mockResolvedValue({ isAdmin: true, user: { id: "owner" } }); mocks.forms.mockResolvedValue([{ id: "222", name: "Cadastro" }]); mocks.save.mockResolvedValue({ error: null });
   rows = { meta_page_subscriptions: { encrypted_page_token: "encrypted", is_active: true }, crm_stages: { id: "stage" } };
-  mocks.from.mockImplementation((table: string) => { const chain = { select: () => chain, eq: () => chain, maybeSingle: async () => ({ data: rows[table] ?? null }), upsert: mocks.save, then: (resolve: (value: unknown) => unknown) => Promise.resolve({ data: rows[table] ?? null }).then(resolve) }; return chain; });
+  mocks.from.mockImplementation((table: string) => { const chain = { select: () => chain, eq: () => chain, is: () => chain, maybeSingle: async () => ({ data: rows[table] ?? null }), upsert: mocks.save, then: (resolve: (value: unknown) => unknown) => Promise.resolve({ data: rows[table] ?? null }).then(resolve) }; return chain; });
 });
 it("blocks members before reading connections", async () => { mocks.context.mockResolvedValue({ isAdmin: false }); expect((await POST(request())).status).toBe(403); expect(mocks.from).not.toHaveBeenCalled(); });
 it("refuses an unowned page", async () => { rows.meta_page_subscriptions = null; expect((await POST(request())).status).toBe(404); expect(mocks.forms).not.toHaveBeenCalled(); expect(mocks.save).not.toHaveBeenCalled(); });
