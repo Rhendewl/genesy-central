@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowDown, ArrowRight, ArrowUp, Check, ChevronLeft, Clock3, FileText, Layers, Pencil, Plus, RotateCw, Search, Shuffle, Trash2, Users, X } from "lucide-react";
+import { ArrowRight, Check, GripVertical, ChevronLeft, Clock3, FileText, Layers, Pencil, Plus, RotateCw, Search, Shuffle, Trash2, Users, X } from "lucide-react";
 
 /**
  * Roletas em ambientes (ex.: um por cliente). Cada ambiente tem filas de distribuição;
@@ -279,7 +279,27 @@ function QueueEditor({ data, draft, setDraft, busy, profile, formLabel, onSave, 
     return own?.crm_stages.filter(s => s.is_active).sort((a, b) => a.order_index - b.order_index)[0]?.id ?? "";
   };
   const toggleAgent = (p: Profile) => setDraft({ ...draft, participants: draft.participants.some(x => x.profile_id === p.id) ? draft.participants.filter(x => x.profile_id !== p.id) : [...draft.participants, { profile_id: p.id, stage_id: defaultStage(p) }] });
-  const move = (index: number, delta: number) => { const list = [...draft.participants]; const [item] = list.splice(index, 1); list.splice(index + delta, 0, item); setDraft({ ...draft, participants: list }); };
+  // Arrastar para reordenar (mouse e toque): segura o cartão e solta na nova posição.
+  const [dragging, setDragging] = useState<string | null>(null);
+  const draftRef = useRef(draft); draftRef.current = draft;
+  const startDrag = (e: React.PointerEvent, profileId: string) => {
+    if ((e.target as HTMLElement).closest("button,select")) return;
+    e.preventDefault();
+    setDragging(profileId);
+    const onMove = (ev: PointerEvent) => {
+      const over = (document.elementFromPoint(ev.clientX, ev.clientY) as HTMLElement | null)?.closest<HTMLElement>("[data-agent]");
+      const target = over?.dataset.agent;
+      const current = draftRef.current;
+      if (!target || target === profileId) return;
+      const list = [...current.participants];
+      const from = list.findIndex(x => x.profile_id === profileId); const to = list.findIndex(x => x.profile_id === target);
+      if (from < 0 || to < 0) return;
+      const [item] = list.splice(from, 1); list.splice(to, 0, item);
+      setDraft({ ...current, participants: list });
+    };
+    const onUp = () => { setDragging(null); window.removeEventListener("pointermove", onMove); window.removeEventListener("pointerup", onUp); window.removeEventListener("pointercancel", onUp); };
+    window.addEventListener("pointermove", onMove); window.addEventListener("pointerup", onUp); window.addEventListener("pointercancel", onUp);
+  };
   const canAccess = (p: Profile | null, stageId: string) => {
     if (!p || p.role === "admin") return true;
     const pipeline = data.pipelines.find(pl => pl.crm_stages.some(s => s.id === stageId));
@@ -330,14 +350,13 @@ function QueueEditor({ data, draft, setDraft, busy, profile, formLabel, onSave, 
         <div className="mb-4 flex flex-wrap gap-2">{agents.map(p => { const on = draft.participants.some(x => x.profile_id === p.id); return <button key={p.id} type="button" onClick={() => toggleAgent(p)}
           className={`flex items-center gap-2 rounded-full border py-1 pl-1 pr-3 text-xs transition-colors ${on ? "border-[var(--primary)] bg-[var(--hover)] font-medium" : "border-[var(--glass-border)] text-[var(--muted-foreground)] hover:text-[var(--text-title)]"}`}>
           <Avatar profile={p} size={24} />{p.full_name}{on && <Check size={12} className="text-[var(--primary)]" />}</button>; })}</div>
-        <p className="mb-2 text-[10px] uppercase tracking-[0.16em] text-[var(--muted-foreground)]">Ordem da distribuição e etapa de entrada</p>
+        <p className="mb-2 text-[10px] uppercase tracking-[0.16em] text-[var(--muted-foreground)]">Ordem da distribuição e etapa de entrada · arraste para reordenar</p>
         {!draft.participants.length ? <p className="rounded-xl border border-dashed border-[var(--glass-border)] p-5 text-center text-xs text-[var(--muted-foreground)]">Toque nos corretores acima para colocá-los na fila.</p>
-        : <ol className="space-y-2">{draft.participants.map((item, i) => { const p = profile(item.profile_id); const warn = Boolean(item.stage_id) && !canAccess(p, item.stage_id); return <li key={item.profile_id} className="rounded-xl border border-[var(--glass-border)] bg-[var(--background)] p-2.5">
-          <div className="flex items-center gap-2">
+        : <ol className="space-y-2">{draft.participants.map((item, i) => { const p = profile(item.profile_id); const warn = Boolean(item.stage_id) && !canAccess(p, item.stage_id); return <li key={item.profile_id} data-agent={item.profile_id} className={`rounded-xl border bg-[var(--background)] p-2.5 transition-[transform,box-shadow,border-color] duration-150 ${dragging === item.profile_id ? "relative z-10 scale-[1.02] border-[var(--primary)] shadow-xl shadow-black/40" : "border-[var(--glass-border)]"}`}>
+          <div onPointerDown={e => startDrag(e, item.profile_id)} style={{ touchAction: "none" }} className={`flex select-none items-center gap-2 ${dragging === item.profile_id ? "cursor-grabbing" : "cursor-grab"}`} title="Clique e arraste para mudar a ordem">
+            <GripVertical size={15} className="shrink-0 text-[var(--muted-foreground)]" />
             <span className="w-4 text-center text-xs tabular-nums text-[var(--muted-foreground)]">{i + 1}</span><Avatar profile={p} size={30} />
             <span className="min-w-0 flex-1 truncate text-sm font-medium">{p?.full_name ?? "Usuário removido"}</span>
-            <button type="button" aria-label="Subir" disabled={i === 0} className="rounded-lg p-1.5 hover:bg-[var(--hover)] disabled:opacity-30" onClick={() => move(i, -1)}><ArrowUp size={13} /></button>
-            <button type="button" aria-label="Descer" disabled={i === draft.participants.length - 1} className="rounded-lg p-1.5 hover:bg-[var(--hover)] disabled:opacity-30" onClick={() => move(i, 1)}><ArrowDown size={13} /></button>
             <button type="button" aria-label="Tirar da fila" className="rounded-lg p-1.5 text-[var(--muted-foreground)] hover:bg-red-500/10 hover:text-red-500" onClick={() => setDraft({ ...draft, participants: draft.participants.filter(x => x.profile_id !== item.profile_id) })}><X size={13} /></button>
           </div>
           <select aria-label={`Etapa de entrada de ${p?.full_name ?? "corretor"}`} className={`${field} mt-2 !py-2 text-xs`} value={item.stage_id} onChange={e => setDraft({ ...draft, participants: draft.participants.map(x => x.profile_id === item.profile_id ? { ...x, stage_id: e.target.value } : x) })}>
