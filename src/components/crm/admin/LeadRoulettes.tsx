@@ -262,6 +262,7 @@ function QueueEditor({ data, draft, setDraft, busy, profile, formLabel, onSave, 
   }, []);
   useEffect(() => { if (source === "meta" && pageId) void loadPage(pageId); }, [source, pageId, loadPage]);
   const label = (f: FormRef) => names[formKey(f)] ?? formLabel(f);
+  const collecting = (f: FormRef) => f.source_kind !== "meta" || data.metaForms.some(m => m.form_id === f.form_id && m.page_id === f.page_id && m.is_active);
   const pageName = (id: string) => pages.find(p => p.meta_page_id === id)?.page_name ?? "Página";
   const current = pageForms[pageId];
   const term = search.toLocaleLowerCase();
@@ -297,7 +298,7 @@ function QueueEditor({ data, draft, setDraft, busy, profile, formLabel, onSave, 
       <section className="rounded-2xl border border-[var(--glass-border)] p-4">
         <div className="mb-3 flex items-center justify-between gap-2"><h4 className="flex items-center gap-2 font-semibold"><span className="grid h-6 w-6 place-items-center rounded-full bg-[var(--primary)] text-xs text-[var(--primary-foreground)]">1</span>Formulários da fila</h4><span className="text-xs text-[var(--muted-foreground)]">{draft.forms.length} selecionado{draft.forms.length === 1 ? "" : "s"}</span></div>
         {draft.forms.length > 0 && <div className="mb-4 flex flex-wrap gap-1.5">{draft.forms.map(f => <span key={formKey(f)} className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-[var(--primary)]/40 bg-[var(--hover)] py-1 pl-2 pr-1 text-xs">
-          <SourceBadge kind={f.source_kind} /><span className="truncate">{label(f)}</span>{f.source_kind === "meta" && <span className="shrink-0 text-[10px] text-[var(--muted-foreground)]">· {pageName(f.page_id)}</span>}
+          <SourceBadge kind={f.source_kind} /><span className="truncate">{label(f)}</span>{f.source_kind === "meta" && <span className="shrink-0 text-[10px] text-[var(--muted-foreground)]">· {pageName(f.page_id)}</span>}{!collecting(f) && <span title="Ligue a coleta em Formulários Meta" className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-400" />}
           <button type="button" aria-label="Tirar formulário da fila" className="rounded-full p-0.5 text-[var(--muted-foreground)] hover:bg-red-500/10 hover:text-red-500" onClick={() => toggleForm(f)}><X size={12} /></button></span>)}</div>}
         <div className="mb-3 flex rounded-xl border border-[var(--glass-border)] p-0.5 text-xs">{(["meta", "genesy"] as const).map(s => <button key={s} type="button" onClick={() => { setSource(s); setSearch(""); }} className={`flex-1 rounded-lg px-3 py-1.5 ${source === s ? "bg-[var(--hover)] font-medium" : "text-[var(--muted-foreground)]"}`}>{s === "meta" ? "Facebook / Instagram (Meta)" : "Formulários Genesy"}</button>)}</div>
         {source === "meta" && (pages.length ? <label className="mb-3 block space-y-1 text-xs"><span className="font-medium">Primeiro, escolha a página</span>
@@ -315,12 +316,13 @@ function QueueEditor({ data, draft, setDraft, busy, profile, formLabel, onSave, 
             <button type="button" disabled={Boolean(taken) && !on} onClick={() => toggleForm(f)} className={`flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left text-sm transition-colors disabled:opacity-45 ${on ? "border-[var(--primary)] bg-[var(--hover)]" : "border-[var(--glass-border)] hover:bg-[var(--hover)]"}`}>
               <span className={`grid h-5 w-5 shrink-0 place-items-center rounded-md border ${on ? "border-[var(--primary)] bg-[var(--primary)] text-[var(--primary-foreground)]" : "border-[var(--glass-border)]"}`}>{on && <Check size={12} />}</span>
               <span className="min-w-0 flex-1 truncate">{label(f)}</span>
+              {f.source_kind === "meta" && <span className={`shrink-0 text-[10px] ${collecting(f) ? "text-emerald-400" : "text-amber-400"}`}>{collecting(f) ? "Coletando" : "Coleta desligada"}</span>}
               {f.status !== "ACTIVE" && <span className="shrink-0 rounded-full bg-[var(--hover)] px-2 py-0.5 text-[10px] text-[var(--muted-foreground)]">Arquivado</span>}
               {taken && !on && <span className="shrink-0 text-[10px] text-[var(--muted-foreground)]">Na fila “{taken}”</span>}
             </button></li>; })}
             {!visibleForms.length && <li className="py-6 text-center text-xs text-[var(--muted-foreground)]">{search ? "Nenhum formulário com esse nome." : source === "meta" ? "Esta página não tem formulários de cadastro." : "Nenhum formulário Genesy criado ainda."}</li>}</ul>}
         </>}
-        {source === "meta" && <p className="mt-3 text-[10px] text-[var(--muted-foreground)]">Ao salvar, a captura dos formulários Meta escolhidos é ligada automaticamente.</p>}
+        {source === "meta" && <p className="mt-3 text-[10px] text-[var(--muted-foreground)]">A fila salva mesmo com a coleta desligada. Para os leads chegarem, ligue a coleta do formulário em Marketing → Formulários Meta.</p>}
       </section>
 
       <section className="rounded-2xl border border-[var(--glass-border)] p-4">

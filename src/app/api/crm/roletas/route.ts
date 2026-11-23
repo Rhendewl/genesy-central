@@ -105,26 +105,32 @@ export async function POST(req: NextRequest) {
           if (!id(item.profile_id) || !id(item.stage_id)) fail("Escolha a etapa de entrada de cada corretor.");
           return { profile_id: item.profile_id, stage_id: item.stage_id };
         });
-        // Formulários Meta escolhidos precisam estar com a captura ligada para os leads chegarem.
+        // Formulários Meta ainda não registrados entram com a coleta DESLIGADA; quem liga/desliga é a tela Formulários Meta.
         const admin = createAdminSupabaseClient();
         const metaByPage = new Map<string, string[]>();
         for (const f of cleanForms) if (f.source_kind === "meta") {
           if (!/^\d+$/.test(f.page_id) || !/^\d+$/.test(f.form_id as string)) fail("Formulário Meta inválido.");
           metaByPage.set(f.page_id, [...(metaByPage.get(f.page_id) ?? []), f.form_id as string]);
         }
-        const toActivate: { user_id: string; page_id: string; form_id: string; form_name: string; is_active: boolean; updated_at: string }[] = [];
+        const toRegister: { user_id: string; page_id: string; form_id: string; form_name: string; is_active: boolean; updated_at: string }[] = [];
         for (const [pageId, formIds] of Array.from(metaByPage)) {
-          const current = await admin.from("meta_form_subscriptions").select("form_id,is_active").eq("user_id", ownerId).eq("page_id", pageId).in("form_id", formIds);
-          if (current.error) fail("Não foi possível conferir os formulários Meta.", 503);
-          const active = new Set((current.data ?? []).filter(r => r.is_active).map(r => r.form_id as string));
-          const missing = formIds.filter(f => !active.has(f));
+          const known = await admin.from("meta_form_subscriptions").select("form_id").eq("user_id", ownerId).eq("page_id", pageId).in("form_id", formIds);
+          if (known.error) fail("Não foi possível conferir os formulários Meta.", 503);
+          const registered = new Set((known.data ?? []).map(r => r.form_id as string));
+          const missing = formIds.filter(f => !registered.has(f));
           if (!missing.length) continue;
-          const { page, forms: metaForms } = await pageForms(admin, ownerId, pageId);
-          if (!page.is_active) fail(`Ative a página ${page.page_name ?? ""} em Formulários Meta antes de usar os formulários dela.`.replace("  ", " "));
+          const { forms: metaForms } = await pageForms(admin, ownerId, pageId);
           for (const formId of missing) {
             const form = metaForms.find(f => f.id === formId);
             if (!form) fail("Um dos formulários não pertence mais a esta página. Recarregue e tente de novo.");
-            toActivate.push({ user_id: ownerId, page_id: pageId, form_id: formId, form_name: form.name, is_active: true, updated_at: new Date().toISOString() });
+            toRegister.push({ user_id: ownerId, page_id: pageId, form_id: formId, form_name: form.name, is_active: false, updated_at: new Date().toISOString() });
+          }
+        }
+        if (toRegister.length) {
+          const saved = await admin.from("meta_form_subscriptions").upsert(toRegister, { onConflict: "user_id,form_id", ignoreDuplicates: true });
+          if (saved.error) {
+            console.error("[crm/roletas] Falha ao registrar formulários Meta", saved.error.message);
+            fail("Não foi possível registrar os formulários Meta. Tente de novo.", 500);
           }
         }
         const { data, error } = await db.rpc("crm_save_roulette_queue", {
@@ -132,14 +138,7 @@ export async function POST(req: NextRequest) {
           p_forms: cleanForms, p_participants: cleanParticipants,
         });
         if (error) fail(error.message);
-        if (toActivate.length) {
-          const saved = await admin.from("meta_form_subscriptions").upsert(toActivate, { onConflict: "user_id,form_id" });
-          if (saved.error) {
-            console.error("[crm/roletas] Falha ao ligar captura Meta", saved.error.message);
-            fail("A fila foi salva, mas não consegui ligar a captura dos formulários Meta. Tente salvar de novo.", 500);
-          }
-        }
-        return NextResponse.json({ id: data, activated: toActivate.length });
+        return NextResponse.json({ id: data });
       }
       case "toggle":
       case "delete": {
