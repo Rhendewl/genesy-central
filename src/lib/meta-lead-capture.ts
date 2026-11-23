@@ -30,7 +30,8 @@ export async function captureMetaLead(db: SupabaseClient, event: MetaLeadEvent, 
 
   const roulette = await db.from("crm_roulette_forms").select("roulette_id")
     .eq("user_id", ownerId).eq("source_kind", "meta").eq("form_id", event.form_id).eq("page_id", event.page_id).maybeSingle();
-  if (roulette.error) throw new Error(roulette.error.message);
+  // Se a consulta da fila falhar, segue pela etapa fixa; a distribuição abaixo ainda confere a fila no banco.
+  if (roulette.error) console.error("[meta-lead] Falha ao consultar fila da roleta", roulette.error.message);
   let stageId = routing.route?.crm_stage_id;
   const assignedTo = routing.route?.assigned_to ?? null;
   if (!roulette.data) {
