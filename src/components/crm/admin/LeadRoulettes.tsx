@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowDown, ArrowRight, ArrowUp, Check, ChevronLeft, Clock3, FileText, Layers, Pencil, Plus, RotateCw, Search, Shuffle, Trash2, Users, X } from "lucide-react";
 
 /**
@@ -19,7 +19,9 @@ type Data = {
   forms: { id: string; name: string }[];
   metaForms: { form_id: string; form_name: string | null; page_id: string; is_active: boolean }[];
   pipelines: Pipeline[]; history: History[]; profiles: Profile[];
+  metaPages: { meta_page_id: string; page_name: string | null; is_active: boolean }[];
 };
+type MetaPageForms = { loading: boolean; error?: string; pageActive?: boolean; forms: { id: string; name: string; status: string }[] };
 type FormRef = { source_kind: "genesy" | "meta"; form_id: string; page_id: string };
 type QueueDraft = { id?: string; group_id: string; name: string; enabled: boolean; forms: FormRef[]; participants: Participant[] };
 
@@ -235,16 +237,41 @@ function QueueEditor({ data, draft, setDraft, busy, profile, formLabel, onSave, 
   onSave: () => void; onCancel: () => void;
 }) {
   const [search, setSearch] = useState("");
-  const [source, setSource] = useState<"all" | "meta" | "genesy">("all");
+  const pages = data.metaPages ?? [];
   const agents = data.profiles.filter(p => p.is_active && p.auth_user_id);
+  const [source, setSource] = useState<"meta" | "genesy">(pages.length || !data.forms.length ? "meta" : "genesy");
+  const [pageId, setPageId] = useState(() => draft.forms.find(f => f.source_kind === "meta")?.page_id ?? (pages.find(p => p.is_active) ?? pages[0])?.meta_page_id ?? "");
+  const [pageForms, setPageForms] = useState<Record<string, MetaPageForms>>({});
+  const [names, setNames] = useState<Record<string, string>>({});
+  const requested = useRef(new Set<string>());
   const usedBy = useMemo(() => new Map(data.links.filter(l => l.roulette_id !== draft.id).map(l => [formKey(l), data.queues.find(q => q.id === l.roulette_id)?.name ?? "outra fila"])), [data, draft.id]);
-  const allForms: FormRef[] = [
-    ...data.metaForms.map(f => ({ source_kind: "meta" as const, form_id: f.form_id, page_id: f.page_id })),
-    ...data.forms.map(f => ({ source_kind: "genesy" as const, form_id: f.id, page_id: "" })),
-  ];
-  const visibleForms = allForms.filter(f => (source === "all" || f.source_kind === source) && formLabel(f).toLocaleLowerCase().includes(search.toLocaleLowerCase()));
+  const loadPage = useCallback(async (id: string, force = false) => {
+    if (!id || (requested.current.has(id) && !force)) return;
+    requested.current.add(id);
+    setPageForms(prev => ({ ...prev, [id]: { loading: true, forms: prev[id]?.forms ?? [] } }));
+    try {
+      const res = await fetch("/api/crm/roletas", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "meta_forms", page_id: id }) });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error || "Não foi possível carregar os formulários desta página.");
+      const forms = (json.forms ?? []) as MetaPageForms["forms"];
+      setPageForms(prev => ({ ...prev, [id]: { loading: false, pageActive: json.page_active, forms } }));
+      setNames(prev => ({ ...prev, ...Object.fromEntries(forms.map(f => [`meta:${id}:${f.id}`, f.name])) }));
+    } catch (error) {
+      setPageForms(prev => ({ ...prev, [id]: { loading: false, error: error instanceof Error ? error.message : "Erro ao carregar.", forms: [] } }));
+    }
+  }, []);
+  useEffect(() => { if (source === "meta" && pageId) void loadPage(pageId); }, [source, pageId, loadPage]);
+  const label = (f: FormRef) => names[formKey(f)] ?? formLabel(f);
+  const pageName = (id: string) => pages.find(p => p.meta_page_id === id)?.page_name ?? "Página";
+  const current = pageForms[pageId];
+  const term = search.toLocaleLowerCase();
+  const metaList: (FormRef & { status: string })[] = (current?.forms ?? [])
+    .map(f => ({ source_kind: "meta" as const, form_id: f.id, page_id: pageId, status: f.status }))
+    .sort((a, b) => Number(a.status !== "ACTIVE") - Number(b.status !== "ACTIVE"));
+  const genesyList: (FormRef & { status: string })[] = data.forms.map(f => ({ source_kind: "genesy" as const, form_id: f.id, page_id: "", status: "ACTIVE" }));
+  const visibleForms = (source === "meta" ? metaList : genesyList).filter(f => label(f).toLocaleLowerCase().includes(term));
   const selectedKeys = new Set(draft.forms.map(formKey));
-  const toggleForm = (f: FormRef) => setDraft({ ...draft, forms: selectedKeys.has(formKey(f)) ? draft.forms.filter(x => formKey(x) !== formKey(f)) : [...draft.forms, f] });
+  const toggleForm = (f: FormRef) => setDraft({ ...draft, forms: selectedKeys.has(formKey(f)) ? draft.forms.filter(x => formKey(x) !== formKey(f)) : [...draft.forms, { source_kind: f.source_kind, form_id: f.form_id, page_id: f.page_id }] });
   // Etapa sugerida: primeira etapa da pipeline do próprio corretor (ou da primeira pipeline ativa).
   const defaultStage = (p: Profile) => {
     const own = data.pipelines.find(pl => pl.is_active && (pl.default_assignee_id === p.id || pl.id === p.crm_pipeline_id)) ?? data.pipelines.find(pl => pl.is_active);
@@ -269,16 +296,31 @@ function QueueEditor({ data, draft, setDraft, busy, profile, formLabel, onSave, 
     <div className="grid gap-5 lg:grid-cols-2">
       <section className="rounded-2xl border border-[var(--glass-border)] p-4">
         <div className="mb-3 flex items-center justify-between gap-2"><h4 className="flex items-center gap-2 font-semibold"><span className="grid h-6 w-6 place-items-center rounded-full bg-[var(--primary)] text-xs text-[var(--primary-foreground)]">1</span>Formulários da fila</h4><span className="text-xs text-[var(--muted-foreground)]">{draft.forms.length} selecionado{draft.forms.length === 1 ? "" : "s"}</span></div>
-        <div className="mb-3 flex flex-wrap gap-2">
-          <div className="relative min-w-40 flex-1"><Search size={14} className="absolute left-3 top-3 text-[var(--muted-foreground)]" /><input aria-label="Buscar formulários" className={`${field} !pl-9`} placeholder="Buscar formulário…" value={search} onChange={e => setSearch(e.target.value)} /></div>
-          <div className="flex rounded-xl border border-[var(--glass-border)] p-0.5 text-xs">{(["all", "meta", "genesy"] as const).map(s => <button key={s} type="button" onClick={() => setSource(s)} className={`rounded-lg px-3 py-1.5 ${source === s ? "bg-[var(--hover)] font-medium" : "text-[var(--muted-foreground)]"}`}>{s === "all" ? "Todos" : s === "meta" ? "Meta" : "Genesy"}</button>)}</div>
-        </div>
-        <ul className="max-h-80 space-y-1.5 overflow-y-auto pr-1">{visibleForms.map(f => { const key = formKey(f); const taken = usedBy.get(key); const on = selectedKeys.has(key); return <li key={key}>
-          <button type="button" disabled={Boolean(taken) && !on} onClick={() => toggleForm(f)} className={`flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left text-sm transition-colors disabled:opacity-45 ${on ? "border-[var(--primary)] bg-[var(--hover)]" : "border-[var(--glass-border)] hover:bg-[var(--hover)]"}`}>
-            <span className={`grid h-5 w-5 shrink-0 place-items-center rounded-md border ${on ? "border-[var(--primary)] bg-[var(--primary)] text-[var(--primary-foreground)]" : "border-[var(--glass-border)]"}`}>{on && <Check size={12} />}</span>
-            <SourceBadge kind={f.source_kind} /><span className="min-w-0 flex-1 truncate">{formLabel(f)}</span>{taken && !on && <span className="shrink-0 text-[10px] text-[var(--muted-foreground)]">Na fila “{taken}”</span>}
-          </button></li>; })}
-          {!visibleForms.length && <li className="py-6 text-center text-xs text-[var(--muted-foreground)]">Nenhum formulário encontrado. Formulários Meta aparecem aqui depois de configurados em Formulários Meta.</li>}</ul>
+        {draft.forms.length > 0 && <div className="mb-4 flex flex-wrap gap-1.5">{draft.forms.map(f => <span key={formKey(f)} className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-[var(--primary)]/40 bg-[var(--hover)] py-1 pl-2 pr-1 text-xs">
+          <SourceBadge kind={f.source_kind} /><span className="truncate">{label(f)}</span>{f.source_kind === "meta" && <span className="shrink-0 text-[10px] text-[var(--muted-foreground)]">· {pageName(f.page_id)}</span>}
+          <button type="button" aria-label="Tirar formulário da fila" className="rounded-full p-0.5 text-[var(--muted-foreground)] hover:bg-red-500/10 hover:text-red-500" onClick={() => toggleForm(f)}><X size={12} /></button></span>)}</div>}
+        <div className="mb-3 flex rounded-xl border border-[var(--glass-border)] p-0.5 text-xs">{(["meta", "genesy"] as const).map(s => <button key={s} type="button" onClick={() => { setSource(s); setSearch(""); }} className={`flex-1 rounded-lg px-3 py-1.5 ${source === s ? "bg-[var(--hover)] font-medium" : "text-[var(--muted-foreground)]"}`}>{s === "meta" ? "Facebook / Instagram (Meta)" : "Formulários Genesy"}</button>)}</div>
+        {source === "meta" && (pages.length ? <label className="mb-3 block space-y-1 text-xs"><span className="font-medium">Primeiro, escolha a página</span>
+          <select aria-label="Página do Facebook" className={field} value={pageId} onChange={e => { setPageId(e.target.value); setSearch(""); }}>
+            <option value="" disabled>Escolha a página…</option>
+            {pages.map(p => <option key={p.meta_page_id} value={p.meta_page_id}>{p.page_name ?? p.meta_page_id}{p.is_active ? "" : " (captura desligada)"}</option>)}
+          </select></label>
+          : <p className="rounded-xl border border-dashed border-[var(--glass-border)] p-5 text-center text-xs text-[var(--muted-foreground)]">Nenhuma página do Facebook conectada. Conecte em Marketing → Formulários Meta.</p>)}
+        {(source === "genesy" || pageId) && <>
+          <div className="relative mb-3"><Search size={14} className="absolute left-3 top-3 text-[var(--muted-foreground)]" /><input aria-label="Buscar formulários" className={`${field} !pl-9`} placeholder={source === "meta" ? `Buscar nos formulários de ${pageName(pageId)}…` : "Buscar formulário…"} value={search} onChange={e => setSearch(e.target.value)} /></div>
+          {source === "meta" && current?.pageActive === false && <p className="mb-2 text-[11px] text-amber-400">A captura desta página está desligada. Ative-a em Formulários Meta para os leads chegarem.</p>}
+          {source === "meta" && current?.loading ? <p className="py-8 text-center text-xs text-[var(--muted-foreground)]">Buscando os formulários da página no Facebook…</p>
+          : source === "meta" && current?.error ? <div className="py-6 text-center text-xs"><p className="text-red-400">{current.error}</p><button type="button" className={`${button} mt-3`} onClick={() => void loadPage(pageId, true)}><RotateCw size={13} />Tentar de novo</button></div>
+          : <ul className="max-h-80 space-y-1.5 overflow-y-auto pr-1">{visibleForms.map(f => { const key = formKey(f); const taken = usedBy.get(key); const on = selectedKeys.has(key); return <li key={key}>
+            <button type="button" disabled={Boolean(taken) && !on} onClick={() => toggleForm(f)} className={`flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left text-sm transition-colors disabled:opacity-45 ${on ? "border-[var(--primary)] bg-[var(--hover)]" : "border-[var(--glass-border)] hover:bg-[var(--hover)]"}`}>
+              <span className={`grid h-5 w-5 shrink-0 place-items-center rounded-md border ${on ? "border-[var(--primary)] bg-[var(--primary)] text-[var(--primary-foreground)]" : "border-[var(--glass-border)]"}`}>{on && <Check size={12} />}</span>
+              <span className="min-w-0 flex-1 truncate">{label(f)}</span>
+              {f.status !== "ACTIVE" && <span className="shrink-0 rounded-full bg-[var(--hover)] px-2 py-0.5 text-[10px] text-[var(--muted-foreground)]">Arquivado</span>}
+              {taken && !on && <span className="shrink-0 text-[10px] text-[var(--muted-foreground)]">Na fila “{taken}”</span>}
+            </button></li>; })}
+            {!visibleForms.length && <li className="py-6 text-center text-xs text-[var(--muted-foreground)]">{search ? "Nenhum formulário com esse nome." : source === "meta" ? "Esta página não tem formulários de cadastro." : "Nenhum formulário Genesy criado ainda."}</li>}</ul>}
+        </>}
+        {source === "meta" && <p className="mt-3 text-[10px] text-[var(--muted-foreground)]">Ao salvar, a captura dos formulários Meta escolhidos é ligada automaticamente.</p>}
       </section>
 
       <section className="rounded-2xl border border-[var(--glass-border)] p-4">
