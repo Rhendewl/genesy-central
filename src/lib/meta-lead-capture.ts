@@ -28,7 +28,7 @@ export async function captureMetaLead(db: SupabaseClient, event: MetaLeadEvent, 
   if (existing.error) throw new Error(existing.error.message);
   if (existing.data) return { status: "duplicate", step: "already_captured", lead_id: existing.data.id };
 
-  const roulette = await db.from("crm_lead_roulettes").select("id")
+  const roulette = await db.from("crm_roulette_forms").select("roulette_id")
     .eq("user_id", ownerId).eq("source_kind", "meta").eq("form_id", event.form_id).eq("page_id", event.page_id).maybeSingle();
   if (roulette.error) throw new Error(roulette.error.message);
   let stageId = routing.route?.crm_stage_id;

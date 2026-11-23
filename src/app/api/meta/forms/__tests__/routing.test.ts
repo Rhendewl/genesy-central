@@ -2,7 +2,7 @@
 import { beforeEach, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 const mocks = vi.hoisted(() => ({ context: vi.fn(), from: vi.fn(), forms: vi.fn(), save: vi.fn() }));
-vi.mock("@/lib/supabase-server", () => ({ createServerSupabaseClient: async () => ({ from: mocks.from }) }));
+vi.mock("@/lib/supabase-server", () => ({ createServerSupabaseClient: async () => ({ from: mocks.from, rpc: async () => ({ error: null }) }) }));
 vi.mock("@/lib/marketing/server", async (original) => ({ ...await original<object>(), getMarketingServerContext: mocks.context }));
 vi.mock("@/lib/crypto", () => ({ decryptToken: () => "token" }));
 vi.mock("@/lib/meta-api", () => ({ getLeadGenForms: mocks.forms }));

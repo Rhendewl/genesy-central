@@ -265,7 +265,7 @@ async function createCrmLead(
 
 
     if (!integration?.enabled) {
-      const roulette = await supabase.from("crm_lead_roulettes").select("id")
+      const roulette = await supabase.from("crm_roulette_forms").select("roulette_id")
         .eq("user_id", userId).eq("source_kind", "genesy").eq("form_id", formId).eq("page_id", "").maybeSingle();
       if (roulette.error) throw new Error(roulette.error.message);
       if (!roulette.data) return;

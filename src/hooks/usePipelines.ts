@@ -56,7 +56,7 @@ export function usePipelines() {
 
   // ── Pipeline mutations ─────────────────────────────────────────────────────
 
-  const createPipeline = useCallback(async (data: NewCrmPipeline): Promise<boolean> => {
+  const createPipeline = useCallback(async (data: NewCrmPipeline & { template_pipeline_id?: string }): Promise<boolean> => {
     const res = await fetch("/api/crm/pipelines", {
       method:  "POST",
       headers: { "Content-Type": "application/json" },

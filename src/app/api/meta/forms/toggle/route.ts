@@ -16,11 +16,8 @@ export async function POST(req: NextRequest) {
     const mode: "stage" | "roulette" = body.mode === "roulette" ? "roulette" : "stage";
     const pipelineId = mode === "roulette" ? null : body.pipelineId;
     const stageId = mode === "roulette" ? null : body.stageId;
-    const rouletteStageIds: string[] = Array.isArray(body.rouletteStageIds) ? body.rouletteStageIds : [];
-    if (mode === "roulette" && (!rouletteStageIds.length || rouletteStageIds.length > 100 ||
-      rouletteStageIds.some((id) => typeof id !== "string" || !/^[0-9a-f-]{36}$/i.test(id)))) {
-      throw Object.assign(new Error("Escolha pelo menos uma pipeline para a roleta."), { status: 400 });
-    }
+    const rouletteId: string | null = typeof body.rouletteId === "string" && /^[0-9a-f-]{36}$/i.test(body.rouletteId) ? body.rouletteId : null;
+    if (mode === "roulette" && !rouletteId) throw Object.assign(new Error("Escolha a fila de distribuição."), { status: 400 });
     if (dealValue !== undefined && (typeof dealValue !== "number" || !Number.isFinite(dealValue) || dealValue < 0 || dealValue > 999_999_999_999.99)) {
       throw Object.assign(new Error("Informe um valor de negócio válido, maior ou igual a zero."), { status: 400 });
     }
@@ -57,14 +54,6 @@ export async function POST(req: NextRequest) {
         formName = form.name;
       }
     }
-    // Roleta atual deste formulário (se houver) e configuração anterior, para desfazer se a roleta falhar.
-    const liveRoulette = await db.from("crm_lead_roulettes").select("id,name").eq("user_id", context.user.id)
-      .eq("source_kind", "meta").eq("form_id", formId).eq("page_id", pageId).is("deleted_at", null).maybeSingle();
-    if (mode === "stage" && liveRoulette.data) {
-      const pending = await db.from("crm_lead_distribution").select("id", { count: "exact", head: true })
-        .eq("roulette_id", liveRoulette.data.id).eq("status", "pending");
-      if ((pending.count ?? 0) > 0) throw Object.assign(new Error("A roleta deste formulário tem leads pendentes. Reprocesse-os em CRM → Roletas antes de trocar para etapa fixa."), { status: 409 });
-    }
     const previous = await db.from("meta_form_subscriptions").select("assigned_to,form_name,is_active,crm_pipeline_id,crm_stage_id")
       .eq("user_id", context.user.id).eq("page_id", pageId).eq("form_id", formId).maybeSingle();
     const saved = await db.from("meta_form_subscriptions").upsert({ user_id: context.user.id, page_id: pageId, form_id: formId,
@@ -73,23 +62,20 @@ export async function POST(req: NextRequest) {
       updated_at: new Date().toISOString() }, { onConflict: "user_id,form_id" });
     if (saved.error) throw new Error(saved.error.message);
 
-    if (mode === "roulette") {
-      const roulette = await db.rpc("crm_save_lead_roulette", {
-        p_id: liveRoulette.data?.id ?? null, p_name: liveRoulette.data?.name ?? `Roleta · ${formName ?? formId}`,
-        p_source: "meta", p_form: formId, p_page: pageId, p_stages: rouletteStageIds, p_enabled: Boolean(active),
-      });
-      if (roulette.error) {
+    // Liga o formulário à fila escolhida (roleta) ou tira de qualquer fila (etapa fixa).
+    const currentLink = mode === "stage"
+      ? await db.from("crm_roulette_forms").select("roulette_id").eq("user_id", context.user.id).eq("source_kind", "meta").eq("form_id", formId).eq("page_id", pageId).maybeSingle()
+      : { data: null };
+    const linked = mode === "roulette" || currentLink.data
+      ? await db.rpc("crm_roulette_set_form", { p_roulette: mode === "roulette" ? rouletteId : null, p_source: "meta", p_form: formId, p_page: pageId })
+      : { error: null };
+    if (linked.error) {
+      if (mode === "roulette") {
         // Desfaz a configuração do formulário para não deixá-lo sem destino.
         if (previous.data) await db.from("meta_form_subscriptions").update(previous.data).eq("user_id", context.user.id).eq("page_id", pageId).eq("form_id", formId);
         else await db.from("meta_form_subscriptions").delete().eq("user_id", context.user.id).eq("page_id", pageId).eq("form_id", formId);
-        throw Object.assign(new Error(roulette.error.message), { status: 400 });
       }
-      return NextResponse.json({ success: true, rouletteId: roulette.data });
-    }
-    if (liveRoulette.data) {
-      // Voltou para etapa fixa: encerra a roleta (histórico e leads ficam preservados).
-      const removed = await db.rpc("crm_set_roulette_state", { p_id: liveRoulette.data.id, p_enabled: null, p_delete: true });
-      if (removed.error) throw Object.assign(new Error(`Etapa fixa salva, mas a roleta não pôde ser encerrada: ${removed.error.message}`), { status: 409 });
+      throw Object.assign(new Error(linked.error.message), { status: 400 });
     }
     return NextResponse.json({ success: true });
   } catch (error) { const e = apiError(error); return NextResponse.json({ error: e.message }, { status: e.status }); }

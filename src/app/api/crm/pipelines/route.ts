@@ -47,5 +47,22 @@ export async function POST(req: NextRequest) {
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+
+  // Modelo: copia as etapas (e as regras de cada etapa) de outra pipeline da conta.
+  const templateId = typeof body.template_pipeline_id === "string" ? body.template_pipeline_id : "";
+  if (templateId) {
+    const { data: stages, error: templateError } = await supabase.from("crm_stages")
+      .select("name,description,color,icon,order_index,is_active,allow_free_move,require_note,require_attachment,allow_edit,legacy_column,is_won,is_lost,metric_type")
+      .eq("pipeline_id", templateId).order("order_index");
+    if (templateError || !stages?.length) {
+      await supabase.from("crm_pipelines").delete().eq("id", data.id);
+      return NextResponse.json({ error: "Não foi possível copiar as etapas da pipeline modelo." }, { status: 400 });
+    }
+    const copied = await supabase.from("crm_stages").insert(stages.map(stage => ({ ...stage, pipeline_id: data.id })));
+    if (copied.error) {
+      await supabase.from("crm_pipelines").delete().eq("id", data.id);
+      return NextResponse.json({ error: `Não foi possível copiar as etapas: ${copied.error.message}` }, { status: 400 });
+    }
+  }
   return NextResponse.json({ pipeline: data }, { status: 201 });
 }

@@ -283,7 +283,7 @@ export function PipelineAdmin() {
     setIsModalOpen(true);
   }
 
-  async function handleSavePipeline(data: NewCrmPipeline): Promise<boolean> {
+  async function handleSavePipeline(data: NewCrmPipeline & { template_pipeline_id?: string }): Promise<boolean> {
     if (editingPipeline) return updatePipeline(editingPipeline.id, data);
     // New pipeline: order_index = after last active
     const maxOrder = activePipelines.reduce((m, p) => Math.max(m, p.order_index), -1);
@@ -396,6 +396,7 @@ export function PipelineAdmin() {
         pipeline={editingPipeline}
         onClose={() => setIsModalOpen(false)}
         onSave={handleSavePipeline}
+        templates={pipelines}
       />
     </>
   );

@@ -5,7 +5,7 @@ import { useUsers } from "@/hooks/useUsers";
 import { createPortal } from "react-dom";
 import { useModalOpen } from "@/hooks/useModalOpen";
 import { X, Loader2 } from "lucide-react";
-import type { CrmPipeline, NewCrmPipeline } from "@/types/crm";
+import type { CrmPipeline, CrmPipelineWithStages, NewCrmPipeline } from "@/types/crm";
 
 // ── Color palette ──────────────────────────────────────────────────────────────
 
@@ -21,18 +21,21 @@ interface Props {
   open:     boolean;
   pipeline: CrmPipeline | null;   // null = create mode
   onClose:  () => void;
-  onSave:   (data: NewCrmPipeline) => Promise<boolean>;
+  onSave:   (data: NewCrmPipeline & { template_pipeline_id?: string }) => Promise<boolean>;
+  /** Pipelines existentes que podem servir de modelo na criação. */
+  templates?: CrmPipelineWithStages[];
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export function PipelineFormModal({ open, pipeline, onClose, onSave }: Props) {
+export function PipelineFormModal({ open, pipeline, onClose, onSave, templates = [] }: Props) {
   const { profiles, isLoading: loadingUsers } = useUsers();
   const [defaultAssignee, setDefaultAssignee] = useState("");
   const [name,        setName]        = useState("");
   const [description, setDescription] = useState("");
   const [color,       setColor]       = useState(COLORS[0]);
   const [saving,      setSaving]      = useState(false);
+  const [templateId,  setTemplateId]  = useState("");
 
   // Sync fields when opening
   useEffect(() => {
@@ -41,6 +44,7 @@ export function PipelineFormModal({ open, pipeline, onClose, onSave }: Props) {
     setName(pipeline?.name ?? "");
     setDescription(pipeline?.description ?? "");
     setColor(pipeline?.color ?? COLORS[0]);
+    setTemplateId("");
   }, [open, pipeline]);
 
   useModalOpen(open);
@@ -51,7 +55,8 @@ export function PipelineFormModal({ open, pipeline, onClose, onSave }: Props) {
     e.preventDefault();
     if (!name.trim()) return;
     setSaving(true);
-    const ok = await onSave({ name: name.trim(), description: description.trim() || null, color, default_assignee_id: defaultAssignee || null });
+    const ok = await onSave({ name: name.trim(), description: description.trim() || null, color, default_assignee_id: defaultAssignee || null,
+      ...(!pipeline && templateId ? { template_pipeline_id: templateId } : {}) });
     setSaving(false);
     if (ok) onClose();
   };
@@ -109,6 +114,21 @@ export function PipelineFormModal({ open, pipeline, onClose, onSave }: Props) {
               }}
             />
           </div>
+
+          {/* Modelo: criar igual a uma pipeline existente */}
+          {!pipeline && templates.length > 0 && <div className="rounded-xl border border-[var(--border)] p-3">
+            <label htmlFor="pipeline-template" className="mb-2 block text-sm font-semibold" style={{ color: "var(--text-title)" }}>Usar outra pipeline como modelo</label>
+            <select id="pipeline-template" value={templateId} disabled={saving} onChange={(event) => setTemplateId(event.target.value)} className="min-h-11 w-full rounded-lg border border-[var(--border)] bg-[var(--input)] px-3 text-sm">
+              <option value="">Começar do zero</option>
+              {templates.map(template => {
+                const owner = profiles.find(profile => profile.id === template.default_assignee_id)?.full_name;
+                const count = template.crm_stages.length;
+                return <option key={template.id} value={template.id}>{template.name}{owner ? ` (${owner})` : ""} · {count} etapa{count === 1 ? "" : "s"}</option>;
+              })}
+            </select>
+            {templateId && (() => { const template = templates.find(item => item.id === templateId); return template ? <div className="mt-3 flex flex-wrap gap-1.5">{[...template.crm_stages].sort((a, b) => a.order_index - b.order_index).map(stage => <span key={stage.id} className="rounded-md px-2 py-1 text-[11px]" style={{ background: `${stage.color}22`, color: "var(--text-title)", border: `1px solid ${stage.color}55` }}>{stage.name}</span>)}</div> : null; })()}
+            <p className="mt-2 text-xs text-[var(--muted-foreground)]">A nova pipeline nasce com as mesmas etapas, cores e regras do modelo. Os leads não são copiados.</p>
+          </div>}
 
           {/* Description */}
           <div>

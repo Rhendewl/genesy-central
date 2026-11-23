@@ -65,11 +65,10 @@ export async function GET(req: NextRequest) {
 
   if (subsError) return NextResponse.json({ error: "Não foi possível carregar a configuração. Verifique se a atualização do banco foi aplicada." }, { status: 500 });
 
-  // Roletas ativas dos formulários desta página (o destino passa a ser a distribuição entre pipelines).
-  const { data: roulettes } = await supabase.from("crm_lead_roulettes")
-    .select("id,name,enabled,stage_ids,cursor_position,form_id")
-    .eq("user_id", user.id).eq("source_kind", "meta").eq("page_id", pageId).is("deleted_at", null);
-  const rouletteMap = new Map((roulettes ?? []).map(r => [r.form_id as string, r]));
+  // Fila de distribuição (roleta) em que cada formulário desta página está.
+  const { data: links } = await supabase.from("crm_roulette_forms").select("form_id,roulette_id")
+    .eq("user_id", user.id).eq("source_kind", "meta").eq("page_id", pageId);
+  const rouletteMap = new Map((links ?? []).map(link => [link.form_id as string, link.roulette_id as string]));
 
   const subMap = new Map((subs ?? []).map(s => [
     s.form_id as string,
@@ -85,7 +84,7 @@ export async function GET(req: NextRequest) {
     is_subscribed: subMap.get(f.id)?.is_active ?? false,
     leads_count:   subMap.get(f.id)?.leads_count ?? 0,
     last_lead_at:  subMap.get(f.id)?.last_lead_at ?? null,
-    roulette: rouletteMap.get(f.id) ?? null,
+    roulette_id: rouletteMap.get(f.id) ?? null,
   }));
 
   return NextResponse.json({ forms: formsWithState });
