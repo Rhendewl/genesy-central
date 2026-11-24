@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, Suspense } from "react";
+import { useSegmentIndicator } from "@/components/ui/useSegmentIndicator";
 import { useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -49,6 +50,8 @@ function TrafegoPageInner() {
 
   const now = new Date();
   const [activeTab, setActiveTab]               = useState<TabId>(initialTab);
+  const mobileTabSeg = useSegmentIndicator({ background: "var(--segment-active-bg)", boxShadow: "var(--segment-active-shadow)" });
+  const tabSeg = useSegmentIndicator({ background: "var(--segment-active-bg)", boxShadow: "var(--segment-active-shadow)" });
   const [year, setYear]                         = useState(now.getFullYear());
   const [month, setMonth]                       = useState(now.getMonth() + 1);
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
@@ -163,19 +166,17 @@ function TrafegoPageInner() {
             {showPeriodNav && <div className="mx-3 h-px" style={{ background: "var(--border)" }} />}
             {/* Esteira de submódulos */}
             <div className="overflow-x-auto scrollbar-none px-2 py-2">
-              <div className="flex gap-0.5 min-w-max">
+              <div ref={mobileTabSeg.trackRef} className="relative flex gap-0.5 min-w-max">
+                {mobileTabSeg.indicator}
                 {TABS.map(tab => (
                   <button
                     key={tab.id}
+                    data-active={activeTab === tab.id}
                     onClick={() => setActiveTab(tab.id)}
                     className={cn(
-                      "flex min-h-11 items-center gap-1.5 whitespace-nowrap rounded-xl px-3 py-2 text-sm font-medium transition-all active:scale-95",
+                      "relative z-[1] flex min-h-11 items-center gap-1.5 whitespace-nowrap rounded-xl px-3 py-2 text-sm font-medium transition-colors active:scale-95",
                       activeTab === tab.id ? "text-[var(--text-title)]" : "text-[var(--icon)]",
                     )}
-                    style={activeTab === tab.id ? {
-                      background: "var(--segment-active-bg)",
-                      boxShadow:  "var(--segment-active-shadow)",
-                    } : {}}
                   >
                     {tab.icon}
                     <span>{tab.label}</span>
@@ -222,16 +223,17 @@ function TrafegoPageInner() {
             </div>
           )}
           <div className="overflow-x-auto scrollbar-none">
-            <div className="flex gap-1 p-1 rounded-2xl min-w-max" style={{ background: "var(--glass-bg-soft)", border: "1px solid var(--glass-border)" }}>
+            <div ref={tabSeg.trackRef} className="relative flex gap-1 p-1 rounded-2xl min-w-max" style={{ background: "var(--glass-bg-soft)", border: "1px solid var(--glass-border)" }}>
+              {tabSeg.indicator}
               {TABS.map(tab => (
                 <button
                   key={tab.id}
+                  data-active={activeTab === tab.id}
                   onClick={() => setActiveTab(tab.id)}
                   className={cn(
-                    "flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all whitespace-nowrap",
+                    "relative z-[1] flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-colors whitespace-nowrap",
                     activeTab === tab.id ? "text-[var(--text-title)]" : "text-[var(--icon)] hover:text-[var(--text-title)] hover:bg-[var(--hover)]",
                   )}
-                  style={activeTab === tab.id ? { background: "var(--segment-active-bg)", boxShadow: "var(--segment-active-shadow)" } : {}}
                 >
                   {tab.icon}
                   <span>{tab.shortLabel ?? tab.label}</span>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, type ComponentType, type CSSProperties } from "react";
+import { useSegmentIndicator } from "@/components/ui/useSegmentIndicator";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
@@ -46,6 +47,7 @@ export function InstagramReports({ start, end, compareStart, compareEnd }: { sta
   const previousReport = useMemo(() => instagramReport(instagram.previousMedia, instagram.previousAccountTotals), [instagram.previousAccountTotals, instagram.previousMedia]);
   const followers = instagram.connections.reduce((sum, connection) => sum + Number(connection.followers_count || 0), 0);
   const [audienceMode, setAudienceMode] = useState<"interactions" | "followers">("interactions");
+  const audienceSeg = useSegmentIndicator({ background: "var(--bg-modal)", boxShadow: "0 1px 2px rgba(0,0,0,.15)" });
   const engagementPerPost = followers ? (report.averageInteractions / followers) * 100 : 0;
   const previousEngagementPerPost = followers ? (previousReport.averageInteractions / followers) * 100 : 0;
   const followerAnalysis = useMemo(() => {
@@ -245,9 +247,10 @@ export function InstagramReports({ start, end, compareStart, compareEnd }: { sta
         <ChartCard
           title="Evolução da audiência"
           description={audienceMode === "interactions" ? "Visualizações da conta e interações dos conteúdos por dia" : "Saldo líquido diário: novos seguidores menos unfollows"}
-          actions={<div className="inline-flex rounded-lg bg-[var(--hover)] p-1">
-            <button onClick={() => setAudienceMode("interactions")} className={`rounded-md px-2.5 py-1.5 text-[10px] font-semibold transition ${audienceMode === "interactions" ? "bg-[var(--bg-modal)] text-[var(--text-title)] shadow-sm" : "text-[var(--muted-foreground)]"}`}>Interações</button>
-            <button onClick={() => setAudienceMode("followers")} className={`rounded-md px-2.5 py-1.5 text-[10px] font-semibold transition ${audienceMode === "followers" ? "bg-[var(--bg-modal)] text-[var(--text-title)] shadow-sm" : "text-[var(--muted-foreground)]"}`}>Seguidores</button>
+          actions={<div ref={audienceSeg.trackRef} className="relative inline-flex rounded-lg bg-[var(--hover)] p-1">
+            {audienceSeg.indicator}
+            <button onClick={() => setAudienceMode("interactions")} data-active={audienceMode === "interactions"} className={`relative z-[1] rounded-md px-2.5 py-1.5 text-[10px] font-semibold transition-colors ${audienceMode === "interactions" ? "text-[var(--text-title)]" : "text-[var(--muted-foreground)]"}`}>Interações</button>
+            <button onClick={() => setAudienceMode("followers")} data-active={audienceMode === "followers"} className={`relative z-[1] rounded-md px-2.5 py-1.5 text-[10px] font-semibold transition-colors ${audienceMode === "followers" ? "text-[var(--text-title)]" : "text-[var(--muted-foreground)]"}`}>Seguidores</button>
           </div>}
         >
           {(audienceMode === "interactions" ? report.daily.length : followerAnalysis.data.length) ? <ResponsiveContainer width="100%" height={260}>

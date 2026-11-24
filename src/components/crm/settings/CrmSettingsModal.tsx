@@ -1,6 +1,7 @@
 "use client";
 
 import { AlertCircle, Loader2, X } from "lucide-react";
+import { useSegmentIndicator } from "@/components/ui/useSegmentIndicator";
 import { useState } from "react";
 import type { CrmStage } from "@/types/crm";
 import { useCrmSettings } from "@/hooks/useCrmSettings";
@@ -18,6 +19,7 @@ interface Props {
 
 export function CrmSettingsModal({ pipelineId, pipelineName, stages, onClose }: Props) {
   const [activeTab, setActiveTab] = useState<TabId>("origens");
+  const tabSeg = useSegmentIndicator({ background: "var(--border-card-hover)" });
   const settings = useCrmSettings(pipelineId, stages);
 
   return (
@@ -58,17 +60,19 @@ export function CrmSettingsModal({ pipelineId, pipelineName, stages, onClose }: 
 
         {/* Tab bar */}
         <div
-          className="flex gap-1 px-5 py-2 flex-shrink-0"
+          ref={tabSeg.trackRef}
+          className="relative flex gap-1 px-5 py-2 flex-shrink-0"
           style={{ borderBottom: "1px solid var(--border)", background: "var(--hover)" }}
         >
+          {tabSeg.indicator}
           {(["origens", "etapas"] as TabId[]).map(tab => (
             <button
               key={tab}
               type="button"
+              data-active={activeTab === tab}
               onClick={() => setActiveTab(tab)}
-              className="px-4 py-1.5 rounded-lg text-xs font-medium transition-all"
+              className="relative z-[1] px-4 py-1.5 rounded-lg text-xs font-medium transition-colors"
               style={activeTab === tab ? {
-                background: "var(--border-card-hover)",
                 color:      "var(--text-title)",
               } : {
                 color: "var(--muted-foreground)",

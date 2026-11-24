@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useSegmentIndicator } from "@/components/ui/useSegmentIndicator";
 import {
   ComposedChart, Line,
   XAxis, YAxis, CartesianGrid, Tooltip,
@@ -96,8 +97,9 @@ function PeriodSelector({ value, onChange, size = "sm" }: {
   onChange: (p: PeriodKey) => void;
   size?: "sm" | "xs";
 }) {
+  const seg = useSegmentIndicator({ background: "rgba(74,143,212,0.22)", boxShadow: "inset 0 1px 0 rgba(74,143,212,0.20), 0 1px 6px rgba(0,0,0,0.25)" });
   return (
-    <div className="flex items-center gap-0.5 p-0.5 rounded-lg"
+    <div ref={seg.trackRef} className="relative flex items-center gap-0.5 p-0.5 rounded-lg"
       style={{
         background: "var(--glass-bg)",
         backdropFilter: "blur(14px) saturate(140%)",
@@ -105,17 +107,16 @@ function PeriodSelector({ value, onChange, size = "sm" }: {
         border: "1px solid var(--glass-border)",
         boxShadow: "var(--glass-shadow)",
       }}>
+      {seg.indicator}
       {PERIODS.map(p => (
-        <button key={p.key} onClick={() => onChange(p.key)}
+        <button key={p.key} onClick={() => onChange(p.key)} data-active={value === p.key}
           className={cn(
-            "rounded-md font-medium transition-all",
+            "relative z-[1] rounded-md font-medium transition-colors",
             size === "xs" ? "px-2 py-0.5 text-[10px]" : "px-2.5 py-1 text-[11px]",
             value === p.key ? "text-[var(--text-title)]" : "text-[var(--silver)] hover:text-[var(--text-title)] hover:bg-[var(--hover)]"
           )}
           style={value === p.key ? {
-            background: "rgba(74,143,212,0.22)",
             color: "#4a8fd4",
-            boxShadow: "inset 0 1px 0 rgba(74,143,212,0.20), 0 1px 6px rgba(0,0,0,0.25)",
           } : {}}>
           {p.label}
         </button>

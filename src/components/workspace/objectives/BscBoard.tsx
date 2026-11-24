@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useSegmentIndicator } from "@/components/ui/useSegmentIndicator";
 import { Plus } from "lucide-react";
 import {
   bscSummary,
@@ -99,6 +100,7 @@ export function BscBoardView({
   }, []);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [tab, setTab] = useState<"view" | "tasks">("view");
+  const tabSeg = useSegmentIndicator({ background: "rgba(255,255,255,0.1)" });
   const summary = bscSummary(objectives, metrics);
   const selected =
     objectives.find((o) => o.id === selectedId) ??
@@ -257,10 +259,12 @@ export function BscBoardView({
         aria-label="Detalhes do objetivo selecionado"
       >
         <div
-          className="mb-6 flex rounded-full bg-white/5 p-0.5"
+          ref={tabSeg.trackRef}
+          className="relative mb-6 flex rounded-full bg-white/5 p-0.5"
           role="tablist"
           aria-label="Detalhes do objetivo"
         >
+          {tabSeg.indicator}
           {(
             [
               ["view", "Visualização"],
@@ -271,8 +275,9 @@ export function BscBoardView({
               key={id}
               role="tab"
               aria-selected={tab === id}
+              data-active={tab === id}
               onClick={() => setTab(id)}
-              className={`flex-1 rounded-full py-1 text-[10px] uppercase tracking-widest ${tab === id ? "bg-white/10" : "text-white/60"}`}
+              className={`relative z-[1] flex-1 rounded-full py-1 text-[10px] uppercase tracking-widest transition-colors ${tab === id ? "" : "text-white/60"}`}
             >
               {label}
             </button>

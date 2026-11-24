@@ -1,6 +1,7 @@
 "use client";
 
 import { accentBorderStyle } from "@/components/ui/accent-border";
+import { useSegmentIndicator } from "@/components/ui/useSegmentIndicator";
 
 import { DateInput } from "@/components/ui/DateInput";
 
@@ -44,6 +45,7 @@ export default function OnboardingProjectDetailPage() {
 
   const { detail, isLoading, refetch, updateProject, deleteProject, addStage, updateStage, deleteStage, addTask } = useOnboardingProject(id);
   const [tab, setTab] = useState<Tab>("projeto");
+  const tabSeg = useSegmentIndicator({ background: "var(--hover)" });
   const [panel, setPanel] = useState<{ taskId: string | null; stageId: string | null } | null>(null);
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -308,13 +310,15 @@ export default function OnboardingProjectDetailPage() {
         </div>
       </div>
 
-      <div className="flex items-center gap-1">
+      <div ref={tabSeg.trackRef} className="relative flex w-fit items-center gap-1">
+        {tabSeg.indicator}
         {([["projeto", "Projeto"], ["historico", "Histórico"]] as [Tab, string][]).map(([id2, label]) => (
           <button
             key={id2}
+            data-active={tab === id2}
             onClick={() => setTab(id2)}
-            className="rounded-full px-3 py-1.5 text-xs font-medium"
-            style={{ background: tab === id2 ? "var(--hover)" : "transparent", color: tab === id2 ? "var(--text-title)" : "var(--muted-foreground)" }}
+            className="relative z-[1] rounded-full px-3 py-1.5 text-xs font-medium transition-colors"
+            style={{ color: tab === id2 ? "var(--text-title)" : "var(--muted-foreground)" }}
           >
             {label}
           </button>

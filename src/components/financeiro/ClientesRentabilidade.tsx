@@ -1,6 +1,7 @@
 "use client";
 
 import { FinancialSectionHeader, FinancialMetric, FinancialAnalysis } from "./FinancialSection";
+import { useSegmentIndicator } from "@/components/ui/useSegmentIndicator";
 import { FinancialBreakdown } from "./FinancialActivityChart";
 import { createPortal } from "react-dom";
 import { DateInput } from "@/components/ui/DateInput";
@@ -424,6 +425,7 @@ export function ClientesRentabilidade({ year, month }: Props) {
   const [modal, setModal]   = useState<{ open: boolean; client?: AgencyClient }>({ open: false });
   const [search, setSearch] = useState("");
   const [view, setView] = useState<"cards" | "table">("cards");
+  const viewSeg = useSegmentIndicator({ background: "var(--segment-active-bg)" }, { activeSelector: '[aria-pressed="true"]' });
   const [sortKey, setSortKey] = useState<SortKey>("lucro");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
 
@@ -496,7 +498,8 @@ export function ClientesRentabilidade({ year, month }: Props) {
         <select aria-label="Ordenar clientes" value={`${sortKey}:${sortDir}`} onChange={event => { const [key, direction] = event.target.value.split(":"); setSortKey(key as SortKey); setSortDir(direction as "asc" | "desc"); }}>
           <option value="lucro:desc">Maior resultado</option><option value="lucro:asc">Menor resultado</option><option value="margem:desc">Maior margem</option><option value="margem:asc">Menor margem</option><option value="mensalidade:desc">Maior mensalidade</option><option value="mensalidade:asc">Menor mensalidade</option><option value="custo_total:desc">Maior custo</option><option value="custo_total:asc">Menor custo</option><option value="tempo_contrato_meses:desc">Mais tempo de contrato</option><option value="tempo_contrato_meses:asc">Menos tempo de contrato</option>
         </select>
-        <div className="fin-segments" role="group" aria-label="Visualização dos clientes">
+        <div ref={viewSeg.trackRef} className="fin-segments" role="group" aria-label="Visualização dos clientes">
+          {viewSeg.indicator}
           <button type="button" aria-label="Cards de clientes" title="Cards" aria-pressed={view === "cards"} onClick={() => setView("cards")}><LayoutGrid size={16} /></button>
           <button type="button" aria-label="Tabela de clientes" title="Tabela" aria-pressed={view === "table"} onClick={() => setView("table")}><List size={16} /></button>
         </div>

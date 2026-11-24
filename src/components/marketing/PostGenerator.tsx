@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useSegmentIndicator } from "@/components/ui/useSegmentIndicator";
 import { usePostTextGesture } from "@/hooks/usePostTextGesture";
 import { EditorContent, useEditor, type Editor } from "@tiptap/react";
 import { Mark, mergeAttributes } from "@tiptap/core";
@@ -381,6 +382,7 @@ function PostEditor({ template, onBack }: { template: PostTemplate; onBack: () =
   const setCanvasMode = useGlobalStore((state) => state.setCanvasMode);
   const firstSlide = useMemo(() => makeSlide(template), [template]);
   const [format, setFormat] = useState<PostFormat>("story");
+  const formatSeg = useSegmentIndicator({ background: "var(--segment-active-bg)" });
   const [slides, setSlides] = useState<Slide[]>([firstSlide]);
   const [activeId, setActiveId] = useState(firstSlide.id);
   const [activeTextBlockId, setActiveTextBlockId] = useState(firstSlide.textBlocks[0].id);
@@ -884,8 +886,9 @@ function PostEditor({ template, onBack }: { template: PostTemplate; onBack: () =
       <div className="hidden flex-wrap items-center gap-2 border-b px-5 py-3 lg:flex" style={{ borderColor: "var(--border)" }}>
         <Button variant="ghost" size="icon" onClick={onBack} aria-label="Voltar aos modelos"><ArrowLeft /></Button>
         <div className="mr-auto min-w-0"><h1 className="truncate text-sm font-semibold text-[var(--text-title)]">{template === "tweet" ? "Modelo Tweet" : "Stories Plus"}</h1><p className="text-[10px] text-[var(--muted-foreground)]">{slides.length} {slides.length === 1 ? "slide" : "slides"} · {dimensions.label} · <span aria-live="polite">{syncState === "saving" ? "Salvando…" : syncState === "synced" ? "Sincronizado" : "Salvo neste dispositivo · aguardando conexão"}</span></p></div>
-        <div className="flex items-center gap-1 rounded-xl border p-1" style={{ background: "var(--glass-bg-soft)", borderColor: "var(--glass-border)" }}>
-          {(Object.entries(POST_FORMATS) as Array<[PostFormat, typeof dimensions]>).map(([value, item]) => <button key={value} onClick={() => setFormat(value)} className={cn("rounded-lg px-3 py-1.5 text-[11px] font-medium transition", format === value ? "bg-[var(--segment-active-bg)] text-[var(--text-title)]" : "text-[var(--muted-foreground)] hover:text-[var(--text-title)]")}>{item.label}</button>)}
+        <div ref={formatSeg.trackRef} className="relative flex items-center gap-1 rounded-xl border p-1" style={{ background: "var(--glass-bg-soft)", borderColor: "var(--glass-border)" }}>
+          {formatSeg.indicator}
+          {(Object.entries(POST_FORMATS) as Array<[PostFormat, typeof dimensions]>).map(([value, item]) => <button key={value} onClick={() => setFormat(value)} data-active={format === value} className={cn("relative z-[1] rounded-lg px-3 py-1.5 text-[11px] font-medium transition-colors", format === value ? "text-[var(--text-title)]" : "text-[var(--muted-foreground)] hover:text-[var(--text-title)]")}>{item.label}</button>)}
         </div>
         <Button variant="outline" onClick={() => void exportOne()} loading={exporting === "one"} icon={<Download />}>Slide atual</Button>
         <Button variant="outline" onClick={() => { if (format !== "portrait") { toast.error("Selecione o formato Feed 4:5 para publicar no feed."); return; } setFeedDialogOpen(true); }} disabled={Boolean(exporting)} icon={<Send />}>Postar no Instagram</Button>

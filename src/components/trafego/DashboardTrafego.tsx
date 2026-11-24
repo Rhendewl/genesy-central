@@ -1,6 +1,7 @@
 "use client";
 
 import { messagingCards } from "@/lib/messaging-results";
+import { useSegmentIndicator } from "@/components/ui/useSegmentIndicator";
 import { useMemo, useState } from "react";
 import {
   LineChart, Line, ComposedChart,
@@ -112,25 +113,26 @@ function PeriodSelector({
   onChange: (p: PeriodKey) => void;
   size?: "sm" | "xs";
 }) {
+  const seg = useSegmentIndicator({ background: "rgba(74,143,212,0.20)" });
   return (
-    <div className="flex items-center gap-0.5 p-0.5 rounded-lg"
+    <div ref={seg.trackRef} className="relative flex items-center gap-0.5 p-0.5 rounded-lg"
       style={{
         background: "var(--hover)",
         border: "1px solid var(--border)",
         backdropFilter: "blur(20px)",
         WebkitBackdropFilter: "blur(20px)",
       }}>
+      {seg.indicator}
       {PERIODS.map(p => (
-        <button key={p.key} onClick={() => onChange(p.key)}
+        <button key={p.key} onClick={() => onChange(p.key)} data-active={value === p.key}
           className={cn(
-            "rounded-md font-medium transition-all",
+            "relative z-[1] rounded-md font-medium transition-colors",
             size === "xs" ? "px-2 py-0.5 text-[10px]" : "px-2.5 py-1 text-[11px]",
             value === p.key
               ? "text-[var(--text-title)]"
               : "text-[var(--silver)] hover:text-[var(--text-title)]"
           )}
           style={value === p.key ? {
-            background: "rgba(74,143,212,0.20)",
             color: "#4a8fd4",
           } : {}}>
           {p.label}

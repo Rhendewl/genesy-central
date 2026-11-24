@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, type CSSProperties, type ElementType, type ReactNode } from "react";
+import { useSegmentIndicator } from "@/components/ui/useSegmentIndicator";
 import { motion } from "framer-motion";
 import {
   Activity,
@@ -849,6 +850,7 @@ export function PerformanceDashboard() {
   const { member, isOwner } = useCurrentMember();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [view, setView] = useState<"dashboard" | "settings">("dashboard");
+  const viewSeg = useSegmentIndicator({ background: "var(--hover)" });
   const selected = useMemo(
     () => collaborators.find((item) => item.id === selectedId) ?? collaborators[0] ?? null,
     [collaborators, selectedId]
@@ -896,12 +898,14 @@ export function PerformanceDashboard() {
   return (
     <div className="space-y-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="inline-flex w-fit rounded-full p-1" style={{ background: "var(--glass-bg-soft)", border: "1px solid var(--glass-border)" }}>
+        <div ref={viewSeg.trackRef} className="relative inline-flex w-fit rounded-full p-1" style={{ background: "var(--glass-bg-soft)", border: "1px solid var(--glass-border)" }}>
+          {viewSeg.indicator}
           <button
             type="button"
             onClick={() => setView("dashboard")}
-            className="rounded-full px-4 py-2 text-sm font-semibold transition-all"
-            style={{ background: view === "dashboard" ? "var(--hover)" : "transparent", color: view === "dashboard" ? "var(--text-title)" : "var(--muted-foreground)" }}
+            data-active={view === "dashboard"}
+            className="relative z-[1] rounded-full px-4 py-2 text-sm font-semibold transition-colors"
+            style={{ color: view === "dashboard" ? "var(--text-title)" : "var(--muted-foreground)" }}
           >
             Dashboard
           </button>
@@ -909,8 +913,9 @@ export function PerformanceDashboard() {
             <button
               type="button"
               onClick={() => setView("settings")}
-              className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition-all"
-              style={{ background: view === "settings" ? "var(--hover)" : "transparent", color: view === "settings" ? "var(--text-title)" : "var(--muted-foreground)" }}
+              data-active={view === "settings"}
+              className="relative z-[1] inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition-colors"
+              style={{ color: view === "settings" ? "var(--text-title)" : "var(--muted-foreground)" }}
             >
               <Settings2 size={15} />
               Configurações
