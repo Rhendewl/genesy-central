@@ -49,7 +49,7 @@ const PIXEL_LABELS: Record<string, { name: string; detail: string }> = {
   Contact: { name: "Contato", detail: "Contact · clicou no WhatsApp" },
   Lead: { name: "Lead", detail: "Lead · enviou o formulário" },
 };
-const LABELS: Record<string, string> = { direto: "Direto", instagram: "Instagram", ig: "Instagram", facebook: "Facebook", google: "Google", mobile: "Celular", desktop: "Computador", tablet: "Tablet", desconhecido: "Não identificado", top: "Topo", oferta: "Oferta (topo)", numeros: "Números", depoimentos: "Depoimentos", sistema: "Sistema Genesy", faq: "FAQ", cta: "Formulário" };
+const LABELS: Record<string, string> = { direto: "Direto", instagram: "Instagram", ig: "Instagram", facebook: "Facebook", meta: "Facebook / Instagram", google: "Google", google_ads: "Google Ads", tiktok_ads: "TikTok Ads", bing_ads: "Bing Ads", whatsapp: "WhatsApp", youtube: "YouTube", linkedin: "LinkedIn", tiktok: "TikTok", x: "X (Twitter)", bing: "Bing", mobile: "Celular", desktop: "Computador", tablet: "Tablet", desconhecido: "Não identificado", top: "Topo", oferta: "Oferta (topo)", numeros: "Números", depoimentos: "Depoimentos", sistema: "Sistema Genesy", faq: "FAQ", cta: "Formulário" };
 const label = (name: string) => LABELS[name] ?? name;
 const nf = (value: number) => value.toLocaleString("pt-BR");
 const pct = (value: number, total: number) => (total ? (value / total) * 100 : 0);
@@ -603,7 +603,7 @@ export function SiteAnalyticsDashboard() {
     </div>
 
     <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-      <Card heading="De onde vêm os acessos" subtitle="Origem pela UTM ou pelo site de referência" icon={<Globe2 size={16} />}><ShareList rows={data.sources} empty="Sem acessos no período." /></Card>
+      <Card heading="De onde vêm os acessos" subtitle="Pela UTM, por códigos de anúncio ou pelo app/site de onde a pessoa veio" icon={<Globe2 size={16} />}><ShareList rows={data.sources} empty="Sem acessos no período." /></Card>
       <Card heading="Dispositivos" subtitle="Celular, computador ou tablet" icon={<Smartphone size={16} />}><Donut rows={data.devices ?? []} unit="acessos" iconFor={deviceIcon} /></Card>
       <Card heading="Campanhas" subtitle="Acessos por utm_campaign" icon={<TrendingUp size={16} />}><ShareList rows={data.campaigns} empty="Nenhum acesso com campanha (UTM)." /></Card>
       <Card heading="Seções mais vistas" subtitle={`% dos acessos que chegaram a cada parte ${scope}`} icon={<Eye size={16} />}><ShareList rows={data.sections} base={summary.sessions} colored={false} empty="Sem dados de seções." /></Card>
