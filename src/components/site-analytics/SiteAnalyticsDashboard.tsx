@@ -402,8 +402,8 @@ function ConfirmDialog({ icon, heading, children, confirmText, busyText, busy, t
     return () => window.removeEventListener("keydown", onKey);
   }, [onCancel]);
   const colors = tone === "rose" ? { chip: "bg-rose-500/10 text-rose-400", button: "linear-gradient(135deg, #e11d48, #fb7185)" } : { chip: "bg-amber-500/10 text-amber-400", button: "linear-gradient(135deg, #d97706, #fbbf24)" };
-  return <div className="fixed inset-0 z-[80] grid place-items-center bg-black/60 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="confirm-title" onClick={onCancel}>
-    <div className="w-full max-w-md rounded-2xl border p-6 shadow-2xl" style={{ background: "var(--popover)", borderColor: "var(--border-modal)" }} onClick={event => event.stopPropagation()}>
+  return <div className="fixed inset-0 z-[80] grid place-items-center bg-black/40 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="confirm-title" onClick={onCancel}>
+    <div className="w-full max-w-md rounded-2xl border bg-black/30 p-6 shadow-2xl backdrop-blur-2xl [.light_&]:bg-[rgba(248,248,248,0.9)]" style={{ borderColor: "var(--border-modal)" }} onClick={event => event.stopPropagation()}>
       <span className={`grid h-11 w-11 place-items-center rounded-2xl ${colors.chip}`}>{icon}</span>
       <h3 id="confirm-title" className="mt-4 text-base font-semibold" style={title}>{heading}</h3>
       <div className="mt-2 text-sm leading-relaxed" style={muted}>{children}</div>
@@ -463,6 +463,8 @@ export function SiteAnalyticsDashboard() {
   const current = sites.find(item => item.site_key === site);
   const isMainSite = site === "genesycompany";
   const siteUrl = `https://${(current?.domain ?? "genesycompany.com").replace(/^https?:\/\//, "")}`;
+  const siteHost = (current?.domain ?? "genesycompany.com").replace(/^https?:\/\//, "").split("/")[0];
+  const sitePath = (current?.domain ?? "").replace(/^https?:\/\//, "").split("/").slice(1).join("/");
   const canManage = Boolean(config?.canManage);
   const isActive = current?.is_active !== false;
 
@@ -513,7 +515,8 @@ export function SiteAnalyticsDashboard() {
     return true;
   }
   async function saveUrl() {
-    if (await patchSite({ domain: urlDraft }, "Endereço atualizado")) setEditingUrl(false);
+    const path = urlDraft.trim().replace(/^\/+|\/+$/g, "").replace(/\s+/g, "-");
+    if (await patchSite({ domain: path ? `${siteHost}/${path}` : siteHost }, "Endereço atualizado")) setEditingUrl(false);
   }
   async function toggleActive() {
     if (await patchSite({ is_active: !isActive }, isActive ? "Página desativada" : "Página reativada")) setConfirmToggle(false);
@@ -563,8 +566,10 @@ export function SiteAnalyticsDashboard() {
               : <><span className="h-2 w-2 rounded-full bg-amber-400" /><span className="text-amber-400">Aguardando os primeiros acessos {scope}</span></>}</p>
           {editingUrl
             ? <form className="mt-1 flex items-center gap-2" onSubmit={event => { event.preventDefault(); void saveUrl(); }}>
-                <span className="text-sm" style={muted}>https://</span>
-                <input autoFocus value={urlDraft} onChange={event => setUrlDraft(event.target.value)} className="lc-form-control h-9 min-w-0 flex-1 rounded-lg px-3 text-sm" aria-label="Endereço da página" />
+                <div className="lc-form-control flex h-9 min-w-0 flex-1 items-center overflow-hidden rounded-lg pl-3 text-sm">
+                  <span className="shrink-0 select-none" style={muted}>{siteHost}/</span>
+                  <input autoFocus value={urlDraft} onChange={event => setUrlDraft(event.target.value.replace(/^\/+/, ""))} placeholder="caminho-da-pagina" className="h-full min-w-0 flex-1 bg-transparent pr-3 outline-none" style={{ color: "var(--text-title)" }} aria-label={`Caminho depois de ${siteHost}/`} />
+                </div>
                 <button type="submit" disabled={savingSite} aria-label="Salvar endereço" className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-white disabled:opacity-60" style={{ background: BTN_GREEN }}><Check size={15} /></button>
                 <button type="button" onClick={() => setEditingUrl(false)} aria-label="Cancelar" className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border" style={{ borderColor: "var(--border-card-hover)", color: "var(--text-subtitle)" }}><X size={15} /></button>
               </form>
@@ -573,7 +578,7 @@ export function SiteAnalyticsDashboard() {
         {!editingUrl && <div className="ml-auto flex shrink-0 items-center gap-1.5">
           <button type="button" onClick={() => void copyLink()} aria-label="Copiar link da página" title={`Copiar link: ${siteUrl}`} className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border transition hover:bg-white/5 hover:text-emerald-400" style={{ borderColor: "var(--border-card-hover)", color: "var(--text-subtitle)" }}><Copy size={16} /></button>
           <a href={siteUrl} target="_blank" rel="noopener noreferrer" aria-label="Abrir a página em nova aba" title={`Abrir ${siteUrl}`} className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border transition hover:bg-white/5 hover:text-emerald-400" style={{ borderColor: "var(--border-card-hover)", color: "var(--text-subtitle)" }}><ExternalLink size={16} /></a>
-          {canManage && <button type="button" onClick={() => { setUrlDraft(current?.domain ?? "genesycompany.com"); setEditingUrl(true); }} aria-label="Editar endereço" title="Editar endereço" className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border transition hover:bg-white/5 hover:text-emerald-400" style={{ borderColor: "var(--border-card-hover)", color: "var(--text-subtitle)" }}><Pencil size={15} /></button>}
+          {canManage && <button type="button" onClick={() => { setUrlDraft(sitePath); setEditingUrl(true); }} aria-label="Editar endereço" title="Editar endereço" className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border transition hover:bg-white/5 hover:text-emerald-400" style={{ borderColor: "var(--border-card-hover)", color: "var(--text-subtitle)" }}><Pencil size={15} /></button>}
           {canManage && !isMainSite && <button type="button" onClick={() => isActive ? setConfirmToggle(true) : void toggleActive()} aria-label={isActive ? "Desativar página" : "Reativar página"} title={isActive ? "Desativar página" : "Reativar página"}
             className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl border transition ${isActive ? "hover:bg-rose-500/10 hover:text-rose-400" : "border-emerald-500/40 bg-emerald-500/10 text-emerald-400"}`} style={isActive ? { borderColor: "var(--border-card-hover)", color: "var(--text-subtitle)" } : undefined}><Power size={16} /></button>}
         </div>}
