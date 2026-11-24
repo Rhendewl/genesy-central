@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis } from "recharts";
-import { Clock3, Eye, Globe2, Plus, Radio, RefreshCw, Settings2, TrendingUp, UserRound, Users, X } from "lucide-react";
+import { Clock3, Copy, ExternalLink, Eye, Globe2, Plus, Radio, RefreshCw, Settings2, TrendingUp, UserRound, Users, X } from "lucide-react";
 import { toast } from "sonner";
 
 type Overview = {
@@ -146,6 +146,11 @@ export function SiteAnalyticsDashboard() {
 
   const current = sites.find(item => item.site_key === site);
   const isMainSite = site === "genesycompany";
+  const siteUrl = `https://${(current?.domain ?? "genesycompany.com").replace(/^https?:\/\//, "")}`;
+  async function copyLink() {
+    try { await navigator.clipboard.writeText(siteUrl); toast.success("Link copiado"); }
+    catch { toast.error("Não foi possível copiar o link"); }
+  }
 
   async function loadSites() {
     const response = await fetch("/api/site-analytics/sites");
@@ -191,7 +196,7 @@ export function SiteAnalyticsDashboard() {
   return <div className="space-y-5">
     {tabs}
     {newPage}
-    <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-xs" style={{ color: "var(--muted-foreground)" }}>{current?.domain ?? "genesycompany.com"}</p>{data.summary.sessions ? <p className="mt-1 text-sm font-semibold text-emerald-400">Conectado e recebendo dados</p> : <p className="mt-1 text-sm font-semibold text-amber-400">Aguardando os primeiros acessos {isMainSite ? "do site" : "da página"}</p>}</div><select value={days} onChange={e => setDays(Number(e.target.value))} className="lc-form-control w-40"><option value={7}>Últimos 7 dias</option><option value={30}>Últimos 30 dias</option><option value={90}>Últimos 90 dias</option></select></div>
+    <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-xs" style={{ color: "var(--muted-foreground)" }}>{current?.domain ?? "genesycompany.com"}</p>{data.summary.sessions ? <p className="mt-1 text-sm font-semibold text-emerald-400">Conectado e recebendo dados</p> : <p className="mt-1 text-sm font-semibold text-amber-400">Aguardando os primeiros acessos {isMainSite ? "do site" : "da página"}</p>}</div><div className="flex items-center gap-2"><select value={days} onChange={e => setDays(Number(e.target.value))} className="lc-form-control w-40"><option value={7}>Últimos 7 dias</option><option value={30}>Últimos 30 dias</option><option value={90}>Últimos 90 dias</option></select><button type="button" onClick={() => void copyLink()} aria-label="Copiar link da página" title={`Copiar link: ${siteUrl}`} className="grid aspect-square min-w-10 self-stretch shrink-0 place-items-center rounded-xl border transition hover:bg-white/5 hover:text-emerald-400" style={{ borderColor: "var(--border)", color: "var(--muted-foreground)" }}><Copy size={16}/></button><a href={siteUrl} target="_blank" rel="noopener noreferrer" aria-label="Abrir a página em nova aba" title={`Abrir ${siteUrl}`} className="grid aspect-square min-w-10 self-stretch shrink-0 place-items-center rounded-xl border transition hover:bg-white/5 hover:text-emerald-400" style={{ borderColor: "var(--border)", color: "var(--muted-foreground)" }}><ExternalLink size={16}/></a></div></div>
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
       <Metric icon={<Users size={17}/>} label="Acessos" value={String(data.summary.sessions)} detail={`${data.summary.visitors} visitantes`} />
       <Metric icon={<Eye size={17}/>} label="Visualizações" value={String(data.summary.views)} detail="páginas visualizadas" />
