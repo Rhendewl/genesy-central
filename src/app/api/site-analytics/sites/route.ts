@@ -41,6 +41,12 @@ export async function PATCH(req: NextRequest) {
   }
   if (Object.keys(update).length === 1) return NextResponse.json({ error: "Nada para alterar" }, { status: 400 });
   const admin = createAdminSupabaseClient();
+  if (typeof update.domain === "string") {
+    // O domínio é fixo: só o caminho depois da "/" pode mudar.
+    const { data: existing } = await admin.from("site_analytics_settings").select("domain").eq("user_id", context.ownerId).eq("site_key", siteKey).maybeSingle();
+    const hostOf = (value: string) => value.replace(/^https?:\/\//, "").split("/")[0].toLowerCase();
+    if (existing && hostOf(existing.domain) !== hostOf(update.domain)) return NextResponse.json({ error: "O domínio é fixo; altere só o caminho depois da /" }, { status: 400 });
+  }
   const { data, error } = await admin.from("site_analytics_settings").update(update)
     .eq("user_id", context.ownerId).eq("site_key", siteKey).select("site_key,name,domain,is_active").maybeSingle();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
