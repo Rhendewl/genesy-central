@@ -31,7 +31,7 @@ export function createCrmStageNotificationConsumer(db: Db): EventConsumer {
       // inscrição push pertencem ao dono real do CRM, armazenado em leads.user_id.
       const { data: lead } = await db
         .from("leads")
-        .select("name, email, contact, user_id")
+        .select("name, email, contact, user_id, assigned_to")
         .eq("id", payload.leadId)
         .maybeSingle();
       if (!lead?.user_id) return;
@@ -59,23 +59,31 @@ export function createCrmStageNotificationConsumer(db: Db): EventConsumer {
 
       const pipelineName = (stage?.crm_pipelines as { name?: string } | null)?.name ?? "";
 
+      const { data: assignee } = lead.assigned_to
+        ? await db.from("user_profiles").select("auth_user_id,is_active,full_name").eq("id", lead.assigned_to).eq("owner_id", lead.user_id).maybeSingle()
+        : { data: null };
+
       const vars: Record<string, string> = {
         pipeline_name: pipelineName,
         stage_name:    stage?.name  ?? "",
         lead_name:     lead?.name   ?? "",
         lead_email:    lead?.email  ?? "",
         lead_phone:    lead?.contact ?? "",
-        assigned_user: "",
+        assigned_user: (assignee?.full_name as string | undefined) ?? "",
         created_at:    new Date().toLocaleDateString("pt-BR"),
       };
 
       const title = renderTemplate(rule.title as string, vars);
       const body  = renderTemplate(rule.body  as string, vars);
 
-      await dispatchPushToUser(db, lead.user_id, title, body, {
+      // Destinatários: o dono da conta e o corretor responsável pelo lead (ex.: quem recebeu pela roleta).
+      const recipients = new Set<string>([lead.user_id as string]);
+      if (assignee?.auth_user_id && assignee.is_active) recipients.add(assignee.auth_user_id as string);
+      const results = await Promise.allSettled(Array.from(recipients).map(userId => dispatchPushToUser(db, userId, title, body, {
         tag: `crm-stage-${event.id}`,
         url: crmNotificationUrl(payload.pipelineId,payload.leadId),
-      });
+      })));
+      results.forEach(r => { if (r.status === "rejected") console.error("[crm.stage-notification] Falha ao enviar push", r.reason); });
     },
   };
 }
