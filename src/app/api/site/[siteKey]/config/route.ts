@@ -11,7 +11,7 @@ export async function GET(req: NextRequest, { params }: Params) {
   const { site } = await resolveSite(siteKey);
   if (!site) return NextResponse.json({ error: "Site não configurado" }, { status: 404, headers: siteCors(req) });
   return NextResponse.json(
-    { meta_pixel_id: pixelActive(site) ? site.meta_pixel_id : null },
+    { meta_pixel_id: pixelActive(site) ? site.meta_pixel_id : null, og_image_url: site.og_image_url ?? null },
     { headers: { ...siteCors(req), "Cache-Control": "public, max-age=60" } },
   );
 }
