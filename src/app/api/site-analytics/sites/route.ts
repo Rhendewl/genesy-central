@@ -10,7 +10,7 @@ export async function GET() {
   const admin = createAdminSupabaseClient();
   const { data, error } = await admin.from("site_analytics_settings")
     .select("site_key,name,domain,is_active,sort_order,created_at")
-    .eq("user_id", context.ownerId).eq("is_active", true)
+    .eq("user_id", context.ownerId)
     .order("sort_order").order("created_at");
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   const sites = data ?? [];
@@ -19,6 +19,33 @@ export async function GET() {
     sites.unshift({ site_key: DEFAULT_SITE_KEY, name: "Site Genesy", domain: "genesycompany.com", is_active: true, sort_order: 0, created_at: new Date(0).toISOString() });
   }
   return NextResponse.json({ sites, canManage: context.canManage });
+}
+
+// Edita o endereço ou ativa/desativa uma página. O site institucional não pode ser desativado.
+export async function PATCH(req: NextRequest) {
+  const context = await siteAnalyticsContext();
+  if (!context) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
+  if (!context.canManage) return NextResponse.json({ error: "Apenas administradores podem alterar páginas" }, { status: 403 });
+  const body = await req.json().catch(() => null) as { site_key?: string; domain?: string; is_active?: boolean } | null;
+  const siteKey = (body?.site_key ?? "").trim().toLowerCase();
+  if (!siteKey) return NextResponse.json({ error: "Página não informada" }, { status: 400 });
+  const update: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  if (typeof body?.domain === "string") {
+    const domain = body.domain.trim().replace(/^https?:\/\//, "").replace(/\/+$/, "").slice(0, 200);
+    if (!domain || /\s/.test(domain) || !domain.includes(".")) return NextResponse.json({ error: "Endereço inválido" }, { status: 400 });
+    update.domain = domain;
+  }
+  if (typeof body?.is_active === "boolean") {
+    if (siteKey === DEFAULT_SITE_KEY && !body.is_active) return NextResponse.json({ error: "O site institucional não pode ser desativado" }, { status: 400 });
+    update.is_active = body.is_active;
+  }
+  if (Object.keys(update).length === 1) return NextResponse.json({ error: "Nada para alterar" }, { status: 400 });
+  const admin = createAdminSupabaseClient();
+  const { data, error } = await admin.from("site_analytics_settings").update(update)
+    .eq("user_id", context.ownerId).eq("site_key", siteKey).select("site_key,name,domain,is_active").maybeSingle();
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (!data) return NextResponse.json({ error: "Página não encontrada" }, { status: 404 });
+  return NextResponse.json({ ok: true, site: data });
 }
 
 // Cria uma nova página. Começa com a mesma pipeline e o mesmo Pixel do site institucional,
