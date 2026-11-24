@@ -2,8 +2,8 @@
 
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
-  ArrowDownRight, ArrowUpRight, Ban, Check, Clock3, Copy, ExternalLink, Eye, Globe2, Monitor, MousePointerClick, Pencil, Plus, Power, Radio,
-  RefreshCw, Server, Settings2, Smartphone, Tablet, Trash2, TrendingUp, UserRound, Users, X,
+  ArrowDownRight, ArrowUpRight, Ban, Check, Clock3, Copy, ExternalLink, Eye, Globe2, Image as ImageIcon, Monitor, MousePointerClick, Pencil, Plus, Power, Radio,
+  RefreshCw, Server, Settings2, Smartphone, Tablet, Trash2, TrendingUp, Upload, UserRound, Users, X,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -33,7 +33,7 @@ type PixelOverview = {
 type SiteTab = { site_key: string; name: string; domain: string; is_active?: boolean };
 type PixelSettings = { meta_pixel_enabled?: boolean | null; meta_pixel_id?: string | null; meta_test_event_code?: string | null; has_capi_token?: boolean };
 type Pipeline = { id: string; name: string; crm_stages: Array<{ id: string; name: string; order_index: number; is_active: boolean }> };
-type SettingsPayload = { settings: ({ crm_pipeline_id: string | null; crm_stage_id: string | null; deal_value?: number | string | null } & PixelSettings) | null; pipelines: Pipeline[]; canManage: boolean };
+type SettingsPayload = { settings: ({ crm_pipeline_id: string | null; crm_stage_id: string | null; deal_value?: number | string | null; og_image_url?: string | null } & PixelSettings) | null; pipelines: Pipeline[]; canManage: boolean };
 
 /* ─────────────────────────── Utilitários ─────────────────────────── */
 
@@ -415,6 +415,123 @@ function ConfirmDialog({ icon, heading, children, confirmText, busyText, busy, t
   </div>;
 }
 
+/* ─────────────────────────── Banner do link ─────────────────────────── */
+
+const DEFAULT_OG_IMAGE = "https://genesycompany.com/og.png";
+const OG_WIDTH = 1200, OG_HEIGHT = 630;
+
+/** Recorta (cobrindo) para 1200×630 e comprime em JPEG: tamanho que WhatsApp e Instagram exibem bem. */
+async function toBanner(file: File, focusY: number): Promise<Blob> {
+  const source = URL.createObjectURL(file);
+  try {
+    const image = await new Promise<HTMLImageElement>((resolve, reject) => { const element = new Image(); element.onload = () => resolve(element); element.onerror = () => reject(new Error("Imagem inválida")); element.src = source; });
+    const canvas = document.createElement("canvas");
+    canvas.width = OG_WIDTH; canvas.height = OG_HEIGHT;
+    const context = canvas.getContext("2d");
+    if (!context) throw new Error("Navegador sem suporte a imagens");
+    const scale = Math.max(OG_WIDTH / image.naturalWidth, OG_HEIGHT / image.naturalHeight);
+    const width = image.naturalWidth * scale, height = image.naturalHeight * scale;
+    context.fillStyle = "#000"; context.fillRect(0, 0, OG_WIDTH, OG_HEIGHT);
+    context.drawImage(image, (OG_WIDTH - width) / 2, (OG_HEIGHT - height) * focusY, width, height);
+    return await new Promise<Blob>((resolve, reject) => canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error("Falha ao preparar a imagem")), "image/jpeg", 0.86));
+  } finally {
+    URL.revokeObjectURL(source);
+  }
+}
+
+function OgImageDialog({ site, name, domain, current, onClose, onSaved }: { site: string; name: string; domain: string; current: string | null; onClose: () => void; onSaved: () => Promise<void> }) {
+  const [file, setFile] = useState<File | null>(null);
+  const [focusY, setFocusY] = useState(0.5);
+  const [preview, setPreview] = useState<string | null>(null);
+  const [blob, setBlob] = useState<Blob | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [dragging, setDragging] = useState(false);
+  const input = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => { if (event.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+  useEffect(() => {
+    if (!file) return;
+    let url: string | null = null, cancelled = false;
+    toBanner(file, focusY).then(result => { if (cancelled) return; url = URL.createObjectURL(result); setBlob(result); setPreview(url); }).catch(error => toast.error(error instanceof Error ? error.message : "Imagem inválida"));
+    return () => { cancelled = true; if (url) URL.revokeObjectURL(url); };
+  }, [file, focusY]);
+  function pick(list: FileList | null) {
+    const chosen = list?.[0];
+    if (!chosen) return;
+    if (!/^image\/(jpeg|png|webp)$/.test(chosen.type)) return toast.error("Use uma imagem JPG, PNG ou WebP");
+    if (chosen.size > 15 * 1024 * 1024) return toast.error("Imagem muito grande (máximo 15 MB)");
+    setFocusY(0.5); setFile(chosen);
+  }
+  async function save() {
+    if (!blob) return;
+    setBusy(true);
+    const form = new FormData();
+    form.append("file", blob, "banner.jpg");
+    const response = await fetch(`/api/site-analytics/og-image?site=${encodeURIComponent(site)}`, { method: "POST", body: form });
+    const json = await response.json().catch(() => ({}));
+    setBusy(false);
+    if (!response.ok) return toast.error(json.error ?? "Não foi possível salvar o banner");
+    toast.success("Banner do link atualizado");
+    await onSaved(); onClose();
+  }
+  async function reset() {
+    setBusy(true);
+    const response = await fetch(`/api/site-analytics/og-image?site=${encodeURIComponent(site)}`, { method: "DELETE" });
+    const json = await response.json().catch(() => ({}));
+    setBusy(false);
+    if (!response.ok) return toast.error(json.error ?? "Não foi possível restaurar");
+    toast.success("Banner padrão restaurado");
+    await onSaved(); onClose();
+  }
+  const shown = preview ?? current ?? DEFAULT_OG_IMAGE;
+  const url = `https://${domain.replace(/^https?:\/\//, "")}`;
+  return <div className="fixed inset-0 z-[80] grid place-items-center overflow-y-auto bg-black/40 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="og-title" onClick={onClose}>
+    <div className="my-auto w-full max-w-xl rounded-2xl border bg-black/30 p-5 shadow-2xl backdrop-blur-2xl sm:p-6 [.light_&]:bg-[rgba(248,248,248,0.9)]" style={{ borderColor: "var(--border-modal)" }} onClick={event => event.stopPropagation()}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-start gap-3">
+          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl text-white" style={{ background: BTN_GREEN }}><ImageIcon size={18} /></span>
+          <div><h3 id="og-title" className="text-base font-semibold" style={title}>Banner do link</h3><p className="mt-0.5 text-xs" style={muted}>Imagem que aparece quando o link {name ? `de ${name} ` : ""}é enviado no WhatsApp, Instagram ou Facebook.</p></div>
+        </div>
+        <button onClick={onClose} aria-label="Fechar" className="grid h-9 w-9 shrink-0 place-items-center rounded-xl transition hover:bg-white/5" style={muted}><X size={16} /></button>
+      </div>
+
+      <p className="mb-2 mt-5 text-[11px] font-medium" style={{ color: "var(--text-subtitle)" }}>Como o link vai aparecer</p>
+      <div className="overflow-hidden rounded-xl border" style={{ borderColor: "var(--border-card-hover)", background: "var(--hover)" }}>
+        <div className="relative aspect-[1200/630] w-full bg-black/40">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={shown} alt="Banner do link" className="h-full w-full object-cover" />
+          {preview && <span className="absolute left-2 top-2 rounded-full bg-emerald-500 px-2 py-0.5 text-[10px] font-bold text-white">Novo</span>}
+          {!preview && !current && <span className="absolute left-2 top-2 rounded-full bg-black/60 px-2 py-0.5 text-[10px] font-semibold text-white">Padrão do site</span>}
+        </div>
+        <div className="px-3 py-2.5"><p className="truncate text-sm font-semibold" style={title}>{name}</p><p className="truncate text-xs" style={muted}>{url.replace(/^https:\/\//, "")}</p></div>
+      </div>
+
+      <div className={`mt-4 grid place-items-center rounded-xl border border-dashed px-4 py-5 text-center transition ${dragging ? "bg-emerald-500/10" : ""}`} style={{ borderColor: dragging ? "#10b981" : "var(--border-card-hover)" }}
+        onDragOver={event => { event.preventDefault(); setDragging(true); }} onDragLeave={() => setDragging(false)} onDrop={event => { event.preventDefault(); setDragging(false); pick(event.dataTransfer.files); }}>
+        <Upload size={18} style={muted} />
+        <p className="mt-2 text-sm" style={{ color: "var(--text-subtitle)" }}>Arraste uma imagem aqui ou</p>
+        <button type="button" onClick={() => input.current?.click()} className="mt-2 h-10 rounded-xl border px-4 text-xs font-semibold transition hover:bg-white/5" style={{ borderColor: "var(--border-card-hover)", color: "var(--text-title)" }}>Escolher imagem</button>
+        <input ref={input} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={event => { pick(event.target.files); event.target.value = ""; }} />
+        <p className="mt-2 text-[11px]" style={muted}>JPG, PNG ou WebP. Ideal 1200×630 px; outras medidas são ajustadas automaticamente.</p>
+      </div>
+      {file && <label className="mt-3 block text-xs" style={{ color: "var(--text-subtitle)" }}>Posição vertical do recorte
+        <input type="range" min={0} max={1} step={0.01} value={focusY} onChange={event => setFocusY(Number(event.target.value))} className="mt-2 w-full accent-emerald-500" />
+      </label>}
+
+      <p className="mt-4 text-[11px] leading-relaxed" style={muted}>Conversas em que o link já foi enviado podem continuar mostrando a imagem antiga. Para o Facebook e o Instagram buscarem a nova na hora, use o <a href={`https://developers.facebook.com/tools/debug/?q=${encodeURIComponent(url)}`} target="_blank" rel="noopener noreferrer" className="underline">Depurador de compartilhamento</a> e clique em “Coletar novamente”.</p>
+
+      <div className="mt-5 flex flex-wrap gap-3">
+        {current && <button onClick={() => void reset()} disabled={busy} className="h-11 rounded-xl border px-4 text-sm font-semibold transition hover:bg-white/5 disabled:opacity-60" style={{ borderColor: "var(--border-card-hover)", color: "var(--text-subtitle)" }}>Restaurar padrão</button>}
+        <button onClick={onClose} className="h-11 flex-1 rounded-xl border text-sm font-semibold transition hover:bg-white/5" style={{ borderColor: "var(--border-card-hover)", color: "var(--text-title)" }}>Cancelar</button>
+        <button onClick={() => void save()} disabled={!blob || busy} className="h-11 flex-1 rounded-xl text-sm font-bold text-white transition hover:brightness-110 disabled:opacity-50" style={{ background: BTN_GREEN }}>{busy ? "Salvando…" : "Salvar banner"}</button>
+      </div>
+    </div>
+  </div>;
+}
+
 /* ─────────────────────────── Período (pílula deslizante) ─────────────────────────── */
 
 const PERIODS = [{ days: 7, text: "7 dias" }, { days: 30, text: "30 dias" }, { days: 90, text: "90 dias" }];
@@ -459,6 +576,7 @@ export function SiteAnalyticsDashboard() {
   const [urlDraft, setUrlDraft] = useState("");
   const [savingSite, setSavingSite] = useState(false);
   const [confirmToggle, setConfirmToggle] = useState(false);
+  const [ogOpen, setOgOpen] = useState(false);
   const stages = useMemo(() => config?.pipelines.find(p => p.id === pipelineId)?.crm_stages.filter(s => s.is_active).sort((a, b) => a.order_index - b.order_index) ?? [], [config, pipelineId]);
   const current = sites.find(item => item.site_key === site);
   const isMainSite = site === "genesycompany";
@@ -579,6 +697,7 @@ export function SiteAnalyticsDashboard() {
           <button type="button" onClick={() => void copyLink()} aria-label="Copiar link da página" title={`Copiar link: ${siteUrl}`} className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border transition hover:bg-white/5 hover:text-emerald-400" style={{ borderColor: "var(--border-card-hover)", color: "var(--text-subtitle)" }}><Copy size={16} /></button>
           <a href={siteUrl} target="_blank" rel="noopener noreferrer" aria-label="Abrir a página em nova aba" title={`Abrir ${siteUrl}`} className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border transition hover:bg-white/5 hover:text-emerald-400" style={{ borderColor: "var(--border-card-hover)", color: "var(--text-subtitle)" }}><ExternalLink size={16} /></a>
           {canManage && <button type="button" onClick={() => { setUrlDraft(sitePath); setEditingUrl(true); }} aria-label="Editar endereço" title="Editar endereço" className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border transition hover:bg-white/5 hover:text-emerald-400" style={{ borderColor: "var(--border-card-hover)", color: "var(--text-subtitle)" }}><Pencil size={15} /></button>}
+          {canManage && <button type="button" onClick={() => setOgOpen(true)} aria-label="Banner do link" title="Banner do link (WhatsApp, Instagram)" className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border transition hover:bg-white/5 hover:text-emerald-400" style={{ borderColor: "var(--border-card-hover)", color: "var(--text-subtitle)" }}><ImageIcon size={16} /></button>}
           {canManage && !isMainSite && <button type="button" onClick={() => isActive ? setConfirmToggle(true) : void toggleActive()} aria-label={isActive ? "Desativar página" : "Reativar página"} title={isActive ? "Desativar página" : "Reativar página"}
             className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl border transition ${isActive ? "hover:bg-rose-500/10 hover:text-rose-400" : "border-emerald-500/40 bg-emerald-500/10 text-emerald-400"}`} style={isActive ? { borderColor: "var(--border-card-hover)", color: "var(--text-subtitle)" } : undefined}><Power size={16} /></button>}
         </div>}
@@ -652,6 +771,7 @@ export function SiteAnalyticsDashboard() {
     {toDelete && <ConfirmDialog icon={<Trash2 size={18} />} heading={`Excluir “${toDelete.name}” das métricas?`} confirmText="Excluir das métricas" busyText="Excluindo…" busy={deleting} onCancel={() => setToDelete(null)} onConfirm={() => void deleteLead()}>
       O lead sai da lista, do funil e da taxa de conversão desta página. <strong style={{ color: "var(--text-subtitle)" }}>No CRM ele continua</strong>; se quiser removê-lo de lá, exclua pelo CRM.
     </ConfirmDialog>}
+    {ogOpen && <OgImageDialog site={site} name={current?.name ?? "Site Genesy"} domain={current?.domain ?? "genesycompany.com"} current={config?.settings?.og_image_url ?? null} onClose={() => setOgOpen(false)} onSaved={load} />}
     {confirmToggle && <ConfirmDialog icon={<Power size={18} />} tone="amber" heading={`Desativar “${current?.name ?? "página"}”?`} confirmText="Desativar página" busyText="Desativando…" busy={savingSite} onCancel={() => setConfirmToggle(false)} onConfirm={() => void toggleActive()}>
       A página continua no ar, mas para de registrar acessos e <strong style={{ color: "var(--text-subtitle)" }}>os leads do formulário deixam de chegar ao CRM</strong>. Os dados já coletados ficam guardados e você pode reativar quando quiser.
     </ConfirmDialog>}
