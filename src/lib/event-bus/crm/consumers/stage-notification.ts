@@ -36,31 +36,36 @@ export function createCrmStageNotificationConsumer(db: Db): EventConsumer {
         .maybeSingle();
       if (!lead?.user_id) return;
 
-      // 1. Find an enabled rule for the CRM owner + stage
+      // 1. Regra da etapa (configurada na central de notificações).
       const { data: rule } = await db
         .from("crm_notification_rules")
-        .select("channels, title, body")
+        .select("channels, title, body, enabled")
         .eq("user_id",  lead.user_id)
         .eq("stage_id", payload.stageId)
-        .eq("enabled",  true)
         .maybeSingle();
 
-      if (!rule) return;
-
-      const channels = (rule.channels as string[]) ?? [];
+      // Sem regra: todo lead que CHEGA numa pipeline avisa o responsável por padrão,
+      // sem precisar configurar nada. Regra desligada = silêncio.
+      const isArrival = payload.fromStageId == null;
+      if (rule && !rule.enabled) return;
+      if (!rule && !isArrival) return;
+      const channels = rule ? ((rule.channels as string[]) ?? []) : ["pwa"];
       if (!channels.includes("pwa")) return;
 
       // 3. Load stage name + pipeline name (joined)
       const { data: stage } = await db
         .from("crm_stages")
-        .select("name, color, crm_pipelines(name)")
+        .select("name, color, crm_pipelines(name, default_assignee_id)")
         .eq("id", payload.stageId)
         .maybeSingle();
 
-      const pipelineName = (stage?.crm_pipelines as { name?: string } | null)?.name ?? "";
+      const pipeline = stage?.crm_pipelines as { name?: string; default_assignee_id?: string | null } | null;
+      const pipelineName = pipeline?.name ?? "";
 
-      const { data: assignee } = lead.assigned_to
-        ? await db.from("user_profiles").select("auth_user_id,is_active,full_name").eq("id", lead.assigned_to).eq("owner_id", lead.user_id).maybeSingle()
+      // Responsável: quem está com o lead; se ninguém, o responsável da pipeline.
+      const responsibleId = (lead.assigned_to as string | null) ?? pipeline?.default_assignee_id ?? null;
+      const { data: assignee } = responsibleId
+        ? await db.from("user_profiles").select("auth_user_id,is_active,full_name").eq("id", responsibleId).eq("owner_id", lead.user_id).maybeSingle()
         : { data: null };
 
       const vars: Record<string, string> = {
@@ -73,12 +78,15 @@ export function createCrmStageNotificationConsumer(db: Db): EventConsumer {
         created_at:    new Date().toLocaleDateString("pt-BR"),
       };
 
-      const title = renderTemplate(rule.title as string, vars);
-      const body  = renderTemplate(rule.body  as string, vars);
+      const title = renderTemplate(rule ? rule.title as string : "Novo Lead • {{lead_name}}", vars);
+      const body  = renderTemplate(rule ? rule.body as string : "{{lead_name}} está esperando seu contato!", vars);
 
-      // Destinatários: o dono da conta e o corretor responsável pelo lead (ex.: quem recebeu pela roleta).
-      const recipients = new Set<string>([lead.user_id as string]);
-      if (assignee?.auth_user_id && assignee.is_active) recipients.add(assignee.auth_user_id as string);
+      // Destinatários: com regra, o dono da conta e o responsável; no aviso padrão, só o responsável.
+      const recipients = new Set<string>(rule ? [lead.user_id as string] : []);
+      const responsibleAuth = assignee?.is_active ? (assignee.auth_user_id as string | null) : null;
+      // Quem cadastrou o próprio lead não precisa ser avisado.
+      if (responsibleAuth && !(isArrival && !rule && responsibleAuth === payload.userId)) recipients.add(responsibleAuth);
+      if (!recipients.size) return;
       const results = await Promise.allSettled(Array.from(recipients).map(userId => dispatchPushToUser(db, userId, title, body, {
         tag: `crm-stage-${event.id}`,
         url: crmNotificationUrl(payload.pipelineId,payload.leadId),
