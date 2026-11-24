@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { siteAnalyticsContext } from "@/lib/site-analytics-auth";
 import { createAdminSupabaseClient } from "@/lib/supabase-admin";
 import { DEFAULT_SITE_KEY, siteKeyParam } from "@/lib/site-analytics";
+import { readOgImage } from "@/lib/site-og-image";
 
 export async function GET(req: NextRequest) {
   const context = await siteAnalyticsContext();
@@ -14,6 +15,7 @@ export async function GET(req: NextRequest) {
   ]);
   // O token da API de Conversões nunca sai do servidor: só informamos se existe.
   const safe = settings ? (({ meta_capi_token_encrypted, ...rest }) => ({ ...rest, has_capi_token: Boolean(meta_capi_token_encrypted) }))(settings) : null;
+  if (safe) safe.og_image_url = await readOgImage(admin, siteKey, safe.og_image_url);
   return NextResponse.json({ settings: safe, pipelines: pipelines ?? [], canManage: context.canManage });
 }
 
