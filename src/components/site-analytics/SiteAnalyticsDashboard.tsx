@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
-  ArrowDownRight, ArrowUpRight, Ban, Clock3, Copy, ExternalLink, Eye, Globe2, Monitor, MousePointerClick, Plus, Radio,
+  ArrowDownRight, ArrowUpRight, Ban, Check, Clock3, Copy, ExternalLink, Eye, Globe2, Monitor, MousePointerClick, Pencil, Plus, Power, Radio,
   RefreshCw, Server, Settings2, Smartphone, Tablet, Trash2, TrendingUp, UserRound, Users, X,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -30,7 +30,7 @@ type PixelOverview = {
   last_error: { message: string | null; at: string } | null;
   totals: Array<{ event: string; browser_sent: number; browser_blocked: number; server_sent: number; server_failed: number }>;
 };
-type SiteTab = { site_key: string; name: string; domain: string };
+type SiteTab = { site_key: string; name: string; domain: string; is_active?: boolean };
 type PixelSettings = { meta_pixel_enabled?: boolean | null; meta_pixel_id?: string | null; meta_test_event_code?: string | null; has_capi_token?: boolean };
 type Pipeline = { id: string; name: string; crm_stages: Array<{ id: string; name: string; order_index: number; is_active: boolean }> };
 type SettingsPayload = { settings: ({ crm_pipeline_id: string | null; crm_stage_id: string | null; deal_value?: number | string | null } & PixelSettings) | null; pipelines: Pipeline[]; canManage: boolean };
@@ -38,7 +38,11 @@ type SettingsPayload = { settings: ({ crm_pipeline_id: string | null; crm_stage_
 /* ─────────────────────────── Utilitários ─────────────────────────── */
 
 const META_BLUE = "#0866FF";
-const PALETTE = ["#34d399", "#38bdf8", "#a78bfa", "#fbbf24", "#fb7185", "#2dd4bf", "#f472b6", "#94a3b8"];
+/** Pares [claro, forte] de cada cor: funcionam nos temas claro e escuro. */
+const GRADIENTS: Array<[string, string]> = [["#6ee7b7", "#10b981"], ["#7dd3fc", "#0284c7"], ["#c4b5fd", "#7c3aed"], ["#fcd34d", "#d97706"], ["#fda4af", "#e11d48"], ["#5eead4", "#0d9488"], ["#f9a8d4", "#db2777"], ["#cbd5e1", "#64748b"]];
+const gradient = (index: number, angle = 90) => { const [light, strong] = GRADIENTS[index % GRADIENTS.length]; return `linear-gradient(${angle}deg, ${strong}, ${light})`; };
+const BTN_GREEN = "linear-gradient(135deg, #059669, #10b981 55%, #34d399)";
+const BTN_BLUE = "linear-gradient(135deg, #0866FF, #3b8bff)";
 const PIXEL_LABELS: Record<string, { name: string; detail: string }> = {
   PageView: { name: "Visita", detail: "PageView · abriu a página" },
   ViewContent: { name: "Viu o formulário", detail: "ViewContent · chegou ao formulário" },
@@ -83,9 +87,16 @@ function Field({ text, extra, children }: { text: string; extra?: React.ReactNod
 
 function Switch({ checked, onChange, disabled, color = META_BLUE }: { checked: boolean; onChange: (value: boolean) => void; disabled?: boolean; color?: string }) {
   return <button type="button" role="switch" aria-checked={checked} disabled={disabled} onClick={() => onChange(!checked)}
-    className="relative h-7 w-12 shrink-0 rounded-full transition disabled:opacity-50" style={{ background: checked ? color : "var(--border-card-hover)" }}>
+    className="relative h-7 w-12 shrink-0 rounded-full transition disabled:opacity-50" style={{ background: checked ? `linear-gradient(135deg, ${color}, #5aa2ff)` : "var(--border-card-hover)" }}>
     <span className="absolute top-1 h-5 w-5 rounded-full bg-white shadow transition-all" style={{ left: checked ? 24 : 4 }} />
   </button>;
+}
+
+/** Brilho de fundo recortado pelo contorno arredondado do card (sem quinas aparecendo). */
+function Glow({ spots }: { spots: Array<{ color: string; className: string; opacity: number }> }) {
+  return <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden" style={{ borderRadius: "inherit", clipPath: "inset(0 round 20px)" }}>
+    {spots.map((spot, index) => <div key={index} className={`absolute rounded-full ${spot.className}`} style={{ background: `radial-gradient(circle, ${spot.color} 0%, transparent 68%)`, opacity: spot.opacity }} />)}
+  </div>;
 }
 
 function Empty({ text }: { text: string }) {
@@ -149,16 +160,16 @@ function TimelineChart({ rows }: { rows: Overview["timeline"] }) {
   const every = Math.ceil(rows.length / Math.max(2, Math.floor(innerW / 64)));
   const leadPoints = rows.map((row, index) => `${padL + index * step + step / 2},${y(row.leads, leadMax)}`).join(" ");
   const series = [
-    { key: "sessions" as const, name: "Acessos", color: "#34d399", total: rows.reduce((sum, row) => sum + row.sessions, 0) },
-    { key: "views" as const, name: "Visualizações", color: "#38bdf8", total: rows.reduce((sum, row) => sum + row.views, 0) },
-    { key: "leads" as const, name: "Leads", color: "#fbbf24", total: rows.reduce((sum, row) => sum + row.leads, 0) },
+    { key: "sessions" as const, name: "Acessos", color: "#34d399", fill: gradient(0, 135), total: rows.reduce((sum, row) => sum + row.sessions, 0) },
+    { key: "views" as const, name: "Visualizações", color: "#38bdf8", fill: gradient(1, 135), total: rows.reduce((sum, row) => sum + row.views, 0) },
+    { key: "leads" as const, name: "Leads", color: "#fbbf24", fill: gradient(3, 135), total: rows.reduce((sum, row) => sum + row.leads, 0) },
   ];
   const active = hover !== null ? rows[hover] : null;
   return <div>
     <div className="mb-4 flex flex-wrap gap-2">
       {series.map(item => <button key={item.key} type="button" aria-pressed={show[item.key]} onClick={() => setShow(current => ({ ...current, [item.key]: !current[item.key] }))}
         className="flex items-center gap-2 rounded-xl border px-3 py-2 text-left transition hover:bg-white/5" style={{ borderColor: show[item.key] ? `${item.color}66` : "var(--border)", opacity: show[item.key] ? 1 : 0.55 }}>
-        <span className="h-2.5 w-2.5 rounded-full" style={{ background: item.color }} />
+        <span className="h-2.5 w-2.5 rounded-full" style={{ background: item.fill }} />
         <span><span className="block text-[11px]" style={muted}>{item.name}</span><strong className="block text-base tabular-nums leading-tight" style={title}>{nf(item.total)}</strong></span>
       </button>)}
     </div>
@@ -203,7 +214,7 @@ function Funnel({ steps }: { steps: Row[] }) {
       return <div key={step.name}>
         {index > 0 && <p className="flex items-center justify-center gap-1 py-0.5 text-[11px]" style={muted}><ArrowDownRight size={12} className="rotate-45" />{pctText(fromPrev)} avançaram</p>}
         <div className="relative h-12 overflow-hidden rounded-xl" style={{ background: "var(--hover)" }}>
-          <div className="absolute inset-y-0 left-1/2 -translate-x-1/2 rounded-xl transition-all duration-700" style={{ width: `${Math.max(share, 6)}%`, background: `linear-gradient(90deg, rgba(52,211,153,${0.22 + 0.18 * (1 - index / steps.length)}), rgba(52,211,153,${0.4 + 0.25 * (1 - index / steps.length)}), rgba(52,211,153,${0.22 + 0.18 * (1 - index / steps.length)}))` }} />
+          <div className="absolute inset-y-0 left-1/2 -translate-x-1/2 rounded-xl transition-all duration-700" style={{ width: `${Math.max(share, 6)}%`, background: "linear-gradient(90deg, rgba(16,185,129,.75), rgba(110,231,183,.95) 50%, rgba(16,185,129,.75))", opacity: 1 - index * 0.08, boxShadow: "0 6px 24px rgba(16,185,129,.25)" }} />
           <div className="relative flex h-full items-center justify-between px-3 text-xs"><span className="font-medium" style={{ color: "var(--text-subtitle)" }}>{step.name}</span><span className="flex items-baseline gap-2"><strong className="text-base tabular-nums" style={title}>{nf(step.value)}</strong><span className="w-10 text-right tabular-nums" style={muted}>{pctText(share)}</span></span></div>
         </div>
       </div>;
@@ -211,34 +222,41 @@ function Funnel({ steps }: { steps: Row[] }) {
   </div>;
 }
 
-/** Rosca com a divisão por dispositivo. */
-function Donut({ rows }: { rows: Row[] }) {
-  const total = rows.reduce((sum, row) => sum + row.value, 0);
-  if (!total) return <Empty text="Sem acessos no período." />;
+/** Rosca com gradiente em cada fatia e legenda ao lado (à esquerda ou à direita). */
+function Donut({ rows, unit, iconFor, legendFirst = false, limit = 6 }: { rows: Row[]; unit: string; iconFor?: (name: string) => React.ReactNode; legendFirst?: boolean; limit?: number }) {
+  const uid = useId().replace(/:/g, "");
+  const sorted = [...rows].sort((x, y) => y.value - x.value);
+  const list = sorted.length > limit ? [...sorted.slice(0, limit - 1), { name: "Outros", value: sorted.slice(limit - 1).reduce((sum, row) => sum + row.value, 0) }] : sorted;
+  const total = list.reduce((sum, row) => sum + row.value, 0);
+  if (!total) return <Empty text={`Nenhum registro de ${unit} no período.`} />;
   const radius = 44, circumference = 2 * Math.PI * radius;
   let offset = 0;
-  const icon = (name: string) => name === "mobile" ? <Smartphone size={13} /> : name === "tablet" ? <Tablet size={13} /> : <Monitor size={13} />;
-  return <div className="flex flex-wrap items-center gap-5">
-    <div className="relative h-32 w-32 shrink-0">
-      <svg viewBox="0 0 120 120" className="h-full w-full -rotate-90">
-        <circle cx={60} cy={60} r={radius} fill="none" stroke="var(--hover)" strokeWidth={14} />
-        {rows.map((row, index) => {
-          const length = (row.value / total) * circumference;
-          const segment = <circle key={row.name} cx={60} cy={60} r={radius} fill="none" stroke={PALETTE[index % PALETTE.length]} strokeWidth={14} strokeDasharray={`${Math.max(0, length - 2)} ${circumference}`} strokeDashoffset={-offset} strokeLinecap="round" />;
-          offset += length;
-          return segment;
-        })}
-      </svg>
-      <div className="absolute inset-0 grid place-items-center text-center"><div><strong className="block text-xl tabular-nums" style={title}>{nf(total)}</strong><span className="text-[10px]" style={muted}>acessos</span></div></div>
-    </div>
-    <ul className="min-w-[140px] flex-1 space-y-2.5">
-      {rows.map((row, index) => <li key={row.name} className="flex items-center justify-between gap-3 text-xs">
-        <span className="flex items-center gap-2" style={{ color: "var(--text-subtitle)" }}><span className="grid h-6 w-6 place-items-center rounded-md" style={{ background: `${PALETTE[index % PALETTE.length]}26`, color: PALETTE[index % PALETTE.length] }}>{icon(row.name)}</span>{label(row.name)}</span>
-        <span className="tabular-nums"><strong style={title}>{pctText(pct(row.value, total))}</strong> <span style={muted}>· {nf(row.value)}</span></span>
-      </li>)}
-    </ul>
+  const chart = <div className="relative h-36 w-36 shrink-0">
+    <svg viewBox="0 0 120 120" className="h-full w-full -rotate-90">
+      <defs>{list.map((row, index) => <linearGradient key={row.name} id={`${uid}-${index}`} gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="120" y2="120"><stop offset="0%" stopColor={GRADIENTS[index % GRADIENTS.length][0]} /><stop offset="100%" stopColor={GRADIENTS[index % GRADIENTS.length][1]} /></linearGradient>)}</defs>
+      <circle cx={60} cy={60} r={radius} fill="none" stroke="var(--hover)" strokeWidth={14} />
+      {list.map((row, index) => {
+        const length = (row.value / total) * circumference;
+        const segment = <circle key={row.name} cx={60} cy={60} r={radius} fill="none" stroke={`url(#${uid}-${index})`} strokeWidth={14} strokeDasharray={`${Math.max(0.01, length - (list.length > 1 ? 2.5 : 0))} ${circumference}`} strokeDashoffset={-offset} strokeLinecap={list.length > 1 ? "round" : "butt"} />;
+        offset += length;
+        return segment;
+      })}
+    </svg>
+    <div className="absolute inset-0 grid place-items-center text-center"><div><strong className="block text-2xl tabular-nums" style={title}>{nf(total)}</strong><span className="text-[11px]" style={muted}>{unit}</span></div></div>
   </div>;
+  const legend = <ul className="min-w-[185px] flex-1 space-y-2.5">
+    {list.map((row, index) => <li key={row.name} className="flex items-center justify-between gap-3 text-xs">
+      <span className="flex min-w-0 items-center gap-2" style={{ color: "var(--text-subtitle)" }}>
+        {iconFor ? <span className="grid h-6 w-6 shrink-0 place-items-center rounded-md text-white" style={{ background: gradient(index, 135) }}>{iconFor(row.name)}</span> : <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: gradient(index, 135) }} />}
+        <span className="leading-snug [overflow-wrap:break-word]">{label(row.name)}</span>
+      </span>
+      <span className="shrink-0 tabular-nums"><strong style={title}>{pctText(pct(row.value, total))}</strong> <span style={muted}>· {nf(row.value)}</span></span>
+    </li>)}
+  </ul>;
+  return <div className="flex flex-wrap items-center gap-5">{legendFirst ? <>{legend}{chart}</> : <>{chart}{legend}</>}</div>;
 }
+
+const deviceIcon = (name: string) => name === "mobile" ? <Smartphone size={13} /> : name === "tablet" ? <Tablet size={13} /> : <Monitor size={13} />;
 
 /** Lista com barra, valor e porcentagem (sobre o total ou sobre uma base informada). */
 function ShareList({ rows, base, empty, colored = true, limit = 6 }: { rows?: Row[]; base?: number; empty: string; colored?: boolean; limit?: number }) {
@@ -247,14 +265,14 @@ function ShareList({ rows, base, empty, colored = true, limit = 6 }: { rows?: Ro
   const total = base ?? list.reduce((sum, row) => sum + row.value, 0);
   return <ul className="space-y-3">
     {list.map((row, index) => {
-      const color = colored ? PALETTE[index % PALETTE.length] : "#34d399";
+      const fill = colored ? gradient(index) : gradient(0);
       const share = pct(row.value, total);
       return <li key={row.name}>
         <div className="flex items-center justify-between gap-3 text-xs">
-          <span className="flex min-w-0 items-center gap-2" style={{ color: "var(--text-subtitle)" }}><span className="h-2 w-2 shrink-0 rounded-full" style={{ background: color }} /><span className="truncate">{label(row.name)}</span></span>
+          <span className="flex min-w-0 items-center gap-2" style={{ color: "var(--text-subtitle)" }}><span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: fill }} /><span className="truncate">{label(row.name)}</span></span>
           <span className="shrink-0 tabular-nums"><strong className="text-sm" style={title}>{nf(row.value)}</strong> <span className="inline-block w-12 text-right" style={muted}>{pctText(share)}</span></span>
         </div>
-        <div className="mt-1.5 h-2 rounded-full" style={{ background: "var(--hover)" }}><div className="h-2 rounded-full transition-all duration-700" style={{ width: `${Math.max(2, Math.min(100, share))}%`, background: color }} /></div>
+        <div className="mt-1.5 h-2 rounded-full" style={{ background: "var(--hover)" }}><div className="h-2 rounded-full transition-all duration-700" style={{ width: `${Math.max(2, Math.min(100, share))}%`, background: fill }} /></div>
       </li>;
     })}
   </ul>;
@@ -289,8 +307,7 @@ function PixelPanel({ site, pixel, settings, canManage, onSaved }: { site: strin
     { name: "Bloqueados", value: sum("browser_blocked"), icon: <Ban size={15} />, hint: "Navegador com bloqueador de anúncios" },
   ];
   return <section className="lc-card relative overflow-hidden p-5 sm:p-6">
-    <div aria-hidden className="pointer-events-none absolute -left-24 -top-28 h-80 w-80 rounded-full blur-3xl" style={{ background: META_BLUE, opacity: 0.34 }} />
-    <div aria-hidden className="pointer-events-none absolute -bottom-32 right-0 h-72 w-96 rounded-full blur-3xl" style={{ background: "#1877F2", opacity: 0.16 }} />
+    <Glow spots={[{ color: META_BLUE, className: "-left-48 -top-56 h-[36rem] w-[36rem]", opacity: 0.32 }, { color: "#3b8bff", className: "-bottom-64 -right-32 h-[34rem] w-[40rem]", opacity: 0.16 }]} />
     <div className="relative">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex items-start gap-3">
@@ -316,7 +333,7 @@ function PixelPanel({ site, pixel, settings, canManage, onSaved }: { site: strin
           <Field text="Código de teste" extra={<span className="text-[10px] font-normal" style={{ color: "var(--text-muted)" }}>opcional · só durante testes</span>}>
             <input value={testCode} onChange={e => setTestCode(e.target.value)} disabled={!canManage} placeholder="Ex.: TEST12345" className={fieldCls} />
           </Field>
-          {canManage && <button onClick={() => void save()} disabled={saving || (enabled && !pixelId)} className="h-12 w-full rounded-xl text-sm font-bold text-white transition hover:brightness-110 disabled:opacity-50" style={{ background: META_BLUE, boxShadow: `0 12px 30px ${META_BLUE}44` }}>{saving ? "Salvando…" : "Salvar Pixel"}</button>}
+          {canManage && <button onClick={() => void save()} disabled={saving || (enabled && !pixelId)} className="h-12 w-full rounded-xl text-sm font-bold text-white transition hover:brightness-110 disabled:opacity-50" style={{ background: BTN_BLUE, boxShadow: `0 12px 30px ${META_BLUE}44` }}>{saving ? "Salvando…" : "Salvar Pixel"}</button>}
           <p className="text-[11px] leading-relaxed" style={muted}>O ID e o token ficam no Gerenciador de Eventos → seu Pixel → Configurações. O token é guardado criptografado e não aparece de novo.</p>
         </div>
 
@@ -372,34 +389,56 @@ function NewPageForm({ onCreated, onCancel }: { onCreated: (siteKey: string) => 
       <Field text="Endereço"><input value={domain} onChange={e => setDomain(e.target.value)} placeholder="genesycompany.com/pagina" className={fieldCls} /></Field>
     </div>
     {key && <p className="mt-3 text-xs" style={muted}>A página envia os dados para <code>https://dash.genesycompany.com/api/site/{key}</code>.</p>}
-    <button onClick={() => void create()} disabled={saving || name.trim().length < 2 || key.length < 2 || !domain.trim()} className="mt-4 h-12 rounded-xl bg-emerald-500 px-6 text-sm font-bold text-emerald-950 transition hover:bg-emerald-400 disabled:opacity-50">{saving ? "Criando…" : "Criar página"}</button>
+    <button onClick={() => void create()} disabled={saving || name.trim().length < 2 || key.length < 2 || !domain.trim()} className="mt-4 h-12 rounded-xl px-6 text-sm font-bold text-white transition hover:brightness-110 disabled:opacity-50" style={{ background: BTN_GREEN, boxShadow: "0 12px 30px rgba(16,185,129,.25)" }}>{saving ? "Criando…" : "Criar página"}</button>
   </Card>;
 }
 
-/* ─────────────────────────── Excluir lead ─────────────────────────── */
+/* ─────────────────────────── Confirmação ─────────────────────────── */
 
-function ConfirmDelete({ lead, onCancel, onConfirm, busy }: { lead: Lead; onCancel: () => void; onConfirm: () => void; busy: boolean }) {
+function ConfirmDialog({ icon, heading, children, confirmText, busyText, busy, tone = "rose", onCancel, onConfirm }: { icon: React.ReactNode; heading: string; children: React.ReactNode; confirmText: string; busyText: string; busy: boolean; tone?: "rose" | "amber"; onCancel: () => void; onConfirm: () => void }) {
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => { if (event.key === "Escape") onCancel(); };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [onCancel]);
-  return <div className="fixed inset-0 z-[80] grid place-items-center bg-black/60 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="delete-lead-title" onClick={onCancel}>
+  const colors = tone === "rose" ? { chip: "bg-rose-500/10 text-rose-400", button: "linear-gradient(135deg, #e11d48, #fb7185)" } : { chip: "bg-amber-500/10 text-amber-400", button: "linear-gradient(135deg, #d97706, #fbbf24)" };
+  return <div className="fixed inset-0 z-[80] grid place-items-center bg-black/60 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="confirm-title" onClick={onCancel}>
     <div className="w-full max-w-md rounded-2xl border p-6 shadow-2xl" style={{ background: "var(--popover)", borderColor: "var(--border-modal)" }} onClick={event => event.stopPropagation()}>
-      <span className="grid h-11 w-11 place-items-center rounded-2xl bg-rose-500/10 text-rose-400"><Trash2 size={18} /></span>
-      <h3 id="delete-lead-title" className="mt-4 text-base font-semibold" style={title}>Excluir “{lead.name}” das métricas?</h3>
-      <p className="mt-2 text-sm leading-relaxed" style={muted}>O lead sai da lista, do funil e da taxa de conversão desta página. <strong style={{ color: "var(--text-subtitle)" }}>No CRM ele continua</strong>; se quiser removê-lo de lá, exclua pelo CRM.</p>
+      <span className={`grid h-11 w-11 place-items-center rounded-2xl ${colors.chip}`}>{icon}</span>
+      <h3 id="confirm-title" className="mt-4 text-base font-semibold" style={title}>{heading}</h3>
+      <div className="mt-2 text-sm leading-relaxed" style={muted}>{children}</div>
       <div className="mt-6 flex gap-3">
         <button onClick={onCancel} className="h-11 flex-1 rounded-xl border text-sm font-semibold transition hover:bg-white/5" style={{ borderColor: "var(--border-card-hover)", color: "var(--text-title)" }}>Cancelar</button>
-        <button onClick={onConfirm} disabled={busy} autoFocus className="h-11 flex-1 rounded-xl bg-rose-500 text-sm font-bold text-white transition hover:bg-rose-400 disabled:opacity-60">{busy ? "Excluindo…" : "Excluir das métricas"}</button>
+        <button onClick={onConfirm} disabled={busy} autoFocus className="h-11 flex-1 rounded-xl text-sm font-bold text-white transition hover:brightness-110 disabled:opacity-60" style={{ background: colors.button }}>{busy ? busyText : confirmText}</button>
       </div>
     </div>
   </div>;
 }
 
-/* ─────────────────────────── Painel ─────────────────────────── */
+/* ─────────────────────────── Período (pílula deslizante) ─────────────────────────── */
 
 const PERIODS = [{ days: 7, text: "7 dias" }, { days: 30, text: "30 dias" }, { days: 90, text: "90 dias" }];
+
+function PeriodSwitch({ value, onChange }: { value: number; onChange: (days: number) => void }) {
+  const buttons = useRef<Array<HTMLButtonElement | null>>([]);
+  const [pill, setPill] = useState<{ left: number; width: number } | null>(null);
+  useLayoutEffect(() => {
+    const measure = () => {
+      const element = buttons.current[PERIODS.findIndex(period => period.days === value)];
+      if (element) setPill({ left: element.offsetLeft, width: element.offsetWidth });
+    };
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [value]);
+  return <div className="relative flex h-11 shrink-0 items-center rounded-xl border p-1" style={{ borderColor: "var(--border-card-hover)", background: "var(--hover)" }} role="group" aria-label="Período">
+    {pill && <span aria-hidden className="absolute bottom-1 top-1 rounded-lg transition-all duration-300 ease-out" style={{ left: pill.left, width: pill.width, background: BTN_GREEN, boxShadow: "0 6px 18px rgba(16,185,129,.35)" }} />}
+    {PERIODS.map((period, index) => <button key={period.days} ref={element => { buttons.current[index] = element; }} type="button" aria-pressed={value === period.days} onClick={() => onChange(period.days)}
+      className="relative z-10 h-full rounded-lg px-3.5 text-xs font-semibold transition-colors duration-300" style={{ color: value === period.days ? "#fff" : "var(--text-subtitle)" }}>{period.text}</button>)}
+  </div>;
+}
+
+/* ─────────────────────────── Painel ─────────────────────────── */
 
 export function SiteAnalyticsDashboard() {
   const [sites, setSites] = useState<SiteTab[]>([]);
@@ -416,11 +455,16 @@ export function SiteAnalyticsDashboard() {
   const [saving, setSaving] = useState(false);
   const [toDelete, setToDelete] = useState<Lead | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [editingUrl, setEditingUrl] = useState(false);
+  const [urlDraft, setUrlDraft] = useState("");
+  const [savingSite, setSavingSite] = useState(false);
+  const [confirmToggle, setConfirmToggle] = useState(false);
   const stages = useMemo(() => config?.pipelines.find(p => p.id === pipelineId)?.crm_stages.filter(s => s.is_active).sort((a, b) => a.order_index - b.order_index) ?? [], [config, pipelineId]);
   const current = sites.find(item => item.site_key === site);
   const isMainSite = site === "genesycompany";
   const siteUrl = `https://${(current?.domain ?? "genesycompany.com").replace(/^https?:\/\//, "")}`;
   const canManage = Boolean(config?.canManage);
+  const isActive = current?.is_active !== false;
 
   async function copyLink() {
     try { await navigator.clipboard.writeText(siteUrl); toast.success("Link copiado"); }
@@ -458,6 +502,22 @@ export function SiteAnalyticsDashboard() {
     if (!response.ok) return toast.error(json.error ?? "Falha ao sincronizar");
     toast.success("Lead enviado ao CRM"); await load();
   }
+  async function patchSite(changes: { domain?: string; is_active?: boolean }, success: string) {
+    setSavingSite(true);
+    const response = await fetch("/api/site-analytics/sites", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ site_key: site, ...changes }) });
+    const json = await response.json().catch(() => ({}));
+    setSavingSite(false);
+    if (!response.ok) { toast.error(json.error ?? "Não foi possível salvar"); return false; }
+    toast.success(success);
+    await loadSites();
+    return true;
+  }
+  async function saveUrl() {
+    if (await patchSite({ domain: urlDraft }, "Endereço atualizado")) setEditingUrl(false);
+  }
+  async function toggleActive() {
+    if (await patchSite({ is_active: !isActive }, isActive ? "Página desativada" : "Página reativada")) setConfirmToggle(false);
+  }
   async function deleteLead() {
     if (!toDelete) return;
     setDeleting(true);
@@ -472,7 +532,7 @@ export function SiteAnalyticsDashboard() {
 
   const tabs = <div className="flex flex-wrap items-center gap-2" role="tablist" aria-label="Sites e páginas">
     {(sites.length ? sites : [{ site_key: "genesycompany", name: "Site Genesy", domain: "genesycompany.com" }]).map(item => <button key={item.site_key} role="tab" aria-selected={item.site_key === site} onClick={() => { if (item.site_key !== site) { setData(null); setSite(item.site_key); } }}
-      className={`flex h-10 items-center gap-2 rounded-xl border px-4 text-xs font-semibold transition ${item.site_key === site ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-400" : "hover:bg-white/5"}`} style={item.site_key === site ? undefined : { borderColor: "var(--border-card-hover)", color: "var(--text-subtitle)" }}><Globe2 size={14} />{item.name}</button>)}
+      className={`flex h-10 items-center gap-2 rounded-xl border px-4 text-xs font-semibold transition ${item.site_key === site ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-400" : "hover:bg-white/5"}`} style={item.site_key === site ? undefined : { borderColor: "var(--border-card-hover)", color: "var(--text-subtitle)" }}><Globe2 size={14} />{item.name}{item.is_active === false && <span className="rounded-md px-1.5 py-0.5 text-[10px] font-semibold" style={{ background: "var(--hover)", color: "var(--text-muted)" }}>desativada</span>}</button>)}
     {canManageSites && <button onClick={() => setCreating(value => !value)} className="flex h-10 items-center gap-1.5 rounded-xl border border-dashed px-4 text-xs font-semibold transition hover:bg-white/5" style={{ borderColor: "var(--border-card-hover)", color: "var(--text-subtitle)" }}><Plus size={14} /> Nova página</button>}
   </div>;
   const newPage = creating && <NewPageForm onCancel={() => setCreating(false)} onCreated={async key => { setCreating(false); await loadSites(); setData(null); setSite(key); }} />;
@@ -492,20 +552,33 @@ export function SiteAnalyticsDashboard() {
     {tabs}
     {newPage}
 
-    <div className="flex flex-wrap items-center justify-between gap-3">
-      <div>
-        <a href={siteUrl} target="_blank" rel="noopener noreferrer" className="text-sm font-semibold hover:underline" style={title}>{current?.domain ?? "genesycompany.com"}</a>
-        <p className="mt-1 flex items-center gap-2 text-xs font-semibold">{summary.sessions
-          ? <><span className="relative flex h-2 w-2"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" /><span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" /></span><span className="text-emerald-400">Conectado e recebendo dados</span></>
-          : <><span className="h-2 w-2 rounded-full bg-amber-400" /><span className="text-amber-400">Aguardando os primeiros acessos {scope}</span></>}</p>
-      </div>
-      <div className="flex items-center gap-2">
-        <div className="flex h-10 items-center rounded-xl border p-1" style={{ borderColor: "var(--border-card-hover)", background: "var(--hover)" }} role="group" aria-label="Período">
-          {PERIODS.map(period => <button key={period.days} type="button" aria-pressed={days === period.days} onClick={() => setDays(period.days)} className={`h-full rounded-lg px-3 text-xs font-semibold transition ${days === period.days ? "bg-emerald-500 text-emerald-950" : "hover:bg-white/5"}`} style={days === period.days ? undefined : { color: "var(--text-subtitle)" }}>{period.text}</button>)}
+    <div className="flex flex-col gap-3 lg:flex-row lg:items-stretch">
+      <div className="relative flex min-w-0 flex-1 flex-wrap items-center gap-3 rounded-2xl border p-3 pl-3.5 backdrop-blur-xl sm:flex-nowrap" style={{ background: "var(--glass-bg)", borderColor: "var(--glass-border)", boxShadow: "var(--glass-shadow)" }}>
+        <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl text-white" style={{ background: isActive ? BTN_GREEN : "linear-gradient(135deg, #64748b, #94a3b8)" }}><Globe2 size={18} /></span>
+        <div className="min-w-[190px] flex-1">
+          <p className="flex items-center gap-1.5 text-[11px] font-semibold">{!isActive
+            ? <><span className="h-2 w-2 rounded-full bg-slate-400" /><span style={muted}>Página desativada · não registra acessos nem leads</span></>
+            : summary.sessions
+              ? <><span className="relative flex h-2 w-2"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" /><span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" /></span><span className="text-emerald-400">Conectado e recebendo dados</span></>
+              : <><span className="h-2 w-2 rounded-full bg-amber-400" /><span className="text-amber-400">Aguardando os primeiros acessos {scope}</span></>}</p>
+          {editingUrl
+            ? <form className="mt-1 flex items-center gap-2" onSubmit={event => { event.preventDefault(); void saveUrl(); }}>
+                <span className="text-sm" style={muted}>https://</span>
+                <input autoFocus value={urlDraft} onChange={event => setUrlDraft(event.target.value)} className="lc-form-control h-9 min-w-0 flex-1 rounded-lg px-3 text-sm" aria-label="Endereço da página" />
+                <button type="submit" disabled={savingSite} aria-label="Salvar endereço" className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-white disabled:opacity-60" style={{ background: BTN_GREEN }}><Check size={15} /></button>
+                <button type="button" onClick={() => setEditingUrl(false)} aria-label="Cancelar" className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border" style={{ borderColor: "var(--border-card-hover)", color: "var(--text-subtitle)" }}><X size={15} /></button>
+              </form>
+            : <a href={siteUrl} target="_blank" rel="noopener noreferrer" className="mt-0.5 block truncate text-base font-semibold hover:underline" style={title}>{(current?.domain ?? "genesycompany.com")}</a>}
         </div>
-        <button type="button" onClick={() => void copyLink()} aria-label="Copiar link da página" title={`Copiar link: ${siteUrl}`} className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border transition hover:bg-white/5 hover:text-emerald-400" style={{ borderColor: "var(--border-card-hover)", color: "var(--text-subtitle)" }}><Copy size={16} /></button>
-        <a href={siteUrl} target="_blank" rel="noopener noreferrer" aria-label="Abrir a página em nova aba" title={`Abrir ${siteUrl}`} className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border transition hover:bg-white/5 hover:text-emerald-400" style={{ borderColor: "var(--border-card-hover)", color: "var(--text-subtitle)" }}><ExternalLink size={16} /></a>
+        {!editingUrl && <div className="ml-auto flex shrink-0 items-center gap-1.5">
+          <button type="button" onClick={() => void copyLink()} aria-label="Copiar link da página" title={`Copiar link: ${siteUrl}`} className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border transition hover:bg-white/5 hover:text-emerald-400" style={{ borderColor: "var(--border-card-hover)", color: "var(--text-subtitle)" }}><Copy size={16} /></button>
+          <a href={siteUrl} target="_blank" rel="noopener noreferrer" aria-label="Abrir a página em nova aba" title={`Abrir ${siteUrl}`} className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border transition hover:bg-white/5 hover:text-emerald-400" style={{ borderColor: "var(--border-card-hover)", color: "var(--text-subtitle)" }}><ExternalLink size={16} /></a>
+          {canManage && <button type="button" onClick={() => { setUrlDraft(current?.domain ?? "genesycompany.com"); setEditingUrl(true); }} aria-label="Editar endereço" title="Editar endereço" className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border transition hover:bg-white/5 hover:text-emerald-400" style={{ borderColor: "var(--border-card-hover)", color: "var(--text-subtitle)" }}><Pencil size={15} /></button>}
+          {canManage && !isMainSite && <button type="button" onClick={() => isActive ? setConfirmToggle(true) : void toggleActive()} aria-label={isActive ? "Desativar página" : "Reativar página"} title={isActive ? "Desativar página" : "Reativar página"}
+            className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl border transition ${isActive ? "hover:bg-rose-500/10 hover:text-rose-400" : "border-emerald-500/40 bg-emerald-500/10 text-emerald-400"}`} style={isActive ? { borderColor: "var(--border-card-hover)", color: "var(--text-subtitle)" } : undefined}><Power size={16} /></button>}
+        </div>}
       </div>
+      <div className="flex items-center"><PeriodSwitch value={days} onChange={setDays} /></div>
     </div>
 
     <div className="grid grid-cols-2 gap-3 xl:grid-cols-3">
@@ -526,19 +599,26 @@ export function SiteAnalyticsDashboard() {
 
     <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
       <Card heading="De onde vêm os acessos" subtitle="Origem pela UTM ou pelo site de referência" icon={<Globe2 size={16} />}><ShareList rows={data.sources} empty="Sem acessos no período." /></Card>
-      <Card heading="Dispositivos" subtitle="Celular, computador ou tablet" icon={<Smartphone size={16} />}><Donut rows={data.devices ?? []} /></Card>
+      <Card heading="Dispositivos" subtitle="Celular, computador ou tablet" icon={<Smartphone size={16} />}><Donut rows={data.devices ?? []} unit="acessos" iconFor={deviceIcon} /></Card>
       <Card heading="Campanhas" subtitle="Acessos por utm_campaign" icon={<TrendingUp size={16} />}><ShareList rows={data.campaigns} empty="Nenhum acesso com campanha (UTM)." /></Card>
       <Card heading="Seções mais vistas" subtitle={`% dos acessos que chegaram a cada parte ${scope}`} icon={<Eye size={16} />}><ShareList rows={data.sections} base={summary.sessions} colored={false} empty="Sem dados de seções." /></Card>
-      <Card heading="Cliques" subtitle={data.whatsapp_clicks ? `Botões e links mais clicados · ${nf(data.whatsapp_clicks)} no WhatsApp` : "Botões e links mais clicados"} icon={<MousePointerClick size={16} />}><ShareList rows={data.clicks} empty="Nenhum clique registrado." /></Card>
-      <Card heading="Pipeline do CRM" subtitle="Para onde vão os novos leads" icon={<Settings2 size={16} />}>
-        <div className="space-y-3">
-          <Field text="Pipeline"><select value={pipelineId} onChange={e => { setPipelineId(e.target.value); setStageId(""); }} disabled={!canManage} className={fieldCls}><option value="">Não sincronizar</option>{config?.pipelines.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></Field>
-          <Field text="Etapa inicial"><select value={stageId} onChange={e => setStageId(e.target.value)} disabled={!pipelineId || !canManage} className={fieldCls}><option value="">Selecionar etapa</option>{stages.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></Field>
-          <Field text="Valor do negócio (R$)"><input type="number" min={0} step="0.01" inputMode="decimal" value={dealValue} onChange={e => setDealValue(e.target.value)} disabled={!canManage} placeholder="0,00" className={fieldCls} /></Field>
-          {pipelineName && stageName && <p className="rounded-xl bg-emerald-500/10 px-3 py-2 text-xs text-emerald-400">Novos leads entram em <strong>{pipelineName}</strong> → <strong>{stageName}</strong></p>}
-          {canManage && <button onClick={() => void saveSettings()} disabled={saving || (!!pipelineId && !stageId)} className="h-12 w-full rounded-xl bg-emerald-500 text-sm font-bold text-emerald-950 transition hover:bg-emerald-400 disabled:opacity-50">{saving ? "Salvando…" : "Salvar integração"}</button>}
+      <Card heading="Cliques" subtitle={data.whatsapp_clicks ? `Botões e links mais clicados · ${nf(data.whatsapp_clicks)} no WhatsApp` : "Botões e links mais clicados"} icon={<MousePointerClick size={16} />}><Donut rows={data.clicks ?? []} unit="cliques" legendFirst /></Card>
+      <section className="lc-card relative min-w-0 overflow-hidden p-5">
+        <Glow spots={[{ color: "#10b981", className: "-right-40 -top-48 h-[30rem] w-[30rem]", opacity: 0.26 }, { color: "#2dd4bf", className: "-bottom-56 -left-40 h-[26rem] w-[26rem]", opacity: 0.12 }]} />
+        <div className="relative">
+          <header className="mb-5 flex items-start gap-3">
+            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl text-white" style={{ background: BTN_GREEN, boxShadow: "0 10px 30px rgba(16,185,129,.35)" }}><Settings2 size={18} /></span>
+            <div className="min-w-0"><h2 className="text-base font-semibold" style={title}>Pipeline do CRM</h2><p className="mt-0.5 text-xs" style={muted}>Para onde vão os novos leads {scope}</p></div>
+          </header>
+          <div className="space-y-3">
+            <Field text="Pipeline"><select value={pipelineId} onChange={e => { setPipelineId(e.target.value); setStageId(""); }} disabled={!canManage} className={fieldCls}><option value="">Não sincronizar</option>{config?.pipelines.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></Field>
+            <Field text="Etapa inicial"><select value={stageId} onChange={e => setStageId(e.target.value)} disabled={!pipelineId || !canManage} className={fieldCls}><option value="">Selecionar etapa</option>{stages.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></Field>
+            <Field text="Valor do negócio (R$)"><input type="number" min={0} step="0.01" inputMode="decimal" value={dealValue} onChange={e => setDealValue(e.target.value)} disabled={!canManage} placeholder="0,00" className={fieldCls} /></Field>
+            {pipelineName && stageName && <div className="flex items-center gap-2 rounded-xl border px-3 py-2.5 text-xs" style={{ borderColor: "rgba(16,185,129,.35)", background: "rgba(16,185,129,.08)", color: "var(--text-subtitle)" }}><span className="h-2 w-2 shrink-0 rounded-full" style={{ background: BTN_GREEN }} /><span>Novos leads entram em <strong className="text-emerald-400">{pipelineName}</strong> → <strong className="text-emerald-400">{stageName}</strong></span></div>}
+            {canManage && <button onClick={() => void saveSettings()} disabled={saving || (!!pipelineId && !stageId)} className="h-12 w-full rounded-xl text-sm font-bold text-white transition hover:brightness-110 disabled:opacity-50" style={{ background: BTN_GREEN, boxShadow: "0 12px 30px rgba(16,185,129,.28)" }}>{saving ? "Salvando…" : "Salvar integração"}</button>}
+          </div>
         </div>
-      </Card>
+      </section>
     </div>
 
     {config && <PixelPanel site={site} key={`${site}:${config.settings?.meta_pixel_id ?? ""}:${config.settings?.has_capi_token ? 1 : 0}:${config.settings?.meta_pixel_enabled ? 1 : 0}`} pixel={data.pixel} settings={config.settings} canManage={config.canManage} onSaved={load} />}
@@ -564,6 +644,11 @@ export function SiteAnalyticsDashboard() {
       </div> : <p className="p-10 text-center text-sm" style={muted}>Os novos leads {isMainSite ? "do site" : "desta página"} aparecerão aqui.</p>}
     </section>
 
-    {toDelete && <ConfirmDelete lead={toDelete} busy={deleting} onCancel={() => setToDelete(null)} onConfirm={() => void deleteLead()} />}
+    {toDelete && <ConfirmDialog icon={<Trash2 size={18} />} heading={`Excluir “${toDelete.name}” das métricas?`} confirmText="Excluir das métricas" busyText="Excluindo…" busy={deleting} onCancel={() => setToDelete(null)} onConfirm={() => void deleteLead()}>
+      O lead sai da lista, do funil e da taxa de conversão desta página. <strong style={{ color: "var(--text-subtitle)" }}>No CRM ele continua</strong>; se quiser removê-lo de lá, exclua pelo CRM.
+    </ConfirmDialog>}
+    {confirmToggle && <ConfirmDialog icon={<Power size={18} />} tone="amber" heading={`Desativar “${current?.name ?? "página"}”?`} confirmText="Desativar página" busyText="Desativando…" busy={savingSite} onCancel={() => setConfirmToggle(false)} onConfirm={() => void toggleActive()}>
+      A página continua no ar, mas para de registrar acessos e <strong style={{ color: "var(--text-subtitle)" }}>os leads do formulário deixam de chegar ao CRM</strong>. Os dados já coletados ficam guardados e você pode reativar quando quiser.
+    </ConfirmDialog>}
   </div>;
 }
