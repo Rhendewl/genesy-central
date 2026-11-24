@@ -9,7 +9,14 @@ export const metadata: Metadata = {
   metadataBase: new URL("https://genesycompany.com"),
   title,
   description,
-  icons: { icon: "/g-cinza.png", shortcut: "/g-cinza.png" },
+  icons: {
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/icon.png", type: "image/png", sizes: "512x512" },
+    ],
+    shortcut: "/favicon.ico",
+    apple: { url: "/apple-touch-icon.png", sizes: "180x180" },
+  },
   openGraph: {
     title,
     description,
