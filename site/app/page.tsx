@@ -245,6 +245,8 @@ export default function Home() {
       utm_source: params.get("utm_source") ?? undefined, utm_medium: params.get("utm_medium") ?? undefined,
       utm_campaign: params.get("utm_campaign") ?? undefined, utm_term: params.get("utm_term") ?? undefined,
       utm_content: params.get("utm_content") ?? undefined, device, browser, language: navigator.language,
+      // Código de clique de anúncio no link (o painel usa quando não há UTM).
+      click_id: ["gclid", "gbraid", "wbraid", "ttclid", "msclkid", "fbclid"].find(key => params.get(key)) ?? undefined,
     };
     const viewed = new Set<string>();
     const sendEvents = (events: Array<Record<string, unknown>>) => {

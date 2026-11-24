@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
   const admin = createAdminSupabaseClient();
   const prevSince = new Date(Date.now() - 2 * days * DAY).toISOString();
   const [{ data: sessions }, { data: events }, { data: leads }, { data: pixelSettings }, { count: prevSessions }, { count: prevLeads }] = await Promise.all([
-    admin.from("site_analytics_sessions").select("id,visitor_id,started_at,active_seconds,page_views,device,referrer,utm_source,utm_campaign").eq("user_id", context.ownerId).eq("site_key", siteKey).gte("started_at", since).order("started_at", { ascending: false }),
+    admin.from("site_analytics_sessions").select("id,visitor_id,started_at,active_seconds,page_views,device,referrer,utm_source,utm_campaign,click_source").eq("user_id", context.ownerId).eq("site_key", siteKey).gte("started_at", since).order("started_at", { ascending: false }),
     admin.from("site_analytics_events").select("event_type,section,metadata,session_id,created_at").eq("user_id", context.ownerId).eq("site_key", siteKey).gte("created_at", since),
     admin.from("site_analytics_leads").select("id,name,phone,email,profile,monthly_vgv,sync_status,sync_error,crm_lead_id,created_at").eq("user_id", context.ownerId).eq("site_key", siteKey).gte("created_at", since).order("created_at", { ascending: false }).limit(200),
     admin.from("site_analytics_settings").select("meta_pixel_enabled,meta_pixel_id,meta_capi_token_encrypted").eq("user_id", context.ownerId).eq("site_key", siteKey).maybeSingle(),
@@ -35,16 +35,25 @@ export async function GET(req: NextRequest) {
   leadRows.forEach(row => { const item = byDay.get(row.created_at.slice(0, 10)); if (item) item.leads++; });
   const sections: Record<string, number> = {};
   (events ?? []).forEach(event => { if (event.event_type === "section_view" && event.section) sections[event.section] = (sections[event.section] ?? 0) + 1; });
-  // Origem do tráfego: UTM tem prioridade; senão, domínio de referência; senão "Direto".
-  const sourceOf = (row: { utm_source?: string | null; referrer?: string | null }) => {
-    if (row.utm_source) return row.utm_source.toLowerCase();
+  // Origem do tráfego: UTM tem prioridade; depois a origem detectada sem UTM (códigos de clique
+  // de anúncios ou navegador interno do Instagram/Facebook); depois o site de referência; senão "Direto".
+  const UTM_ALIASES: Record<string, string> = { ig: "instagram", "instagram.com": "instagram", fb: "facebook", "facebook.com": "facebook", "m.facebook.com": "facebook", wa: "whatsapp", "whatsapp.com": "whatsapp", yt: "youtube", "youtube.com": "youtube", "google.com": "google" };
+  const sourceOf = (row: { utm_source?: string | null; referrer?: string | null; click_source?: string | null }) => {
+    if (row.utm_source) { const utm = row.utm_source.trim().toLowerCase(); return UTM_ALIASES[utm] ?? utm; }
+    if (row.click_source) return row.click_source;
     if (row.referrer) {
       try {
         const host = new URL(row.referrer).hostname.replace(/^www\./, "").replace(/^l\./, "").replace(/^lm\./, "").replace(/^m\./, "");
         if (host.endsWith("genesycompany.com")) return "direto";
         if (/instagram/.test(host)) return "instagram";
         if (/facebook|fb\.com/.test(host)) return "facebook";
+        if (/whatsapp|(^|\.)wl\.co$|wa\.me/.test(host)) return "whatsapp";
+        if (/youtube|youtu\.be/.test(host)) return "youtube";
+        if (/linkedin|lnkd\.in/.test(host)) return "linkedin";
+        if (/tiktok/.test(host)) return "tiktok";
+        if (/(^|\.)t\.co$|twitter|(^|\.)x\.com$/.test(host)) return "x";
         if (/google\./.test(host)) return "google";
+        if (/bing\./.test(host)) return "bing";
         return host;
       } catch { return "direto"; }
     }
