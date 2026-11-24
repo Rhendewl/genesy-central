@@ -1,5 +1,6 @@
 "use client";
 import { DateRangeCalendar } from "@/components/ui/DateInput";
+import { useSegmentIndicator } from "@/components/ui/useSegmentIndicator";
 
 import { useState, useRef, useEffect } from "react";
 import { Calendar, Monitor, Smartphone, Tablet, X } from "lucide-react";
@@ -85,6 +86,8 @@ const RangeCalendar = DateRangeCalendar;
 export function InsightsFilterBar({ period, device, onPeriod, onDevice }: InsightsFilterBarProps) {
   const [calOpen, setCalOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const deviceSeg = useSegmentIndicator({ background: "var(--border-card-drag)", border: "1px solid var(--border)" });
+  const presetSeg = useSegmentIndicator({ background: "var(--tab-active-bg)", border: "1px solid var(--tab-active-bg)" });
 
   useEffect(() => {
     const fn = (e: MouseEvent) => {
@@ -110,18 +113,20 @@ export function InsightsFilterBar({ period, device, onPeriod, onDevice }: Insigh
   return (
     <div ref={ref} className="flex flex-wrap items-center gap-2 relative">
       {/* Period presets */}
-      <div className="flex items-center gap-1 flex-wrap">
+      <div ref={presetSeg.trackRef} className="relative flex items-center gap-1 flex-wrap">
+        {presetSeg.indicator}
         {PRESETS.map(p => {
           const active = activePreset?.id === p.id;
           return (
             <button
               key={p.id}
+              data-active={active}
               onClick={() => handlePreset(p.id)}
-              className="px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors"
+              className="relative z-[1] px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors"
               style={{
-                background: active ? "var(--tab-active-bg)" : "var(--shimmer-base)",
+                background: active ? "transparent" : "var(--shimmer-base)",
                 color:      active ? "var(--tab-active-text)" : "var(--muted-foreground)",
-                border:     `1px solid ${active ? "var(--tab-active-bg)" : "var(--border)"}`,
+                border:     `1px solid ${active ? "transparent" : "var(--border)"}`,
               }}
             >
               {p.label}
@@ -158,19 +163,20 @@ export function InsightsFilterBar({ period, device, onPeriod, onDevice }: Insigh
       <div className="w-px h-5 hidden sm:block" style={{ background: "var(--border)" }} />
 
       {/* Device filter */}
-      <div className="flex items-center gap-1">
+      <div ref={deviceSeg.trackRef} className="relative flex items-center gap-1">
+        {deviceSeg.indicator}
         {DEVICES.map(d => {
           const active = device === d.id;
           return (
             <button
               key={d.id}
+              data-active={active}
               onClick={() => onDevice(d.id)}
               title={d.label}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors"
+              className="relative z-[1] flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors"
               style={{
-                background: active ? "var(--border-card-drag)" : "transparent",
                 color:      active ? "var(--text-title)" : "var(--muted-foreground)",
-                border:     `1px solid ${active ? "var(--border)" : "transparent"}`,
+                border:     "1px solid transparent",
               }}
             >
               {d.icon ?? null}

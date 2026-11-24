@@ -22,9 +22,9 @@
 .crm-analysis-ring { position: relative; display: grid; width: 62px; height: 62px; flex-shrink: 0; place-items: center; border-radius: 50%; }
 .crm-analysis-ring::before { position: absolute; inset: 6px; content: ''; border-radius: 50%; background: var(--background); }
 .crm-analysis-stage-section { padding: 24px; }
-.crm-analysis-metric-switch { display: flex; gap: 3px; padding: 4px; border: 1px solid var(--border); border-radius: 12px; background: var(--hover); }
-.crm-analysis-metric-switch button { min-height: 34px; min-width: 60px; padding: 0 12px; border-radius: 8px; color: var(--muted-foreground); font-size: 11px; }
-.crm-analysis-metric-switch button[aria-pressed=true] { color: var(--text-title); background: var(--background); box-shadow: 0 1px 5px rgba(0,0,0,.1); }
+.crm-analysis-metric-switch { position: relative; display: flex; gap: 3px; padding: 4px; border: 1px solid var(--border); border-radius: 12px; background: var(--hover); }
+.crm-analysis-metric-switch button { position: relative; z-index: 1; transition: color .3s; min-height: 34px; min-width: 60px; padding: 0 12px; border-radius: 8px; color: var(--muted-foreground); font-size: 11px; }
+.crm-analysis-metric-switch button[aria-pressed=true] { color: var(--text-title); }
 .crm-analysis-stage-grid { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 10px; }
 .crm-analysis-stage { display: block; min-width: 0; padding: 17px; border: 1px solid var(--border); border-radius: 15px; background: var(--background); text-align: left; color: var(--text-title); transition: border-color .15s,box-shadow .15s,transform .15s; }
 .crm-analysis-stage:hover { border-color: rgba(56,189,248,.4); transform: translateY(-2px); }

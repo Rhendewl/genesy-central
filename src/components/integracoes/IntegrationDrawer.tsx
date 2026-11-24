@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { useSegmentIndicator } from "@/components/ui/useSegmentIndicator";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Settings2, PlayCircle, Clock, AlertTriangle, BarChart2 } from "lucide-react";
 import { ConfigPanel }  from "./panels/ConfigPanel";
@@ -37,6 +38,7 @@ export function IntegrationDrawer({
   open, onClose, definition, row, formId, formSlug, onSave, onCreate, onDelete,
 }: IntegrationDrawerProps) {
   const [activeTab, setActiveTab] = useState<Tab>("config");
+  const tabSeg = useSegmentIndicator({ background: "var(--tab-active-bg)" });
 
   const handleSave = useCallback((patch: Partial<FormIntegrationRow>) => {
     if (!row) return Promise.resolve(false);
@@ -102,18 +104,20 @@ export function IntegrationDrawer({
 
             {/* Tabs */}
             <div
-              className="flex items-center gap-0.5 px-4 py-2 shrink-0 overflow-x-auto"
+              ref={tabSeg.trackRef}
+              className="relative flex items-center gap-0.5 px-4 py-2 shrink-0 overflow-x-auto"
               style={{ borderBottom: "1px solid var(--border)" }}
             >
+              {tabSeg.indicator}
               {TABS.map(tab => {
                 const isActive = activeTab === tab.id;
                 return (
                   <button
                     key={tab.id}
+                    data-active={isActive}
                     onClick={() => setActiveTab(tab.id)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors"
+                    className="relative z-[1] flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors"
                     style={{
-                      background: isActive ? "var(--tab-active-bg)" : "transparent",
                       color:      isActive ? "var(--tab-active-text)" : "var(--muted-foreground)",
                     }}
                   >

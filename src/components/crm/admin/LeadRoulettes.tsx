@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSegmentIndicator } from "@/components/ui/useSegmentIndicator";
 import { ArrowRight, Check, GripVertical, ChevronLeft, Clock3, FileText, Layers, Pencil, Plus, RotateCw, Search, Shuffle, Trash2, Users, X } from "lucide-react";
 
 /**
@@ -240,6 +241,7 @@ function QueueEditor({ data, draft, setDraft, busy, profile, formLabel, onSave, 
   const pages = data.metaPages ?? [];
   const agents = data.profiles.filter(p => p.is_active && p.auth_user_id);
   const [source, setSource] = useState<"meta" | "genesy">(pages.length || !data.forms.length ? "meta" : "genesy");
+  const sourceSeg = useSegmentIndicator({ background: "var(--hover)" });
   const [pageId, setPageId] = useState(() => draft.forms.find(f => f.source_kind === "meta")?.page_id ?? (pages.find(p => p.is_active) ?? pages[0])?.meta_page_id ?? "");
   const [pageForms, setPageForms] = useState<Record<string, MetaPageForms>>({});
   const [names, setNames] = useState<Record<string, string>>({});
@@ -320,7 +322,7 @@ function QueueEditor({ data, draft, setDraft, busy, profile, formLabel, onSave, 
         {draft.forms.length > 0 && <div className="mb-4 flex flex-wrap gap-1.5">{draft.forms.map(f => <span key={formKey(f)} className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-[var(--primary)]/40 bg-[var(--hover)] py-1 pl-2 pr-1 text-xs">
           <SourceBadge kind={f.source_kind} /><span className="truncate">{label(f)}</span>{f.source_kind === "meta" && <span className="shrink-0 text-[10px] text-[var(--muted-foreground)]">· {pageName(f.page_id)}</span>}{!collecting(f) && <span title="Ligue a coleta em Formulários Meta" className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-400" />}
           <button type="button" aria-label="Tirar formulário da fila" className="rounded-full p-0.5 text-[var(--muted-foreground)] hover:bg-red-500/10 hover:text-red-500" onClick={() => toggleForm(f)}><X size={12} /></button></span>)}</div>}
-        <div className="mb-3 flex rounded-xl border border-[var(--glass-border)] p-0.5 text-xs">{(["meta", "genesy"] as const).map(s => <button key={s} type="button" onClick={() => { setSource(s); setSearch(""); }} className={`flex-1 rounded-lg px-3 py-1.5 ${source === s ? "bg-[var(--hover)] font-medium" : "text-[var(--muted-foreground)]"}`}>{s === "meta" ? "Facebook / Instagram (Meta)" : "Formulários Genesy"}</button>)}</div>
+        <div ref={sourceSeg.trackRef} className="relative mb-3 flex rounded-xl border border-[var(--glass-border)] p-0.5 text-xs">{sourceSeg.indicator}{(["meta", "genesy"] as const).map(s => <button key={s} type="button" data-active={source === s} onClick={() => { setSource(s); setSearch(""); }} className={`relative z-[1] flex-1 rounded-lg px-3 py-1.5 transition-colors ${source === s ? "font-medium" : "text-[var(--muted-foreground)]"}`}>{s === "meta" ? "Facebook / Instagram (Meta)" : "Formulários Genesy"}</button>)}</div>
         {source === "meta" && (pages.length ? <label className="mb-3 block space-y-1 text-xs"><span className="font-medium">Primeiro, escolha a página</span>
           <select aria-label="Página do Facebook" className={field} value={pageId} onChange={e => { setPageId(e.target.value); setSearch(""); }}>
             <option value="" disabled>Escolha a página…</option>

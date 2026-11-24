@@ -3,6 +3,7 @@ import "./crm-mobile.css";
 import {useLeadActivityIndicators} from "@/hooks/useLeadActivityIndicators";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useSegmentIndicator } from "@/components/ui/useSegmentIndicator";
 import {
   DndContext,
   DragEndEvent,
@@ -57,6 +58,7 @@ interface PendingMove {
 export function KanbanBoard() {
   const [search, setSearch] = useState("");
   const [mobileToolsOpen, setMobileToolsOpen] = useState(false);
+  const viewSeg = useSegmentIndicator({ background: "var(--segment-active-bg)", boxShadow: "var(--segment-active-shadow)" });
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   useEffect(() => { if (mobileSearchOpen) searchInputRef.current?.focus(); }, [mobileSearchOpen]);
@@ -379,11 +381,12 @@ export function KanbanBoard() {
         </div>
 
         <div id="crm-kanban-options" className={`crm-kanban-actions flex items-center gap-2 flex-wrap ${mobileToolsOpen?"is-open":""}`}>
-          <div role="group" aria-label="Visualização do funil" className="flex h-[38.08px] items-stretch rounded-xl border border-[var(--glass-border)] bg-[var(--glass-bg-soft)] p-1">
+          <div ref={viewSeg.trackRef} role="group" aria-label="Visualização do funil" className="relative flex h-[38.08px] items-stretch rounded-xl border border-[var(--glass-border)] bg-[var(--glass-bg-soft)] p-1">
+            {viewSeg.indicator}
             {([{ id: "kanban", label: "Kanban", icon: LayoutGrid }, { id: "list", label: "Lista", icon: List }] as const).map(view => (
-              <button key={view.id} type="button" aria-label={view.label} title={view.label} aria-pressed={preferences.view === view.id} onClick={() => updatePreferences({ view: view.id })}
-                className="flex h-full min-h-0 items-center gap-2 rounded-lg px-3 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
-                style={preferences.view === view.id ? { background: "var(--segment-active-bg)", boxShadow: "var(--segment-active-shadow)", color: "var(--text-title)" } : { color: "var(--muted-foreground)" }}>
+              <button key={view.id} type="button" aria-label={view.label} title={view.label} aria-pressed={preferences.view === view.id} data-active={preferences.view === view.id} onClick={() => updatePreferences({ view: view.id })}
+                className="relative z-[1] flex h-full min-h-0 items-center gap-2 rounded-lg px-3 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+                style={preferences.view === view.id ? { color: "var(--text-title)" } : { color: "var(--muted-foreground)" }}>
                 <view.icon size={15} /><span className="hidden md:inline">{view.label}</span>
               </button>
             ))}

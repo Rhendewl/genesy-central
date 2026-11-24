@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { useSegmentIndicator } from "@/components/ui/useSegmentIndicator";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, FileText, Clock, Zap, Loader2, Star, Archive } from "lucide-react";
@@ -46,6 +47,7 @@ export function RespostaDrawer({
   onArchive,
 }: RespostaDrawerProps) {
   const [activeTab,  setActiveTab]  = useState<Tab>("respostas");
+  const tabSeg = useSegmentIndicator({ background: "var(--tab-active-bg)" });
   const [isStarring, setIsStarring] = useState(false);
   const [mounted, setMounted] = useState(false);
 
@@ -183,18 +185,20 @@ export function RespostaDrawer({
 
             {/* Tabs */}
             <div
-              className="flex items-center gap-0.5 px-4 py-2 shrink-0 overflow-x-auto"
+              ref={tabSeg.trackRef}
+              className="relative flex items-center gap-0.5 px-4 py-2 shrink-0 overflow-x-auto"
               style={{ borderBottom: "1px solid var(--border)" }}
             >
+              {tabSeg.indicator}
               {TABS.map(tab => {
                 const isActive = activeTab === tab.id;
                 return (
                   <button
                     key={tab.id}
+                    data-active={isActive}
                     onClick={() => setActiveTab(tab.id)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors"
+                    className="relative z-[1] flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors"
                     style={{
-                      background: isActive ? "var(--tab-active-bg)" : "transparent",
                       color:      isActive ? "var(--tab-active-text)" : "var(--muted-foreground)",
                     }}
                   >

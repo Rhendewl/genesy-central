@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useSegmentIndicator } from "@/components/ui/useSegmentIndicator";
 import { Clock3, ArrowRight, RefreshCw, Info, ChevronDown, Users, Timer, CheckCircle2, CircleAlert, ArrowUpRight, BarChart3 } from "lucide-react";
 import type { Lead } from "@/types";
 import type { TimingStage, TimingEvent } from "@/lib/crm/operation-analytics";
@@ -25,6 +26,7 @@ export function OperationAnalytics({ leads, history, stages, pipelines, refresh,
   const [assignee, setAssignee] = useState("all");
   const [sla, setSla] = useState(60);
   const [metric, setMetric] = useState<TimeMetric>("average");
+  const metricSeg = useSegmentIndicator({ background: "var(--background)", boxShadow: "0 1px 5px rgba(0,0,0,.1)" }, { activeSelector: '[aria-pressed="true"]' });
   const [expandedStage, setExpandedStage] = useState<string | null>(null);
   const cohort = useMemo(() => leads.filter(lead => {
     const day = lead.received_at ? crmDate(lead.received_at) : lead.entered_at;
@@ -68,7 +70,7 @@ export function OperationAnalytics({ leads, history, stages, pipelines, refresh,
     </div>
 
     <section className={`${panel} crm-analysis-stage-section`} aria-label="Tempo para sair de cada etapa">
-      <div className="flex flex-wrap items-start justify-between gap-4"><div><p className="crm-analysis-eyebrow">Ritmo da pipeline</p><h3 className="mt-1 text-lg font-semibold">Tempo para sair de cada etapa</h3><p className="mt-2 max-w-2xl text-xs leading-relaxed text-[var(--muted-foreground)]">O número em destaque considera as passagens concluídas. Clique em uma etapa para ver os detalhes e os próximos movimentos.</p></div><div className="crm-analysis-metric-switch" role="group" aria-label="Medida do tempo de saída">{(["average","median","p90"] as const).map(key=><button type="button" key={key} aria-pressed={metric===key} onClick={()=>setMetric(key)}>{metricLabels[key]}</button>)}</div></div>
+      <div className="flex flex-wrap items-start justify-between gap-4"><div><p className="crm-analysis-eyebrow">Ritmo da pipeline</p><h3 className="mt-1 text-lg font-semibold">Tempo para sair de cada etapa</h3><p className="mt-2 max-w-2xl text-xs leading-relaxed text-[var(--muted-foreground)]">O número em destaque considera as passagens concluídas. Clique em uma etapa para ver os detalhes e os próximos movimentos.</p></div><div ref={metricSeg.trackRef} className="crm-analysis-metric-switch" role="group" aria-label="Medida do tempo de saída">{metricSeg.indicator}{(["average","median","p90"] as const).map(key=><button type="button" key={key} aria-pressed={metric===key} onClick={()=>setMetric(key)}>{metricLabels[key]}</button>)}</div></div>
       {metric==="p90"&&<p className="mt-3 text-xs text-[var(--muted-foreground)]">P90: 90% das passagens concluídas levaram até esse tempo.</p>}
       <div className="mt-6 space-y-7">{pipelineIds.map(pipelineId=>{
         const rows=data.stages.filter(s=>s.stage.pipeline_id===pipelineId);

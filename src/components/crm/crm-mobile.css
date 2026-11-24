@@ -1,9 +1,9 @@
 /* Mobile-only layout: preserve the desktop toolbars and every existing action. */
 @media (max-width: 767px) {
   .crm-mobile-navigation { display: flex; flex: none; align-items: center; gap: 10px; padding: 6px 16px; background: var(--background); }
-  .crm-mobile-tabs { display: flex; min-width: 0; flex: 1; gap: 3px; overflow-x: auto; border: 1px solid var(--glass-border); border-radius: 12px; padding: 3px; background: var(--glass-bg-soft); -webkit-overflow-scrolling: touch; }
-  .crm-mobile-tab { display: inline-flex; min-height: 40px; flex-shrink: 0; align-items: center; gap: 6px; padding: 0 12px; border-radius: 9px; color: var(--muted-foreground); font-size: 12px; font-weight: 500; white-space: nowrap; }
-  .crm-mobile-tab.is-active { color: var(--text-title); background: var(--segment-active-bg); box-shadow: var(--segment-active-shadow); }
+  .crm-mobile-tabs { position: relative; display: flex; min-width: 0; flex: 1; gap: 3px; overflow-x: auto; border: 1px solid var(--glass-border); border-radius: 12px; padding: 3px; background: var(--glass-bg-soft); -webkit-overflow-scrolling: touch; }
+  .crm-mobile-tab { position: relative; z-index: 1; transition: color .3s; display: inline-flex; min-height: 40px; flex-shrink: 0; align-items: center; gap: 6px; padding: 0 12px; border-radius: 9px; color: var(--muted-foreground); font-size: 12px; font-weight: 500; white-space: nowrap; }
+  .crm-mobile-tab.is-active { color: var(--text-title); }
   .crm-mobile-privacy { width: 44px; min-height: 44px; padding: 0; border-radius: 11px; }
   .crm-mobile-icon-button { position: relative; display: inline-flex; width: 44px; height: 44px; min-height: 44px; flex-shrink: 0; align-items: center; justify-content: center; gap: 6px; border: 1px solid var(--glass-border); border-radius: 11px; color: var(--text-body); background: var(--glass-bg-soft); }
   .crm-mobile-icon-button.is-active { border-color: rgba(56,189,248,.45); background: rgba(56,189,248,.1); color: #38bdf8; }

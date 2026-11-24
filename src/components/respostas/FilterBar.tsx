@@ -1,5 +1,6 @@
 "use client";
 import { DateRangeCalendar } from "@/components/ui/DateInput";
+import { useSegmentIndicator } from "@/components/ui/useSegmentIndicator";
 
 import { useState, useRef, useEffect } from "react";
 import { Calendar, X } from "lucide-react";
@@ -67,6 +68,7 @@ const RangeCalendar = DateRangeCalendar;
 export function FilterBar({ value, onChange }: FilterBarProps) {
   const [calendarOpen, setCalendarOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const presetSeg = useSegmentIndicator({ background: "var(--tab-active-bg)", border: "1px solid var(--tab-active-bg)" });
 
   const activePreset = PRESETS.find(p => filterMatchesPreset(value, p.id)) ?? null;
   const isCustom = !activePreset && (value.since || value.until);
@@ -104,23 +106,27 @@ export function FilterBar({ value, onChange }: FilterBarProps) {
   return (
     <div ref={ref} className="relative flex items-center gap-1.5 flex-wrap">
       {/* Preset pills */}
+      <div ref={presetSeg.trackRef} className="relative flex flex-wrap items-center gap-1.5">
+      {presetSeg.indicator}
       {PRESETS.map(preset => {
         const active = activePreset?.id === preset.id;
         return (
           <button
             key={preset.id}
+            data-active={active}
             onClick={() => handlePreset(preset.id)}
-            className="px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors"
+            className="relative z-[1] px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors"
             style={{
-              background: active ? "var(--tab-active-bg)" : "var(--hover)",
+              background: active ? "transparent" : "var(--hover)",
               color:      active ? "var(--tab-active-text)" : "var(--muted-foreground)",
-              border:     `1px solid ${active ? "var(--tab-active-bg)" : "var(--border)"}`,
+              border:     `1px solid ${active ? "transparent" : "var(--border)"}`,
             }}
           >
             {preset.label}
           </button>
         );
       })}
+      </div>
 
       {/* Custom range pill / button */}
       <button

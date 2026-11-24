@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useSegmentIndicator } from "@/components/ui/useSegmentIndicator";
 import { addMonths, eachDayOfInterval, eachMonthOfInterval, format, parseISO, startOfMonth, subDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
@@ -105,6 +106,8 @@ export function MarketingVgvModule({ embedded = false }: { embedded?: boolean })
   const [registeredCampaigns, setRegisteredCampaigns] = useState<MarketingVgvCampaignPerformance[]>([]);
   const [forms, setForms] = useState<MarketingVgvForm[]>([]);
   const [activeView, setActiveView] = useState<"overview" | "sales" | "campaigns" | "forms">("overview");
+  const viewSeg = useSegmentIndicator({ background: "var(--segment-active-bg)" });
+  const periodSeg = useSegmentIndicator({ background: "rgba(39,163,255,.18)", boxShadow: "inset 0 1px 0 rgba(39,163,255,.18)" });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -242,23 +245,26 @@ export function MarketingVgvModule({ embedded = false }: { embedded?: boolean })
 
       <div className={embedded ? "" : "px-4 sm:px-6"}>
         {embedded && <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"><div><p className="text-[10px] font-semibold uppercase tracking-[.18em] text-[var(--primary)]">Performance comercial</p><h2 className="mt-1 text-lg font-semibold text-[var(--text-title)]">VGV atribuído ao marketing</h2><p className="mt-1 text-xs text-[var(--muted-foreground)]">Vendas, ticket e comissão consolidados no período.</p></div><div className="flex items-center gap-2"><VgvCommercialReportGenerator clients={assignableClients} selectedClientId={selectedClientId} since={rangeStart} until={reportUntil} sales={sales} performance={performance} registeredCampaigns={registeredCampaigns} /><Button onClick={() => setDialogOpen(true)} icon={<Plus size={15} />} signature size="medium">Registrar venda</Button></div></div>}
-        <nav className="mb-5 flex max-w-full gap-1 overflow-x-auto rounded-2xl border p-1.5" style={{ background: "var(--glass-bg-soft)", borderColor: "var(--glass-border)" }}>
+        <nav ref={viewSeg.trackRef} className="relative mb-5 flex max-w-full gap-1 overflow-x-auto rounded-2xl border p-1.5" style={{ background: "var(--glass-bg-soft)", borderColor: "var(--glass-border)" }}>
+          {viewSeg.indicator}
           {([
             ["overview", "Visão geral", <TrendingUp key="i" size={14} />],
             ["sales", "Vendas", <ReceiptText key="i" size={14} />],
             ["campaigns", "Campanhas", <Megaphone key="i" size={14} />],
             ["forms", "Formulários", <FileInput key="i" size={14} />],
-          ] as const).map(([id, label, icon]) => <button key={id} onClick={() => setActiveView(id)} className={cn("flex shrink-0 items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-medium transition", activeView === id ? "bg-[var(--segment-active-bg)] text-[var(--text-title)]" : "text-[var(--muted-foreground)] hover:text-[var(--text-title)]")}>{icon}{label}</button>)}
+          ] as const).map(([id, label, icon]) => <button key={id} onClick={() => setActiveView(id)} data-active={activeView === id} className={cn("relative z-[1] flex shrink-0 items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-medium transition-colors", activeView === id ? "text-[var(--text-title)]" : "text-[var(--muted-foreground)] hover:text-[var(--text-title)]")}>{icon}{label}</button>)}
         </nav>
         {activeView !== "forms" && <div className="mb-5 flex flex-col gap-3">
-          <div className="flex max-w-full items-center gap-0.5 overflow-x-auto rounded-xl border p-1" style={{ background: "var(--glass-bg)", borderColor: "var(--glass-border)" }}>
+          <div ref={periodSeg.trackRef} className="relative flex max-w-full items-center gap-0.5 overflow-x-auto rounded-xl border p-1" style={{ background: "var(--glass-bg)", borderColor: "var(--glass-border)" }}>
+            {periodSeg.indicator}
             {PERIOD_OPTIONS.map((option) => (
               <button
                 key={option.value}
                 onClick={() => setPeriodMode(option.value)}
-                className="shrink-0 rounded-lg px-3 py-1.5 text-xs font-medium transition-all"
+                data-active={periodMode === option.value}
+                className="relative z-[1] shrink-0 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors"
                 style={periodMode === option.value
-                  ? { background: "rgba(39,163,255,.18)", color: "#27a3ff", boxShadow: "inset 0 1px 0 rgba(39,163,255,.18)" }
+                  ? { color: "#27a3ff" }
                   : { color: "var(--muted-foreground)" }}
               >
                 {option.label}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useSegmentIndicator } from "@/components/ui/useSegmentIndicator";
 import { addMonths, differenceInCalendarDays, differenceInDays, endOfMonth, format, startOfMonth, subDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
@@ -45,6 +46,8 @@ export default function MarketingReportsPage() {
   const today = new Date();
   const [view, setView] = useState<"editorial" | "instagram">("instagram");
   const [area, setArea] = useState<"reports" | "overview" | "posts" | "calendar" | "automations">("reports");
+  const areaSeg = useSegmentIndicator({ background: "linear-gradient(to right, #7c3aed, #db2777, #f97316)", boxShadow: "0 1px 2px rgba(0,0,0,.12)" });
+  const viewSeg = useSegmentIndicator({ background: view === "instagram" ? "linear-gradient(to right, #7c3aed, #db2777, #f97316)" : "var(--primary)", boxShadow: "0 1px 2px rgba(0,0,0,.12)" });
   const [period, setPeriod] = useState<"month" | "7d" | "15d" | "30d">("30d");
   const [selectedMonth, setSelectedMonth] = useState(startOfMonth(today));
   const [start, setStart] = useState(format(subDays(today, 29), "yyyy-MM-dd"));
@@ -150,19 +153,21 @@ export default function MarketingReportsPage() {
         <p className="mt-3 text-sm text-[var(--muted-foreground)] sm:text-base">Planeje, publique e transforme interações em oportunidades.</p>
       </header>
       <div className="px-4 sm:px-6">
-        <nav className="mb-4 flex max-w-full gap-1 overflow-x-auto rounded-xl border p-1 backdrop-blur-2xl" aria-label="Áreas da Central do Instagram" style={{ background: "linear-gradient(135deg,color-mix(in srgb,var(--background) 55%,transparent),color-mix(in srgb,var(--background) 30%,transparent))", borderColor: "color-mix(in srgb,var(--foreground) 18%,transparent)", backdropFilter: "blur(24px) saturate(135%)", WebkitBackdropFilter: "blur(24px) saturate(135%)", boxShadow: "inset 0 1px 0 color-mix(in srgb,#fff 11%,transparent),0 10px 28px #00000010" }}>
+        <nav ref={areaSeg.trackRef} className="relative mb-4 flex max-w-full gap-1 overflow-x-auto rounded-xl border p-1 backdrop-blur-2xl" aria-label="Áreas da Central do Instagram" style={{ background: "linear-gradient(135deg,color-mix(in srgb,var(--background) 55%,transparent),color-mix(in srgb,var(--background) 30%,transparent))", borderColor: "color-mix(in srgb,var(--foreground) 18%,transparent)", backdropFilter: "blur(24px) saturate(135%)", WebkitBackdropFilter: "blur(24px) saturate(135%)", boxShadow: "inset 0 1px 0 color-mix(in srgb,#fff 11%,transparent),0 10px 28px #00000010" }}>
+          {areaSeg.indicator}
           {([
             ["reports", "Painel profissional"],
             ["overview", "Planejamento"],
             ["posts", "Publicações"],
             ["calendar", "Agenda"],
             ["automations", "Automações"],
-          ] as const).map(([id, label]) => <button key={id} onClick={() => setArea(id)} className={`shrink-0 rounded-lg px-3 py-2 text-sm font-medium transition ${area === id ? "bg-gradient-to-r from-[#7c3aed] via-[#db2777] to-[#f97316] text-white shadow-sm" : "text-[var(--muted-foreground)] hover:text-[var(--text-title)]"}`}>{label}</button>)}
+          ] as const).map(([id, label]) => <button key={id} onClick={() => setArea(id)} data-active={area === id} className={`relative z-[1] shrink-0 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${area === id ? "text-white" : "text-[var(--muted-foreground)] hover:text-[var(--text-title)]"}`}>{label}</button>)}
         </nav>
         {area === "reports" && <>
-        <div className="mb-4 inline-flex max-w-full rounded-xl border p-1 backdrop-blur-2xl" style={{ background: "linear-gradient(135deg,color-mix(in srgb,var(--background) 55%,transparent),color-mix(in srgb,var(--background) 30%,transparent))", borderColor: "color-mix(in srgb,var(--foreground) 18%,transparent)", backdropFilter: "blur(24px) saturate(135%)", WebkitBackdropFilter: "blur(24px) saturate(135%)", boxShadow: "inset 0 1px 0 color-mix(in srgb,#fff 11%,transparent),0 10px 28px #00000010" }}>
-          <button onClick={() => setView("instagram")} className={`flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition ${view === "instagram" ? "bg-gradient-to-r from-[#7c3aed] via-[#db2777] to-[#f97316] text-white shadow-sm" : "text-[var(--muted-foreground)] hover:text-[var(--text-title)]"}`}><InstagramGlyph size={14} /> Instagram</button>
-          <button onClick={() => setView("editorial")} className={`rounded-lg px-3 py-2 text-sm font-medium transition ${view === "editorial" ? "bg-[var(--primary)] text-white shadow-sm" : "text-[var(--muted-foreground)] hover:text-[var(--text-title)]"}`}>Operação editorial</button>
+        <div ref={viewSeg.trackRef} className="relative mb-4 inline-flex max-w-full rounded-xl border p-1 backdrop-blur-2xl" style={{ background: "linear-gradient(135deg,color-mix(in srgb,var(--background) 55%,transparent),color-mix(in srgb,var(--background) 30%,transparent))", borderColor: "color-mix(in srgb,var(--foreground) 18%,transparent)", backdropFilter: "blur(24px) saturate(135%)", WebkitBackdropFilter: "blur(24px) saturate(135%)", boxShadow: "inset 0 1px 0 color-mix(in srgb,#fff 11%,transparent),0 10px 28px #00000010" }}>
+          {viewSeg.indicator}
+          <button onClick={() => setView("instagram")} data-active={view === "instagram"} className={`relative z-[1] flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${view === "instagram" ? "text-white" : "text-[var(--muted-foreground)] hover:text-[var(--text-title)]"}`}><InstagramGlyph size={14} /> Instagram</button>
+          <button onClick={() => setView("editorial")} data-active={view === "editorial"} className={`relative z-[1] rounded-lg px-3 py-2 text-sm font-medium transition-colors ${view === "editorial" ? "text-white" : "text-[var(--muted-foreground)] hover:text-[var(--text-title)]"}`}>Operação editorial</button>
         </div>
         <PeriodFilter
           period={period}

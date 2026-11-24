@@ -1,6 +1,7 @@
 "use client";
 
 import "./lead-collaboration.css";
+import { useSegmentIndicator } from "@/components/ui/useSegmentIndicator";
 import { splitIntegrationNotes } from "@/lib/crm/integration-attribution";
 import { LeadNotesPanel } from "./LeadNotesPanel";
 import { LeadRemindersPanel } from "./LeadRemindersPanel";
@@ -109,6 +110,7 @@ export function LeadModal({
   const [noteSending,setNoteSending] = useState(false);
   const [reminderOpen,setReminderOpen] = useState(false);
   const [mobilePane,setMobilePane] = useState<"data"|"notes">("data");
+  const paneSeg = useSegmentIndicator(mobilePane === "data" ? { background: "#f4c66b10", border: "1px solid #f4c66b30" } : { background: "#38bdf810", border: "1px solid #38bdf830" }, { activeSelector: '[aria-pressed="true"]' });
   const [dealValue, setDealValue]   = useState(0);
   const [isSubmitting, setIsSubmitting]   = useState(false);
   const [isDeleting, setIsDeleting]       = useState(false);
@@ -427,7 +429,7 @@ export function LeadModal({
                   </button>
                 </div>
 
-                {isEditing && <nav className="lead-collab-mobile-tabs" aria-label="Áreas do card do lead"><button type="button" aria-pressed={mobilePane==="data"} onClick={()=>setMobilePane("data")}>Dados e lembretes</button><button type="button" aria-pressed={mobilePane==="notes"} onClick={()=>setMobilePane("notes")}>Notas {hasNoteDraft&&"· rascunho"}</button></nav>}
+                {isEditing && <nav ref={paneSeg.trackRef} className="lead-collab-mobile-tabs" aria-label="Áreas do card do lead">{paneSeg.indicator}<button type="button" aria-pressed={mobilePane==="data"} onClick={()=>setMobilePane("data")}>Dados e lembretes</button><button type="button" aria-pressed={mobilePane==="notes"} onClick={()=>setMobilePane("notes")}>Notas {hasNoteDraft&&"· rascunho"}</button></nav>}
                 <div className={isEditing ? "lead-collaboration-columns" : ""} data-mobile-pane={mobilePane}>
                   <div className={isEditing ? "lead-collab-data-column" : ""}>
                   {isEditing && (

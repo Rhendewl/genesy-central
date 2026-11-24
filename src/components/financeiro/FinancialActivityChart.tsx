@@ -1,6 +1,7 @@
 "use client";
 
 import { useId, useMemo, useState } from "react";
+import { useSegmentIndicator } from "@/components/ui/useSegmentIndicator";
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { EyeOff } from "lucide-react";
 import { privateFinancialValue, useFinancialPrivacyStore } from "@/store/financial-privacy";
@@ -13,6 +14,7 @@ export function FinancialActivityChart({ title, description, data, color = "#38b
 }) {
   const hidden = useFinancialPrivacyStore(state => state.valuesHidden);
   const [mode, setMode] = useState<"daily" | "cumulative">("daily");
+  const modeSeg = useSegmentIndicator({ background: "var(--segment-active-bg)" }, { activeSelector: '[aria-pressed="true"]' });
   const gradient = `financial-${useId().replace(/:/g, "")}`;
   const points = useMemo(() => {
     let sum = 0;
@@ -25,7 +27,7 @@ export function FinancialActivityChart({ title, description, data, color = "#38b
     <Tooltip content={({ active, payload, label }) => active && payload?.length ? <div className="fin-chart-tooltip"><small>Dia {label} · {mode === "daily" ? "Lançamentos" : "Acumulado"}</small><strong>{brl(Number(payload[0].value))}</strong></div> : null} cursor={{ stroke: color, strokeOpacity: .2 }} />
   </>;
   return <section className="fin-panel fin-chart-panel" aria-label={title}>
-    <header><div><h3>{title}</h3><p>{description}</p></div><div className="fin-segments" role="group" aria-label={`Exibição: ${title}`}>
+    <header><div><h3>{title}</h3><p>{description}</p></div><div ref={modeSeg.trackRef} className="fin-segments" role="group" aria-label={`Exibição: ${title}`}>{modeSeg.indicator}
       <button type="button" aria-pressed={mode === "daily"} onClick={() => setMode("daily")}>Diário</button>
       <button type="button" aria-pressed={mode === "cumulative"} onClick={() => setMode("cumulative")}>Acumulado</button>
     </div></header>

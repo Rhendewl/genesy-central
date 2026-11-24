@@ -1,6 +1,7 @@
 "use client";
 
 import { LeadRoulettes } from "@/components/crm/admin/LeadRoulettes";
+import { useSegmentIndicator } from "@/components/ui/useSegmentIndicator";
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ClipboardList, LayoutGrid, BarChart2, Settings2, Bell, Zap, FileBarChart, Target } from "lucide-react";
@@ -55,6 +56,7 @@ export default function CrmPage() {
   const valuesHidden = useFinancialPrivacyStore((state) => state.valuesHidden);
   void valuesHidden;
   const [activeTab, setActiveTab] = useState<TabId>("kanban");
+  const tabSeg = useSegmentIndicator({ background: "var(--segment-active-bg)", boxShadow: "var(--segment-active-shadow)" });
   useEffect(() => { const tab = new URLSearchParams(window.location.search).get("tab"); if (TABS.some(item => item.id === tab)) setActiveTab(tab as TabId); }, []);
   const { member, isOwner } = useCurrentMember();
   const hasFullCrmAccess = isAdministrativeMember(member, isOwner === true);
@@ -78,19 +80,17 @@ export default function CrmPage() {
         {/* ── Desktop: barra full-width (sem alterações) ─────────── */}
         <div className="hidden md:block px-4 sm:px-6 pt-2 pb-4">
           <div className="overflow-x-auto scrollbar-none">
-            <div className="flex gap-1 p-1 rounded-2xl min-w-max" style={{ background: "var(--glass-bg-soft)", border: "1px solid var(--glass-border)" }}>
+            <div ref={tabSeg.trackRef} className="relative flex gap-1 p-1 rounded-2xl min-w-max" style={{ background: "var(--glass-bg-soft)", border: "1px solid var(--glass-border)" }}>
+              {tabSeg.indicator}
               {visibleTabs.map(tab => (
                 <button
                   key={tab.id}
+                  data-active={activeTab === tab.id}
                   onClick={() => setActiveTab(tab.id)}
                   className={cn(
-                    "flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all whitespace-nowrap",
+                    "relative z-[1] flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-colors whitespace-nowrap",
                     activeTab === tab.id ? "text-[var(--text-title)]" : "text-[var(--icon)] hover:text-[var(--text-title)] hover:bg-[var(--hover)]",
                   )}
-                  style={activeTab === tab.id ? {
-                    background: "var(--segment-active-bg)",
-                    boxShadow:  "var(--segment-active-shadow)",
-                  } : {}}
                 >
                   {tab.icon}
                   <span>{tab.label}</span>
