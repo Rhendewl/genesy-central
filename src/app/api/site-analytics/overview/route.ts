@@ -11,11 +11,15 @@ export async function GET(req: NextRequest) {
   const since = new Date(Date.now() - days * DAY).toISOString();
   const siteKey = siteKeyParam(req.nextUrl.searchParams.get("site"));
   const admin = createAdminSupabaseClient();
-  const [{ data: sessions }, { data: events }, { data: leads }, { data: pixelSettings }] = await Promise.all([
+  const prevSince = new Date(Date.now() - 2 * days * DAY).toISOString();
+  const [{ data: sessions }, { data: events }, { data: leads }, { data: pixelSettings }, { count: prevSessions }, { count: prevLeads }] = await Promise.all([
     admin.from("site_analytics_sessions").select("id,visitor_id,started_at,active_seconds,page_views,device,referrer,utm_source,utm_campaign").eq("user_id", context.ownerId).eq("site_key", siteKey).gte("started_at", since).order("started_at", { ascending: false }),
     admin.from("site_analytics_events").select("event_type,section,metadata,session_id,created_at").eq("user_id", context.ownerId).eq("site_key", siteKey).gte("created_at", since),
     admin.from("site_analytics_leads").select("id,name,phone,email,profile,monthly_vgv,sync_status,sync_error,crm_lead_id,created_at").eq("user_id", context.ownerId).eq("site_key", siteKey).gte("created_at", since).order("created_at", { ascending: false }).limit(200),
     admin.from("site_analytics_settings").select("meta_pixel_enabled,meta_pixel_id,meta_capi_token_encrypted").eq("user_id", context.ownerId).eq("site_key", siteKey).maybeSingle(),
+    // Período anterior de mesmo tamanho, para mostrar a variação nos indicadores.
+    admin.from("site_analytics_sessions").select("id", { count: "exact", head: true }).eq("user_id", context.ownerId).eq("site_key", siteKey).gte("started_at", prevSince).lt("started_at", since),
+    admin.from("site_analytics_leads").select("id", { count: "exact", head: true }).eq("user_id", context.ownerId).eq("site_key", siteKey).gte("created_at", prevSince).lt("created_at", since),
   ]);
   const sessionRows = sessions ?? [];
   const leadRows = leads ?? [];
@@ -98,6 +102,7 @@ export async function GET(req: NextRequest) {
     pixel,
     sources, campaigns, devices, clicks, funnel,
     whatsapp_clicks: clickRows.filter(event => (event.metadata as { kind?: string } | null)?.kind === "whatsapp").length,
+    previous: { sessions: prevSessions ?? 0, leads: prevLeads ?? 0 },
     summary: { sessions: sessionRows.length, visitors, views, avg_seconds: avgSeconds, leads: leadRows.length, conversion_rate: sessionRows.length ? Number((leadRows.length / sessionRows.length * 100).toFixed(1)) : 0 },
     timeline: Array.from(byDay.values()), sections: Object.entries(sections).map(([name, value]) => ({ name, value })).sort((a,b) => b.value-a.value),
     leads: leadRows,
