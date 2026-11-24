@@ -58,15 +58,15 @@ h1 em{font-style:normal;white-space:nowrap;background:linear-gradient(180deg,#0b
 @keyframes float{0%,100%{transform:translateY(0) rotate(0)}50%{transform:translateY(-12px) rotate(-.6deg)}}
 
 /* Selo 100% gratuito: no topo do celular, pulsando, com brilho desfocado */
-.free{position:absolute;z-index:3;top:4px;left:52%;transform:translateX(-50%);display:inline-flex;align-items:center;gap:10px;padding:12px 20px 12px 14px;border-radius:999px;color:#fff;font:800 15px/1 Inter,sans-serif;letter-spacing:.01em;white-space:nowrap;background:linear-gradient(135deg,rgba(34,197,94,.92),rgba(21,128,61,.92));border:1px solid rgba(255,255,255,.45);-webkit-backdrop-filter:blur(12px) saturate(160%);backdrop-filter:blur(12px) saturate(160%);box-shadow:0 14px 34px rgba(22,163,74,.45),inset 0 1px 0 rgba(255,255,255,.45);animation:badge 2.2s ease-in-out infinite}
-.free::before{content:"";position:absolute;inset:-14px -18px;z-index:-1;border-radius:999px;background:radial-gradient(closest-side,rgba(34,197,94,.75),rgba(34,197,94,0));filter:blur(14px);animation:halo 2.2s ease-in-out infinite}
-.free::after{content:"";position:absolute;inset:0;border-radius:inherit;border:2px solid rgba(34,197,94,.7);animation:ring 2.2s ease-out infinite}
-.free .dot{position:relative;width:24px;height:24px;border-radius:50%;background:#fff;display:grid;place-items:center;flex:none}
-.free .dot svg{width:13px;height:13px;color:#15803d}
-.free small{font-weight:600;font-size:12px;opacity:.9}
-@keyframes badge{0%,100%{transform:translateX(-50%) scale(1)}50%{transform:translateX(-50%) scale(1.07)}}
-@keyframes halo{0%,100%{opacity:.55;transform:scale(.92)}50%{opacity:1;transform:scale(1.12)}}
-@keyframes ring{0%{opacity:.9;transform:scale(1)}100%{opacity:0;transform:scale(1.35,1.7)}}
+.free{position:absolute;z-index:3;top:14px;right:12%;width:108px;height:108px;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;color:#fff;text-align:center;font-family:Inter,sans-serif;background:radial-gradient(circle at 30% 25%,rgba(74,222,128,.95),rgba(21,128,61,.95) 70%);border:2px solid rgba(255,255,255,.55);-webkit-backdrop-filter:blur(12px) saturate(160%);backdrop-filter:blur(12px) saturate(160%);box-shadow:0 14px 30px rgba(22,163,74,.45),inset 0 1px 0 rgba(255,255,255,.5),inset 0 0 0 5px rgba(255,255,255,.08);transform:rotate(-10deg);animation:badge 2.2s ease-in-out infinite}
+.free::before{content:"";position:absolute;inset:-18px;z-index:-1;border-radius:50%;background:radial-gradient(closest-side,rgba(34,197,94,.7),rgba(34,197,94,0));filter:blur(12px);animation:halo 2.2s ease-in-out infinite}
+.free::after{content:"";position:absolute;inset:-2px;border-radius:50%;border:2px solid rgba(34,197,94,.7);animation:ring 2.2s ease-out infinite}
+.free b{font-size:27px;font-weight:900;line-height:1;letter-spacing:-.04em}
+.free span{font-size:11px;font-weight:800;line-height:1;letter-spacing:.06em}
+.free small{margin-top:3px;font-size:9px;font-weight:700;line-height:1;letter-spacing:.12em;padding:3px 7px;border-radius:999px;background:rgba(255,255,255,.22)}
+@keyframes badge{0%,100%{transform:rotate(-10deg) scale(1)}50%{transform:rotate(-10deg) scale(1.08)}}
+@keyframes halo{0%,100%{opacity:.5;transform:scale(.9)}50%{opacity:1;transform:scale(1.1)}}
+@keyframes ring{0%{opacity:.9;transform:scale(1)}100%{opacity:0;transform:scale(1.45)}}
 
 /* PROVA: +R$ 150 mi */
 .proof{margin-top:clamp(32px,5vw,56px);border-top:1px solid var(--line);background:#fff}
@@ -144,7 +144,7 @@ footer img{width:112px;height:auto}
   .top .pill{display:none}
   .cta{width:100%}
   .cta-note{justify-content:center}
-  .free{font-size:14px;padding:10px 16px 10px 12px}
+  .free{width:88px;height:88px;top:8px;right:10%}.free b{font-size:22px}.free span{font-size:9.5px}.free small{font-size:8px}
   .head{flex-direction:column;align-items:start}
   .arrows{display:none}
   .shot{flex-basis:76vw}
@@ -184,7 +184,7 @@ footer img{width:112px;height:auto}
         </div>
       </div>
       <div class="mock">
-        <div class="free"><span class="dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span>100% GRATUITO <small>· PDF</small></div>
+        <div class="free" aria-label="100% gratuito, PDF"><b>100%</b><span>GRATUITO</span><small>PDF</small></div>
         <img src="/scripts/mockup.webp" alt="Ebook Scripts Imobiliários aberto em um celular" width="652" height="1251">
       </div>
     </div>
