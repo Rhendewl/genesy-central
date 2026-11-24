@@ -13,6 +13,20 @@ export const SITE_ORIGINS = new Set([
 // Origens extras (ex.: endereço temporário de teste), separadas por vírgula.
 const EXTRA_ORIGINS = new Set((process.env.SITE_EXTRA_ORIGINS ?? "").split(",").map(value => value.trim()).filter(Boolean));
 
+/** Site institucional: chave padrão quando o painel não informa outra. */
+export const DEFAULT_SITE_KEY = "genesycompany";
+
+/** Chave de site/página vinda da URL do painel (?site=...). Só letras minúsculas, números e hífen. */
+export function siteKeyParam(value: string | null | undefined) {
+  const key = String(value ?? "").trim().toLowerCase();
+  return /^[a-z0-9][a-z0-9-]{1,47}$/.test(key) ? key : DEFAULT_SITE_KEY;
+}
+
+/** Origem gravada no CRM: o site institucional mantém "site_genesy"; cada página ganha a sua. */
+export function crmSourceFor(siteKey: string) {
+  return siteKey === DEFAULT_SITE_KEY ? "site_genesy" : `site_${siteKey.replace(/-/g, "_")}`;
+}
+
 export function siteCors(request: NextRequest) {
   const origin = request.headers.get("origin") ?? "";
   const allowed = SITE_ORIGINS.has(origin) || EXTRA_ORIGINS.has(origin) ? origin : "https://genesycompany.com";
@@ -64,7 +78,7 @@ export async function syncSiteLead(leadId: string) {
   if (lead.crm_lead_id) return { ok: true, crmLeadId: lead.crm_lead_id };
 
   const { data: settings } = await db.from("site_analytics_settings")
-    .select("crm_pipeline_id,crm_stage_id,assigned_to,deal_value")
+    .select("name,domain,crm_pipeline_id,crm_stage_id,assigned_to,deal_value")
     .eq("user_id", lead.user_id).eq("site_key", lead.site_key).maybeSingle();
   if (!settings?.crm_stage_id) {
     await db.from("site_analytics_leads").update({ sync_status: "disabled", sync_error: null }).eq("id", lead.id);
@@ -72,8 +86,9 @@ export async function syncSiteLead(leadId: string) {
   }
 
   const notes = [
-    "Origem: Site Genesy",
+    lead.site_key === DEFAULT_SITE_KEY ? "Origem: Site Genesy" : `Origem: ${settings.name ?? lead.site_key} (${settings.domain ?? "landing page"})`,
     lead.profile ? `Perfil: ${lead.profile}` : null,
+    lead.email ? `E-mail: ${lead.email}` : null,
     lead.monthly_vgv ? `Média de VGV mensal: ${lead.monthly_vgv}` : null,
   ].filter(Boolean).join("\n");
   const result = await new LeadService(db).createLead({
@@ -81,8 +96,8 @@ export async function syncSiteLead(leadId: string) {
     stageId: settings.crm_stage_id,
     name: lead.name,
     contact: lead.phone,
-    email: null,
-    source: "site_genesy",
+    email: lead.email ?? null,
+    source: crmSourceFor(lead.site_key),
     origin_id: null,
     assigned_to: settings.assigned_to ?? null,
     tags: [],

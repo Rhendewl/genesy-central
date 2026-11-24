@@ -21,7 +21,7 @@ export async function POST(req: NextRequest, { params }: Params) {
   const regular = body.events.filter(event => event.type !== "pixel");
   if (!regular.length) return NextResponse.json({ ok: true }, { headers: siteCors(req) });
   const rows = regular.map(event => ({
-    user_id: site.user_id, session_id: session.id,
+    user_id: site.user_id, site_key: siteKey, session_id: session.id,
     event_type: String(event.type ?? "event"), path: event.path ? String(event.path) : null,
     section: event.section ? String(event.section) : null,
     duration_seconds: Number.isFinite(event.duration_seconds) ? Math.round(Number(event.duration_seconds)) : null,

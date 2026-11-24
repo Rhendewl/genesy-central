@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminSupabaseClient } from "@/lib/supabase-admin";
 import { siteAnalyticsContext } from "@/lib/site-analytics-auth";
+import { siteKeyParam } from "@/lib/site-analytics";
 
 const DAY = 86_400_000;
 export async function GET(req: NextRequest) {
@@ -8,12 +9,13 @@ export async function GET(req: NextRequest) {
   if (!context) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
   const days = Math.min(365, Math.max(1, Number(req.nextUrl.searchParams.get("days") ?? 30)));
   const since = new Date(Date.now() - days * DAY).toISOString();
+  const siteKey = siteKeyParam(req.nextUrl.searchParams.get("site"));
   const admin = createAdminSupabaseClient();
   const [{ data: sessions }, { data: events }, { data: leads }, { data: pixelSettings }] = await Promise.all([
-    admin.from("site_analytics_sessions").select("id,visitor_id,started_at,active_seconds,page_views,device,referrer,utm_source,utm_campaign").eq("user_id", context.ownerId).gte("started_at", since).order("started_at", { ascending: false }),
-    admin.from("site_analytics_events").select("event_type,section,metadata,session_id,created_at").eq("user_id", context.ownerId).gte("created_at", since),
-    admin.from("site_analytics_leads").select("id,name,phone,profile,monthly_vgv,sync_status,sync_error,crm_lead_id,created_at").eq("user_id", context.ownerId).gte("created_at", since).order("created_at", { ascending: false }).limit(200),
-    admin.from("site_analytics_settings").select("meta_pixel_enabled,meta_pixel_id,meta_capi_token_encrypted").eq("user_id", context.ownerId).eq("site_key", "genesycompany").maybeSingle(),
+    admin.from("site_analytics_sessions").select("id,visitor_id,started_at,active_seconds,page_views,device,referrer,utm_source,utm_campaign").eq("user_id", context.ownerId).eq("site_key", siteKey).gte("started_at", since).order("started_at", { ascending: false }),
+    admin.from("site_analytics_events").select("event_type,section,metadata,session_id,created_at").eq("user_id", context.ownerId).eq("site_key", siteKey).gte("created_at", since),
+    admin.from("site_analytics_leads").select("id,name,phone,email,profile,monthly_vgv,sync_status,sync_error,crm_lead_id,created_at").eq("user_id", context.ownerId).eq("site_key", siteKey).gte("created_at", since).order("created_at", { ascending: false }).limit(200),
+    admin.from("site_analytics_settings").select("meta_pixel_enabled,meta_pixel_id,meta_capi_token_encrypted").eq("user_id", context.ownerId).eq("site_key", siteKey).maybeSingle(),
   ]);
   const sessionRows = sessions ?? [];
   const leadRows = leads ?? [];

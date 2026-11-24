@@ -57,7 +57,7 @@ function normalizedFirstName(name: string) {
   return first.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase() || null;
 }
 
-async function sendConversionsApi(site: SitePixelSettings, event: PixelEventInput, req: NextRequest, extra: { visitorId?: string | null; name?: string | null; phone?: string | null }) {
+async function sendConversionsApi(site: SitePixelSettings, event: PixelEventInput, req: NextRequest, extra: { visitorId?: string | null; name?: string | null; phone?: string | null; email?: string | null }) {
   if (!site.meta_capi_token_encrypted || !site.meta_pixel_id) return null;
   const { ip, userAgent } = requestContext(req);
   const userData: Record<string, unknown> = {};
@@ -70,6 +70,8 @@ async function sendConversionsApi(site: SitePixelSettings, event: PixelEventInpu
   if (phone) userData.ph = [sha256(phone)];
   const firstName = extra.name ? normalizedFirstName(extra.name) : null;
   if (firstName) userData.fn = [sha256(firstName)];
+  const email = extra.email?.trim().toLowerCase();
+  if (email) userData.em = [sha256(email)];
   const body: Record<string, unknown> = {
     data: [{
       event_name: event.event,
@@ -100,13 +102,13 @@ async function sendConversionsApi(site: SitePixelSettings, event: PixelEventInpu
  * (o Facebook usa esse id para não contar duas vezes).
  */
 export async function recordPixelEvent(db: SupabaseClient, site: SitePixelSettings, sessionId: string | null, event: PixelEventInput, req: NextRequest,
-  extra: { visitorId?: string | null; name?: string | null; phone?: string | null; logBrowser?: boolean } = {}) {
+  extra: { visitorId?: string | null; name?: string | null; phone?: string | null; email?: string | null; logBrowser?: boolean } = {}) {
   if (!pixelActive(site)) return;
   const server = await sendConversionsApi(site, event, req, extra);
   // Registro no painel: usa a tabela de eventos do site (precisa de uma sessão do visitante).
   if (!sessionId) return;
   const row = (channel: "browser" | "server", status: string, error: string | null = null) => ({
-    user_id: site.user_id, session_id: sessionId, event_type: "pixel", path: null, section: null, duration_seconds: null,
+    user_id: site.user_id, site_key: site.site_key, session_id: sessionId, event_type: "pixel", path: null, section: null, duration_seconds: null,
     metadata: { event: event.event, event_id: event.event_id, channel, status, error },
     idempotency_key: `pixel:${event.event_id}:${channel}`,
   });
