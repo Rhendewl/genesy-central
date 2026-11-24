@@ -1,10 +1,10 @@
 "use client";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useId, useMemo, useState, type ReactNode } from "react";
 import { useSegmentIndicator } from "@/components/ui/useSegmentIndicator";
-import { Clock3, ArrowRight, RefreshCw, Info, ChevronDown, Users, Timer, CheckCircle2, CircleAlert, ArrowUpRight, BarChart3 } from "lucide-react";
+import { Clock3, ArrowRight, RefreshCw, Info, ChevronDown, Users, Timer, CheckCircle2, CircleAlert, ArrowUpRight, BarChart3, Moon, Sun } from "lucide-react";
 import type { Lead } from "@/types";
 import type { TimingStage, TimingEvent } from "@/lib/crm/operation-analytics";
-import { analyzeOperation, crmDate, durationLabel, summarizeDurations } from "@/lib/crm/operation-analytics";
+import { analyzeOperation, crmDate, CRM_TIME_ZONE, durationLabel, summarizeDurations } from "@/lib/crm/operation-analytics";
 import { MobileFilterDisclosure } from "./MobileFilterDisclosure";
 import "./crm-mobile.css";
 import { AnalyticsPeriodPicker } from "./AnalyticsPeriodPicker";
@@ -14,6 +14,41 @@ import "./crm-analysis.css";
 type TimeMetric = "average" | "median" | "p90";
 const metricLabels: Record<TimeMetric, string> = { average: "Média", median: "Mediana", p90: "P90" };
 const panel = "crm-analysis-panel";
+const SLA_OPTIONS = [5, 15, 30, 60, 120, 240, 1440];
+const SLA_STORAGE_KEY = "genesy:crm-analysis:sla";
+const DEFAULT_SLA = 5;
+
+/** Hora (0–23) da chegada no fuso do CRM. */
+const arrivalHour = new Intl.DateTimeFormat("en-US", { timeZone: CRM_TIME_ZONE, hour: "numeric", hourCycle: "h23" });
+/** Noite: das 18h às 5h59. Dia: das 6h às 17h59. */
+const isNightHour = (hour: number) => hour >= 18 || hour < 6;
+
+/** Rosca de chegadas à noite (azul) e de dia (amarelo). */
+function DayNightDonut({ night, day }: { night: number; day: number }) {
+  const uid = useId().replace(/:/g, "");
+  const total = night + day;
+  const radius = 44, circumference = 2 * Math.PI * radius;
+  const nightLength = total ? (night / total) * circumference : 0;
+  const gap = night && day ? 3 : 0;
+  const nightPct = total ? Math.round((night / total) * 100) : 0;
+  const dominant = !total ? null : night === day ? "tie" : night > day ? "night" : "day";
+  return <div className="relative h-32 w-32 shrink-0">
+    <svg viewBox="0 0 120 120" className="h-full w-full -rotate-90" aria-hidden="true">
+      <defs>
+        <linearGradient id={`${uid}-n`} gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="120" y2="120"><stop offset="0%" stopColor="#93c5fd" /><stop offset="100%" stopColor="#2563eb" /></linearGradient>
+        <linearGradient id={`${uid}-d`} gradientUnits="userSpaceOnUse" x1="0" y1="120" x2="120" y2="0"><stop offset="0%" stopColor="#fde68a" /><stop offset="100%" stopColor="#f59e0b" /></linearGradient>
+      </defs>
+      <circle cx={60} cy={60} r={radius} fill="none" stroke="var(--border)" strokeWidth={13} />
+      {night > 0 && <circle cx={60} cy={60} r={radius} fill="none" stroke={`url(#${uid}-n)`} strokeWidth={13} strokeLinecap={day ? "round" : "butt"} strokeDasharray={`${Math.max(0.01, nightLength - gap)} ${circumference}`} />}
+      {day > 0 && <circle cx={60} cy={60} r={radius} fill="none" stroke={`url(#${uid}-d)`} strokeWidth={13} strokeLinecap={night ? "round" : "butt"} strokeDasharray={`${Math.max(0.01, circumference - nightLength - gap)} ${circumference}`} strokeDashoffset={-nightLength} />}
+    </svg>
+    <div className="absolute inset-0 grid place-items-center text-center"><div>
+      {dominant === "night" ? <Moon size={16} className="mx-auto text-blue-400" /> : dominant === "day" ? <Sun size={16} className="mx-auto text-amber-400" /> : null}
+      <strong className="mt-0.5 block text-xl font-semibold tracking-tight">{total ? `${dominant === "day" ? 100 - nightPct : nightPct}%` : "—"}</strong>
+      <span className="text-[10px] text-[var(--muted-foreground)]">{dominant === "day" ? "de dia" : dominant === "night" ? "à noite" : total ? "metade" : "sem dados"}</span>
+    </div></div>
+  </div>;
+}
 export function OperationAnalytics({ leads, history, stages, pipelines, refresh, pipelineFilter }: {
   leads: Lead[]; history: TimingEvent[]; stages: TimingStage[];
   pipelines: { id: string; name: string; color?: string }[]; refresh: () => void; pipelineFilter?: ReactNode;
@@ -24,7 +59,12 @@ export function OperationAnalytics({ leads, history, stages, pipelines, refresh,
   const [start, setStart] = useState(() => crmDate(new Date(Date.now() - 29 * 86400000).toISOString()));
   const [end, setEnd] = useState(() => crmDate(new Date().toISOString()));
   const [assignee, setAssignee] = useState("all");
-  const [sla, setSla] = useState(60);
+  const [sla, setSla] = useState(DEFAULT_SLA);
+  // A meta escolhida fica guardada neste navegador e só muda quando outra opção é selecionada.
+  useEffect(() => {
+    try { const saved = Number(localStorage.getItem(SLA_STORAGE_KEY)); if (SLA_OPTIONS.includes(saved)) setSla(saved); } catch { /* navegação privada */ }
+  }, []);
+  const chooseSla = (minutes: number) => { setSla(minutes); try { localStorage.setItem(SLA_STORAGE_KEY, String(minutes)); } catch { /* navegação privada */ } };
   const [metric, setMetric] = useState<TimeMetric>("average");
   const metricSeg = useSegmentIndicator({ background: "var(--background)", boxShadow: "0 1px 5px rgba(0,0,0,.1)" }, { activeSelector: '[aria-pressed="true"]' });
   const [expandedStage, setExpandedStage] = useState<string | null>(null);
@@ -47,6 +87,14 @@ export function OperationAnalytics({ leads, history, stages, pipelines, refresh,
   }).sort((a,b)=>(b.stats.average??-1)-(a.stats.average??-1));
   const routeLabel = data.entryRoutes.length === 1 ? `${data.entryRoutes[0].from.name ?? "Etapa inicial"} → ${data.entryRoutes[0].to?.name ?? "Próxima etapa não configurada"}` : "Etapa inicial → próxima etapa de atendimento";
   const progress = data.withinSla === null ? 0 : Math.max(0, Math.min(100, data.withinSla));
+  const arrivals = cohort.flatMap(lead => {
+    const time = lead.received_at ? Date.parse(lead.received_at) : NaN;
+    return Number.isFinite(time) ? [Number(arrivalHour.format(new Date(time)))] : [];
+  });
+  const nightCount = arrivals.filter(isNightHour).length;
+  const dayCount = arrivals.length - nightCount;
+  const pct = (value: number) => arrivals.length ? `${Math.round(value / arrivals.length * 100)}%` : "—";
+  const arrivalVerdict = !arrivals.length ? "Sem horários de chegada no período" : nightCount === dayCount ? "Chegadas divididas entre dia e noite" : nightCount > dayCount ? "A maior parte dos leads chega à noite" : "A maior parte dos leads chega de dia";
   return <section className="crm-analysis mb-8 space-y-6 px-4 sm:px-6" aria-label="Análise de tempo e atendimento">
     <header className="flex flex-wrap items-center justify-between gap-4"><div><p className="crm-analysis-eyebrow">Visão da operação</p><h2 className="mt-1 text-xl font-semibold tracking-tight text-[var(--text-title)] sm:text-2xl">Onde o atendimento avança. Onde ele demora.</h2><p className="mt-2 text-sm text-[var(--muted-foreground)]">Veja quanto tempo os leads levam para sair de cada etapa.</p></div><button onClick={() => { setNow(Date.now()); refresh(); }} className="crm-analysis-refresh"><RefreshCw size={15}/>Atualizar análise</button></header>
 
@@ -55,7 +103,7 @@ export function OperationAnalytics({ leads, history, stages, pipelines, refresh,
       {pipelineFilter && <div className="min-w-0">{pipelineFilter}</div>}
       <AnalyticsPeriodPicker start={start} end={end} onChange={(from,to)=>{setStart(from);setEnd(to);}}/>
       <label className="crm-analysis-filter"><Users size={17} className="shrink-0 text-[var(--muted-foreground)]"/><span className="min-w-0 flex-1"><span className="crm-analysis-filter-label">Responsável</span><select aria-label="Responsável pela análise" value={assignee} onChange={e=>setAssignee(e.target.value)} className="crm-analysis-select"><option value="all">Todos os responsáveis</option><option value="none">Sem responsável</option>{profiles.filter(p=>leads.some(l=>l.assigned_to===p.id)).map(p=><option key={p.id} value={p.id}>{p.full_name}</option>)}</select></span></label>
-      <label className="crm-analysis-filter"><Timer size={17} className="shrink-0 text-[var(--muted-foreground)]"/><span className="min-w-0 flex-1"><span className="crm-analysis-filter-label">Meta do primeiro atendimento</span><select aria-label="Meta de primeiro atendimento" value={sla} onChange={e=>setSla(Number(e.target.value))} className="crm-analysis-select">{[5,15,30,60,120,240,1440].map(n=><option key={n} value={n}>{durationLabel(n*60000)}</option>)}</select></span></label>
+      <label className="crm-analysis-filter"><Timer size={17} className="shrink-0 text-[var(--muted-foreground)]"/><span className="min-w-0 flex-1"><span className="crm-analysis-filter-label">Meta do primeiro atendimento</span><select aria-label="Meta de primeiro atendimento" value={sla} onChange={e=>chooseSla(Number(e.target.value))} className="crm-analysis-select">{SLA_OPTIONS.map(n=><option key={n} value={n}>{durationLabel(n*60000)}</option>)}</select></span></label>
     </div>
 
     </MobileFilterDisclosure>
@@ -63,10 +111,11 @@ export function OperationAnalytics({ leads, history, stages, pipelines, refresh,
     <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-[var(--muted-foreground)]"><span className="inline-flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full bg-sky-400"/><strong className="font-semibold text-[var(--text-title)]">{cohort.length} leads</strong> no período selecionado</span><details className="crm-analysis-method"><summary className="inline-flex cursor-pointer items-center gap-1.5"><Info size={13}/>Como os tempos são calculados<ChevronDown size={12}/></summary><p>Consideramos os leads que chegaram no período e seus movimentos até agora. Primeiro atendimento é a primeira saída da etapa inicial para a próxima etapa de atendimento. Com uma pipeline selecionada, o topo e o cartão da etapa inicial usam os mesmos leads, horários e medida. Com várias pipelines, o topo consolida a seleção e cada cartão mostra sua própria pipeline. Descartes, saltos e retornos não alteram esse indicador. Aguardando atendimento inclui todos os leads atualmente na etapa inicial, inclusive os que retornaram. São tempos corridos, incluindo noites e fins de semana. Horário de João Pessoa. A meta é uma referência desta análise.</p></details></div>
 
     <div className="crm-analysis-summary">
-      <article className={`${panel} crm-analysis-hero`}><div className="crm-analysis-card-heading"><span className="crm-analysis-icon text-sky-400"><Timer size={19}/></span><span>Primeiro atendimento</span></div><p className="crm-analysis-big-number">{durationLabel(data.firstContact[metric])}</p><p className="text-xs text-[var(--muted-foreground)]">{routeLabel} · {metricLabels[metric].toLowerCase()}</p><div className="crm-analysis-card-footer"><span>Mediana <strong>{durationLabel(data.firstContact.median)}</strong></span><span>{data.firstContact.count} tempos medidos</span></div></article>
+      <article className={`${panel} crm-analysis-hero crm-analysis-feature`}><div className="crm-analysis-card-heading"><span className="crm-analysis-icon text-sky-400"><Timer size={19}/></span><span>Primeiro atendimento</span></div><p className="crm-analysis-big-number">{durationLabel(data.firstContact[metric])}</p><p className="text-xs text-[var(--muted-foreground)]">{routeLabel} · {metricLabels[metric].toLowerCase()}</p><div className="crm-analysis-card-footer"><span>Mediana <strong>{durationLabel(data.firstContact.median)}</strong></span><span>{data.firstContact.count} tempos medidos</span></div></article>
+      <article className={`${panel} crm-analysis-feature`}><div className="crm-analysis-card-heading"><span className="crm-analysis-icon text-emerald-400"><CheckCircle2 size={19}/></span><span>Atendidos em até {durationLabel(sla*60000)}</span></div><div className="mt-5 flex items-center justify-between gap-3"><div><p className="text-3xl font-semibold tracking-tight sm:text-4xl">{data.withinSla===null?"—":`${data.withinSla.toFixed(0)}%`}</p><p className="mt-2 text-xs text-[var(--muted-foreground)]">{data.firstContact.count} primeiros atendimentos medidos</p></div><div className="crm-analysis-ring" role="img" aria-label={data.withinSla===null?"Sem tempos de atendimento medidos":`${data.withinSla.toFixed(0)}% atendidos em até ${durationLabel(sla*60000)}`} style={{background:`conic-gradient(#34d399 ${progress*3.6}deg, var(--border) 0deg)`}}><CheckCircle2 size={18} className="relative z-10 text-emerald-400"/></div></div><div className="crm-analysis-card-footer"><span>P90 <strong>{durationLabel(data.firstContact.p90)}</strong></span><span title="90% dos tempos de primeiro atendimento estão abaixo desse valor">90% dos tempos até esse valor</span></div></article>
       <article className={panel}><div className="crm-analysis-card-heading"><span className="crm-analysis-icon text-amber-400"><Users size={19}/></span><span>Aguardando atendimento</span></div><p className="crm-analysis-big-number">{data.waiting}<span className="ml-2 text-sm font-normal text-[var(--muted-foreground)]">leads</span></p><p className="text-xs text-[var(--muted-foreground)]">Leads atualmente na etapa inicial, incluindo retornos</p><div className="crm-analysis-card-footer"><span className={data.overdue?"text-amber-500":""}>{data.overdue>0&&<CircleAlert size={12} className="mr-1 inline"/>}<strong>{data.overdue}</strong> acima da meta</span><span>Meta: {durationLabel(sla*60000)}</span></div></article>
-      <article className={panel}><div className="crm-analysis-card-heading"><span className="crm-analysis-icon text-emerald-400"><CheckCircle2 size={19}/></span><span>Atendidos em até {durationLabel(sla*60000)}</span></div><div className="mt-5 flex items-center justify-between gap-3"><div><p className="text-3xl font-semibold tracking-tight sm:text-4xl">{data.withinSla===null?"—":`${data.withinSla.toFixed(0)}%`}</p><p className="mt-2 text-xs text-[var(--muted-foreground)]">{data.firstContact.count} primeiros atendimentos medidos</p></div><div className="crm-analysis-ring" role="img" aria-label={data.withinSla===null?"Sem tempos de atendimento medidos":`${data.withinSla.toFixed(0)}% atendidos em até ${durationLabel(sla*60000)}`} style={{background:`conic-gradient(#34d399 ${progress*3.6}deg, var(--border) 0deg)`}}><CheckCircle2 size={18} className="relative z-10 text-emerald-400"/></div></div><div className="crm-analysis-card-footer"><span>P90 <strong>{durationLabel(data.firstContact.p90)}</strong></span><span title="90% dos tempos de primeiro atendimento estão abaixo desse valor">90% dos tempos até esse valor</span></div></article>
       <article className={`${panel} ${slowest?"crm-analysis-bottleneck":""}`}><div className="crm-analysis-card-heading"><span className="crm-analysis-icon text-violet-400"><BarChart3 size={19}/></span><span>Saída mais demorada</span></div><p className="crm-analysis-big-number">{durationLabel(slowest?.completed[metric]??null)}</p><p className="truncate text-xs text-[var(--muted-foreground)]" title={slowest?.stage.name}>{slowest?.stage.name??"Aguardando saídas registradas"}</p><div className="crm-analysis-card-footer"><span>{metricLabels[metric]} até sair</span><span className="truncate">{slowest?pipelineName(slowest.stage.pipeline_id):"Sem comparação disponível"}</span></div></article>
+      <article className={`${panel} crm-analysis-daynight`}><div className="crm-analysis-card-heading"><span className="crm-analysis-icon text-blue-400">{nightCount >= dayCount ? <Moon size={19}/> : <Sun size={19} className="text-amber-400"/>}</span><span>Horário de chegada</span></div><div className="mt-4 flex items-center gap-4"><DayNightDonut night={nightCount} day={dayCount}/><ul className="min-w-0 flex-1 space-y-3 text-xs"><li className="flex items-center justify-between gap-2"><span className="flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full" style={{background:"linear-gradient(135deg,#93c5fd,#2563eb)"}}/>Noite<span className="text-[10px] text-[var(--muted-foreground)]">18h–6h</span></span><span className="tabular-nums"><strong className="text-sm">{pct(nightCount)}</strong> <span className="text-[var(--muted-foreground)]">· {nightCount}</span></span></li><li className="flex items-center justify-between gap-2"><span className="flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full" style={{background:"linear-gradient(135deg,#fde68a,#f59e0b)"}}/>Dia<span className="text-[10px] text-[var(--muted-foreground)]">6h–18h</span></span><span className="tabular-nums"><strong className="text-sm">{pct(dayCount)}</strong> <span className="text-[var(--muted-foreground)]">· {dayCount}</span></span></li></ul></div><div className="crm-analysis-card-footer"><span className="font-medium text-[var(--text-title)]">{arrivalVerdict}</span><span>{arrivals.length} com hora de chegada</span></div></article>
     </div>
 
     <section className={`${panel} crm-analysis-stage-section`} aria-label="Tempo para sair de cada etapa">
