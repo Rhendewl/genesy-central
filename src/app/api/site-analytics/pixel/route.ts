@@ -3,8 +3,9 @@ import { siteAnalyticsContext } from "@/lib/site-analytics-auth";
 import { createAdminSupabaseClient } from "@/lib/supabase-admin";
 import { decryptToken, encryptToken } from "@/lib/crypto";
 import { verifyPixelAccess } from "@/lib/site-meta-pixel";
+import { siteKeyParam } from "@/lib/site-analytics";
 
-// Configuração do Pixel do Facebook do Site Genesy. O token da API de Conversões é
+// Configuração do Pixel do Facebook de cada site/página do módulo Site Genesy (?site=chave). O token da API de Conversões é
 // guardado criptografado e nunca volta para o navegador.
 export async function PUT(req: NextRequest) {
   const context = await siteAnalyticsContext();
@@ -17,9 +18,10 @@ export async function PUT(req: NextRequest) {
   const pixelId = String(body.pixel_id ?? "").replace(/\D/g, "");
   if (body.enabled && !/^[0-9]{6,20}$/.test(pixelId)) return NextResponse.json({ error: "Informe o ID do Pixel (somente números)." }, { status: 400 });
 
+  const siteKey = siteKeyParam(req.nextUrl.searchParams.get("site"));
   const admin = createAdminSupabaseClient();
   const { data: current } = await admin.from("site_analytics_settings").select("id,meta_capi_token_encrypted")
-    .eq("user_id", context.ownerId).eq("site_key", "genesycompany").maybeSingle();
+    .eq("user_id", context.ownerId).eq("site_key", siteKey).maybeSingle();
   if (!current) return NextResponse.json({ error: "O site ainda não foi conectado. Abra o site uma vez e tente de novo." }, { status: 400 });
 
   const newToken = String(body.capi_token ?? "").trim();

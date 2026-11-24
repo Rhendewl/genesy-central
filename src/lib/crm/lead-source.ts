@@ -56,5 +56,7 @@ const ACTION_SOURCE_MAP: Partial<Record<string, ActionSource>> = {
 /** Derives the platform-agnostic ActionSource from a lead's origin string. */
 export function deriveActionSource(leadSource: string): ActionSource {
   if (!leadSource) return "system_generated";
+  // Site institucional e landing pages do módulo Site Genesy ("site_genesy", "site_<página>").
+  if (leadSource.startsWith("site_")) return "website";
   return ACTION_SOURCE_MAP[leadSource] ?? "other";
 }
