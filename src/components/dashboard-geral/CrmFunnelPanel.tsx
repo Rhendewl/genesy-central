@@ -45,8 +45,8 @@ export function CrmFunnelPanel({ totalLeads, agendadas, realizadas, vendas, heig
       href="/crm"
       className="lc-card group flex flex-col cursor-pointer overflow-hidden p-6"
       style={{ background: "var(--glass-bg-soft)", height }}
-      initial={{ opacity: 0, y: 18 }}
-      animate={{ opacity: 1, y: 0 }}
+      initial={{ y: 18 }}
+      animate={{ y: 0 }}
       transition={{ duration: 0.4, delay, ease: "easeOut" }}
     >
       <div className="mb-5 flex flex-shrink-0 items-center justify-between">
@@ -74,8 +74,8 @@ export function CrmFunnelPanel({ totalLeads, agendadas, realizadas, vendas, heig
             return (
               <motion.div
                 key={stage.label}
-                initial={{ opacity: 0, y: 6 }}
-                animate={{ opacity: 1, y: 0 }}
+                initial={{ y: 6 }}
+                animate={{ y: 0 }}
                 transition={{ duration: 0.35, delay: delay + 0.1 + i * 0.07, ease: "easeOut" }}
               >
                 <div className="mb-2 flex items-center justify-between">

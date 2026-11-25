@@ -38,8 +38,8 @@ function SettingsCard({
     <Tag
       {...(href ? { href } : {})}
       onClick={onClick}
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
+      initial={{ y: 20 }}
+      animate={{ y: 0 }}
       transition={{ duration: 0.4, delay, ease: "easeOut" }}
       whileHover="hover"
       className="group relative flex flex-col gap-5 rounded-2xl p-6 cursor-pointer overflow-hidden"

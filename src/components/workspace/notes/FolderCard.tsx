@@ -22,8 +22,8 @@ export function FolderCard({ folder, onEdit, onDelete }: FolderCardProps) {
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
+      initial={{ y: 12 }}
+      animate={{ y: 0 }}
       whileHover={{ y: -5 }}
       transition={{ duration: 0.2 }}
       className="glass-folder-card group relative flex aspect-square w-full cursor-pointer flex-col items-center justify-center gap-1 overflow-hidden rounded-[20px] border p-3 text-center transition-all"

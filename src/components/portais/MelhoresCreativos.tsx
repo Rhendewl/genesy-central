@@ -113,8 +113,8 @@ function CreativeCard({ creative, index }: { creative: PortalCreative; index: nu
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 14 }}
-      animate={{ opacity: 1, y: 0 }}
+      initial={{ y: 14 }}
+      animate={{ y: 0 }}
       transition={{ delay: index * 0.06, duration: 0.32 }}
       className="rounded-2xl overflow-hidden flex flex-col"
       style={{

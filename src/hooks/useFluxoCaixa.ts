@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { getSupabaseClient } from "@/lib/supabase";
-import { format, addDays, startOfMonth, endOfMonth } from "date-fns";
+import { format, addDays } from "date-fns";
 import type { CashFlowSummary } from "@/types";
 
 interface CashFlowEntry {
@@ -24,7 +24,7 @@ interface UseFluxoCaixaReturn {
   refetch: () => Promise<void>;
 }
 
-export function useFluxoCaixa(year: number, month: number): UseFluxoCaixaReturn {
+export function useFluxoCaixa(start: string, end: string): UseFluxoCaixaReturn {
   const [summary, setSummary] = useState<CashFlowSummary | null>(null);
   const [entries, setEntries] = useState<CashFlowEntry[]>([]);
   const [chartData, setChartData] = useState<Array<{ data: string; entradas: number; saidas: number; saldo: number }>>([]);
@@ -35,11 +35,9 @@ export function useFluxoCaixa(year: number, month: number): UseFluxoCaixaReturn 
     try {
       setIsLoading(true);
       const supabase = getSupabaseClient();
-      const start = format(startOfMonth(new Date(year, month - 1)), "yyyy-MM-dd");
-      const end = format(endOfMonth(new Date(year, month - 1)), "yyyy-MM-dd");
-      const end30 = format(addDays(new Date(end), 30), "yyyy-MM-dd");
-      const end60 = format(addDays(new Date(end), 60), "yyyy-MM-dd");
-      const end90 = format(addDays(new Date(end), 90), "yyyy-MM-dd");
+      const end30 = format(addDays(new Date(`${end}T12:00:00`), 30), "yyyy-MM-dd");
+      const end60 = format(addDays(new Date(`${end}T12:00:00`), 60), "yyyy-MM-dd");
+      const end90 = format(addDays(new Date(`${end}T12:00:00`), 90), "yyyy-MM-dd");
 
       const [{ data: revenues }, { data: expenses }, { data: future30 }, { data: futureExp30 }] = await Promise.all([
         supabase.from("revenues").select("*, client:agency_clients(name)").gte("date", start).lte("date", end),
@@ -102,18 +100,19 @@ export function useFluxoCaixa(year: number, month: number): UseFluxoCaixaReturn 
 
       setEntries(entriesData);
 
-      // Chart data by day (simplified: by week)
-      const chart = Array.from({ length: 4 }, (_, i) => {
-        const weekStart = format(addDays(new Date(start), i * 7), "dd/MM");
-        const weekRevs = (revenues ?? []).filter((r: { date: string; status: string }) => {
-          const day = new Date(r.date).getDate();
-          return day >= i * 7 + 1 && day <= (i + 1) * 7 && r.status === "pago";
-        }).reduce((s: number, r: { amount: number }) => s + Number(r.amount), 0);
-        const weekExps = (expenses ?? []).filter((e: { date: string }) => {
-          const day = new Date(e.date).getDate();
-          return day >= i * 7 + 1 && day <= (i + 1) * 7;
-        }).reduce((s: number, e: { amount: number }) => s + Number(e.amount), 0);
-        return { data: weekStart, entradas: weekRevs, saidas: weekExps, saldo: weekRevs - weekExps };
+      // Gráfico: até 15 dias, dia a dia; acima disso, por semana (a partir do início do período).
+      const totalDias = Math.round((new Date(`${end}T12:00:00`).getTime() - new Date(`${start}T12:00:00`).getTime()) / 86_400_000) + 1;
+      const passo = totalDias <= 15 ? 1 : 7;
+      const chart = Array.from({ length: Math.ceil(totalDias / passo) }, (_, i) => {
+        const de = format(addDays(new Date(`${start}T12:00:00`), i * passo), "yyyy-MM-dd");
+        const ateRaw = format(addDays(new Date(`${start}T12:00:00`), i * passo + passo - 1), "yyyy-MM-dd");
+        const ate = ateRaw > end ? end : ateRaw;
+        const dentro = (date: string) => date >= de && date <= ate;
+        const weekRevs = (revenues ?? []).filter((r: { date: string; status: string }) => dentro(r.date) && r.status === "pago")
+          .reduce((s: number, r: { amount: number }) => s + Number(r.amount), 0);
+        const weekExps = (expenses ?? []).filter((e: { date: string }) => dentro(e.date))
+          .reduce((s: number, e: { amount: number }) => s + Number(e.amount), 0);
+        return { data: format(new Date(`${de}T12:00:00`), "dd/MM"), entradas: weekRevs, saidas: weekExps, saldo: weekRevs - weekExps };
       });
 
       setChartData(chart);
@@ -122,7 +121,7 @@ export function useFluxoCaixa(year: number, month: number): UseFluxoCaixaReturn 
     } finally {
       setIsLoading(false);
     }
-  }, [year, month]);
+  }, [start, end]);
 
   useEffect(() => { fetch(); }, [fetch]);
 

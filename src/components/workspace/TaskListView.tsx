@@ -89,8 +89,8 @@ function TaskRow({
   return (
     <motion.div
       layout
-      initial={{ opacity: 0, y: 6 }}
-      animate={{ opacity: 1, y: 0 }}
+      initial={{ y: 6 }}
+      animate={{ y: 0 }}
       exit={{ opacity: 0, scale: 0.97, transition: { duration: 0.15 } }}
       transition={{ duration: 0.2, ease: "easeOut" }}
       className="flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors hover:bg-[var(--hover)]"

@@ -13,6 +13,7 @@ import { CommercialAnalysisModule } from "@/components/clientes/CommercialAnalys
 import { MarketingVgvModule } from "@/components/marketing/MarketingVgvModule";
 import { FinancialPrivacyButton } from "@/components/ui/FinancialPrivacyButton";
 import { useFinancialPrivacyStore } from "@/store/financial-privacy";
+import { periodLabel, periodMonth, presetPeriod, type FinancialPeriod } from "@/lib/financeiro/period";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Clientes Page — Hub completo da carteira
@@ -37,10 +38,9 @@ const MONTH_NAMES = [
 export default function ClientesPage() {
   const valuesHidden = useFinancialPrivacyStore((state) => state.valuesHidden);
   void valuesHidden;
-  const now = new Date();
   const [activeTab, setActiveTab] = useState<TabId>("visao_geral");
-  const [year, setYear] = useState(now.getFullYear());
-  const [month, setMonth] = useState(now.getMonth() + 1);
+  const [period, setPeriod] = useState<FinancialPeriod>(() => presetPeriod("mes"));
+  const { year, month } = periodMonth(period);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -54,27 +54,28 @@ export default function ClientesPage() {
     if (activeTab === "contratos") return "Modelos, documentos e assinaturas dos seus clientes";
     if (activeTab === "vgv") return "Vendas, campanhas e retorno do investimento";
     if (activeTab === "analise_comercial") return "Feedback dos corretores e inteligência comercial";
+    if (activeTab === "visao_geral") return `${tab?.label} · ${periodLabel(period)}`;
     return `${tab?.label} · ${MONTH_NAMES[month - 1]} ${year}`;
-  }, [activeTab, month, year]);
+  }, [activeTab, month, year, period]);
 
   return (
     <div className="mx-auto max-w-7xl px-4 sm:px-6">
       <h1 className="sr-only md:hidden">Clientes</h1>
       <div className="hidden md:block"><Header title="Clientes" subtitle={subtitle} actions={<FinancialPrivacyButton />} /></div>
 
-      <ManagementModuleNavigation label="Navegação de Clientes" tabs={TABS} value={activeTab} onChange={setActiveTab} year={year} month={month} onPeriodChange={(y, m) => { setYear(y); setMonth(m); }} hidePeriod={["contratos", "vgv", "analise_comercial"].includes(activeTab)} />
+      <ManagementModuleNavigation label="Navegação de Clientes" tabs={TABS} value={activeTab} onChange={setActiveTab} period={period} onPeriodChange={setPeriod} hidePeriod={["contratos", "vgv", "analise_comercial"].includes(activeTab)} />
 
       <AnimatePresence mode="wait">
         <motion.div
           key={activeTab}
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -8 }}
+          initial={{ y: 8 }}
+          animate={{ y: 0 }}
+          exit={{ y: -8 }}
           transition={{ duration: 0.2 }}
           className="pb-8"
         >
           {activeTab === "contratos" && <ContractsModule />}
-          {activeTab === "visao_geral" && <ClientesRentabilidade year={year} month={month} />}
+          {activeTab === "visao_geral" && <ClientesRentabilidade period={period} />}
           {activeTab === "vgv" && <MarketingVgvModule embedded />}
           {activeTab === "analise_comercial" && <CommercialAnalysisModule />}
           {activeTab === "saude"       && <SaudeOperacao year={year} month={month} />}

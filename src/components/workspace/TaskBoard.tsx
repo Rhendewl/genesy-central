@@ -176,8 +176,8 @@ export function TaskBoard({ tasksHook, onOpenTask, visibleTasks, themeColor, hid
           {WORKSPACE_TASK_STATUSES.map((s, i) => (
             <motion.div
               key={s.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
+              initial={{ y: 20 }}
+              animate={{ y: 0 }}
               transition={{ duration: 0.4, delay: i * 0.06, ease: "easeOut" }}
               style={{ scrollSnapAlign: "start" }}
               className="flex-shrink-0"

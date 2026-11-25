@@ -181,8 +181,8 @@ export default function ConvitePage() {
   return (
     <div className="flex min-h-dvh items-center justify-center p-6">
       <motion.div
-        initial={{ opacity: 0, y: 16 }}
-        animate={{ opacity: 1, y: 0 }}
+        initial={{ y: 16 }}
+        animate={{ y: 0 }}
         transition={{ duration: 0.3, ease: "easeOut" }}
         className="w-full max-w-sm"
       >

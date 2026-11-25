@@ -203,8 +203,8 @@ interface ComingSoonCardProps {
 function ComingSoonCard({ name, icon, desc, delay = 0 }: ComingSoonCardProps) {
   return (
     <motion.div
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
+      initial={{ y: 8 }}
+      animate={{ y: 0 }}
       transition={{ duration: 0.25, delay }}
       className="relative rounded-2xl p-4 flex items-center gap-4 overflow-hidden"
       style={{ background: "var(--hover)", border: "1px solid var(--border)" }}
@@ -283,8 +283,8 @@ export function IntegracoesFinanceiras() {
 
         {/* ── Page header ───────────────────────────────────────────── */}
         <motion.div
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
+          initial={{ y: 8 }}
+          animate={{ y: 0 }}
           transition={{ duration: 0.25 }}
         >
           <h2 className="text-[var(--text-title)] font-bold text-xl tracking-tight">Integrações Financeiras</h2>
@@ -295,8 +295,8 @@ export function IntegracoesFinanceiras() {
 
         {/* ── Asaas card ─────────────────────────────────────────────── */}
         <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
+          initial={{ y: 12 }}
+          animate={{ y: 0 }}
           transition={{ duration: 0.28, delay: 0.06 }}
           className="lc-card p-6 space-y-5"
         >
@@ -506,8 +506,8 @@ export function IntegracoesFinanceiras() {
 
         {/* ── Em breve ──────────────────────────────────────────────── */}
         <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
+          initial={{ y: 12 }}
+          animate={{ y: 0 }}
           transition={{ duration: 0.28, delay: 0.14 }}
           className="space-y-4"
         >

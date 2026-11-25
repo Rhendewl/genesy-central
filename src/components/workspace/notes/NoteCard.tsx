@@ -46,8 +46,8 @@ export function NoteCard({ note, onDelete, folders, onMove }: NoteCardProps) {
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
+      initial={{ y: 12 }}
+      animate={{ y: 0 }}
       whileHover={{ y: -2 }}
       transition={{ duration: 0.2 }}
       className="app-accent-border group relative cursor-pointer overflow-hidden lc-card"

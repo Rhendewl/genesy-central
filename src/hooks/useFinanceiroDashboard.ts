@@ -1,5 +1,6 @@
 "use client";
 
+import { monthFraction } from "@/lib/financeiro/period";
 import { useState, useEffect, useCallback, useRef } from "react";
 import {CLIENTS_CHANGED} from "@/lib/client-events";
 import { getSupabaseClient } from "@/lib/supabase";
@@ -103,8 +104,9 @@ export function useFinanceiroDashboard(
       // ── Daily arrays (declare early — reused in commission scaling) ────────────
       const days = eachDayOfInterval({ start: parseISO(currentStart), end: parseISO(currentEnd) });
 
-      // Scale commissions to period length (proportional to 30-day month)
-      const totalComissoesPeriodo = totalComissoesMes * (days.length / 30);
+      // Fração de mês do período (1 para um mês inteiro; dias/30 nos demais) — escala comissões e mensalidades
+      const fracaoMes = monthFraction({ start: currentStart, end: currentEnd });
+      const totalComissoesPeriodo = totalComissoesMes * fracaoMes;
       const comissaoPorDia        = totalComissoesMes / 30;
 
       const totalDespesas = totalDespesasDiretas + totalComissoesPeriodo;
@@ -174,6 +176,8 @@ export function useFinanceiroDashboard(
         .filter(c => c.status === "ativo")
         .map(c => {
           const mensalidade = Number(c.monthly_fee);
+          // Receita esperada do cliente dentro do período escolhido
+          const receitaPeriodo = mensalidade * fracaoMes;
 
           // Direct expenses linked to this client in the period
           const custosExpenses = (c.expenses ?? [])
@@ -183,14 +187,14 @@ export function useFinanceiroDashboard(
           // Partner/commission costs based on monthly_fee percentage
           const custosParceiros = (costShares ?? [])
             .filter((s: { client_id: string }) => s.client_id === c.id)
-            .reduce((sum: number, s: { percentage: number }) => sum + (mensalidade * Number(s.percentage) / 100), 0);
+            .reduce((sum: number, s: { percentage: number }) => sum + (receitaPeriodo * Number(s.percentage) / 100), 0);
 
           const custoTotal = custosExpenses + custosParceiros;
 
           // Lucro and margem use monthly_fee as revenue base (not revenues table entries,
           // which may be absent even when the client is active and paying their monthly fee).
-          const lucro  = mensalidade - custoTotal;
-          const margem = mensalidade > 0 ? (lucro / mensalidade) * 100 : 0;
+          const lucro  = receitaPeriodo - custoTotal;
+          const margem = receitaPeriodo > 0 ? (lucro / receitaPeriodo) * 100 : 0;
 
           // Contract duration: active clients use today; encerrados use contract_end.
           const contractStart = c.contract_start ? parseISO(c.contract_start) : parseISO(c.created_at);

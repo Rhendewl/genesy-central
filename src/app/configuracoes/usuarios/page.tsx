@@ -211,8 +211,8 @@ function StatsCard({ icon: Icon, label, value, accent, delay }: {
 }) {
   return (
     <motion.div
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
+      initial={{ y: 16 }}
+      animate={{ y: 0 }}
       transition={{ duration: 0.35, delay, ease: "easeOut" }}
       className="flex items-center gap-4 rounded-2xl p-4"
       style={{ background: "var(--hover)", border: "1px solid var(--border)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)" }}
@@ -982,8 +982,8 @@ function UsuariosContent() {
 
       {/* Table */}
       <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
+        initial={{ y: 12 }}
+        animate={{ y: 0 }}
         transition={{ duration: 0.35, delay: 0.25 }}
         className="rounded-2xl"
         style={{ background: "var(--hover)", border: "1px solid var(--border)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)" }}
@@ -1079,9 +1079,9 @@ function UsuariosContent() {
       <AnimatePresence>
         {invites.length > 0 && (
           <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 8 }}
+            initial={{ y: 8 }}
+            animate={{ y: 0 }}
+            exit={{ y: 8 }}
             className="rounded-2xl overflow-hidden"
             style={{ background: "var(--hover)", border: "1px solid var(--border)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)" }}
           >

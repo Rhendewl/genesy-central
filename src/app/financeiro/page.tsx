@@ -20,6 +20,7 @@ import { AlertasFinanceiros } from "@/components/financeiro/AlertasFinanceiros";
 import { IntegracoesFinanceiras } from "@/components/financeiro/IntegracoesFinanceiras";
 import { FinancialPrivacyButton } from "@/components/ui/FinancialPrivacyButton";
 import { useFinancialPrivacyStore } from "@/store/financial-privacy";
+import { periodLabel, periodMonth, presetPeriod, type FinancialPeriod } from "@/lib/financeiro/period";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Financeiro Page — Dashboard / Receitas / Despesas / Fluxo / Cobranças / Metas / Alertas
@@ -54,11 +55,10 @@ const MONTH_NAMES = [
 export default function FinanceiroPage() {
   const valuesHidden = useFinancialPrivacyStore((state) => state.valuesHidden);
   void valuesHidden;
-  const now = new Date();
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabId>("dashboard");
-  const [year, setYear] = useState(now.getFullYear());
-  const [month, setMonth] = useState(now.getMonth() + 1);
+  const [period, setPeriod] = useState<FinancialPeriod>(() => presetPeriod("mes"));
+  const { year, month } = periodMonth(period);
   useEffect(() => {
     const requested = new URLSearchParams(window.location.search).get("tab") as TabId | null;
     if (requested && TABS.some((tab) => tab.id === requested)) setActiveTab(requested);
@@ -67,8 +67,10 @@ export default function FinanceiroPage() {
   const tabSubtitle = useMemo(() => {
     const tab = TABS.find(t => t.id === activeTab);
     if (activeTab === "integracoes") return tab?.label ?? "";
-    return `${tab?.label} · ${MONTH_NAMES[month - 1]} ${year}`;
-  }, [activeTab, month, year]);
+    if (activeTab === "metas") return `${tab?.label} · ${MONTH_NAMES[month - 1]} ${year}`;
+    if (activeTab === "inadimplencia") return tab?.label ?? "";
+    return `${tab?.label} · ${periodLabel(period)}`;
+  }, [activeTab, month, year, period]);
 
   return (
     <ModuleAccessGate module="financeiro">
@@ -76,24 +78,24 @@ export default function FinanceiroPage() {
       <h1 className="sr-only md:hidden">Financeiro</h1>
       <div className="hidden md:block"><Header title="Financeiro" subtitle={tabSubtitle} actions={<FinancialPrivacyButton />} /></div>
 
-      <ManagementModuleNavigation label="Navegação de Financeiro" tabs={TABS} value={activeTab} onChange={setActiveTab} year={year} month={month} onPeriodChange={(y, m) => { setYear(y); setMonth(m); }} hidePeriod={activeTab === "integracoes"} />
+      <ManagementModuleNavigation label="Navegação de Financeiro" tabs={TABS} value={activeTab} onChange={setActiveTab} period={period} onPeriodChange={setPeriod} hidePeriod={activeTab === "integracoes" || activeTab === "inadimplencia"} />
 
       <AnimatePresence mode="wait">
         <motion.div
           key={activeTab}
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -8 }}
+          initial={{ y: 8 }}
+          animate={{ y: 0 }}
+          exit={{ y: -8 }}
           transition={{ duration: 0.2 }}
           className="pb-8"
         >
-          {activeTab === "dashboard" && <DashboardFinanceiro year={year} month={month} onNavigateToTab={(tab) => tab === "clientes" ? router.push("/clientes") : setActiveTab(tab as TabId)} />}
-          {activeTab === "receitas" && <GestaoReceitas year={year} month={month} />}
-          {activeTab === "despesas" && <GestaoDespesas year={year} month={month} />}
-          {activeTab === "fluxo" && <FluxoCaixa year={year} month={month} />}
+          {activeTab === "dashboard" && <DashboardFinanceiro period={period} onNavigateToTab={(tab) => tab === "clientes" ? router.push("/clientes") : setActiveTab(tab as TabId)} />}
+          {activeTab === "receitas" && <GestaoReceitas period={period} />}
+          {activeTab === "despesas" && <GestaoDespesas period={period} />}
+          {activeTab === "fluxo" && <FluxoCaixa period={period} />}
           {activeTab === "inadimplencia" && <Inadimplencia year={year} month={month} />}
           {activeTab === "metas" && <MetasFinanceiras year={year} month={month} />}
-          {activeTab === "alertas" && <AlertasFinanceiros year={year} month={month} />}
+          {activeTab === "alertas" && <AlertasFinanceiros period={period} />}
           {activeTab === "integracoes" && <IntegracoesFinanceiras />}
         </motion.div>
       </AnimatePresence>

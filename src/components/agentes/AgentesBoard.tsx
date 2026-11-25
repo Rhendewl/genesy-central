@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
-  Activity, Bot, Check, CheckCircle2, Cpu, ExternalLink, Hourglass, Inbox, Lightbulb, Loader2, PenLine, RefreshCw, Rocket, Sparkles, Timer,
+  Activity, Bot, Check, CheckCircle2, Cpu, ExternalLink, Hourglass, Inbox, Lightbulb, Loader2, Maximize2, PenLine, RefreshCw, Rocket, Sparkles, Timer, X,
 } from "lucide-react";
 import { useEsteira } from "@/hooks/useEsteira";
 import { useSegmentIndicator } from "@/components/ui/useSegmentIndicator";
@@ -112,7 +112,9 @@ export function AgentesBoard() {
   const kpi = useMemo(() => indicadores(itens, esteira.agora), [itens, esteira.agora]);
   const eventos = esteira.eventos.filter((e) => filtro === "todos" || e.agente === filtro || e.agente === null);
   const aprendizados = esteira.aprendizados.filter((a) => filtro === "todos" || a.agente === filtro);
-  const regras = aprendizados.filter((a) => a.tipo === "regra").slice(0, 6);
+  const todasRegras = aprendizados.filter((a) => a.tipo === "regra");
+  const regras = todasRegras.slice(0, 6);
+  const [expandido, setExpandido] = useState<"historico" | "aprendizado" | null>(null);
   const propostas = aprendizados.filter((a) => a.tipo === "proposta" && a.status === "pendente");
 
   if (esteira.isLoading) {
@@ -157,43 +159,91 @@ export function AgentesBoard() {
         <Kpi icon={<Timer size={16} />} cor="#a78bfa" titulo="Do pedido à entrega" valor={kpi.tempoMedio ?? "—"} sub="média dos últimos 7 dias" />
       </section>
 
-      <div className="flex flex-wrap items-start gap-5">
-        <section aria-label="Esteira por agente" className="min-w-0 space-y-4" style={{ flex: "999 1 640px" }}>
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
+        <section aria-label="Esteira por agente" className="min-w-0 space-y-4">
           {agentes.map((agente) => (
             <Esteira key={agente} agente={agente} itens={esteira.itens} agora={esteira.agora} decidir={esteira.decidirItem} />
           ))}
         </section>
 
-        <aside className="min-w-0 space-y-4" style={{ flex: "1 1 300px" }}>
-          <Painel icon={<Activity size={15} />} cor={VERDE} titulo="Acontecendo agora">
-            {eventos.length === 0 ? (
-              <Vazio texto="Assim que o Alfred ou o Bruce começarem um trabalho, os passos aparecem aqui." />
-            ) : (
-              <ol className="relative max-h-[440px] space-y-3.5 overflow-y-auto pr-1">
-                <span aria-hidden className="absolute bottom-2 left-[11px] top-2 w-px" style={{ background: "var(--glass-border)" }} />
-                {eventos.map((ev) => <LinhaEvento key={ev.id} evento={ev} agora={esteira.agora} />)}
-              </ol>
-            )}
-          </Painel>
-
-          <Painel icon={<Lightbulb size={15} />} cor="#facc15" titulo="O que eles aprenderam" extra="últimos 14 dias">
-            {propostas.map((p) => <Proposta key={p.id} proposta={p} decidir={esteira.decidirProposta} />)}
-            {regras.length === 0 && propostas.length === 0 && (
-              <Vazio texto="Quando você responder “salva” a uma regra no Telegram, ela aparece aqui." />
-            )}
-            {regras.map((r) => (
-              <div key={r.id} className="flex gap-2.5 rounded-xl p-3" style={{ background: "var(--hover)", border: "1px solid var(--glass-border)" }}>
-                <Avatar agente={r.agente} size={26} />
-                <div className="min-w-0 space-y-1">
-                  <p className={`text-[11px] font-semibold ${AG_TXT[r.agente]}`}>
-                    {AGENTES_INFO[r.agente].nome.split(" ")[0]}<span className="font-normal" style={muted}>{r.escopo ? ` · ${r.escopo}` : ""} · {tempoRelativo(r.created_at, esteira.agora)}</span>
-                  </p>
-                  <p className="text-[13px] leading-snug" style={subtle}>{r.texto}</p>
-                </div>
-              </div>
-            ))}
-          </Painel>
+        {/* No computador, a lateral acompanha a altura da esteira; cada painel rola por dentro. */}
+        <aside className="relative min-w-0 lg:min-h-[640px]">
+          <div className="flex flex-col gap-4 lg:absolute lg:inset-0">
+            <Painel icon={<Activity size={15} />} cor={VERDE} titulo="Histórico" onExpand={() => setExpandido("historico")}>
+              <ListaEventos eventos={eventos} agora={esteira.agora} />
+            </Painel>
+            <Painel icon={<Lightbulb size={15} />} cor="#facc15" titulo="Aprendizado" extra="últimos 14 dias" onExpand={() => setExpandido("aprendizado")}>
+              <ListaAprendizado propostas={propostas} regras={regras} agora={esteira.agora} decidir={esteira.decidirProposta} />
+            </Painel>
+          </div>
         </aside>
+      </div>
+
+      {expandido === "historico" && (
+        <JanelaExpandida icon={<Activity size={16} />} cor={VERDE} titulo="Histórico" subtitulo={`${eventos.length} ${eventos.length === 1 ? "registro" : "registros"} · do mais recente ao mais antigo`} onClose={() => setExpandido(null)}>
+          <ListaEventos eventos={eventos} agora={esteira.agora} />
+        </JanelaExpandida>
+      )}
+      {expandido === "aprendizado" && (
+        <JanelaExpandida icon={<Lightbulb size={16} />} cor="#facc15" titulo="Aprendizado" subtitulo="Regras salvas e propostas dos agentes nos últimos 14 dias" onClose={() => setExpandido(null)}>
+          <ListaAprendizado propostas={propostas} regras={todasRegras} agora={esteira.agora} decidir={esteira.decidirProposta} />
+        </JanelaExpandida>
+      )}
+    </div>
+  );
+}
+
+function ListaEventos({ eventos, agora }: { eventos: EsteiraEvento[]; agora: number }) {
+  if (eventos.length === 0) return <Vazio texto="Assim que o Alfred ou o Bruce começarem um trabalho, os passos aparecem aqui." />;
+  return (
+    <ol className="relative space-y-3.5">
+      <span aria-hidden className="absolute bottom-2 left-[11px] top-2 w-px" style={{ background: "var(--glass-border)" }} />
+      {eventos.map((ev) => <LinhaEvento key={ev.id} evento={ev} agora={agora} />)}
+    </ol>
+  );
+}
+
+function ListaAprendizado({ propostas, regras, agora, decidir }: { propostas: EsteiraAprendizado[]; regras: EsteiraAprendizado[]; agora: number; decidir: (id: string, d: "aceita" | "descartada") => Promise<void> }) {
+  if (regras.length === 0 && propostas.length === 0) return <Vazio texto="Quando você responder “salva” a uma regra no Telegram, ela aparece aqui." />;
+  return (
+    <div className="space-y-2.5">
+      {propostas.map((p) => <Proposta key={p.id} proposta={p} decidir={decidir} />)}
+      {regras.map((r) => (
+        <div key={r.id} className="flex gap-2.5 rounded-xl p-3" style={{ background: "var(--hover)", border: "1px solid var(--glass-border)" }}>
+          <Avatar agente={r.agente} size={26} />
+          <div className="min-w-0 space-y-1">
+            <p className={`text-[11px] font-semibold ${AG_TXT[r.agente]}`}>
+              {AGENTES_INFO[r.agente].nome.split(" ")[0]}<span className="font-normal" style={muted}>{r.escopo ? ` · ${r.escopo}` : ""} · {tempoRelativo(r.created_at, agora)}</span>
+            </p>
+            <p className="text-[13px] leading-snug" style={subtle}>{r.texto}</p>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** Janela com o histórico completo (fundo preto 30%, como as outras confirmações da plataforma). */
+function JanelaExpandida({ icon, cor, titulo, subtitulo, onClose, children }: { icon: ReactNode; cor: string; titulo: string; subtitulo: string; onClose: () => void; children: ReactNode }) {
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => { if (event.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    const overflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { window.removeEventListener("keydown", onKey); document.body.style.overflow = overflow; };
+  }, [onClose]);
+  return (
+    <div className="fixed inset-0 z-[80] grid place-items-center bg-black/30 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-label={titulo} onClick={onClose}>
+      <div className="flex max-h-[min(760px,calc(100dvh-32px))] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border shadow-2xl backdrop-blur-2xl bg-black/60 [.light_&]:bg-[rgba(248,248,248,0.94)]" style={{ borderColor: "var(--border-modal)" }} onClick={(event) => event.stopPropagation()}>
+        <header className="flex items-center gap-3 border-b px-5 py-4" style={{ borderColor: "var(--glass-border)" }}>
+          <span className="grid h-9 w-9 flex-none place-items-center rounded-xl" style={{ background: alpha(cor, 0.16), color: cor }}>{icon}</span>
+          <div className="min-w-0 flex-1">
+            <h2 className="text-base font-semibold" style={title}>{titulo}</h2>
+            <p className="truncate text-xs" style={muted}>{subtitulo}</p>
+          </div>
+          <button type="button" onClick={onClose} aria-label="Fechar" className="grid h-9 w-9 place-items-center rounded-xl transition hover:bg-white/5" style={muted}><X size={16} /></button>
+        </header>
+        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">{children}</div>
       </div>
     </div>
   );
@@ -500,18 +550,23 @@ function CardItem({ item, agente, agora, decidir }: { item: EsteiraItem; agente:
 
 /* ─────────────────────────── Lateral ─────────────────────────── */
 
-function Painel({ icon, cor, titulo, extra, children }: { icon: ReactNode; cor: string; titulo: string; extra?: string; children: ReactNode }) {
+function Painel({ icon, cor, titulo, extra, onExpand, children }: { icon: ReactNode; cor: string; titulo: string; extra?: string; onExpand: () => void; children: ReactNode }) {
   return (
-    <section aria-label={titulo} className="lc-card relative space-y-3 overflow-hidden p-4">
+    <section aria-label={titulo} className="lc-card relative flex h-[420px] min-h-0 flex-col overflow-hidden p-4 lg:h-auto lg:flex-1">
       <Glow spots={[{ color: cor, className: "-right-16 -top-20 h-44 w-44", opacity: 0.12 }]} />
-      <div className="relative flex items-center justify-between gap-2">
+      <div className="relative mb-3 flex items-center justify-between gap-2">
         <h2 className="flex items-center gap-2 text-sm font-semibold" style={title}>
           <span className="grid h-7 w-7 place-items-center rounded-lg" style={{ background: alpha(cor, 0.16), color: cor }}>{icon}</span>
           {titulo}
         </h2>
-        {extra && <span className="whitespace-nowrap text-[11px]" style={muted}>{extra}</span>}
+        <div className="flex items-center gap-2">
+          {extra && <span className="whitespace-nowrap text-[11px]" style={muted}>{extra}</span>}
+          <button type="button" onClick={onExpand} aria-label={`Expandir ${titulo.toLowerCase()}`} title="Expandir" className="grid h-8 w-8 place-items-center rounded-lg border transition hover:bg-white/5 hover:text-[var(--text-title)]" style={{ borderColor: "var(--glass-border)", color: "var(--text-subtitle)" }}>
+            <Maximize2 size={14} />
+          </button>
+        </div>
       </div>
-      <div className="relative space-y-2.5">{children}</div>
+      <div className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1">{children}</div>
     </section>
   );
 }

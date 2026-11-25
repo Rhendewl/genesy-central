@@ -7,7 +7,8 @@ import { DateInput } from "@/components/ui/DateInput";
 
 import { useState, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { format, parseISO, endOfMonth, eachDayOfInterval } from "date-fns";
+import { format, parseISO, eachDayOfInterval } from "date-fns";
+import { isFullMonth, previousLabel, previousPeriod, type FinancialPeriod } from "@/lib/financeiro/period";
 import { ptBR } from "date-fns/locale";
 import { Search, X, Edit2, Trash2, Zap } from "lucide-react";
 import { toast } from "sonner";
@@ -188,15 +189,13 @@ function DespesaModal({ expense, onClose, onSave, clients }: ModalProps) {
 
 type SortKey = "date_desc" | "date_asc" | "amount_desc" | "amount_asc";
 
-export function GestaoDespesas({ year, month }: { year: number; month: number }) {
+export function GestaoDespesas({ period }: { period: FinancialPeriod }) {
   const valuesHidden = useFinancialPrivacyStore(state => state.valuesHidden);
-  const monthStart = `${year}-${String(month).padStart(2, "0")}-01`;
-  const monthEnd   = format(endOfMonth(new Date(year, month - 1)), "yyyy-MM-dd");
-
-  const prevYear  = month === 1 ? year - 1 : year;
-  const prevMon   = month === 1 ? 12 : month - 1;
-  const prevStart = `${prevYear}-${String(prevMon).padStart(2, "0")}-01`;
-  const prevEnd   = format(endOfMonth(new Date(prevYear, prevMon - 1)), "yyyy-MM-dd");
+  const monthStart = period.start;
+  const monthEnd   = period.end;
+  const { start: prevStart, end: prevEnd } = previousPeriod(period);
+  const mensal = isFullMonth(period);
+  const anterior = previousLabel(period);
 
   const { expenses, isLoading, createExpense, updateExpense, deleteExpense } =
     useDespesas(monthStart, monthEnd);
@@ -244,17 +243,18 @@ export function GestaoDespesas({ year, month }: { year: number; month: number })
 
   const dailyChartData = useMemo(() => {
     if (expenses.length === 0) return [];
-    const start = new Date(year, month - 1, 1);
+    const start = parseISO(monthStart);
     const end   = parseISO(monthEnd);
+    const variosMeses = monthStart.slice(0, 7) !== monthEnd.slice(0, 7);
     return eachDayOfInterval({ start, end })
       .map(day => {
         const dayStr = format(day, "yyyy-MM-dd");
         const dayTotal = expenses
           .filter(e => e.date === dayStr)
           .reduce((s, e) => s + e.amount, 0);
-        return { date: format(day, "dd"), total: dayTotal };
+        return { date: format(day, variosMeses ? "dd/MM" : "dd"), total: dayTotal };
       });
-  }, [expenses, year, month, monthEnd]);
+  }, [expenses, monthStart, monthEnd]);
 
 
   // ── Insights ───────────────────────────────────────────────────────────────
@@ -268,7 +268,7 @@ export function GestaoDespesas({ year, month }: { year: number; month: number })
     }
     if (variation !== null && Math.abs(variation) > 5) {
       const dir = variation > 0 ? "acima" : "abaixo";
-      list.push(`Despesas ${privateFinancialValue(`${Math.abs(variation).toFixed(1)}%`)} ${dir} do mês anterior (${fmt(prevTotal)})`);
+      list.push(`Despesas ${privateFinancialValue(`${Math.abs(variation).toFixed(1)}%`)} ${dir} do ${anterior} (${fmt(prevTotal)})`);
     }
     if (list.length < 2) {
       const largest = [...expenses].sort((a, b) => b.amount - a.amount)[0];
@@ -351,15 +351,15 @@ export function GestaoDespesas({ year, month }: { year: number; month: number })
   return (
     <div className="fin-workspace">
       <FinancialSectionHeader title="Despesas" description="Custos fixos, variáveis e lançamentos da operação." createLabel="Nova Despesa" onCreate={() => setModal({ open: true })} />
-      <div className="fin-overview" aria-label="Resumo das despesas do mês">
-        <FinancialMetric label="Total do mês" value={fmt(total)} detail={`${expenses.length} lançamentos`} tone="amber" onClick={() => setFilterType("todos")} selected={filterType === "todos"} />
+      <div className="fin-overview" aria-label={mensal ? "Resumo das despesas do mês" : "Resumo das despesas do período"}>
+        <FinancialMetric label={mensal ? "Total do mês" : "Total do período"} value={fmt(total)} detail={`${expenses.length} lançamentos`} tone="amber" onClick={() => setFilterType("todos")} selected={filterType === "todos"} />
         <FinancialMetric label="Custos fixos" value={fmt(totalFixa)} detail="Toque para consultar os fixos" tone="blue" onClick={() => setFilterType(filterType === "fixa" ? "todos" : "fixa")} selected={filterType === "fixa"} />
         <FinancialMetric label="Custos variáveis" value={fmt(totalVar)} detail="Toque para consultar os variáveis" onClick={() => setFilterType(filterType === "variavel" ? "todos" : "variavel")} selected={filterType === "variavel"} />
-        <FinancialMetric label="Variação mensal" value={variation === null ? "—" : privateFinancialValue(`${variation >= 0 ? "+" : ""}${variation.toFixed(1)}%`)} detail={prevTotal > 0 ? `Mês anterior: ${fmt(prevTotal)}` : "Sem base no mês anterior"} tone={variation !== null && variation > 0 ? "red" : "green"} />
+        <FinancialMetric label={mensal ? "Variação mensal" : "Variação"} value={variation === null ? "—" : privateFinancialValue(`${variation >= 0 ? "+" : ""}${variation.toFixed(1)}%`)} detail={prevTotal > 0 ? `${anterior[0].toUpperCase()}${anterior.slice(1)}: ${fmt(prevTotal)}` : `Sem base no ${anterior}`} tone={variation !== null && variation > 0 ? "red" : "green"} />
       </div>
       <FinancialAnalysis>
         <div className="fin-chart-grid">
-          <FinancialActivityChart title="Evolução das despesas" description="Custos lançados em cada dia do mês." data={dailyChartData} color="#fbbf24" />
+          <FinancialActivityChart title="Evolução das despesas" description={mensal ? "Custos lançados em cada dia do mês." : "Custos lançados em cada dia do período."} data={dailyChartData} color="#fbbf24" />
           <FinancialBreakdown title="Onde estão os custos" description="Selecione uma categoria para filtrar os lançamentos." rows={byCategory.map(c => ({ id: c.category, label: c.label, total: c.total }))} selected={filterCat} onSelect={id => setFilterCat(filterCat === id ? "todos" : id as ExpenseCategory)} />
         </div>
       </FinancialAnalysis>
@@ -367,13 +367,13 @@ export function GestaoDespesas({ year, month }: { year: number; month: number })
         <FinancialMetric label="Valor médio" value={fmt(ticketMedio)} detail="Por lançamento" />
         <FinancialMetric label="Maior categoria" value={topCategory ? fmt(topCategory.total) : "—"} detail={topCategory?.label ?? "Sem lançamentos no período"} tone="amber" />
       </div></details>
-      {insights.length > 0 && <aside className="fin-panel fin-insights"><h3>Leitura do mês</h3>{insights.map(insight => <p key={insight} className="mt-2 text-xs text-[var(--muted-foreground)]">{insight}</p>)}</aside>}
+      {insights.length > 0 && <aside className="fin-panel fin-insights"><h3>{mensal ? "Leitura do mês" : "Leitura do período"}</h3>{insights.map(insight => <p key={insight} className="mt-2 text-xs text-[var(--muted-foreground)]">{insight}</p>)}</aside>}
 
       {/* ── 4. Filter bar ── */}
       <FinancialFilters active={hasFilters}>
       <motion.div
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
+        initial={{ y: 8 }}
+        animate={{ y: 0 }}
         transition={{ delay: 0.38 }}
         className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between"
       >
@@ -437,8 +437,8 @@ export function GestaoDespesas({ year, month }: { year: number; month: number })
 
       {/* ── 5. Table ── */}
       <motion.div
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
+        initial={{ y: 8 }}
+        animate={{ y: 0 }}
         transition={{ delay: 0.42 }}
         className="fin-ledger lc-card overflow-hidden"
       >

@@ -195,8 +195,8 @@ export function PerformancePodiumCard({ delay = 0.24 }: { delay?: number }) {
     <motion.section
       className="lc-card overflow-hidden p-4 sm:p-6"
       style={{ background: "var(--glass-bg-soft)" }}
-      initial={{ opacity: 0, y: 18 }}
-      animate={{ opacity: 1, y: 0 }}
+      initial={{ y: 18 }}
+      animate={{ y: 0 }}
       transition={{ duration: 0.4, delay, ease: "easeOut" }}
       aria-labelledby="performance-podium-title"
     >

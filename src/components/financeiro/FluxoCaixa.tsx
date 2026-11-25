@@ -1,5 +1,6 @@
 "use client";
 
+import type { FinancialPeriod } from "@/lib/financeiro/period";
 import { motion } from "framer-motion";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
@@ -43,8 +44,8 @@ interface SummaryCardProps {
 function SummaryCard({ label, value, icon, accent, sub, delay = 0 }: SummaryCardProps) {
   return (
     <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
+      initial={{ y: 12 }}
+      animate={{ y: 0 }}
       transition={{ delay }}
       className="lc-card p-5 flex flex-col gap-3"
     >
@@ -63,12 +64,11 @@ function SummaryCard({ label, value, icon, accent, sub, delay = 0 }: SummaryCard
 }
 
 interface Props {
-  year: number;
-  month: number;
+  period: FinancialPeriod;
 }
 
-export function FluxoCaixa({ year, month }: Props) {
-  const { summary, entries, chartData, isLoading } = useFluxoCaixa(year, month);
+export function FluxoCaixa({ period }: Props) {
+  const { summary, entries, chartData, isLoading } = useFluxoCaixa(period.start, period.end);
 
   if (isLoading || !summary) {
     return (
@@ -121,8 +121,8 @@ export function FluxoCaixa({ year, month }: Props) {
             { label: "Projeção 90 dias", value: summary.projecao_90, icon: <Calendar size={16} /> },
           ] as const).map((p, i) => (
             <motion.div key={p.label}
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
+              initial={{ y: 12 }}
+              animate={{ y: 0 }}
               transition={{ delay: 0.25 + i * 0.05 }}
               className="lc-card p-5 flex flex-col gap-2"
               style={{ border: `1px solid ${projColor(p.value)}33` }}
@@ -140,13 +140,13 @@ export function FluxoCaixa({ year, month }: Props) {
 
       {/* Chart */}
       <motion.div
-        initial={{ opacity: 0, y: 16 }}
-        animate={{ opacity: 1, y: 0 }}
+        initial={{ y: 16 }}
+        animate={{ y: 0 }}
         transition={{ delay: 0.4 }}
         className="lc-card p-6"
       >
         <h3 className="text-sm font-semibold text-[var(--text-title)] mb-1">Fluxo por Semana</h3>
-        <p className="text-xs text-[var(--silver)] mb-5">Entradas vs saídas no mês</p>
+        <p className="text-xs text-[var(--silver)] mb-5">Entradas vs saídas no período</p>
         <ResponsiveContainer width="100%" height={200}>
           <AreaChart data={chartData}>
             <defs>
@@ -172,8 +172,8 @@ export function FluxoCaixa({ year, month }: Props) {
 
       {/* Transactions list */}
       <motion.div
-        initial={{ opacity: 0, y: 16 }}
-        animate={{ opacity: 1, y: 0 }}
+        initial={{ y: 16 }}
+        animate={{ y: 0 }}
         transition={{ delay: 0.5 }}
         className="lc-card overflow-hidden"
       >

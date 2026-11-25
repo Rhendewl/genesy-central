@@ -1,5 +1,6 @@
 "use client";
 
+import { periodMonth, type FinancialPeriod } from "@/lib/financeiro/period";
 import { useMemo } from "react";
 import { motion } from "framer-motion";
 import {
@@ -107,13 +108,13 @@ function AlertCard({ alert, delay = 0 }: AlertCardProps) {
 }
 
 interface Props {
-  year: number;
-  month: number;
+  period: FinancialPeriod;
 }
 
-export function AlertasFinanceiros({ year, month }: Props) {
+export function AlertasFinanceiros({ period }: Props) {
   const valuesHidden = useFinancialPrivacyStore(state => state.valuesHidden);
-  const { data, clientProfitability } = useFinanceiroDashboard(year, month);
+  const { year, month } = periodMonth(period);
+  const { data, clientProfitability } = useFinanceiroDashboard(year, month, period.start, period.end);
   const { collections, totalInadimplencia } = useInadimplencia();
 
   const alerts = useMemo<FinancialAlert[]>(() => {
@@ -139,7 +140,7 @@ export function AlertasFinanceiros({ year, month }: Props) {
         id: `a${idx++}`, type: "receita_caindo",
         severity: "warning",
         title: "Receita em Queda",
-        message: `Perda de ${fmt(data.receita_perdida)} este mês superou os ganhos de ${fmt(data.receita_nova)}. Avalie a retenção de clientes.`,
+        message: `Perda de ${fmt(data.receita_perdida)} no período superou os ganhos de ${fmt(data.receita_nova)}. Avalie a retenção de clientes.`,
         value: data.receita_perdida,
       });
     }
@@ -184,7 +185,7 @@ export function AlertasFinanceiros({ year, month }: Props) {
         id: `a${idx++}`, type: "cliente_prejuizo",
         severity: "warning",
         title: `Cliente Gerando Prejuízo`,
-        message: `${cp.client.name} está gerando prejuízo de ${fmt(Math.abs(cp.lucro))} este mês. Custos de ${fmt(cp.custo_total)} vs receita de ${fmt(cp.mensalidade)}.`,
+        message: `${cp.client.name} está gerando prejuízo de ${fmt(Math.abs(cp.lucro))} no período. Custos de ${fmt(cp.custo_total)} vs receita de ${fmt(cp.mensalidade)}.`,
         client_id: cp.client.id,
         client_name: cp.client.name,
         value: cp.lucro,

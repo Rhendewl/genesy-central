@@ -181,8 +181,8 @@ function KpiCardPremium({
 }: KpiPremiumProps) {
   return (
     <motion.div
-      initial={{ opacity: 0, y: 18 }}
-      animate={{ opacity: 1, y: 0 }}
+      initial={{ y: 18 }}
+      animate={{ y: 0 }}
       transition={{ duration: 0.4, delay }}
       className="lc-card p-5 flex flex-col gap-1 group relative overflow-hidden"
       style={{
@@ -270,8 +270,8 @@ function HeroChart({
 }) {
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
+      initial={{ y: 20 }}
+      animate={{ y: 0 }}
       transition={{ delay: 0.25 }}
       className="lc-card p-6"
     >
@@ -569,8 +569,8 @@ function FunnelBlock({ year, month, platformAccountId }: FunnelBlockProps) {
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
+      initial={{ y: 20 }}
+      animate={{ y: 0 }}
       transition={{ delay: 0.35 }}
       className="lc-card p-6 flex flex-col"
     >
@@ -603,8 +603,8 @@ function FunnelBlock({ year, month, platformAccountId }: FunnelBlockProps) {
 
           {/* CPL footer card */}
           <motion.div
-            initial={{ opacity: 0, y: 6 }}
-            animate={{ opacity: 1, y: 0 }}
+            initial={{ y: 6 }}
+            animate={{ y: 0 }}
             transition={{ delay: 0.72 }}
             className="mt-4 rounded-xl px-4 py-3 flex items-center justify-between"
             style={{
@@ -656,8 +656,8 @@ function TopCampanhas({
 }) {
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
+      initial={{ y: 20 }}
+      animate={{ y: 0 }}
       transition={{ delay: 0.4 }}
       className="lc-card p-6 flex flex-col"
     >
@@ -831,8 +831,8 @@ function InsightsBlock({ data }: { data: Parameters<typeof useInsights>[0] }) {
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
+      initial={{ y: 20 }}
+      animate={{ y: 0 }}
       transition={{ delay: 0.5 }}
     >
       {insights.length === 0 ? (
@@ -888,8 +888,8 @@ function SecondaryMetrics({ data }: {
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
+      initial={{ y: 16 }}
+      animate={{ y: 0 }}
       transition={{ delay: 0.6 }}
       className="lc-card overflow-hidden"
     >

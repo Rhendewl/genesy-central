@@ -84,8 +84,8 @@ function FormCard({
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
+      initial={{ y: 12 }}
+      animate={{ y: 0 }}
       whileHover={{ y: -2 }}
       transition={{ duration: 0.2 }}
       className={`relative group p-4 cursor-pointer lc-card ${menuOpen ? "z-40" : "z-0"}`}
@@ -249,8 +249,8 @@ function FormCard({
 function EmptyState({ onCreate }: { onCreate: () => void }) {
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
+      initial={{ y: 20 }}
+      animate={{ y: 0 }}
       className="flex flex-col items-center justify-center py-20 text-center"
     >
       <NotepadText size={28} className="mb-4" style={{ color: "#ffffff" }} />

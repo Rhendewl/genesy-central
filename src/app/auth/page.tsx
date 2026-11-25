@@ -73,8 +73,8 @@ export default function AuthPage() {
       />
 
       <motion.div
-        initial={{ opacity: 0, y: 24 }}
-        animate={{ opacity: 1, y: 0 }}
+        initial={{ y: 24 }}
+        animate={{ y: 0 }}
         transition={{ duration: 0.5, ease: [0.34, 1.56, 0.64, 1] }}
         className="lc-glass w-full max-w-sm rounded-3xl p-8"
       >

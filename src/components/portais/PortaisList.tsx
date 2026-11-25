@@ -156,9 +156,9 @@ function PortalRow({ portal, onEdit, onToggleStatus, onDelete }: PortalRowProps)
 
   return (
     <motion.tr
-      initial={{ opacity: 0, y: 6 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -4 }}
+      initial={{ y: 6 }}
+      animate={{ y: 0 }}
+      exit={{ y: -4 }}
       transition={{ duration: 0.18 }}
       className="group border-b border-[color-mix(in_srgb,var(--text-title)_5%,transparent)] hover:bg-[var(--hover)] transition-colors"
     >

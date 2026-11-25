@@ -41,8 +41,8 @@ export function WorkspaceSummaryPanel({ tasksHook, height, delay = 0 }: Workspac
     <motion.div
       className="lc-card flex p-6"
       style={{ background: "var(--glass-bg-soft)", height }}
-      initial={{ opacity: 0, y: 18 }}
-      animate={{ opacity: 1, y: 0 }}
+      initial={{ y: 18 }}
+      animate={{ y: 0 }}
       transition={{ duration: 0.4, delay, ease: "easeOut" }}
     >
       <div
