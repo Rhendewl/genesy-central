@@ -4,6 +4,7 @@ import { parseAprendizadoPayload, parseEventoPayload, parseItemPayload } from "@
 import { registrarAprendizado, registrarEvento, registrarItem } from "@/lib/esteira/service";
 import { ErroFerramenta, type McpFerramenta } from "./protocol";
 import { conferirDestino, urlPublicaSegura } from "./seguranca";
+import { FERRAMENTAS_FINANCEIRO } from "./financeiro";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Ferramentas do conector MCP da Genesy. Tudo roda com o service role, sempre
@@ -366,4 +367,5 @@ export const FERRAMENTAS_GENESY: McpFerramenta[] = [
       return resultado.body;
     },
   },
+  ...FERRAMENTAS_FINANCEIRO,
 ];
