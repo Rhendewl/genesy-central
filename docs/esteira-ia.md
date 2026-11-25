@@ -25,7 +25,7 @@ Painel /esteira
 
 ## Arquivos
 
-- `supabase/migrations/20261125100000_esteira_ia.sql` — tabelas, RLS (leitura owner/admin pela função própria `esteira_pode_ver`; escrita só service role), Realtime e `esteira_claim_decisoes`.
+- `supabase/migrations/20261125100000_esteira_ia.sql` — tabelas, RLS (leitura owner/admin pela função `esteira_pode_ver`; escrita só service role), Realtime e `esteira_claim_decisoes`. Escrita sem `$$` para rodar no SQL Editor do Supabase self-hosted.
 - `src/app/api/esteira/agente/*` — rotas dos agentes (públicas no middleware; validam o segredo).
 - `src/app/api/esteira/*` — rotas do painel (sessão; owner ou admin).
 - `src/lib/esteira/` — validação (`payload.ts`), regras de negócio (`service.ts`), autenticação (`auth.ts`) e cálculos da tela (`board.ts`), com testes em `__tests__/`.
