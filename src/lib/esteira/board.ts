@@ -2,9 +2,9 @@
 
 import { ESTEIRA_COLUNAS, type EsteiraAgente, type EsteiraEtapa, type EsteiraItem } from "@/types/esteira";
 
-export const AGENTES_INFO: Record<EsteiraAgente, { nome: string; papel: string; cor: string; inicial: string }> = {
-  alfred: { nome: "Alfred", papel: "Tráfego & Criativos", cor: "#27a3ff", inicial: "A" },
-  bruce: { nome: "Bruce Wayne", papel: "Copywriter Genesy · @lancastermatos", cor: "#27f2e6", inicial: "B" },
+export const AGENTES_INFO: Record<EsteiraAgente, { nome: string; papel: string; cor: string; inicial: string; foto: string; gradiente: [string, string] }> = {
+  alfred: { nome: "Alfred", papel: "Tráfego & Criativos", cor: "#27a3ff", inicial: "A", foto: "/agentes/alfred.webp", gradiente: ["#1d6bff", "#38bdf8"] },
+  bruce: { nome: "Bruce Wayne", papel: "Copywriter Genesy · @lancastermatos", cor: "#27f2e6", inicial: "B", foto: "/agentes/bruce.webp", gradiente: ["#0d9488", "#2dd4bf"] },
 };
 
 export type Coluna = { etapa: EsteiraEtapa; label: string; itens: EsteiraItem[] };
