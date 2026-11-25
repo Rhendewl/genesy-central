@@ -32,4 +32,13 @@ describe("Instagram webhook parser", () => {
     }] }] });
     expect(event).toEqual(expect.objectContaining({ eventType: "postback", text: "START", externalEventId: "postback:p1" }));
   });
+
+  it("flags messages that come from a Click-to-Direct ad", () => {
+    const [fromAd, organic] = parseInstagramWebhook({ object: "instagram", entry: [{ id: "ig", messaging: [
+      { sender: { id: "person" }, timestamp: 123, message: { mid: "a1", text: "Oi", referral: { source: "ADS", ad_id: "ad-1", type: "OPEN_THREAD" } } },
+      { sender: { id: "person" }, timestamp: 124, message: { mid: "a2", text: "Oi de novo" } },
+    ] }] });
+    expect(fromAd).toEqual(expect.objectContaining({ fromAd: true, adId: "ad-1" }));
+    expect(organic).toEqual(expect.objectContaining({ fromAd: false, adId: null }));
+  });
 });

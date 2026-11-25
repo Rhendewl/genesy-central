@@ -17,3 +17,19 @@ export async function validateInstagramCrmReferences(
   if (input.crmOriginId && !origin) throw Object.assign(new Error("Origem do CRM inválida"), { status: 400 });
   if (input.crmAssignedTo && !assignee) throw Object.assign(new Error("Responsável do CRM inválido"), { status: 400 });
 }
+
+/** Every CRM block of a flow must point to a stage/origin/assignee of the organization. */
+export async function validateInstagramFlowCrmReferences(
+  db: SupabaseClient,
+  organizationId: string,
+  input: InstagramAutomationInput,
+) {
+  for (const node of input.flow?.nodes ?? []) {
+    if (node.type !== "action" || node.data.kind !== "crm" || !node.data.crm?.stageId || !node.data.crm.pipelineId) continue;
+    const { crm } = node.data;
+    await validateInstagramCrmReferences(db, organizationId, {
+      ...input, crmEnabled: true, crmPipelineId: crm.pipelineId, crmStageId: crm.stageId,
+      crmOriginId: crm.originId, crmAssignedTo: crm.assignedTo,
+    });
+  }
+}

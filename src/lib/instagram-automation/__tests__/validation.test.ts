@@ -10,7 +10,7 @@ describe("Instagram automation input", () => {
     });
     expect(input.name).toBe("Campanha");
     expect(input.keywords).toEqual(["Quero"]);
-    expect(input.steps).toEqual([{ type: "message", text: "Olá", delayMinutes: 1 }]);
+    expect(input.steps).toEqual([{ type: "message", text: "Olá", delayMinutes: 1, button: null }]);
   });
 
   it("requires a CRM destination when CRM sync is enabled", () => {
@@ -62,5 +62,28 @@ describe("Instagram automation input", () => {
       status: "connected", webhook_subscribed: true, webhook_fields: ["messages"],
       requested_scopes: ["instagram_business_basic", "instagram_business_manage_messages"],
     })).not.toThrow();
+  });
+
+  it("accepts a visual flow, clearing the linear steps and CRM toggle", () => {
+    const flow = { version: 1, nodes: [
+      { id: "trigger", type: "trigger", position: { x: 0, y: 0 }, data: {} },
+      { id: "m", type: "message", position: { x: 300, y: 0 }, data: { text: "Oi", buttons: [] } },
+    ], edges: [{ id: "e", source: "trigger", sourceHandle: "next", target: "m" }] };
+    const input = sanitizeInstagramAutomationInput({
+      connectionId: "connection", name: "Fluxo", status: "active", triggerType: "message", matchType: "any",
+      steps: [], crmEnabled: true, crmPipelineId: "p", crmStageId: "s", flow: flow as never,
+    });
+    expect(input.flow?.nodes).toHaveLength(2);
+    expect(input).toMatchObject({ steps: [], crmEnabled: false, crmStageId: null });
+  });
+
+  it("saves incomplete flows only as drafts", () => {
+    const flow = { version: 1, nodes: [
+      { id: "trigger", type: "trigger", position: { x: 0, y: 0 }, data: {} },
+      { id: "m", type: "message", position: { x: 300, y: 0 }, data: { text: "", buttons: [] } },
+    ], edges: [{ id: "e", source: "trigger", sourceHandle: "next", target: "m" }] };
+    const base = { connectionId: "connection", name: "Fluxo", triggerType: "message" as const, matchType: "any" as const, steps: [], crmEnabled: false, flow: flow as never };
+    expect(sanitizeInstagramAutomationInput({ ...base, status: "draft" }).flow).toBeTruthy();
+    expect(() => sanitizeInstagramAutomationInput({ ...base, status: "active" })).toThrow("Escreva o texto");
   });
 });
