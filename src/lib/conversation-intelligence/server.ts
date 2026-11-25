@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { createAdminSupabaseClient } from "@/lib/supabase-admin";
+import { requestOrigin } from "@/lib/request-origin";
 
 export class CIError extends Error {
   constructor(
@@ -11,7 +12,7 @@ export class CIError extends Error {
   }
 }
 export async function context(req: NextRequest) {
-  if (req.method !== "GET" && req.headers.get("origin") !== req.nextUrl.origin)
+  if (req.method !== "GET" && req.headers.get("origin") !== requestOrigin(req))
     throw new CIError("Origem inválida", 403);
   const userDb = await createServerSupabaseClient();
   const {

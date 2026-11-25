@@ -6,13 +6,14 @@ import {
   INSTAGRAM_AUTOMATION_SCOPES, INSTAGRAM_AUTOMATION_WEBHOOK_FIELDS, subscribeInstagramWebhooks,
 } from "@/lib/instagram-api";
 import { getMarketingServerContext } from "@/lib/marketing/server";
+import { requestOrigin } from "@/lib/request-origin";
 
 export const dynamic = "force-dynamic";
 
 type InstagramState = Record<string, unknown> & { userId: string; organizationId: string };
 
 function redirectWith(req: NextRequest, key: string, value: string) {
-  const url = new URL("/marketing/relatorios", req.nextUrl.origin);
+  const url = new URL("/marketing/relatorios", requestOrigin(req));
   url.searchParams.set("view", "instagram");
   url.searchParams.set(key, value);
   return NextResponse.redirect(url);
@@ -33,7 +34,7 @@ export async function GET(req: NextRequest) {
       return redirectWith(req, "instagram_error", "invalid_session");
     }
 
-    const redirectUri = `${req.nextUrl.origin}/api/marketing/instagram/callback`;
+    const redirectUri = `${requestOrigin(req)}/api/marketing/instagram/callback`;
     const short = await exchangeInstagramCode(code, redirectUri);
     let accessToken = short.access_token!;
     let expiresAt: string | null = null;

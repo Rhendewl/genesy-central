@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@/lib/supabase-admin';
 import { accessCookieName, ACCESS_SECONDS, signCalculatorAccess, verifyCalculatorAccess, normalizedContact, registrationFields } from '@/lib/calculadora/public-access';
 import { getPlatformEventBus } from '@/lib/event-bus/platform';
+import { requestOrigin } from "@/lib/request-origin";
 export const dynamic = 'force-dynamic';
 const headers = { 'Cache-Control': 'no-store' };
 async function findShare(slug: string) {
@@ -29,7 +30,7 @@ export async function GET(req: NextRequest, { params }: { params: { slug: string
 export async function POST(req: NextRequest, { params }: { params: { slug: string } }) {
   try {
     const origin = req.headers.get('origin');
-    if (origin && origin !== req.nextUrl.origin) return NextResponse.json({ error: 'Solicitação inválida.' }, { status: 403, headers });
+    if (origin && origin !== requestOrigin(req)) return NextResponse.json({ error: 'Solicitação inválida.' }, { status: 403, headers });
     const { db, share } = await findShare(params.slug);
     if (!share) return NextResponse.json({ error: 'Este link não está disponível.' }, { status: 404, headers });
     const ip = (req.headers.get('x-forwarded-for')?.split(',')[0] || req.headers.get('x-real-ip') || 'unknown').trim();
