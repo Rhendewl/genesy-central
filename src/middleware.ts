@@ -46,6 +46,9 @@ const PUBLIC_ROUTES = [
   // Agentes de IA (Alfred, Bruce) reportando à Esteira — a rota valida o
   // segredo ESTEIRA_AGENT_SECRET. Não inclui as rotas do painel (/api/esteira).
   "/api/esteira/agente/",
+  // Conector MCP da plataforma (Alfred, Bruce e claude.ai) — a rota valida o
+  // segredo GENESY_MCP_SECRET (cabeçalho Bearer ou chave no caminho).
+  "/api/mcp",
   "/api/crm/conversation-intelligence/webhook",
 ];
 // Redirect authenticated users away from these (login page only)
