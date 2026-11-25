@@ -19,8 +19,8 @@ export function PercentageGaugeCard({ title, percent, caption, delay = 0, bare =
     <motion.div
       className={bare ? "flex items-center gap-3" : "lc-card flex items-center gap-4 p-5"}
       style={bare ? undefined : { background: "var(--glass-bg-soft)" }}
-      initial={{ opacity: 0, y: 18 }}
-      animate={{ opacity: 1, y: 0 }}
+      initial={{ y: 18 }}
+      animate={{ y: 0 }}
       transition={{ duration: 0.4, delay, ease: "easeOut" }}
     >
       <ProgressRing percent={percent} size={bare ? 52 : 64} strokeWidth={bare ? 4 : 5} />

@@ -24,8 +24,8 @@ export function TodayAgendaCard({ delay = 0 }: { delay?: number }) {
     <motion.div
       className="lc-card p-6"
       style={{ background: "var(--glass-bg-soft)" }}
-      initial={{ opacity: 0, y: 18 }}
-      animate={{ opacity: 1, y: 0 }}
+      initial={{ y: 18 }}
+      animate={{ y: 0 }}
       transition={{ duration: 0.4, delay, ease: "easeOut" }}
     >
       <div className="mb-4 flex items-center justify-between">

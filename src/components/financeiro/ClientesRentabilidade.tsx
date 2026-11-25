@@ -1,5 +1,6 @@
 "use client";
 
+import { isFullMonth, monthFraction, periodDays, periodMonth, type FinancialPeriod } from "@/lib/financeiro/period";
 import { FinancialSectionHeader, FinancialMetric, FinancialAnalysis } from "./FinancialSection";
 import { useSegmentIndicator } from "@/components/ui/useSegmentIndicator";
 import { FinancialBreakdown } from "./FinancialActivityChart";
@@ -340,7 +341,7 @@ function ClienteModal({ client, onClose, onSave, onDelete }: ClientModalProps) {
         <AnimatePresence>
           {fee > 0 && (
             <motion.div
-              initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+              initial={{ y: 8 }} animate={{ y: 0 }} exit={{ opacity: 0 }}
               className="mt-4 rounded-xl p-4"
               style={{ background: "var(--hover)", border: "1px solid var(--border)" }}
             >
@@ -412,15 +413,17 @@ function ClienteModal({ client, onClose, onSave, onDelete }: ClientModalProps) {
 type SortKey = "lucro" | "margem" | "mensalidade" | "custo_total" | "tempo_contrato_meses";
 
 interface Props {
-  year: number;
-  month: number;
+  period: FinancialPeriod;
 }
 
-export function ClientesRentabilidade({ year, month }: Props) {
+export function ClientesRentabilidade({ period }: Props) {
+  const { year, month } = periodMonth(period);
+  const mensal = isFullMonth(period);
+  const fracao = monthFraction(period);
   const valuesHidden = useFinancialPrivacyStore((state) => state.valuesHidden);
   void valuesHidden;
   const { clients, createClient, updateClient, deleteClient } = useAgencyClients();
-  const { data, clientProfitability, isLoading, refetch: refetchDashboard } = useFinanceiroDashboard(year, month);
+  const { data, clientProfitability, isLoading, refetch: refetchDashboard } = useFinanceiroDashboard(year, month, period.start, period.end);
   const { saveShares } = useClientCostShares();
   const [modal, setModal]   = useState<{ open: boolean; client?: AgencyClient }>({ open: false });
   const [search, setSearch] = useState("");
@@ -434,7 +437,9 @@ export function ClientesRentabilidade({ year, month }: Props) {
 
   // Lucro e margem derivados de clientProfitability (base: monthly_fee) para consistência com a tabela
   const lucroTotal  = clientProfitability.reduce((s, p) => s + p.lucro, 0);
-  const margemGeral = mrr > 0 ? (lucroTotal / mrr) * 100 : 0;
+  // Receita esperada no período = mensalidades × fração do mês (1 para o mês inteiro)
+  const receitaPeriodo = mrr * fracao;
+  const margemGeral = receitaPeriodo > 0 ? (lucroTotal / receitaPeriodo) * 100 : 0;
 
   const matchesSearch = (name: string) => name.toLocaleLowerCase("pt-BR").includes(search.toLocaleLowerCase("pt-BR").trim());
   const otherClients = clients.filter(c => c.status !== "ativo" && matchesSearch(c.name));
@@ -490,8 +495,8 @@ export function ClientesRentabilidade({ year, month }: Props) {
       <div className="fin-overview">
         <FinancialMetric label="Clientes ativos" value={privateFinancialValue(String(clientesAtivos))} detail={`${privateFinancialValue(String(clients.length))} cadastrados na carteira`} tone="blue" />
         <FinancialMetric label="Receita recorrente" value={fmt(mrr)} detail="MRR contratado dos clientes ativos" tone="green" />
-        <FinancialMetric label="Resultado estimado" value={fmt(lucroTotal)} detail="Mensalidades menos custos do período" tone={lucroTotal >= 0 ? "green" : "red"} />
-        <FinancialMetric label="Margem da carteira" value={privateFinancialValue(`${margemGeral.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`)} detail="Resultado estimado sobre o MRR" tone={margemGeral >= 30 ? "green" : "amber"} />
+        <FinancialMetric label="Resultado estimado" value={fmt(lucroTotal)} detail={mensal ? "Mensalidades menos custos do mês" : `Mensalidades proporcionais a ${periodDays(period)} dias, menos custos`} tone={lucroTotal >= 0 ? "green" : "red"} />
+        <FinancialMetric label="Margem da carteira" value={privateFinancialValue(`${margemGeral.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`)} detail={mensal ? "Resultado estimado sobre o MRR" : "Resultado sobre a receita esperada no período"} tone={margemGeral >= 30 ? "green" : "amber"} />
       </div>
       <div className="fin-client-toolbar">
         <label><Search size={16} className="shrink-0 text-[var(--muted-foreground)]" /><input aria-label="Buscar clientes" placeholder="Buscar cliente pelo nome…" value={search} onChange={event => setSearch(event.target.value)} /></label>

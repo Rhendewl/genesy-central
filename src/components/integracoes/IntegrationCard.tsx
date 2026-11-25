@@ -77,8 +77,8 @@ export function IntegrationCard({ definition, row, index = 0, onClick }: Integra
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
+      initial={{ y: 12 }}
+      animate={{ y: 0 }}
       transition={{ duration: 0.2, delay: index * 0.05 }}
       whileHover={{ y: -2 }}
       onClick={onClick}

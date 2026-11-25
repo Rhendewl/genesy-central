@@ -7,7 +7,8 @@ import { DateInput } from "@/components/ui/DateInput";
 
 import { useState, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { format, parseISO, endOfMonth, eachDayOfInterval } from "date-fns";
+import { format, parseISO, eachDayOfInterval } from "date-fns";
+import { isFullMonth, previousLabel, previousPeriod, type FinancialPeriod } from "@/lib/financeiro/period";
 import { ptBR } from "date-fns/locale";
 import { Search, X, Edit2, Trash2, Check, CheckCircle2, Clock, AlertTriangle, XCircle, Repeat } from "lucide-react";
 import { toast } from "sonner";
@@ -216,15 +217,13 @@ function ReceitaModal({ revenue, onClose, onSave, clients }: ModalProps) {
 
 type SortKey = "date_desc" | "date_asc" | "amount_desc" | "amount_asc";
 
-export function GestaoReceitas({ year, month }: { year: number; month: number }) {
+export function GestaoReceitas({ period }: { period: FinancialPeriod }) {
   const valuesHidden = useFinancialPrivacyStore(state => state.valuesHidden);
-  const monthStart = `${year}-${String(month).padStart(2, "0")}-01`;
-  const monthEnd   = format(endOfMonth(new Date(year, month - 1)), "yyyy-MM-dd");
-
-  const prevYear  = month === 1 ? year - 1 : year;
-  const prevMon   = month === 1 ? 12 : month - 1;
-  const prevStart = `${prevYear}-${String(prevMon).padStart(2, "0")}-01`;
-  const prevEnd   = format(endOfMonth(new Date(prevYear, prevMon - 1)), "yyyy-MM-dd");
+  const monthStart = period.start;
+  const monthEnd   = period.end;
+  const { start: prevStart, end: prevEnd } = previousPeriod(period);
+  const mensal = isFullMonth(period);
+  const anterior = previousLabel(period);
 
   const { revenues, isLoading, createRevenue, updateRevenue, deleteRevenue, markAsPaid } =
     useReceitas(monthStart, monthEnd);
@@ -299,15 +298,16 @@ export function GestaoReceitas({ year, month }: { year: number; month: number })
 
   const dailyChartData = useMemo(() => {
     if (active.length === 0) return [];
-    const start = new Date(year, month - 1, 1);
+    const start = parseISO(monthStart);
     const end   = parseISO(monthEnd);
+    const variosMeses = monthStart.slice(0, 7) !== monthEnd.slice(0, 7);
     return eachDayOfInterval({ start, end })
       .map(day => {
         const dayStr   = format(day, "yyyy-MM-dd");
         const dayTotal = active.filter(r => r.date === dayStr).reduce((s, r) => s + r.amount, 0);
-        return { date: format(day, "dd"), total: dayTotal };
+        return { date: format(day, variosMeses ? "dd/MM" : "dd"), total: dayTotal };
       });
-  }, [active, year, month, monthEnd]);
+  }, [active, monthStart, monthEnd]);
 
 
   // ── Insights ───────────────────────────────────────────────────────────────
@@ -326,7 +326,7 @@ export function GestaoReceitas({ year, month }: { year: number; month: number })
     }
     if (variation !== null && Math.abs(variation) > 5 && list.length < 2) {
       const dir = variation > 0 ? "acima" : "abaixo";
-      list.push(`Receita ${privateFinancialValue(`${Math.abs(variation).toFixed(1)}%`)} ${dir} do mês anterior`);
+      list.push(`Receita ${privateFinancialValue(`${Math.abs(variation).toFixed(1)}%`)} ${dir} do ${anterior}`);
     }
     return list.slice(0, 2);
   }, [topClients, total, totalAtrasado, variation, prevTotal, valuesHidden]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -411,34 +411,34 @@ export function GestaoReceitas({ year, month }: { year: number; month: number })
   return (
     <div className="fin-workspace">
       <FinancialSectionHeader title="Receitas" description="O que entrou, o que falta receber e de onde vem sua receita." createLabel="Nova Receita" onCreate={() => setModal({ open: true })} />
-      <div className="fin-overview" aria-label="Resumo das receitas do mês">
-        <FinancialMetric label="Total do mês" value={fmt(total)} detail={`${active.length} lançamentos · sem cancelados`} tone="blue" onClick={() => setFilterStatus("todos")} selected={filterStatus === "todos"} />
+      <div className="fin-overview" aria-label={mensal ? "Resumo das receitas do mês" : "Resumo das receitas do período"}>
+        <FinancialMetric label={mensal ? "Total do mês" : "Total do período"} value={fmt(total)} detail={`${active.length} lançamentos · sem cancelados`} tone="blue" onClick={() => setFilterStatus("todos")} selected={filterStatus === "todos"} />
         <FinancialMetric label="Recebido" value={fmt(totalPago)} detail="Pagamentos confirmados" tone="green" onClick={() => setFilterStatus(filterStatus === "pago" ? "todos" : "pago")} selected={filterStatus === "pago"} />
         <FinancialMetric label="A receber" value={fmt(totalPendente)} detail="Receitas pendentes" tone="amber" onClick={() => setFilterStatus(filterStatus === "pendente" ? "todos" : "pendente")} selected={filterStatus === "pendente"} />
         <FinancialMetric label="Em atraso" value={fmt(totalAtrasado)} detail="Toque para consultar os atrasos" tone="red" onClick={() => setFilterStatus(filterStatus === "atrasado" ? "todos" : "atrasado")} selected={filterStatus === "atrasado"} />
       </div>
       <FinancialAnalysis>
         <div className="fin-chart-grid">
-          <FinancialActivityChart title="Evolução das receitas" description="Lançamentos do mês, incluindo valores ainda não recebidos. Cancelados excluídos." data={dailyChartData} />
+          <FinancialActivityChart title="Evolução das receitas" description={`Lançamentos ${mensal ? "do mês" : "do período"}, incluindo valores ainda não recebidos. Cancelados excluídos.`} data={dailyChartData} />
           <FinancialBreakdown title="Receitas por tipo" description="Selecione um tipo para filtrar os lançamentos." rows={byType.map(t => ({ id: t.type, label: t.label, total: t.total }))} selected={filterType} onSelect={id => setFilterType(filterType === id ? "todos" : id as RevenueType)} />
         </div>
       </FinancialAnalysis>
       <details className="fin-details"><summary>Recorrência, ticket e concentração de clientes</summary>
         <div className="fin-secondary-metrics">
-          <FinancialMetric label="MRR" value={fmt(mrr)} detail="Receita recorrente lançada no mês" tone="blue" />
+          <FinancialMetric label="MRR" value={fmt(mrr)} detail={mensal ? "Receita recorrente lançada no mês" : "Receita recorrente lançada no período"} tone="blue" />
           <FinancialMetric label="Ticket por cliente" value={fmt(ticketMedio)} detail={`${uniqueClients} clientes pagantes`} />
-          <FinancialMetric label="Variação mensal" value={variation === null ? "—" : privateFinancialValue(`${variation >= 0 ? "+" : ""}${variation.toFixed(1)}%`)} detail={prevTotal > 0 ? `Mês anterior: ${fmt(prevTotal)}` : "Sem base no mês anterior"} />
+          <FinancialMetric label={mensal ? "Variação mensal" : "Variação"} value={variation === null ? "—" : privateFinancialValue(`${variation >= 0 ? "+" : ""}${variation.toFixed(1)}%`)} detail={prevTotal > 0 ? `${anterior[0].toUpperCase()}${anterior.slice(1)}: ${fmt(prevTotal)}` : `Sem base no ${anterior}`} />
           <FinancialMetric label="Recebimento" value={privateFinancialValue(`${taxaRecebimento.toFixed(1)}%`)} detail="Recebido sobre o total lançado" tone="green" />
         </div>
         <FinancialBreakdown title="Principais clientes" description="Participação entre os cinco clientes com maior receita lançada." rows={topClients.map((c, index) => ({ id: String(index), label: c.name, total: c.total }))} />
       </details>
-      {insights.length > 0 && <aside className="fin-panel fin-insights"><h3>Leitura do mês</h3>{insights.map(insight => <p key={insight} className="mt-2 text-xs text-[var(--muted-foreground)]">{insight}</p>)}</aside>}
+      {insights.length > 0 && <aside className="fin-panel fin-insights"><h3>{mensal ? "Leitura do mês" : "Leitura do período"}</h3>{insights.map(insight => <p key={insight} className="mt-2 text-xs text-[var(--muted-foreground)]">{insight}</p>)}</aside>}
 
       {/* ── 4. Filter bar ── */}
       <FinancialFilters active={hasFilters}>
       <motion.div
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
+        initial={{ y: 8 }}
+        animate={{ y: 0 }}
         transition={{ delay: 0.4 }}
         className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between"
       >
@@ -497,8 +497,8 @@ export function GestaoReceitas({ year, month }: { year: number; month: number })
 
       {/* ── 5. Table ── */}
       <motion.div
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
+        initial={{ y: 8 }}
+        animate={{ y: 0 }}
         transition={{ delay: 0.44 }}
         className="fin-ledger lc-card overflow-hidden"
       >

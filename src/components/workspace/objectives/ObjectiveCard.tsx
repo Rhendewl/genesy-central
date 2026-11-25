@@ -29,8 +29,8 @@ export function ObjectiveCard({ objective, onClick, onToggleStep }: ObjectiveCar
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
+      initial={{ y: 12 }}
+      animate={{ y: 0 }}
       whileHover={{ y: -2 }}
       transition={{ duration: 0.2 }}
       className="cursor-pointer p-4 lc-card"

@@ -64,8 +64,8 @@ function GoalCard({ title, icon, accent, current, goal, isPercent, isCount, dela
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
+      initial={{ y: 16 }}
+      animate={{ y: 0 }}
       transition={{ delay }}
       className="lc-card p-6 space-y-4"
     >

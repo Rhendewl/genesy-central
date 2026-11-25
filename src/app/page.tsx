@@ -107,8 +107,8 @@ export default function DashboardPage() {
             <motion.div
               className="lc-card flex min-h-[360px] flex-1 flex-col overflow-hidden p-5"
               style={{ background: "var(--glass-bg-soft)" }}
-              initial={{ opacity: 0, y: 18 }}
-              animate={{ opacity: 1, y: 0 }}
+              initial={{ y: 18 }}
+              animate={{ y: 0 }}
               transition={{ duration: 0.4, delay: 0.12, ease: "easeOut" }}
             >
               <AgendaSemanalPanel mobileLayout="compact-grid" />

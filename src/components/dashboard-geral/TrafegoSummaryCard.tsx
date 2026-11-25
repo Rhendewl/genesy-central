@@ -44,8 +44,8 @@ export function TrafegoSummaryCard({ year, month, height, delay = 0 }: TrafegoSu
       href="/marketing/trafego"
       className="lc-card group flex flex-col cursor-pointer overflow-hidden p-6"
       style={{ background: "var(--glass-bg-soft)", height }}
-      initial={{ opacity: 0, y: 18 }}
-      animate={{ opacity: 1, y: 0 }}
+      initial={{ y: 18 }}
+      animate={{ y: 0 }}
       transition={{ duration: 0.4, delay, ease: "easeOut" }}
     >
       <div className="mb-4 flex flex-shrink-0 items-center justify-between gap-2">

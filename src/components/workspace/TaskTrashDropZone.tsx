@@ -14,8 +14,8 @@ export function TaskTrashDropZone() {
   return (
     <motion.div
       ref={setNodeRef}
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
+      initial={{ y: 20 }}
+      animate={{ y: 0 }}
       transition={{ duration: 0.4, delay: 0.24, ease: "easeOut" }}
       className="workspace-trash-card app-accent-border flex h-32 w-72 flex-shrink-0 flex-col justify-center rounded-[20px] p-4 transition-all duration-200"
       style={{

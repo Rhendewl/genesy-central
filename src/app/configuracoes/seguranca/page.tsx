@@ -108,8 +108,8 @@ function StatCard({
 }) {
   return (
     <motion.div
-      initial={{ opacity: 0, y: 14 }}
-      animate={{ opacity: 1, y: 0 }}
+      initial={{ y: 14 }}
+      animate={{ y: 0 }}
       transition={{ duration: 0.35, delay, ease: "easeOut" }}
       className="flex items-center gap-3.5 rounded-2xl p-4"
       style={sectionStyle}
@@ -446,8 +446,8 @@ export default function SegurancaPage() {
 
       {/* ── Alterar Senha ── */}
       <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
+        initial={{ y: 12 }}
+        animate={{ y: 0 }}
         transition={{ duration: 0.35, delay: 0.15 }}
         className="rounded-2xl"
         style={sectionStyle}
@@ -530,8 +530,8 @@ export default function SegurancaPage() {
 
       {/* ── Sessões Ativas ── */}
       <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
+        initial={{ y: 12 }}
+        animate={{ y: 0 }}
         transition={{ duration: 0.35, delay: 0.2 }}
         className="rounded-2xl"
         style={sectionStyle}
@@ -574,8 +574,8 @@ export default function SegurancaPage() {
 
       {/* ── 2FA ── */}
       <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
+        initial={{ y: 12 }}
+        animate={{ y: 0 }}
         transition={{ duration: 0.35, delay: 0.25 }}
         className="rounded-2xl"
         style={sectionStyle}
@@ -614,8 +614,8 @@ export default function SegurancaPage() {
 
       {/* ── Preferências de Segurança ── */}
       <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
+        initial={{ y: 12 }}
+        animate={{ y: 0 }}
         transition={{ duration: 0.35, delay: 0.3 }}
         className="rounded-2xl"
         style={sectionStyle}
@@ -673,8 +673,8 @@ export default function SegurancaPage() {
 
       {/* ── Logs de Segurança ── */}
       <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
+        initial={{ y: 12 }}
+        animate={{ y: 0 }}
         transition={{ duration: 0.35, delay: 0.35 }}
         className="rounded-2xl"
         style={sectionStyle}

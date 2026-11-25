@@ -100,8 +100,8 @@ export function MyDayCard({ tasksHook, leads, height, delay = 0, financeiroEnabl
     <motion.div
       className="lc-card myday-card flex flex-col p-6"
       style={{ background: "var(--glass-bg-soft)", height }}
-      initial={{ opacity: 0, y: 18 }}
-      animate={{ opacity: 1, y: 0 }}
+      initial={{ y: 18 }}
+      animate={{ y: 0 }}
       transition={{ duration: 0.4, delay, ease: "easeOut" }}
     >
       <div className="mb-4 flex flex-shrink-0 items-center gap-3">
@@ -126,8 +126,8 @@ export function MyDayCard({ tasksHook, leads, height, delay = 0, financeiroEnabl
             {insights.map((insight, i) => (
               <motion.li
                 key={i}
-                initial={{ opacity: 0, y: 4 }}
-                animate={{ opacity: 1, y: 0 }}
+                initial={{ y: 4 }}
+                animate={{ y: 0 }}
                 transition={{ duration: 0.3, delay: delay + i * 0.05 }}
                 className="flex items-start gap-2 text-[13px] leading-snug"
                 style={{ color: "var(--text-title)" }}

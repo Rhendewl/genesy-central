@@ -461,8 +461,8 @@ export function KanbanBoard() {
           {stages.map((stage, i) => (
             <motion.div
               key={stage.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
+              initial={{ y: 20 }}
+              animate={{ y: 0 }}
               transition={{ duration: 0.4, delay: i * 0.06, ease: "easeOut" }}
               style={{ scrollSnapAlign: "start" }}
               className="h-full flex-shrink-0"
@@ -483,8 +483,8 @@ export function KanbanBoard() {
           {/* Coluna "Sem etapa" — exibe leads legados sem stage_id */}
           {(leadsByStage[UNASSIGNED_STAGE_KEY] ?? []).length > 0 && (
             <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
+              initial={{ y: 20 }}
+              animate={{ y: 0 }}
               transition={{ duration: 0.4, delay: stages.length * 0.06, ease: "easeOut" }}
               style={{ scrollSnapAlign: "start" }}
               className="h-full flex-shrink-0"

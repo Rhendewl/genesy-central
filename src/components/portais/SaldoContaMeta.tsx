@@ -148,8 +148,8 @@ function AccountCard({ bal, index }: { bal: PortalAccountBalance; index: number 
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
+      initial={{ y: 10 }}
+      animate={{ y: 0 }}
       transition={{ delay: index * 0.07 }}
       className="lc-portal-card rounded-3xl overflow-hidden"
     >

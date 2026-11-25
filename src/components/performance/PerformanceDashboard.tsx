@@ -86,8 +86,8 @@ function MetricCard({ icon: Icon, label, value, hint, accent, delay }: {
 }) {
   return (
     <motion.div
-      initial={{ opacity: 0, y: 14 }}
-      animate={{ opacity: 1, y: 0 }}
+      initial={{ y: 14 }}
+      animate={{ y: 0 }}
       transition={{ duration: 0.35, delay }}
       className="lc-card p-4"
       style={{ background: "var(--glass-bg-soft)" }}
@@ -250,8 +250,8 @@ function IndividualDashboard({ person }: { person: PerformanceCollaborator }) {
   return (
     <motion.div
       key={person.id}
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
+      initial={{ y: 12 }}
+      animate={{ y: 0 }}
       transition={{ duration: 0.25 }}
       className="space-y-4"
     >

@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useSegmentIndicator } from "@/components/ui/useSegmentIndicator";
 import {
   ComposedChart, Line,
   XAxis, YAxis, CartesianGrid, Tooltip,
@@ -14,7 +13,7 @@ import {
   ChevronDown, ArrowRight, Target, Zap,
   BarChart2, Clock, ShieldCheck,
 } from "lucide-react";
-import { subDays, format } from "date-fns";
+import { periodDays, periodMonth, previousPeriod, type FinancialPeriod } from "@/lib/financeiro/period";
 import { useFinanceiroDashboard } from "@/hooks/useFinanceiroDashboard";
 import { useMetas } from "@/hooks/useMetas";
 import { cn } from "@/lib/utils";
@@ -29,33 +28,7 @@ const fmtNum = (v: number) =>
 const fmtPct = (v: number) => privateFinancialValue(`${v.toFixed(1)}%`);
 const fmtPctSigned = (v: number) => privateFinancialValue(`${v >= 0 ? "+" : ""}${v.toFixed(1)}%`);
 
-// ── Period config ──────────────────────────────────────────────────────────────
-
-type PeriodKey = "7d" | "30d" | "3m" | "6m" | "12m";
 type MetricType = "volume" | "cost";
-
-const PERIODS: { key: PeriodKey; label: string }[] = [
-  { key: "7d",  label: "7 dias"  },
-  { key: "30d", label: "30 dias" },
-  { key: "3m",  label: "3 meses" },
-  { key: "6m",  label: "6 meses" },
-  { key: "12m", label: "12 meses" },
-];
-
-function getPeriodDates(period: PeriodKey): { since: string; until: string } {
-  const today = new Date();
-  const until = format(today, "yyyy-MM-dd");
-  const days = period === "7d" ? 6 : period === "30d" ? 29 : period === "3m" ? 89 : period === "6m" ? 179 : 364;
-  return { since: format(subDays(today, days), "yyyy-MM-dd"), until };
-}
-
-function getPrevPeriodDates(period: PeriodKey): { since: string; until: string } {
-  const today = new Date();
-  const days = period === "7d" ? 7 : period === "30d" ? 30 : period === "3m" ? 90 : period === "6m" ? 180 : 365;
-  const until = format(subDays(today, days), "yyyy-MM-dd");
-  const since = format(subDays(today, days * 2 - 1), "yyyy-MM-dd");
-  return { since, until };
-}
 
 function periodChange(current: number, previous: number): number | null {
   if (previous === 0 || current === 0) return null;
@@ -87,41 +60,6 @@ function TrendBadge({ change, metricType = "volume" }: { change: number | null; 
       {change < 0 ? <TrendingDown size={9} /> : <TrendingUp size={9} />}
       {privateFinancialValue(`${Math.abs(change).toFixed(1)}%`)}
     </span>
-  );
-}
-
-// ── Period Selector ────────────────────────────────────────────────────────────
-
-function PeriodSelector({ value, onChange, size = "sm" }: {
-  value: PeriodKey;
-  onChange: (p: PeriodKey) => void;
-  size?: "sm" | "xs";
-}) {
-  const seg = useSegmentIndicator({ background: "rgba(74,143,212,0.22)", boxShadow: "inset 0 1px 0 rgba(74,143,212,0.20), 0 1px 6px rgba(0,0,0,0.25)" });
-  return (
-    <div ref={seg.trackRef} className="relative flex items-center gap-0.5 p-0.5 rounded-lg"
-      style={{
-        background: "var(--glass-bg)",
-        backdropFilter: "blur(14px) saturate(140%)",
-        WebkitBackdropFilter: "blur(14px) saturate(140%)",
-        border: "1px solid var(--glass-border)",
-        boxShadow: "var(--glass-shadow)",
-      }}>
-      {seg.indicator}
-      {PERIODS.map(p => (
-        <button key={p.key} onClick={() => onChange(p.key)} data-active={value === p.key}
-          className={cn(
-            "relative z-[1] rounded-md font-medium transition-colors",
-            size === "xs" ? "px-2 py-0.5 text-[10px]" : "px-2.5 py-1 text-[11px]",
-            value === p.key ? "text-[var(--text-title)]" : "text-[var(--silver)] hover:text-[var(--text-title)] hover:bg-[var(--hover)]"
-          )}
-          style={value === p.key ? {
-            color: "#4a8fd4",
-          } : {}}>
-          {p.label}
-        </button>
-      ))}
-    </div>
   );
 }
 
@@ -157,8 +95,8 @@ interface KpiPremiumProps {
 function KpiCardPremium({ title, value, sub, icon, accent, change, metricType = "volume", sparklineData, sparklineKey, delay = 0 }: KpiPremiumProps) {
   return (
     <motion.div
-      initial={{ opacity: 0, y: 18 }}
-      animate={{ opacity: 1, y: 0 }}
+      initial={{ y: 18 }}
+      animate={{ y: 0 }}
       transition={{ duration: 0.4, delay }}
       className="lc-card p-5 flex flex-col gap-1 relative overflow-hidden group"
       style={{ background: "linear-gradient(145deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.02) 100%)" }}
@@ -232,18 +170,16 @@ const FinTooltip = ({ active, payload, label, commissionTotal, isDaily }: {
 
 // ── Hero Chart ─────────────────────────────────────────────────────────────────
 
-function HeroChart({ data, period, commissionTotal = 0, onPeriodChange }: {
+function HeroChart({ data, isDaily, commissionTotal = 0 }: {
   data: { label: string; receita: number; despesa: number; lucro: number }[];
-  period: PeriodKey;
+  isDaily: boolean;
   commissionTotal?: number;
-  onPeriodChange: (p: PeriodKey) => void;
 }) {
-  const isDaily = period === "7d" || period === "30d";
   const isEmpty = !data.length || data.every(d => d.receita === 0 && d.despesa === 0);
   const interval = data.length > 60 ? Math.floor(data.length / 8) - 1 : data.length > 30 ? 6 : "preserveStartEnd";
 
   return (
-    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}
+    <motion.div initial={{ y: 20 }} animate={{ y: 0 }} transition={{ delay: 0.25 }}
       className="lc-card p-6">
       <div className="flex items-start justify-between mb-5 flex-wrap gap-3">
         <div>
@@ -259,7 +195,6 @@ function HeroChart({ data, period, commissionTotal = 0, onPeriodChange }: {
               </div>
             ))}
           </div>
-          <PeriodSelector value={period} onChange={onPeriodChange} size="xs" />
         </div>
       </div>
       {isEmpty ? (
@@ -312,7 +247,7 @@ function SaudeFinanceira({ data }: {
     { label: "Clientes Ativos",value: fmtNum(data.clientes_ativos),   color: "#10b981",     icon: <Users size={13} />,      sub: "em contrato" },
   ];
   return (
-    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}
+    <motion.div initial={{ y: 20 }} animate={{ y: 0 }} transition={{ delay: 0.35 }}
       className="lc-card p-6 flex flex-col">
       <div className="mb-5">
         <h3 className="text-base font-semibold text-[var(--text-title)]">Saúde Financeira</h3>
@@ -391,7 +326,7 @@ function ProjecaoFinanceira({ data, goal, receitaChange }: {
   ];
 
   return (
-    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}
+    <motion.div initial={{ y: 20 }} animate={{ y: 0 }} transition={{ delay: 0.4 }}
       className="lc-card p-6 flex flex-col">
       <div className="mb-5">
         <h3 className="text-base font-semibold text-[var(--text-title)]">Projeção Financeira</h3>
@@ -431,7 +366,7 @@ function TopClientes({ clientes, totalFaturamento, onVerTodos }: {
   onVerTodos?: () => void;
 }) {
   return (
-    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.45 }}
+    <motion.div initial={{ y: 20 }} animate={{ y: 0 }} transition={{ delay: 0.45 }}
       className="lc-card p-6">
       <div className="flex items-start justify-between mb-5">
         <div>
@@ -552,7 +487,7 @@ function InsightsFinanceiros({ data, receitaChange, despesaChange, topCliente }:
   }, [data, receitaChange, despesaChange, topCliente, valuesHidden]);
 
   return (
-    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}
+    <motion.div initial={{ y: 20 }} animate={{ y: 0 }} transition={{ delay: 0.5 }}
       className="lc-card p-6">
       <div className="flex items-center gap-2 mb-5">
         <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: "rgba(74,143,212,0.15)" }}>
@@ -610,7 +545,7 @@ function MetricasDetalhadas({ data }: {
     { label: "MRR",                value: fmtBRL(data.mrr),                   icon: <Activity size={12} />,   color: "#4a8fd4" },
   ];
   return (
-    <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }}
+    <motion.div initial={{ y: 16 }} animate={{ y: 0 }} transition={{ delay: 0.6 }}
       className="lc-card overflow-hidden">
       <button onClick={() => setOpen(o => !o)}
         className="w-full flex items-center justify-between p-5 text-left transition-colors hover:bg-[var(--hover)]">
@@ -676,22 +611,19 @@ function DashboardSkeleton() {
 // ── Main Component ─────────────────────────────────────────────────────────────
 
 interface Props {
-  year: number;
-  month: number;
+  period: FinancialPeriod;
   onNavigateToTab?: (tab: string) => void;
 }
 
-export function DashboardFinanceiro({ year, month, onNavigateToTab }: Props) {
-  const [period, setPeriod]       = useState<PeriodKey>("30d");
-  const [heroPeriod, setHeroPeriod] = useState<PeriodKey>("30d");
+export function DashboardFinanceiro({ period, onNavigateToTab }: Props) {
+  const { year, month } = periodMonth(period);
+  const prev = useMemo(() => previousPeriod(period), [period]);
+  // Até ~3 meses o gráfico mostra dia a dia; acima disso, os últimos 6 meses.
+  const isDaily = periodDays(period) <= 92;
 
-  const { since, until }               = useMemo(() => getPeriodDates(period), [period]);
-  const { since: prevSince, until: prevUntil } = useMemo(() => getPrevPeriodDates(period), [period]);
-  const { since: heroSince, until: heroUntil } = useMemo(() => getPeriodDates(heroPeriod), [heroPeriod]);
-
-  const { data, clientProfitability, isLoading } = useFinanceiroDashboard(year, month, since, until);
-  const { data: prevData }                        = useFinanceiroDashboard(year, month, prevSince, prevUntil);
-  const { data: heroRaw }                         = useFinanceiroDashboard(year, month, heroSince, heroUntil);
+  const { data, clientProfitability, isLoading } = useFinanceiroDashboard(year, month, period.start, period.end);
+  const { data: prevData }                        = useFinanceiroDashboard(year, month, prev.start, prev.end);
+  const heroRaw                                   = data;
   const { goal }                                  = useMetas(year, month);
 
   // % changes current vs previous period
@@ -708,7 +640,7 @@ export function DashboardFinanceiro({ year, month, onNavigateToTab }: Props) {
   // Hero chart data — use daily for short periods, monthly for long
   const heroData = useMemo(() => {
     if (!heroRaw) return [];
-    if (["7d", "30d"].includes(heroPeriod)) {
+    if (isDaily) {
       return heroRaw.receita_diaria.map((r, i) => ({
         label:    r.data,
         receita:  r.valor,
@@ -724,7 +656,7 @@ export function DashboardFinanceiro({ year, month, onNavigateToTab }: Props) {
       comissao: d.comissao,
       lucro:    d.receita - d.despesa,
     }));
-  }, [heroRaw, heroPeriod]);
+  }, [heroRaw, isDaily]);
 
   // Top clientes (sorted by mensalidade desc)
   const topClientes = useMemo(() =>
@@ -744,12 +676,6 @@ export function DashboardFinanceiro({ year, month, onNavigateToTab }: Props) {
 
   return (
     <div className="space-y-5">
-      {/* Period filter */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <p className="text-[12px]" style={{ color: "var(--text-muted)" }}>Período de análise</p>
-        <PeriodSelector value={period} onChange={p => { setPeriod(p); setHeroPeriod(p); }} />
-      </div>
-
       {/* ── Row 1: 5 KPI cards ─────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         <KpiCardPremium
@@ -787,7 +713,7 @@ export function DashboardFinanceiro({ year, month, onNavigateToTab }: Props) {
       </div>
 
       {/* ── Row 2: Hero chart ──────────────────────────────────────────────── */}
-      <HeroChart data={heroData} period={heroPeriod} commissionTotal={heroRaw?.total_comissoes ?? 0} onPeriodChange={setHeroPeriod} />
+      <HeroChart data={heroData} isDaily={isDaily} commissionTotal={heroRaw?.total_comissoes ?? 0} />
 
       {/* ── Row 3: Saúde Financeira + Projeção ──────────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

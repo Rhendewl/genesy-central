@@ -103,8 +103,8 @@ function KpiCard({
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
+      initial={{ y: 10 }}
+      animate={{ y: 0 }}
       className="lc-portal-card rounded-2xl p-4"
       style={{ cursor: "default" }}
     >
@@ -677,8 +677,8 @@ export function PortalPublicDashboard({ slug }: Props) {
                         {campaigns.map((c, i) => (
                           <motion.tr
                             key={c.id}
-                            initial={{ opacity: 0, y: 4 }}
-                            animate={{ opacity: 1, y: 0 }}
+                            initial={{ y: 4 }}
+                            animate={{ y: 0 }}
                             transition={{ delay: i * 0.04 }}
                             className="border-b border-[color-mix(in_srgb,var(--text-title)_4%,transparent)] hover:bg-[var(--hover)] transition-colors"
                           >

@@ -395,8 +395,8 @@ export function NpsModule({ year, month }: Props) {
 
         {/* NPS Geral — large card */}
         <motion.div
-          initial={{ opacity: 0, y: 14 }}
-          animate={{ opacity: 1, y: 0 }}
+          initial={{ y: 14 }}
+          animate={{ y: 0 }}
           className="lc-card p-5 col-span-2 flex items-center gap-5"
         >
           <div
@@ -444,8 +444,8 @@ export function NpsModule({ year, month }: Props) {
         ].map((card, i) => (
           <motion.div
             key={card.label}
-            initial={{ opacity: 0, y: 14 }}
-            animate={{ opacity: 1, y: 0 }}
+            initial={{ y: 14 }}
+            animate={{ y: 0 }}
             transition={{ delay: (i + 1) * 0.05 }}
             className="lc-card p-4 flex items-center gap-3"
           >
@@ -468,8 +468,8 @@ export function NpsModule({ year, month }: Props) {
 
       {/* ── 1.5. Formulários de NPS ──────────────────────────────────── */}
       <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
+        initial={{ y: 12 }}
+        animate={{ y: 0 }}
         transition={{ delay: 0.08 }}
         className="lc-card p-5"
       >
@@ -513,8 +513,8 @@ export function NpsModule({ year, month }: Props) {
       <AnimatePresence>
         {metrics.insights.length > 0 && (
           <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
+            initial={{ y: 10 }}
+            animate={{ y: 0 }}
             className="lc-card p-5"
           >
             <div className="flex items-center gap-2 mb-4">
@@ -555,8 +555,8 @@ export function NpsModule({ year, month }: Props) {
 
         {/* NPS mensal */}
         <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
+          initial={{ y: 12 }}
+          animate={{ y: 0 }}
           transition={{ delay: 0.15 }}
           className="lc-card p-5"
         >
@@ -596,8 +596,8 @@ export function NpsModule({ year, month }: Props) {
 
         {/* Promotores x Neutros x Detratores */}
         <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
+          initial={{ y: 12 }}
+          animate={{ y: 0 }}
           transition={{ delay: 0.18 }}
           className="lc-card p-5"
         >
@@ -631,8 +631,8 @@ export function NpsModule({ year, month }: Props) {
 
       {/* ── 4. Histórico por cliente ─────────────────────────────────── */}
       <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
+        initial={{ y: 12 }}
+        animate={{ y: 0 }}
         transition={{ delay: 0.20 }}
         className="lc-card overflow-hidden"
       >
@@ -733,8 +733,8 @@ export function NpsModule({ year, month }: Props) {
       {/* ── 5. Registros do período ──────────────────────────────────── */}
       {metrics.periodRecords.length > 0 && (
         <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
+          initial={{ y: 12 }}
+          animate={{ y: 0 }}
           transition={{ delay: 0.25 }}
           className="lc-card p-5"
         >

@@ -24,8 +24,8 @@ export function CalendarCard({ calendar, onArchive }: { calendar: AppointmentCal
 
   return (
     <motion.article
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
+      initial={{ y: 12 }}
+      animate={{ y: 0 }}
       whileHover={{ y: -4 }}
       whileTap={{ scale: 0.985 }}
       className="glass-folder-card group relative aspect-square min-w-0 cursor-pointer overflow-hidden rounded-[20px] border p-3 text-center"

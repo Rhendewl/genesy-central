@@ -74,8 +74,8 @@ interface KpiCardProps {
 function KpiCard({ label, value, sub, icon, accent, trend, trendLabel, delay = 0 }: KpiCardProps) {
   return (
     <motion.div
-      initial={{ opacity: 0, y: 14 }}
-      animate={{ opacity: 1, y: 0 }}
+      initial={{ y: 14 }}
+      animate={{ y: 0 }}
       transition={{ delay, duration: 0.3 }}
       className="lc-card p-5 flex flex-col gap-3"
     >
@@ -278,8 +278,8 @@ export function SaudeOperacao({ year, month }: Props) {
       <AnimatePresence>
         {metrics.insights.length > 0 && (
           <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
+            initial={{ y: 10 }}
+            animate={{ y: 0 }}
             className="lc-card p-5"
           >
             <div className="flex items-center gap-2 mb-4">
@@ -317,8 +317,8 @@ export function SaudeOperacao({ year, month }: Props) {
 
       {/* ── 3A. Evolução mensal — Clientes & Cancelamentos ──────────────────── */}
       <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
+        initial={{ y: 12 }}
+        animate={{ y: 0 }}
         transition={{ delay: 0.15 }}
         className="lc-card p-5"
       >
@@ -367,8 +367,8 @@ export function SaudeOperacao({ year, month }: Props) {
 
       {/* ── 3B. Churn vs Retenção ──────────────────────────────────────────── */}
       <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
+        initial={{ y: 12 }}
+        animate={{ y: 0 }}
         transition={{ delay: 0.20 }}
         className="lc-card p-5"
       >
@@ -424,8 +424,8 @@ export function SaudeOperacao({ year, month }: Props) {
 
       {/* ── 3C. MRR saudável ──────────────────────────────────────────────── */}
       <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
+        initial={{ y: 12 }}
+        animate={{ y: 0 }}
         transition={{ delay: 0.22 }}
         className="lc-card p-5"
       >
@@ -487,8 +487,8 @@ export function SaudeOperacao({ year, month }: Props) {
 
       {/* ── 4. Cohort / Permanência ────────────────────────────────────────── */}
       <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
+        initial={{ y: 12 }}
+        animate={{ y: 0 }}
         transition={{ delay: 0.25 }}
         className="lc-card overflow-hidden"
       >
@@ -561,8 +561,8 @@ export function SaudeOperacao({ year, month }: Props) {
       {/* ── 5. Tabela clientes encerrados ─────────────────────────────────── */}
       {metrics.churned_clients.length > 0 && (
         <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
+          initial={{ y: 12 }}
+          animate={{ y: 0 }}
           transition={{ delay: 0.28 }}
           className="lc-card overflow-hidden"
         >
@@ -645,8 +645,8 @@ export function SaudeOperacao({ year, month }: Props) {
       {/* ── 6. Contratos em risco ─────────────────────────────────────────── */}
       {metrics.at_risk_clients.length > 0 && (
         <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
+          initial={{ y: 12 }}
+          animate={{ y: 0 }}
           transition={{ delay: 0.30 }}
           className="lc-card p-5"
         >
