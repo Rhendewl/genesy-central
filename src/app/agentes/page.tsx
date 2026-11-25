@@ -11,7 +11,7 @@ export default function AgentesPage() {
   return (
     <div className="dashboard-geral-bg">
       <div className="mx-auto max-w-[1400px] space-y-5 px-4 pb-28 sm:px-6">
-        <Header title="Agentes" subtitle="O Alfred e o Bruce trabalhando agora, do seu pedido até o que está no ar." />
+        <Header title="Agentes Genesy" subtitle="O Alfred e o Bruce trabalhando agora, do seu pedido até o que está no ar." />
         {isLoading ? (
           <div className="lc-card h-72 animate-pulse" />
         ) : allowed ? (

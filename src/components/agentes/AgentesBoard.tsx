@@ -1,11 +1,13 @@
 "use client";
 
-import { useMemo, useState, type CSSProperties, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import {
   Activity, Bot, Check, CheckCircle2, Cpu, ExternalLink, Hourglass, Inbox, Lightbulb, Loader2, PenLine, RefreshCw, Rocket, Sparkles, Timer,
 } from "lucide-react";
 import { useEsteira } from "@/hooks/useEsteira";
 import { useSegmentIndicator } from "@/components/ui/useSegmentIndicator";
+import { accentBorderStyle } from "@/components/ui/accent-border";
+import "@/components/workspace/workspace-kanban.css";
 import { AGENTES_INFO, colunasDoAgente, indicadores, tempoRelativo } from "@/lib/esteira/board";
 import type { EsteiraAgente, EsteiraAprendizado, EsteiraEtapa, EsteiraEvento, EsteiraItem } from "@/types/esteira";
 
@@ -19,6 +21,9 @@ const VERDE = "#22c55e";
 const LARANJA = "#fb923c";
 const BTN_GREEN = "linear-gradient(135deg, #059669, #10b981 55%, #34d399)";
 const BTN_ORANGE = "linear-gradient(135deg, #ea580c, #f97316 55%, #fb923c)";
+const CINZA: [string, string] = ["#9ca3af", "#6b7280"];
+/** Contorno branco em gradiente das fotos dos agentes. */
+const ANEL = "linear-gradient(145deg, #ffffff, rgba(255,255,255,0.55) 45%, rgba(255,255,255,0.12))";
 const title = { color: "var(--text-title)" } as const;
 const muted = { color: "var(--text-body)" } as const;
 const subtle = { color: "var(--text-subtitle)" } as const;
@@ -41,11 +46,11 @@ const alpha = (hex: string, a: number) => `${hex}${Math.round(a * 255).toString(
 
 /** Ícone e cor de cada etapa da esteira. */
 const ETAPA_UI: Record<EsteiraEtapa, { icon: ReactNode; cor: string }> = {
-  pedido: { icon: <Inbox size={13} />, cor: "#94a3b8" },
+  pedido: { icon: <Inbox size={13} />, cor: "#9ca3af" },
   produzindo: { icon: <Cpu size={13} />, cor: VERDE },
   esperando: { icon: <Hourglass size={13} />, cor: LARANJA },
   aprovado: { icon: <Check size={13} />, cor: "#a78bfa" },
-  no_ar: { icon: <Rocket size={13} />, cor: "#38bdf8" },
+  no_ar: { icon: <Rocket size={13} />, cor: "#27a3ff" },
   concluido: { icon: <CheckCircle2 size={13} />, cor: "#38bdf8" },
   cancelado: { icon: <Check size={13} />, cor: "#64748b" },
 };
@@ -62,12 +67,12 @@ function Glow({ spots }: { spots: Array<{ color: string; className: string; opac
 
 function Avatar({ agente, size = 40, ring, className = "" }: { agente: EsteiraAgente; size?: number; ring?: "vivo" | "espera" | "livre"; className?: string }) {
   const info = AGENTES_INFO[agente];
-  const anel = ring === "vivo" ? VERDE : ring === "espera" ? LARANJA : null;
+  const ponto = ring === "vivo" ? VERDE : ring === "espera" ? LARANJA : "#64748b";
   return (
     <span className={`relative inline-flex flex-none ${className}`} style={{ width: size, height: size }}>
       <span
-        className="absolute inset-0 rounded-full p-[2px]"
-        style={{ background: anel ? `conic-gradient(from 180deg, ${anel}, ${alpha(anel, 0.15)}, ${anel})` : grad(agente) }}
+        className="absolute inset-0 rounded-full p-[2px] [.light_&]:shadow-[0_0_0_1px_rgba(0,0,0,0.1)]"
+        style={{ background: ANEL }}
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={info.foto} alt={info.nome} width={size} height={size} className="h-full w-full rounded-full object-cover" style={{ background: "#0b0b0c" }} />
@@ -76,7 +81,7 @@ function Avatar({ agente, size = 40, ring, className = "" }: { agente: EsteiraAg
         <span
           aria-hidden
           className={`absolute bottom-0 right-0 rounded-full ${ring === "vivo" ? "esteira-vivo" : ""}`}
-          style={{ width: Math.max(9, size * 0.24), height: Math.max(9, size * 0.24), background: anel ?? "#64748b", border: "2px solid var(--background, #000)" }}
+          style={{ width: Math.max(9, size * 0.24), height: Math.max(9, size * 0.24), background: ponto, border: "2px solid var(--background, #000)" }}
         />
       )}
     </span>
@@ -197,9 +202,7 @@ function AoVivo({ conectado }: { conectado: boolean }) {
 }
 
 function FiltroAgentes({ value, onChange }: { value: Filtro; onChange: (f: Filtro) => void }) {
-  const fundo = value === "todos" ? BTN_GREEN : grad(value);
-  const sombra = value === "todos" ? "rgba(16,185,129,.35)" : alpha(AGENTES_INFO[value].cor, 0.35);
-  const seg = useSegmentIndicator({ background: fundo, boxShadow: `0 6px 18px ${sombra}`, transitionProperty: "transform, width, height, background, box-shadow" } as CSSProperties);
+  const seg = useSegmentIndicator({ background: "linear-gradient(180deg, #ffffff, #e9ebee)", boxShadow: "0 6px 18px rgba(255,255,255,.22), 0 1px 3px rgba(0,0,0,.18)" });
   const opcoes: Filtro[] = ["todos", ...AGENTES];
   return (
     <div ref={seg.trackRef} role="group" aria-label="Filtrar por agente" className="lc-card relative flex h-11 items-center gap-0.5 !rounded-xl p-1">
@@ -214,7 +217,7 @@ function FiltroAgentes({ value, onChange }: { value: Filtro; onChange: (f: Filtr
             data-active={ativo}
             onClick={() => onChange(f)}
             className="relative z-[1] flex h-full items-center gap-1.5 rounded-lg px-2.5 text-xs font-semibold transition-colors duration-300 sm:px-3"
-            style={{ color: ativo ? "#fff" : "var(--text-subtitle)" }}
+            style={{ color: ativo ? "#0b0b0c" : "var(--text-subtitle)" }}
           >
             {f === "todos" ? <Bot size={15} /> : <Avatar agente={f} size={22} />}
             <span className={f === "todos" ? "" : "hidden sm:inline"}>{f === "todos" ? "Todos" : AGENTES_INFO[f].nome.split(" ")[0]}</span>
@@ -248,16 +251,16 @@ function CartaoAgente({ agente, itens, agora }: { agente: EsteiraAgente; itens: 
   return (
     <article className="lc-card relative overflow-hidden p-4 sm:p-5">
       <Glow spots={[
-        { color: info.gradiente[1], className: "-right-24 -top-28 h-72 w-72", opacity: 0.22 },
-        { color: info.gradiente[0], className: "-bottom-32 -left-20 h-64 w-64", opacity: 0.12 },
+        { color: CINZA[0], className: "-right-24 -top-28 h-72 w-72", opacity: 0.2 },
+        { color: CINZA[1], className: "-bottom-32 -left-20 h-64 w-64", opacity: 0.12 },
       ]} />
       <div className="relative flex items-center gap-4">
         <Avatar agente={agente} size={68} ring={status.ring} />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="text-lg font-semibold tracking-tight" style={title}>{info.nome}</h2>
-            <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white" style={{ background: grad(agente) }}>
-              <Bot size={11} /> Agente IA
+            <span className="inline-flex items-center gap-1 rounded-full border border-white/15 bg-white/10 px-1.5 py-px text-[9px] font-bold uppercase tracking-wider text-white/80 [.light_&]:border-black/10 [.light_&]:bg-black/5 [.light_&]:text-black/60">
+              <Bot size={10} /> Agente IA
             </span>
           </div>
           <p className="truncate text-xs" style={muted}>{info.papel}</p>
@@ -329,7 +332,7 @@ function Esteira({ agente, itens, agora, decidir }: { agente: EsteiraAgente; ite
   const total = colunas.reduce((s, c) => s + c.itens.length, 0);
   return (
     <div className="lc-card relative overflow-hidden p-4">
-      <Glow spots={[{ color: info.gradiente[1], className: "-left-24 -top-32 h-72 w-72", opacity: 0.1 }]} />
+      <Glow spots={[{ color: CINZA[0], className: "-left-24 -top-32 h-72 w-72", opacity: 0.1 }]} />
       <div className="relative mb-3.5 flex items-center gap-3">
         <Avatar agente={agente} size={36} ring={status.ring} />
         <div className="min-w-0">
@@ -345,17 +348,19 @@ function Esteira({ agente, itens, agora, decidir }: { agente: EsteiraAgente; ite
             return (
               <div
                 key={col.etapa}
-                className="flex min-h-[170px] flex-col gap-2 rounded-2xl p-2 transition-colors"
-                style={espera
-                  ? { background: "linear-gradient(180deg, rgba(251,146,60,0.12), rgba(251,146,60,0.03))", border: "1px solid rgba(251,146,60,0.4)" }
-                  : { background: "var(--hover)", border: "1px solid var(--glass-border)" }}
+                className="workspace-stage-column app-accent-border flex min-h-[200px] flex-col gap-2 rounded-[20px] p-2.5 transition-all duration-200"
+                style={{
+                  background: "var(--glass-bg-soft)",
+                  backdropFilter: "blur(14px) saturate(140%)",
+                  border: "1px solid var(--border-card)",
+                  ...accentBorderStyle(ui.cor),
+                  boxShadow: espera ? `0 8px 28px ${alpha(ui.cor, 0.16)}, inset 0 1px 0 rgba(255,255,255,0.06)` : "0 4px 20px var(--shadow-sm), inset 0 1px 0 rgba(255,255,255,0.04)",
+                }}
               >
-                <div className="flex items-center justify-between gap-2 px-1 pb-1 pt-0.5">
-                  <span className={`flex min-w-0 items-center gap-1.5 text-xs font-semibold ${espera ? TXT.laranja : ""}`} style={espera ? undefined : subtle}>
-                    <span className="grid h-5 w-5 flex-none place-items-center rounded-md" style={{ background: alpha(ui.cor, 0.16), color: ui.cor }}>{ui.icon}</span>
-                    <span className="truncate">{col.label}</span>
-                  </span>
-                  <span className="min-w-[20px] rounded-full px-1.5 text-center text-[11px] font-semibold tabular-nums" style={col.itens.length ? { background: alpha(ui.cor, 0.18), color: ui.cor } : muted}>{col.itens.length}</span>
+                <div className="flex items-center gap-1.5 px-0.5 pb-1.5 pt-1">
+                  <span className="grid h-6 w-6 flex-none place-items-center rounded-lg" style={{ background: alpha(ui.cor, 0.16), border: `1px solid ${alpha(ui.cor, 0.22)}`, boxShadow: `0 8px 22px ${alpha(ui.cor, 0.16)}`, color: ui.cor }}>{ui.icon}</span>
+                  <span className="min-w-0 flex-1 truncate text-[10px] font-semibold uppercase tracking-wide" style={{ color: "var(--text-card-secondary)" }}>{col.label}</span>
+                  <span className="min-w-[20px] flex-none rounded-full px-1.5 py-0.5 text-center text-[11px] font-semibold tabular-nums" style={{ background: alpha(ui.cor, 0.16), color: ui.cor }}>{col.itens.length}</span>
                 </div>
                 {col.itens.length === 0 && <span className="m-auto text-[11px]" style={{ color: "var(--text-muted)" }}>—</span>}
                 {col.itens.map((item) => <CardItem key={item.id} item={item} agente={agente} agora={agora} decidir={decidir} />)}
@@ -398,7 +403,7 @@ function CardItem({ item, agente, agora, decidir }: { item: EsteiraItem; agente:
         boxShadow: vivo ? "0 0 22px rgba(34,197,94,0.14)" : espera ? "0 0 22px rgba(251,146,60,0.16)" : "0 4px 18px rgba(0,0,0,0.18)",
       }}
     >
-      <span aria-hidden className="absolute bottom-0 left-0 top-0 w-[3px]" style={{ background: grad(agente, 180) }} />
+      <span aria-hidden className="absolute bottom-2 left-0 top-2 w-[3px] rounded-r-full bg-[linear-gradient(180deg,#ffffff,rgba(255,255,255,0.12))] [.light_&]:bg-[linear-gradient(180deg,#9ca3af,rgba(156,163,175,0.15))]" />
       <div className="flex justify-between gap-2 text-[11px]" style={muted}>
         <span className={`truncate font-medium ${AG_TXT[agente]}`}>{item.cliente ?? "—"}</span>
         <span className="flex-none">{tempoRelativo(item.etapa_desde, agora)}</span>
