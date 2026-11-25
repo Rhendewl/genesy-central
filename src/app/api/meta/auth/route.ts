@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { signOAuthState } from "@/lib/crypto";
 import { randomBytes } from "crypto";
+import { requestOrigin } from "@/lib/request-origin";
 
 // GET /api/meta/auth?clientId=xxx
 // Initiates Meta OAuth. Redirects to Facebook login page.
@@ -36,7 +37,7 @@ export async function GET(req: NextRequest) {
       nonce: randomBytes(8).toString("hex"),
     });
 
-    const redirectUri = `${req.nextUrl.origin}/api/meta/callback`;
+    const redirectUri = `${requestOrigin(req)}/api/meta/callback`;
     const oauthUrl = new URL("https://www.facebook.com/v21.0/dialog/oauth");
     oauthUrl.searchParams.set("client_id", appId);
     oauthUrl.searchParams.set("redirect_uri", redirectUri);

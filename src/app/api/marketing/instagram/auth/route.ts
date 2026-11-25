@@ -4,6 +4,7 @@ import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { signState } from "@/lib/crypto";
 import { apiError, getMarketingServerContext } from "@/lib/marketing/server";
 import { INSTAGRAM_AUTOMATION_SCOPES } from "@/lib/instagram-api";
+import { requestOrigin } from "@/lib/request-origin";
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +16,7 @@ export async function GET(req: NextRequest) {
     const clientId = process.env.INSTAGRAM_APP_ID ?? process.env.META_APP_ID;
     if (!clientId) throw new Error("INSTAGRAM_APP_ID não configurado");
 
-    const redirectUri = `${req.nextUrl.origin}/api/marketing/instagram/callback`;
+    const redirectUri = `${requestOrigin(req)}/api/marketing/instagram/callback`;
     const state = signState({
       userId: context.user.id,
       organizationId: context.organizationId,

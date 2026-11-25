@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { verifyOAuthState, encryptToken } from "@/lib/crypto";
 import { exchangeCodeForToken, exchangeForLongLivedToken, getAdAccounts } from "@/lib/meta-api";
+import { requestOrigin } from "@/lib/request-origin";
 
 type OAuthState = Record<string, unknown> & {
   tokenId:  string;
@@ -16,7 +17,7 @@ type OAuthState = Record<string, unknown> & {
 // GET /api/meta/callback?code=xxx&state=xxx
 // Meta redirects here after the user approves the app.
 export async function GET(req: NextRequest) {
-  const origin = req.nextUrl.origin;
+  const origin = requestOrigin(req);
   const errorUrl = `${origin}/marketing/trafego?tab=integracoes&meta_error=1`;
 
   try {

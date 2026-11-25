@@ -12,11 +12,12 @@ import {
   fetchUserInfo,
 }                                     from "@/lib/google-calendar/google-oauth-service";
 import { GoogleConnectionRepository } from "@/lib/google-calendar/google-connection-repository";
+import { requestOrigin } from "@/lib/request-origin";
 
 type OAuthState = { userId: string; returnTo: string; ts: number };
 
 export async function GET(req: NextRequest) {
-  const origin   = req.nextUrl.origin;
+  const origin   = requestOrigin(req);
   const errorUrl = `${origin}/agendamentos?tab=integracoes&google_error=1`;
 
   try {
