@@ -1922,3 +1922,19 @@
 @media (prefers-reduced-motion: reduce) {
   .glass-app-icon__plate, .glass-app-icon__glass, .glass-app-icon__face { animation: none; transition: none; }
 }
+
+/* Esteira das IAs — pulso do "ao vivo" e fita da barra de progresso */
+@keyframes esteira-pulso {
+  0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, .6); }
+  70% { box-shadow: 0 0 0 7px rgba(34, 197, 94, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+}
+@keyframes esteira-corre { from { background-position: 0 0; } to { background-position: 24px 0; } }
+.esteira-vivo { animation: esteira-pulso 1.8s infinite; }
+.esteira-fita {
+  background-image: repeating-linear-gradient(90deg, rgba(255, 255, 255, .22) 0 6px, transparent 6px 12px);
+  animation: esteira-corre 1.2s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .esteira-vivo, .esteira-fita { animation: none; }
+}
