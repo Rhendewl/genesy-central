@@ -88,23 +88,34 @@ REVOKE INSERT, UPDATE, DELETE ON public.esteira_itens, public.esteira_eventos, p
 GRANT SELECT ON public.esteira_itens, public.esteira_eventos, public.esteira_aprendizados TO authenticated;
 GRANT ALL ON public.esteira_itens, public.esteira_eventos, public.esteira_aprendizados TO service_role;
 
+-- Quem pode ver: o dono da conta ou um admin ativo dela. Função própria do módulo,
+-- para não depender de helpers de outros módulos.
+CREATE OR REPLACE FUNCTION public.esteira_pode_ver(p_owner uuid)
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  SELECT
+    auth.uid() = p_owner
+    OR EXISTS (
+      SELECT 1 FROM public.user_profiles me
+      WHERE me.auth_user_id = auth.uid()
+        AND me.owner_id = p_owner
+        AND me.role = 'admin'
+        AND me.is_active
+    );
+$$;
+REVOKE ALL ON FUNCTION public.esteira_pode_ver(uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.esteira_pode_ver(uuid) TO authenticated, service_role;
+
 DROP POLICY IF EXISTS "esteira_itens_select" ON public.esteira_itens;
-CREATE POLICY "esteira_itens_select" ON public.esteira_itens FOR SELECT USING (
-  user_id = public.effective_owner_id()
-  AND (user_id = auth.uid() OR public.current_member_is_admin())
-);
+CREATE POLICY "esteira_itens_select" ON public.esteira_itens
+  FOR SELECT USING (public.esteira_pode_ver(user_id));
 
 DROP POLICY IF EXISTS "esteira_eventos_select" ON public.esteira_eventos;
-CREATE POLICY "esteira_eventos_select" ON public.esteira_eventos FOR SELECT USING (
-  user_id = public.effective_owner_id()
-  AND (user_id = auth.uid() OR public.current_member_is_admin())
-);
+CREATE POLICY "esteira_eventos_select" ON public.esteira_eventos
+  FOR SELECT USING (public.esteira_pode_ver(user_id));
 
 DROP POLICY IF EXISTS "esteira_aprendizados_select" ON public.esteira_aprendizados;
-CREATE POLICY "esteira_aprendizados_select" ON public.esteira_aprendizados FOR SELECT USING (
-  user_id = public.effective_owner_id()
-  AND (user_id = auth.uid() OR public.current_member_is_admin())
-);
+CREATE POLICY "esteira_aprendizados_select" ON public.esteira_aprendizados
+  FOR SELECT USING (public.esteira_pode_ver(user_id));
 
 -- ── 5. Entrega das decisões aos agentes (sem corrida entre duas consultas) ───
 CREATE OR REPLACE FUNCTION public.esteira_claim_decisoes(p_owner uuid, p_agente text)
