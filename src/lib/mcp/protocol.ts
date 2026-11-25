@@ -11,6 +11,7 @@ export const MCP_INSTRUCOES = [
   "salvar_criativo guarda a imagem ou o vídeo na biblioteca do cliente e devolve uma URL pública, pronta para Meta Ads e Instagram.",
   "criar_tarefa cria uma tarefa no Workspace do dono da agência.",
   "esteira_registrar mostra o andamento de um trabalho na Esteira das IAs.",
+  "Financeiro: listar_financeiro mostra o mês; registrar_receita, registrar_despesa e marcar_receita_paga lançam na plataforma — só quando o dono pedir, confirmando valor, data e cliente antes.",
 ].join(" ");
 
 export type JsonSchema = Record<string, unknown>;

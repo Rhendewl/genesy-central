@@ -13,6 +13,10 @@ Um único servidor MCP, dentro do próprio app (`/api/mcp`), dá ao Alfred, ao B
 | `atualizar_criativo` | Status (rascunho, aprovado, em_campanha, arquivado), título, notas, id da campanha na Meta. |
 | `criar_tarefa` | Tarefa no Workspace do dono (quadro padrão, coluna A fazer, atribuída ao dono). |
 | `listar_tarefas` | Tarefas abertas (ou por status). |
+| `listar_financeiro` | Receitas e despesas do mês com totais (recebido, a receber, despesas, resultado). |
+| `registrar_receita` | Entrada na aba Receitas (padrão: paga hoje, pix; pendente com vencimento para cobranças). |
+| `registrar_despesa` | Saída na aba Despesas (categoria, fixa/variável, centro de custo, cliente opcional). |
+| `marcar_receita_paga` | Baixa de uma receita pendente/atrasada. |
 | `esteira_registrar` | Item, evento ou aprendizado na Esteira das IAs (mesma lógica de `/api/esteira/agente/*`). |
 
 ## Acesso
@@ -24,6 +28,8 @@ Um único servidor MCP, dentro do próprio app (`/api/mcp`), dá ao Alfred, ao B
 Transporte: Streamable HTTP sem sessão, só POST com respostas JSON (GET devolve 405, permitido pela especificação). Versões aceitas: 2025-06-18, 2025-03-26, 2024-11-05.
 
 ## Segurança
+
+- Financeiro sem exclusão: corrigir ou apagar lançamento continua só pela plataforma. Todo lançamento leva a nota "Lançado pela IA (conector Genesy)."
 
 - Tudo roda com o service role, sempre filtrado por `user_id = dono`.
 - `salvar_criativo` aceita só https público: recusa localhost, `.internal`/`.local`, IPs privados, nomes que resolvem para IP privado e redirecionamentos para eles; até 25 MB; PNG, JPG, WEBP, GIF, MP4, MOV.
