@@ -43,6 +43,9 @@ const PUBLIC_ROUTES = [
   // controlado em src/lib/site-analytics.ts. Não inclui /api/site-analytics.
   "/api/site/",
   "/api/conversas/webhook/",
+  // Agentes de IA (Alfred, Bruce) reportando à Esteira — a rota valida o
+  // segredo ESTEIRA_AGENT_SECRET. Não inclui as rotas do painel (/api/esteira).
+  "/api/esteira/agente/",
   "/api/crm/conversation-intelligence/webhook",
 ];
 // Redirect authenticated users away from these (login page only)

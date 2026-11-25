@@ -22,6 +22,7 @@ import {
   Megaphone,
   Calculator,
   MousePointerClick,
+  Workflow,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useGlobalStore } from "@/store";
@@ -37,6 +38,7 @@ const NAV_ITEMS = [
   { href: "/financeiro",    label: "Financeiro",icon: Wallet,          exactMatch: false, permKey: "financeiro" },
   { href: "/marketing",     label: "Marketing", icon: Megaphone,       exactMatch: false, permKey: "marketing" },
   { href: "/performance",   label: "Performance", icon: BarChart3,     exactMatch: false, permKey: "performance" },
+  { href: "/esteira", label: "Esteira", icon: Workflow, exactMatch: false, permKey: "admin" },
   { href: "/site-analytics", label: "Site Genesy", icon: MousePointerClick, exactMatch: false, permKey: "admin" },
   { href: "/formularios",   label: "Formulários", icon: NotepadText,  exactMatch: false, permKey: "formularios" },
   { href: "/agendamentos",  label: "Agenda",      icon: Calendar,  exactMatch: false, permKey: "agendamentos" },
