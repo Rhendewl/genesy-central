@@ -41,6 +41,7 @@ type NavItem = {
 
 const NAV_ITEMS: NavItem[] = [
   { href: "/",              label: "Dashboard",    icon: LayoutDashboard, exactMatch: true,  permKey: "dashboard"    },
+  { href: "/agentes", label: "Agentes", icon: Bot, exactMatch: false, permKey: "admin" },
   { href: "/workspace/kanban", label: "Workspace", icon: KanbanSquare, exactMatch: false, permKey: "workspace" },
   { href: "/crm",           label: "CRM",          icon: Users,           exactMatch: false, permKey: "crm"          },
   { href: "/clientes",      label: "Clientes",     icon: Contact,         exactMatch: false, permKey: "clientes"     },
@@ -51,7 +52,6 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/formularios",   label: "Formulários",  icon: NotepadText,     exactMatch: false, permKey: "formularios"  },
   { href: "/agendamentos",  label: "Agenda",       icon: Calendar,        exactMatch: false, permKey: "agendamentos" },
   { href: "/calculadora", label: "Calculadora de Fluxo de Pagamento", icon: Calculator, exactMatch: false, permKey: "calculadora" },
-  { href: "/agentes", label: "Agentes", icon: Bot, exactMatch: false, permKey: "admin" },
   { href: "/configuracoes", label: "Configurações",icon: Settings,        exactMatch: false, permKey: "configuracoes"},
 ];
 
