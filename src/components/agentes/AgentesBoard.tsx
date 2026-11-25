@@ -18,7 +18,20 @@ type Decidir = (id: string, decisao: "aprovado" | "ajuste", nota?: string) => Pr
 
 const AGENTES: EsteiraAgente[] = ["alfred", "bruce"];
 const VERDE = "#22c55e";
-const LARANJA = "#fb923c";
+/** Cor de cada etapa: vermelho → laranja → amarelo → verde → azul. */
+const COR = { pedido: "#ef4444", produzindo: "#f97316", esperando: "#eab308", aprovado: "#22c55e", no_ar: "#27a3ff" } as const;
+const PARADAS: Array<[number, string]> = [[0, COR.pedido], [33, COR.produzindo], [66, COR.esperando], [100, COR.aprovado]];
+/** Cor da barra de progresso: vermelho → laranja → amarelo → verde, mudando suavemente conforme avança. */
+function corDoProgresso(valor: number) {
+  const v = Math.min(100, Math.max(0, valor));
+  const i = Math.max(0, PARADAS.findIndex(([p]) => p >= v) - 1);
+  const [p0, c0] = PARADAS[i];
+  const [p1, c1] = PARADAS[Math.min(i + 1, PARADAS.length - 1)];
+  const t = p1 === p0 ? 0 : (v - p0) / (p1 - p0);
+  const rgb = (c: string) => [1, 3, 5].map((k) => parseInt(c.slice(k, k + 2), 16));
+  const [a, b] = [rgb(c0), rgb(c1)];
+  return `rgb(${a.map((x, k) => Math.round(x + (b[k] - x) * t)).join(", ")})`;
+}
 const BTN_GREEN = "linear-gradient(135deg, #059669, #10b981 55%, #34d399)";
 const BTN_ORANGE = "linear-gradient(135deg, #ea580c, #f97316 55%, #fb923c)";
 const CINZA: [string, string] = ["#9ca3af", "#6b7280"];
@@ -31,6 +44,7 @@ const subtle = { color: "var(--text-subtitle)" } as const;
 const TXT = {
   verde: "text-emerald-300 [.light_&]:text-emerald-700",
   laranja: "text-orange-300 [.light_&]:text-orange-700",
+  amarelo: "text-yellow-300 [.light_&]:text-yellow-700",
   ceu: "text-sky-300 [.light_&]:text-sky-700",
 } as const;
 const AG_TXT: Record<EsteiraAgente, string> = {
@@ -46,12 +60,12 @@ const alpha = (hex: string, a: number) => `${hex}${Math.round(a * 255).toString(
 
 /** Ícone e cor de cada etapa da esteira. */
 const ETAPA_UI: Record<EsteiraEtapa, { icon: ReactNode; cor: string }> = {
-  pedido: { icon: <Inbox size={13} />, cor: "#9ca3af" },
-  produzindo: { icon: <Cpu size={13} />, cor: VERDE },
-  esperando: { icon: <Hourglass size={13} />, cor: LARANJA },
-  aprovado: { icon: <Check size={13} />, cor: "#a78bfa" },
-  no_ar: { icon: <Rocket size={13} />, cor: "#27a3ff" },
-  concluido: { icon: <CheckCircle2 size={13} />, cor: "#38bdf8" },
+  pedido: { icon: <Inbox size={13} />, cor: COR.pedido },
+  produzindo: { icon: <Cpu size={13} />, cor: COR.produzindo },
+  esperando: { icon: <Hourglass size={13} />, cor: COR.esperando },
+  aprovado: { icon: <Check size={13} />, cor: COR.aprovado },
+  no_ar: { icon: <Rocket size={13} />, cor: COR.no_ar },
+  concluido: { icon: <CheckCircle2 size={13} />, cor: COR.no_ar },
   cancelado: { icon: <Check size={13} />, cor: "#64748b" },
 };
 
@@ -67,7 +81,7 @@ function Glow({ spots }: { spots: Array<{ color: string; className: string; opac
 
 function Avatar({ agente, size = 40, ring, className = "" }: { agente: EsteiraAgente; size?: number; ring?: "vivo" | "espera" | "livre"; className?: string }) {
   const info = AGENTES_INFO[agente];
-  const ponto = ring === "vivo" ? VERDE : ring === "espera" ? LARANJA : "#64748b";
+  const ponto = ring === "vivo" ? COR.produzindo : ring === "espera" ? COR.esperando : "#64748b";
   return (
     <span className={`relative inline-flex flex-none ${className}`} style={{ width: size, height: size }}>
       <span
@@ -137,9 +151,9 @@ export function AgentesBoard() {
       </section>
 
       <section aria-label="Resumo" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Kpi destaque={kpi.esperando > 0} icon={<Hourglass size={16} />} cor={LARANJA} titulo="Esperando você" valor={String(kpi.esperando)} sub="aprovações paradas" />
-        <Kpi icon={<Cpu size={16} />} cor={VERDE} titulo="Em produção agora" valor={String(kpi.produzindo)} sub="agentes trabalhando" />
-        <Kpi icon={<Rocket size={16} />} cor="#38bdf8" titulo="Entregues hoje" valor={String(kpi.entreguesHoje)} sub="no ar ou concluídos" />
+        <Kpi destaque={kpi.esperando > 0} icon={<Hourglass size={16} />} cor={COR.esperando} titulo="Esperando você" valor={String(kpi.esperando)} sub="aprovações paradas" />
+        <Kpi icon={<Cpu size={16} />} cor={COR.produzindo} titulo="Em produção agora" valor={String(kpi.produzindo)} sub="agentes trabalhando" />
+        <Kpi icon={<Rocket size={16} />} cor={COR.no_ar} titulo="Entregues hoje" valor={String(kpi.entreguesHoje)} sub="no ar ou concluídos" />
         <Kpi icon={<Timer size={16} />} cor="#a78bfa" titulo="Do pedido à entrega" valor={kpi.tempoMedio ?? "—"} sub="média dos últimos 7 dias" />
       </section>
 
@@ -246,8 +260,8 @@ function CartaoAgente({ agente, itens, agora }: { agente: EsteiraAgente; itens: 
   const status = statusDoAgente(itens, agente);
   const kpi = indicadores(itens.filter((i) => i.agente === agente), agora);
   const atual = status.produzindo[0];
-  const corStatus = status.ring === "espera" ? LARANJA : status.ring === "vivo" ? VERDE : "#94a3b8";
-  const txtStatus = status.ring === "espera" ? "text-orange-400 [.light_&]:text-orange-600" : status.ring === "vivo" ? "text-emerald-400 [.light_&]:text-emerald-600" : "text-slate-400 [.light_&]:text-slate-500";
+  const corStatus = status.ring === "espera" ? COR.esperando : status.ring === "vivo" ? COR.produzindo : "#94a3b8";
+  const txtStatus = status.ring === "espera" ? TXT.amarelo : status.ring === "vivo" ? TXT.laranja : "text-slate-400 [.light_&]:text-slate-500";
   return (
     <article className="lc-card relative overflow-hidden p-4 sm:p-5">
       <Glow spots={[
@@ -274,10 +288,10 @@ function CartaoAgente({ agente, itens, agora }: { agente: EsteiraAgente; itens: 
       <div className="relative mt-4 rounded-xl px-3 py-2.5" style={{ background: "var(--hover)", border: "1px solid var(--glass-border)" }}>
         {atual ? (
           <div className="space-y-1.5">
-            <p className={`flex items-center gap-1.5 text-[11px] font-medium ${TXT.verde}`}>
+            <p className={`flex items-center gap-1.5 text-[11px] font-medium ${TXT.laranja}`}>
               <Sparkles size={12} /> Agora: <span className="truncate" style={subtle}>{atual.passo_atual ?? atual.titulo}</span>
             </p>
-            <Progresso valor={atual.progresso} agente={agente} />
+            <Progresso valor={atual.progresso} />
           </div>
         ) : (
           <p className="text-[11px]" style={muted}>{status.esperando > 0 ? "Parado esperando a sua aprovação." : "Sem trabalho em andamento. Pronto para o próximo pedido."}</p>
@@ -286,9 +300,9 @@ function CartaoAgente({ agente, itens, agora }: { agente: EsteiraAgente; itens: 
 
       <dl className="relative mt-3 grid grid-cols-3 gap-2">
         {[
-          { rotulo: "Produzindo", valor: kpi.produzindo, cor: VERDE },
-          { rotulo: "Esperando", valor: kpi.esperando, cor: LARANJA },
-          { rotulo: "Entregues", valor: kpi.entreguesHoje, cor: "#38bdf8" },
+          { rotulo: "Produzindo", valor: kpi.produzindo, cor: COR.produzindo },
+          { rotulo: "Esperando", valor: kpi.esperando, cor: COR.esperando },
+          { rotulo: "Entregues", valor: kpi.entreguesHoje, cor: COR.no_ar },
         ].map((m) => (
           <div key={m.rotulo} className="rounded-xl px-3 py-2" style={{ background: alpha(m.cor, 0.07), border: `1px solid ${alpha(m.cor, 0.2)}` }}>
             <dt className="truncate text-[10px] font-medium uppercase tracking-wide" style={muted}>{m.rotulo}</dt>
@@ -314,11 +328,11 @@ function Kpi({ icon, cor, titulo, valor, sub, destaque = false }: { icon: ReactN
   );
 }
 
-function Progresso({ valor, agente }: { valor: number | null; agente: EsteiraAgente }) {
+function Progresso({ valor }: { valor: number | null }) {
   if (valor === null) return null;
   return (
     <div className="h-1.5 overflow-hidden rounded-full" style={{ background: "var(--hover)" }} role="progressbar" aria-valuenow={valor} aria-valuemin={0} aria-valuemax={100}>
-      <div className="esteira-fita h-full rounded-full transition-[width] duration-700 ease-out" style={{ width: `${valor}%`, backgroundColor: AGENTES_INFO[agente].cor, backgroundImage: `repeating-linear-gradient(90deg, rgba(255,255,255,.22) 0 6px, transparent 6px 12px), ${grad(agente, 90)}` }} />
+      <div className="h-full rounded-full transition-[width,background-color] duration-700 ease-out" style={{ width: `${valor}%`, backgroundColor: corDoProgresso(valor) }} />
     </div>
   );
 }
@@ -399,8 +413,8 @@ function CardItem({ item, agente, agora, decidir }: { item: EsteiraItem; agente:
       className="group relative flex flex-col gap-1.5 overflow-hidden rounded-xl p-3 pl-3.5 backdrop-blur-xl transition duration-200 hover:-translate-y-0.5"
       style={{
         background: "linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02))",
-        border: `1px solid ${vivo ? "rgba(34,197,94,0.45)" : espera ? "rgba(251,146,60,0.5)" : "var(--glass-border)"}`,
-        boxShadow: vivo ? "0 0 22px rgba(34,197,94,0.14)" : espera ? "0 0 22px rgba(251,146,60,0.16)" : "0 4px 18px rgba(0,0,0,0.18)",
+        border: `1px solid ${vivo ? alpha(COR.produzindo, 0.45) : espera ? alpha(COR.esperando, 0.5) : "var(--glass-border)"}`,
+        boxShadow: vivo ? `0 0 22px ${alpha(COR.produzindo, 0.14)}` : espera ? `0 0 22px ${alpha(COR.esperando, 0.16)}` : "0 4px 18px rgba(0,0,0,0.18)",
       }}
     >
       <span aria-hidden className="absolute bottom-2 left-0 top-2 w-[3px] rounded-r-full bg-[linear-gradient(180deg,#ffffff,rgba(255,255,255,0.12))] [.light_&]:bg-[linear-gradient(180deg,#9ca3af,rgba(156,163,175,0.15))]" />
@@ -413,10 +427,10 @@ function CardItem({ item, agente, agora, decidir }: { item: EsteiraItem; agente:
 
       {vivo && (
         <div className="space-y-1.5 pt-0.5">
-          <Progresso valor={item.progresso} agente={agente} />
+          <Progresso valor={item.progresso} />
           {item.passo_atual && (
-            <p className={`flex items-center gap-1.5 text-[11px] ${TXT.verde}`}>
-              <span className="esteira-vivo h-1.5 w-1.5 flex-none rounded-full" style={{ background: VERDE }} />
+            <p className={`flex items-center gap-1.5 text-[11px] ${TXT.laranja}`}>
+              <span className="esteira-vivo h-1.5 w-1.5 flex-none rounded-full" style={{ background: COR.produzindo }} />
               {item.passo_atual}
             </p>
           )}
@@ -507,7 +521,7 @@ function Vazio({ texto }: { texto: string }) {
 }
 
 function LinhaEvento({ evento, agora }: { evento: EsteiraEvento; agora: number }) {
-  const destaque = evento.tipo === "decisao" || evento.tipo === "proposta" ? LARANJA : evento.tipo === "passo" ? VERDE : null;
+  const destaque = evento.tipo === "decisao" || evento.tipo === "proposta" ? COR.esperando : evento.tipo === "passo" ? COR.produzindo : null;
   return (
     <li className="relative flex gap-2.5">
       {evento.agente ? (
