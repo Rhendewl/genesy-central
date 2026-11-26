@@ -261,6 +261,22 @@ export async function getInstagramMedia(accessToken: string, limit = 100) {
   return rows.slice(0, limit);
 }
 
+const PICKER_MEDIA_FIELDS = "id,caption,media_type,media_product_type,media_url,permalink,thumbnail_url,timestamp,comments_count";
+
+/** One page of the account's posts, newest first, for choosing posts in automations. */
+export async function getInstagramMediaPage(accessToken: string, after?: string | null, limit = 24) {
+  const params = new URLSearchParams({ fields: PICKER_MEDIA_FIELDS, limit: String(limit) });
+  if (after) params.set("after", after);
+  const page = await instagramGet<{ data?: InstagramMedia[]; paging?: { cursors?: { after?: string }; next?: string } }>(`/me/media?${params}`, accessToken);
+  return { media: page.data ?? [], after: page.paging?.next ? page.paging.cursors?.after ?? null : null };
+}
+
+/** Fresh data for specific posts (thumbnail URLs from the CDN expire). Missing posts are skipped. */
+export async function getInstagramMediaByIds(accessToken: string, ids: string[]) {
+  const settled = await Promise.allSettled(ids.map(id => instagramGet<InstagramMedia>(`/${encodeURIComponent(id)}?fields=${PICKER_MEDIA_FIELDS}`, accessToken)));
+  return settled.flatMap(result => result.status === "fulfilled" && result.value?.id ? [result.value] : []);
+}
+
 export async function getInstagramMediaMetrics(mediaId: string, accessToken: string) {
   // Reels-only metrics are kept separate so an unsupported metric never hides
   // the common metrics of image and carousel posts.

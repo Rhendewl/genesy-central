@@ -1,4 +1,4 @@
-import type { InstagramAutomationMatch } from "./types";
+import type { InstagramAutomationMatch, NormalizedInstagramEvent } from "./types";
 import { INSTAGRAM_MAX_SEQUENCE_MESSAGES } from "./policy";
 
 export function normalizeInstagramText(value: string) {
@@ -54,4 +54,26 @@ export function validateInstagramSequence(input: {
     return "A sequência precisa terminar dentro da janela de 24 horas do Instagram";
   }
   return null;
+}
+
+/**
+ * Automations this event may start, in priority order. Comment automations
+ * limited to posts only match comments on those posts, and run before the
+ * "all posts" ones. "Any comment" is only allowed when limited to posts.
+ */
+type MatchableAutomation = { match_type: InstagramAutomationMatch; keywords: string[] | null; media_ids?: string[] | null };
+
+export function eligibleAutomations<T extends MatchableAutomation>(automations: T[], event: Pick<NormalizedInstagramEvent, "eventType" | "text" | "mediaId">): T[] {
+  const eligible = automations.filter(automation => {
+    const mediaIds = automation.media_ids ?? [];
+    if (event.eventType === "comment") {
+      if (mediaIds.length && (!event.mediaId || !mediaIds.includes(event.mediaId))) return false;
+      if (automation.match_type === "any" && !mediaIds.length) return false;
+    }
+    return matchesInstagramKeywords(event.text, automation.keywords ?? [], automation.match_type);
+  });
+  const scoped = (automation: T) => (event.eventType === "comment" && (automation.media_ids ?? []).length ? 0 : 1);
+  return eligible.map((automation, index) => ({ automation, index }))
+    .sort((a, b) => scoped(a.automation) - scoped(b.automation) || a.index - b.index)
+    .map(item => item.automation);
 }

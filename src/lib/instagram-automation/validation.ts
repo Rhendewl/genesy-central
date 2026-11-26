@@ -2,6 +2,16 @@ import type { InstagramAutomationInput } from "./types";
 import { validateInstagramSequence } from "./matching";
 import { flowErrors, sanitizeFlow, validateFlow } from "./flow/validate";
 
+export const ANY_COMMENT_ERROR = "Para responder a qualquer comentário, escolha os posts específicos. Em todos os posts, use uma palavra ou frase.";
+export const MAX_AUTOMATION_POSTS = 30;
+
+/** Instagram media ids are numeric strings; anything else is dropped. */
+export function sanitizeMediaIds(value: unknown) {
+  if (!Array.isArray(value)) return [];
+  const ids = value.map(item => String(item ?? "").trim()).filter(id => /^[0-9]{5,40}$/.test(id));
+  return Array.from(new Set(ids)).slice(0, MAX_AUTOMATION_POSTS);
+}
+
 export function sanitizeInstagramAutomationInput(body: Partial<InstagramAutomationInput>) {
   const steps = Array.isArray(body.steps) ? body.steps.map(step => ({
     type: "message" as const,
@@ -24,11 +34,13 @@ export function sanitizeInstagramAutomationInput(body: Partial<InstagramAutomati
     crmOriginId: body.crmOriginId || null,
     crmAssignedTo: body.crmAssignedTo || null,
     crmDealValue: Math.max(0, Number(body.crmDealValue ?? 0) || 0),
+    mediaIds: sanitizeMediaIds(body.mediaIds),
   };
+  if (input.triggerType !== "comment") input.mediaIds = [];
   if (!input.connectionId || !input.name) throw Object.assign(new Error("Conta e nome são obrigatórios"), { status: 400 });
   if (input.matchType !== "any" && !input.keywords.length) throw Object.assign(new Error("Informe ao menos uma palavra ou frase"), { status: 400 });
-  if (input.status === "active" && input.triggerType === "comment" && input.matchType === "any") {
-    throw Object.assign(new Error("Para reduzir risco de spam, comentários ativos exigem uma palavra ou frase específica"), { status: 400 });
+  if (input.status === "active" && input.triggerType === "comment" && input.matchType === "any" && !input.mediaIds?.length) {
+    throw Object.assign(new Error(ANY_COMMENT_ERROR), { status: 400 });
   }
   if (input.triggerType !== "comment") input.publicReplyText = null;
   if (body.flow) {

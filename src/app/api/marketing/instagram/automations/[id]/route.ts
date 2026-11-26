@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { apiError, getMarketingServerContext } from "@/lib/marketing/server";
-import { assertInstagramConnectionReady, sanitizeInstagramAutomationInput } from "@/lib/instagram-automation/validation";
+import { assertInstagramConnectionReady, sanitizeInstagramAutomationInput, ANY_COMMENT_ERROR } from "@/lib/instagram-automation/validation";
 import { validateInstagramCrmReferences, validateInstagramFlowCrmReferences } from "@/lib/instagram-automation/crm-config";
 import { flowErrors, legacyStepsToFlow, sanitizeFlow, validateFlow } from "@/lib/instagram-automation/flow";
 
@@ -22,15 +22,15 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     if (body.status === "active") {
       // The switch must apply the same checks as saving an active automation.
       const { data: current } = await supabase.from("marketing_instagram_automations")
-        .select("connection_id,trigger_type,match_type,steps,flow,crm_enabled,crm_pipeline_id,crm_stage_id")
+        .select("connection_id,trigger_type,match_type,media_ids,steps,flow,crm_enabled,crm_pipeline_id,crm_stage_id")
         .eq("id", params.id).eq("organization_id", context.organizationId).maybeSingle();
       if (!current) throw Object.assign(new Error("Automação não encontrada"), { status: 404 });
       const { data: connection } = await supabase.from("marketing_instagram_connections").select("id,status,webhook_subscribed,webhook_fields,requested_scopes")
         .eq("id", current.connection_id).eq("organization_id", context.organizationId).maybeSingle();
       if (!connection) throw Object.assign(new Error("Conta do Instagram não encontrada"), { status: 404 });
       assertInstagramConnectionReady({ status: "active", triggerType: current.trigger_type } as Parameters<typeof assertInstagramConnectionReady>[0], connection);
-      if (current.trigger_type === "comment" && current.match_type === "any") {
-        throw Object.assign(new Error("Para reduzir risco de spam, comentários ativos exigem uma palavra ou frase específica"), { status: 400 });
+      if (current.trigger_type === "comment" && current.match_type === "any" && !(current.media_ids ?? []).length) {
+        throw Object.assign(new Error(ANY_COMMENT_ERROR), { status: 400 });
       }
       const flow = current.flow ? sanitizeFlow(current.flow) : legacyStepsToFlow({
         triggerType: current.trigger_type, steps: current.steps, crmEnabled: current.crm_enabled,
@@ -66,7 +66,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
       public_reply_text: input.publicReplyText, steps: input.steps, crm_enabled: input.crmEnabled,
       crm_pipeline_id: input.crmPipelineId, crm_stage_id: input.crmStageId, updated_at: new Date().toISOString(),
       crm_origin_id: input.crmOriginId, crm_assigned_to: input.crmAssignedTo, crm_deal_value: input.crmDealValue,
-      flow: input.flow ?? null,
+      flow: input.flow ?? null, media_ids: input.mediaIds ?? [],
     }).eq("id", params.id).eq("organization_id", context.organizationId).select("*").maybeSingle();
     if (error) throw new Error(error.message);
     if (!data) throw Object.assign(new Error("Automação não encontrada"), { status: 404 });

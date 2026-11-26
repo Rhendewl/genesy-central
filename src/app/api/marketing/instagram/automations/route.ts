@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
       keywords: input.keywords, public_reply_text: input.publicReplyText, steps: input.steps,
       crm_enabled: input.crmEnabled, crm_pipeline_id: input.crmPipelineId, crm_stage_id: input.crmStageId,
       crm_origin_id: input.crmOriginId, crm_assigned_to: input.crmAssignedTo, crm_deal_value: input.crmDealValue,
-      flow: input.flow ?? null,
+      flow: input.flow ?? null, media_ids: input.mediaIds ?? [],
     }).select("*").single();
     if (error) throw new Error(error.message);
     return NextResponse.json({ automation: data }, { status: 201 });

@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { decryptToken } from "@/lib/crypto";
 import { getInstagramUserProfile, replyToInstagramComment, sendInstagramMessage, sendInstagramMessagePayload, sendInstagramSenderAction } from "@/lib/instagram-api";
 import { LeadService } from "@/lib/crm/lead-service";
-import { matchesInstagramKeywords } from "./matching";
+import { eligibleAutomations } from "./matching";
 import {
   INSTAGRAM_AUTOMATION_DAILY_LIMIT,
   INSTAGRAM_AUTOMATION_HOURLY_LIMIT,
@@ -46,7 +46,10 @@ type AutomationRow = {
   match_type: InstagramAutomationMatch; keywords: string[]; public_reply_text: string | null;
   steps: InstagramAutomationStep[]; flow: unknown; crm_enabled: boolean; crm_pipeline_id: string | null; crm_stage_id: string | null;
   crm_origin_id: string | null; crm_assigned_to: string | null; crm_deal_value: number;
+  media_ids?: string[] | null;
 };
+
+
 type ContactRow = {
   id: string; tags: string[] | null; opted_out_at: string | null; last_message_at: string | null;
   ad_window_until: string | null; crm_lead_id: string | null;
@@ -279,15 +282,13 @@ export async function ingestInstagramWebhook(db: Db, payload: unknown) {
     if (resumed?.status === "resumed") { matched += 1; eventMatched = true; runIds.push(resumed.runId); }
     if (!resumed) {
       const { data: automations, error } = await db.from("marketing_instagram_automations")
-        .select("id,organization_id,connection_id,trigger_type,match_type,keywords,public_reply_text,steps,flow,crm_enabled,crm_pipeline_id,crm_stage_id,crm_origin_id,crm_assigned_to,crm_deal_value")
+        .select("id,organization_id,connection_id,trigger_type,match_type,keywords,media_ids,public_reply_text,steps,flow,crm_enabled,crm_pipeline_id,crm_stage_id,crm_origin_id,crm_assigned_to,crm_deal_value")
         .eq("connection_id", connection.id)
         .eq("trigger_type", event.eventType)
         .eq("status", "active")
         .order("created_at", { ascending: true });
       if (error) throw new Error(error.message);
-      for (const automation of (automations ?? []) as AutomationRow[]) {
-        if (event.eventType === "comment" && automation.match_type === "any") continue;
-        if (!matchesInstagramKeywords(event.text, automation.keywords ?? [], automation.match_type)) continue;
+      for (const automation of eligibleAutomations((automations ?? []) as AutomationRow[], event)) {
         const runId = await scheduleRun(db, automation, persisted.id, event, contactId);
         if (runId) {
           matched += 1;
