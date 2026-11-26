@@ -23,9 +23,10 @@
 .ig-flow-dialog:not(.light *) .ig-flow-topbar{position:relative;z-index:6;border-bottom-color:rgba(255,255,255,.06);
   background:linear-gradient(180deg,rgba(255,255,255,.035),rgba(255,255,255,0) 70%),rgba(4,4,5,.72);
   backdrop-filter:blur(24px) saturate(150%);-webkit-backdrop-filter:blur(24px) saturate(150%)}
-.ig-flow-dialog:not(.light *) .ig-flow-inspector{position:relative;border-left-color:rgba(255,255,255,.06);
-  background:radial-gradient(ellipse 320px 220px at 0% 0%,rgba(255,255,255,.035),transparent 70%),rgba(4,4,5,.78);
-  backdrop-filter:blur(28px) saturate(150%);-webkit-backdrop-filter:blur(28px) saturate(150%);box-shadow:inset 1px 0 0 rgba(255,255,255,.03)}
+.ig-flow-dialog:not(.light *) .ig-flow-inspector{position:relative;border-left-color:rgba(255,255,255,.08);
+  background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(255,255,255,0) 40%),rgba(0,0,0,.1);
+  backdrop-filter:blur(26px) saturate(150%);-webkit-backdrop-filter:blur(26px) saturate(150%);
+  box-shadow:inset 1px 0 0 rgba(255,255,255,.04),-24px 0 48px rgba(0,0,0,.28)}
 .ig-flow-dialog:not(.light *) :is(.ig-flow-topbar,.ig-flow-inspector) :is(input:not([type=file]),select,textarea){background:rgba(0,0,0,.5);border-color:rgba(255,255,255,.09)}
 .ig-flow-dialog:not(.light *) .ig-flow-topbar .ig-flow-title input{background:transparent}
 .ig-flow-dialog:not(.light *) :is(.ig-flow-topbar,.ig-flow-inspector) .ig-flow-segmented{background:rgba(0,0,0,.45);border-color:rgba(255,255,255,.08)}
@@ -77,7 +78,7 @@
    type shown only by a soft colour glow in the top-left corner. */
 .ig-flow-node{position:absolute;display:flex;flex-direction:column;border-radius:16px;cursor:grab;
   border:1px solid rgba(255,255,255,.08);
-  background:rgba(7,7,8,.94);
+  background:radial-gradient(ellipse 170px 110px at 100% 100%,rgba(255,255,255,.11),transparent 70%),rgba(7,7,8,.94);
   box-shadow:0 4px 24px rgba(0,0,0,.42),inset 0 1px 0 rgba(255,255,255,.05);
   transition:border-color .18s,box-shadow .18s}
 .ig-flow-node>*:not(.ig-flow-node-glow):not(.ig-flow-port){position:relative;z-index:1}
@@ -85,7 +86,8 @@
 .ig-flow-node-glow::before{content:"";position:absolute;left:-30px;top:-40px;width:190px;height:120px;border-radius:50%;
   background:radial-gradient(ellipse at center,color-mix(in srgb,var(--node-accent) 40%,transparent),transparent 70%);filter:blur(18px);opacity:.9}
 .ig-flow-node-glow::after{content:"";position:absolute;inset:0;border-radius:inherit;padding:1px;
-  background:radial-gradient(ellipse 220px 160px at top left,color-mix(in srgb,var(--node-accent) 55%,transparent),transparent 80%);
+  background:radial-gradient(ellipse 170px 120px at bottom right,rgba(255,255,255,.85),transparent 72%),
+    radial-gradient(ellipse 220px 160px at top left,color-mix(in srgb,var(--node-accent) 55%,transparent),transparent 80%);
   -webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);-webkit-mask-composite:xor;
   mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);mask-composite:exclude;opacity:.7}
 .ig-flow-node:hover{border-color:rgba(255,255,255,.14)}
@@ -121,7 +123,7 @@
 .ig-flow-node-outputs li.is-button span{color:color-mix(in srgb,var(--node-accent) 80%,var(--foreground))}
 
 .ig-flow-port{position:absolute;width:14px;height:14px;border-radius:50%;border:2px solid color-mix(in srgb,var(--foreground) 40%,transparent);background:var(--background);transition:transform .15s,border-color .15s,background .15s}
-.ig-flow-port.is-in{left:-8px;top:16px;pointer-events:none}
+.ig-flow-port.is-in{left:-8px;top:calc(50% - 7px);pointer-events:none}
 .ig-flow-port.is-out{right:-8px;top:50%;transform:translateY(-50%);cursor:crosshair;touch-action:none;z-index:2}
 /* Bigger invisible grab area around the output dot. */
 .ig-flow-port.is-out::before{content:"";position:absolute;inset:-9px;border-radius:50%}
@@ -197,7 +199,10 @@
    Chromium when zoomed: clip it to the circle explicitly. */
 .ig-flow-node.is-compact .ig-flow-node-glow{clip-path:circle(50% at 50% 50%)}
 .ig-flow-node.is-compact .ig-flow-node-glow::before{left:-24px;top:-24px;width:90px;height:90px}
-.ig-flow-node.is-compact .ig-flow-node-glow::after{background:radial-gradient(circle at 20% 15%,color-mix(in srgb,var(--node-accent) 60%,transparent),transparent 75%)}
+.ig-flow-node.is-compact{background:radial-gradient(circle at 85% 85%,rgba(255,255,255,.08),transparent 55%),rgba(7,7,8,.94)}
+.light .ig-flow-node.is-compact{background:rgba(255,255,255,.96)}
+.ig-flow-node.is-compact .ig-flow-node-glow::after{background:radial-gradient(circle at 85% 85%,rgba(255,255,255,.8),transparent 50%),radial-gradient(circle at 20% 15%,color-mix(in srgb,var(--node-accent) 60%,transparent),transparent 75%)}
+.light .ig-flow-node-glow::after{background:radial-gradient(ellipse 220px 160px at top left,color-mix(in srgb,var(--node-accent) 55%,transparent),transparent 80%)}
 .ig-flow-delay-icon{color:color-mix(in srgb,var(--node-accent) 90%,var(--foreground))}
 .ig-flow-node.is-compact .ig-flow-port.is-in{top:calc(50% - 7px)}
 .ig-flow-delay-label{position:absolute!important;top:calc(100% + 7px);left:50%;transform:translateX(-50%);white-space:nowrap;font-size:10.5px;font-weight:500;color:color-mix(in srgb,var(--foreground) 75%,var(--muted-foreground));pointer-events:none}
@@ -239,4 +244,13 @@
   .ig-flow-body{grid-template-rows:minmax(300px,1fr) auto}
   .ig-flow-inspector{max-height:42dvh}
   .ig-flow-palette button{padding:6px 9px 6px 6px;font-size:10px}
+}
+
+/* Desktop: the canvas runs under the node panel, so the panel reads as glass. */
+@media(min-width:901px){
+  .ig-flow-body{--ig-flow-panel:360px}
+  .ig-flow-body>.ig-flow-canvas{grid-column:1/-1;grid-row:1}
+  .ig-flow-body>.ig-flow-inspector{grid-column:2;grid-row:1;z-index:5;backdrop-filter:blur(26px) saturate(150%);-webkit-backdrop-filter:blur(26px) saturate(150%)}
+  .ig-flow-zoom{right:calc(14px + var(--ig-flow-panel,0px))}
+  .ig-flow-hint{max-width:min(560px,calc(100% - 220px - var(--ig-flow-panel,0px)))}
 }
