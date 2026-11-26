@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { decryptToken } from "@/lib/crypto";
-import { replyToInstagramComment, sendInstagramMessage, sendInstagramMessagePayload } from "@/lib/instagram-api";
+import { getInstagramUserProfile, replyToInstagramComment, sendInstagramMessage, sendInstagramMessagePayload, sendInstagramSenderAction } from "@/lib/instagram-api";
 import { LeadService } from "@/lib/crm/lead-service";
 import { matchesInstagramKeywords } from "./matching";
 import {
@@ -12,11 +12,14 @@ import {
 } from "./policy";
 import { parseInstagramWebhook } from "./webhook";
 import {
+  FLOW_INLINE_DELAY_SECONDS,
   FLOW_MAX_STEPS_PER_RUN,
   FLOW_MAX_WAIT_MINUTES,
   FLOW_TRIGGER_ID,
+  FLOW_FIELD_LABELS,
   addTag,
   buildFlowPayload,
+  collectedFieldKey,
   contactWindow,
   evaluateCondition,
   findNode,
@@ -26,7 +29,11 @@ import {
   nextNodeId,
   nodeWaitsForContact,
   parseFlowPayload,
+  renderTemplate,
   sanitizeFlow,
+  templateUsesName,
+  templateVariables,
+  validateCollectedAnswer,
   type AutomationFlow,
   type CrmActionConfig,
   type FlowNode,
@@ -44,7 +51,11 @@ type ContactRow = {
   id: string; tags: string[] | null; opted_out_at: string | null; last_message_at: string | null;
   ad_window_until: string | null; crm_lead_id: string | null;
 };
-type RunVariables = { privateReplyUsed?: boolean; lastReply?: string | null; fromAd?: boolean; endReason?: string };
+type RunVariables = {
+  privateReplyUsed?: boolean; lastReply?: string | null; fromAd?: boolean; endReason?: string;
+  /** Answers collected by "Aguardar resposta" blocks, keyed like the message variables. */
+  fields?: Record<string, string>;
+};
 
 const SEND_ACTIONS = new Set(["public_reply", "private_reply", "dm"]);
 const AD_WINDOW_MS = FLOW_MAX_WAIT_MINUTES * 60_000;
@@ -52,6 +63,12 @@ const AD_WINDOW_MS = FLOW_MAX_WAIT_MINUTES * 60_000;
 function addMinutes(base: string, minutes: number) {
   return new Date(new Date(base).getTime() + minutes * 60_000).toISOString();
 }
+
+function addSeconds(base: string, seconds: number) {
+  return new Date(new Date(base).getTime() + seconds * 1000).toISOString();
+}
+
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 function automationFlow(automation: AutomationRow): AutomationFlow {
   if (automation.flow) {
@@ -166,18 +183,18 @@ async function scheduleRun(db: Db, automation: AutomationRow, eventId: string, e
     const { count, error: countError } = await db.from("marketing_instagram_automation_jobs")
       .select("id", { count: "exact", head: true }).eq("run_id", existingRun.id);
     if (countError) throw new Error(countError.message);
-    if ((count ?? 0) > 0) return true;
+    if ((count ?? 0) > 0) return existingRun.id as string;
     run = existingRun as { id: string; organization_id: string };
   }
   await enqueueFlowJob(db, run, flow, FLOW_TRIGGER_ID, new Date().toISOString());
-  return true;
+  return run.id;
 }
 
 /**
  * A Direct reply (or a tap on a reply button) continues the run that is
  * waiting for this contact instead of starting a new automation.
  */
-async function resumeWaitingRun(db: Db, contactId: string, event: NormalizedInstagramEvent): Promise<"resumed" | "stale" | null> {
+async function resumeWaitingRun(db: Db, contactId: string, event: NormalizedInstagramEvent): Promise<{ status: "resumed"; runId: string } | { status: "stale" } | null> {
   const payload = parseFlowPayload(event.text);
   let query = db.from("marketing_instagram_automation_runs")
     .select("id,organization_id,current_node_id,waiting_for,variables,flow_snapshot")
@@ -189,26 +206,42 @@ async function resumeWaitingRun(db: Db, contactId: string, event: NormalizedInst
   if (error) throw new Error(error.message);
   const run = rows?.[0] as { id: string; organization_id: string; current_node_id: string; variables: RunVariables | null; flow_snapshot: AutomationFlow } | undefined;
   // A tap on a button of a run that already moved on must not start anything else.
-  if (!run) return payload ? "stale" : null;
-  const handle = payload ? `button:${payload.buttonId}` : "reply";
+  if (!run) return payload ? { status: "stale" } : null;
+  const node = findNode(run.flow_snapshot, run.current_node_id);
+  let handle = payload ? `button:${payload.buttonId}` : "reply";
   const variables: RunVariables = { ...(run.variables ?? {}), lastReply: event.text };
+  let collected: Record<string, string> | null = null;
   if (payload) {
-    const node = findNode(run.flow_snapshot, run.current_node_id);
     const button = node?.type === "message" ? node.data.buttons.find(item => item.id === payload.buttonId) : null;
     variables.lastReply = button?.label ?? null;
+  } else if (node?.type === "wait_reply" && node.data.saveAs) {
+    const answer = validateCollectedAnswer(node.data.saveAs, event.text);
+    if (answer.ok) {
+      collected = { [collectedFieldKey(node.data.saveAs, node.data.fieldLabel)]: answer.value };
+      variables.fields = { ...(variables.fields ?? {}), ...collected };
+    } else if (nextNodeId(run.flow_snapshot, node.id, "invalid")) {
+      handle = "invalid";
+    }
   }
   const { data: claimed } = await db.from("marketing_instagram_automation_runs")
     .update({ status: "running", waiting_for: null, wait_until: null, variables })
     .eq("id", run.id).eq("status", "waiting").eq("current_node_id", run.current_node_id)
     .select("id").maybeSingle();
-  if (!claimed) return "stale";
+  if (!claimed) return { status: "stale" };
+  if (collected) {
+    // Answers also live on the contact, so later flows and the CRM can reuse them.
+    const { data: contact } = await db.from("marketing_instagram_contacts").select("fields").eq("id", contactId).maybeSingle();
+    await db.from("marketing_instagram_contacts").update({
+      fields: { ...((contact?.fields as Record<string, string> | null) ?? {}), ...collected }, updated_at: new Date().toISOString(),
+    }).eq("id", contactId);
+  }
   await db.from("marketing_instagram_automation_jobs").update({
     status: "skipped", last_error: "Contato interagiu antes do tempo limite", updated_at: new Date().toISOString(),
   }).eq("run_id", run.id).eq("action_type", "flow_timeout").in("status", ["pending", "retry"]);
   const target = nextNodeId(run.flow_snapshot, run.current_node_id, handle);
   if (!target) await finishFlowRun(db, run.id);
   else await enqueueFlowJob(db, run, run.flow_snapshot, target, new Date().toISOString());
-  return "resumed";
+  return { status: "resumed", runId: run.id };
 }
 
 export async function ingestInstagramWebhook(db: Db, payload: unknown) {
@@ -216,6 +249,7 @@ export async function ingestInstagramWebhook(db: Db, payload: unknown) {
   let accepted = 0;
   let duplicates = 0;
   let matched = 0;
+  const runIds: string[] = [];
   for (const event of parsed) {
     const { data: connection } = await db.from("marketing_instagram_connections")
       .select("id,organization_id")
@@ -240,7 +274,7 @@ export async function ingestInstagramWebhook(db: Db, payload: unknown) {
     }
     let eventMatched = false;
     const resumed = contactId ? await resumeWaitingRun(db, contactId, event) : null;
-    if (resumed === "resumed") { matched += 1; eventMatched = true; }
+    if (resumed?.status === "resumed") { matched += 1; eventMatched = true; runIds.push(resumed.runId); }
     if (!resumed) {
       const { data: automations, error } = await db.from("marketing_instagram_automations")
         .select("id,organization_id,connection_id,trigger_type,match_type,keywords,public_reply_text,steps,flow,crm_enabled,crm_pipeline_id,crm_stage_id,crm_origin_id,crm_assigned_to,crm_deal_value")
@@ -252,9 +286,11 @@ export async function ingestInstagramWebhook(db: Db, payload: unknown) {
       for (const automation of (automations ?? []) as AutomationRow[]) {
         if (event.eventType === "comment" && automation.match_type === "any") continue;
         if (!matchesInstagramKeywords(event.text, automation.keywords ?? [], automation.match_type)) continue;
-        if (await scheduleRun(db, automation, persisted.id, event, contactId)) {
+        const runId = await scheduleRun(db, automation, persisted.id, event, contactId);
+        if (runId) {
           matched += 1;
           eventMatched = true;
+          runIds.push(runId);
           // A single inbound interaction must never fan out into competing
           // automations. For comments this also enforces Meta's one-private-reply
           // limit across the whole connected account, not only inside one flow.
@@ -267,7 +303,7 @@ export async function ingestInstagramWebhook(db: Db, payload: unknown) {
       .eq("id", persisted.id);
     if (finalized.error) throw new Error(finalized.error.message);
   }
-  return { received: parsed.length, accepted, duplicates, matched };
+  return { received: parsed.length, accepted, duplicates, matched, runIds };
 }
 
 type JobRow = {
@@ -332,26 +368,78 @@ async function finishFlowRun(db: Db, runId: string, reason?: string) {
 
 type CrmConfig = { stageId: string; originId: string | null; assignedTo: string | null; dealValue: number };
 
-async function createCrmLead(db: Db, run: Record<string, any>, event: Record<string, any>, contact: Record<string, any> | null, config: CrmConfig) {
-  if (contact?.crm_lead_id) return contact.crm_lead_id as string;
-  const username = event.sender_username as string | null;
+const PLACEHOLDER_LEAD_NAME = "Lead do Instagram";
+
+function fieldTitle(key: string) {
+  const known: Record<string, string> = { nome: FLOW_FIELD_LABELS.name, whatsapp: FLOW_FIELD_LABELS.phone, email: FLOW_FIELD_LABELS.email };
+  if (known[key]) return known[key];
+  const words = key.replace(/_/g, " ").trim();
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
+/** Fetches the contact's Instagram name once (User Profile API); failures are retried after 6h. */
+async function ensureContactProfile(db: Db, contact: Record<string, any> | null, scopedId: string | null, accessToken: string) {
+  if (!contact?.id || !scopedId || contact.full_name) return;
+  const lastAttempt = contact.profile_fetched_at ? new Date(contact.profile_fetched_at).getTime() : 0;
+  if (Date.now() - lastAttempt < 6 * 60 * 60_000) return;
+  const update: Record<string, unknown> = { profile_fetched_at: new Date().toISOString() };
+  try {
+    const profile = await getInstagramUserProfile(scopedId, accessToken);
+    if (profile.name?.trim()) update.full_name = profile.name.trim().slice(0, 120);
+    if (profile.username && !contact.username) update.username = profile.username;
+  } catch {
+    // Meta only shares the profile once the person has messaged the account.
+  }
+  await db.from("marketing_instagram_contacts").update(update).eq("id", contact.id);
+  Object.assign(contact, update);
+}
+
+type CollectedProfile = { fullName: string | null; fields: Record<string, string> };
+
+async function createCrmLead(db: Db, run: Record<string, any>, event: Record<string, any>, contact: Record<string, any> | null, config: CrmConfig, collected?: CollectedProfile) {
+  const fields = collected?.fields ?? {};
+  const fullName = (fields.nome || collected?.fullName || "").trim() || null;
+  const phone = fields.whatsapp || null;
+  const email = fields.email || null;
+  const username = (event.sender_username as string | null) ?? (contact?.username as string | null) ?? null;
   const scopedId = event.sender_scoped_id as string | null;
+  if (contact?.crm_lead_id) {
+    // The lead already exists: fill in what the conversation collected since then.
+    const updates: Record<string, unknown> = {};
+    if (phone) updates.contact = phone;
+    if (email) updates.email = email;
+    if (fullName) {
+      const { data: lead } = await db.from("leads").select("name").eq("id", contact.crm_lead_id).maybeSingle();
+      const current = String(lead?.name ?? "");
+      if (!current || current === PLACEHOLDER_LEAD_NAME || current.startsWith("@")) updates.name = fullName;
+    }
+    if (Object.keys(updates).length) {
+      await db.from("leads").update(updates).eq("id", contact.crm_lead_id).eq("user_id", run.organization_id);
+    }
+    return contact.crm_lead_id as string;
+  }
   const { data: origin } = config.originId ? await db.from("crm_lead_origins")
     .select("id,slug").eq("id", config.originId).eq("user_id", run.organization_id).maybeSingle() : { data: null };
+  const answers = Object.entries(fields).filter(([, value]) => value).map(([key, value]) => `${fieldTitle(key)}: ${value}`);
+  const notes = [
+    event.text ? `Interação recebida: ${String(event.text).slice(0, 1000)}` : "",
+    answers.length ? `Respostas no Instagram:\n${answers.join("\n")}` : "",
+  ].filter(Boolean).join("\n\n");
   const service = new LeadService(db);
   const result = await service.createLead({
     user_id: run.organization_id as string,
     stageId: config.stageId,
-    name: username ? `@${username}` : "Lead do Instagram",
-    contact: username ? `instagram:@${username}` : `instagram:${scopedId ?? "desconhecido"}`,
-    email: null,
+    name: fullName ?? (username ? `@${username}` : PLACEHOLDER_LEAD_NAME),
+    contact: phone ?? (username ? `instagram:@${username}` : `instagram:${scopedId ?? "desconhecido"}`),
+    email,
     source: origin?.slug ?? "instagram_automation",
     origin_id: origin?.id ?? null,
     assigned_to: config.assignedTo,
     deal_value: Math.max(0, Number(config.dealValue) || 0),
     form_name: "Automação do Instagram",
-    notes: event.text ? `Interação recebida: ${String(event.text).slice(0, 1000)}` : null,
-    integration_notes: `Instagram scoped ID: ${scopedId ?? "não informado"}`,
+    tags: Array.isArray(contact?.tags) ? contact.tags as string[] : [],
+    notes: notes || null,
+    integration_notes: `Instagram${username ? ` @${username}` : ""} · scoped ID: ${scopedId ?? "não informado"}`,
   });
   if (!result.ok || !result.leadId) throw new Error(result.error ?? "Não foi possível criar o lead no CRM");
   if (contact?.id) await db.from("marketing_instagram_contacts").update({ crm_lead_id: result.leadId }).eq("id", contact.id);
@@ -468,7 +556,7 @@ async function processLegacyJob(db: Db, job: JobRow, blocked: boolean, now: stri
 }
 
 type FlowStep =
-  | { kind: "advance"; handle: string; delayMinutes?: number }
+  | { kind: "advance"; handle: string; delaySeconds?: number }
   | { kind: "wait"; waitingFor: "reply" | "button"; timeoutMinutes: number | null }
   | { kind: "skip"; reason: string };
 
@@ -539,7 +627,7 @@ async function processFlowJob(db: Db, job: JobRow, blocked: boolean, now: string
   await db.from("marketing_instagram_automation_runs").update({ variables }).eq("id", run.id);
   const target = nextNodeId(flow, node.id, step.handle);
   if (!target) await finishFlowRun(db, run.id);
-  else await enqueueFlowJob(db, run, flow, target, addMinutes(new Date().toISOString(), step.delayMinutes ?? 0));
+  else await enqueueFlowJob(db, run, flow, target, addSeconds(new Date().toISOString(), step.delaySeconds ?? 0));
   return "completed" as const;
 
   async function executeNode(current: FlowNode, conn: { instagram_user_id: string; encrypted_access_token: string }): Promise<FlowStep> {
@@ -568,15 +656,29 @@ async function processFlowJob(db: Db, job: JobRow, blocked: boolean, now: string
         if (delivery.channel === "private_reply" && !event.comment_id) throw Object.assign(new Error("Comentário sem ID para resposta privada"), { permanent: true });
         if (delivery.channel === "dm" && !event.sender_scoped_id) throw Object.assign(new Error("Mensagem sem destinatário do Instagram"), { permanent: true });
         const recipient = delivery.channel === "private_reply" ? { comment_id: event.comment_id as string } : { id: event.sender_scoped_id as string };
-        const body = instagramMessageBody(current.data, buttonId => buildFlowPayload(run.id, current.id, buttonId));
-        externalMessageId = (await sendInstagramMessagePayload(conn.instagram_user_id, recipient, body, decryptToken(conn.encrypted_access_token))).message_id;
+        const token = decryptToken(conn.encrypted_access_token);
+        if (templateUsesName(current.data.text)) await ensureContactProfile(db, contact, event.sender_scoped_id, token);
+        const text = renderTemplate(current.data.text, templateVariables({
+          fullName: contact?.full_name ?? null,
+          username: event.sender_username ?? contact?.username ?? null,
+          lastReply: variables.lastReply ?? null,
+          fields: { ...((contact?.fields as Record<string, string> | null) ?? {}), ...(variables.fields ?? {}) },
+        }));
+        const body = instagramMessageBody({ ...current.data, text }, buttonId => buildFlowPayload(run.id, current.id, buttonId));
+        externalMessageId = (await sendInstagramMessagePayload(conn.instagram_user_id, recipient, body, token)).message_id;
         counted = true; sent = true;
         if (delivery.channel === "private_reply") variables.privateReplyUsed = true;
         if (nodeWaitsForContact(current)) return { kind: "wait", waitingFor: "button", timeoutMinutes: current.data.timeoutMinutes ?? null };
         return { kind: "advance", handle: "next" };
       }
-      case "delay":
-        return { kind: "advance", handle: "next", delayMinutes: current.data.minutes };
+      case "delay": {
+        // "digitando…" only makes sense for short pauses, inside the Direct window.
+        const window = contactWindow({ lastMessageAt: contact?.last_message_at ?? null, adWindowUntil: contact?.ad_window_until ?? null });
+        if (current.data.typing && current.data.seconds <= FLOW_INLINE_DELAY_SECONDS && window.open && event.sender_scoped_id) {
+          await sendInstagramSenderAction(conn.instagram_user_id, event.sender_scoped_id, "typing_on", decryptToken(conn.encrypted_access_token)).catch(() => undefined);
+        }
+        return { kind: "advance", handle: "next", delaySeconds: current.data.seconds };
+      }
       case "wait_reply":
         return { kind: "wait", waitingFor: "reply", timeoutMinutes: current.data.timeoutMinutes };
       case "condition": {
@@ -600,8 +702,12 @@ async function processFlowJob(db: Db, job: JobRow, blocked: boolean, now: string
         }
         const crm = current.data.crm as CrmActionConfig | undefined;
         if (!crm?.stageId) throw Object.assign(new Error("Etapa do CRM não configurada"), { permanent: true });
+        await ensureContactProfile(db, contact, event.sender_scoped_id, decryptToken(conn.encrypted_access_token));
         await createCrmLead(db, run, event, contact, {
           stageId: crm.stageId, originId: crm.originId, assignedTo: crm.assignedTo, dealValue: crm.dealValue,
+        }, {
+          fullName: contact?.full_name ?? null,
+          fields: { ...((contact?.fields as Record<string, string> | null) ?? {}), ...(variables.fields ?? {}) },
         });
         counted = true;
         return { kind: "advance", handle: "next" };
@@ -631,15 +737,51 @@ export async function runDueInstagramAutomationJobs(db: Db, limit = 20) {
     .eq("status", "processing").in("action_type", ["crm", "flow_timeout"]).lt("locked_at", staleAt);
   await db.from("marketing_instagram_automation_jobs").update(requeue)
     .eq("status", "processing").eq("action_type", "flow_node").in("payload->>nodeType", ["delay", "wait_reply", "condition", "action"]).lt("locked_at", staleAt);
-  const { data: due } = await db.from("marketing_instagram_automation_jobs").select("id")
-    .in("status", ["pending", "retry"]).lte("scheduled_for", new Date().toISOString())
-    .order("scheduled_for").limit(Math.min(100, Math.max(1, limit)));
+  // A block that finishes immediately queues the next one "now": keep draining
+  // within the same call so a chain of blocks doesn't wait one tick per block.
   const outcomes: string[] = [];
-  for (const row of due ?? []) outcomes.push(await processInstagramAutomationJob(db, row.id as string));
+  const startedAt = Date.now();
+  for (let round = 0; round < 10 && Date.now() - startedAt < 20_000; round += 1) {
+    const { data: due } = await db.from("marketing_instagram_automation_jobs").select("id")
+      .in("status", ["pending", "retry"]).lte("scheduled_for", new Date().toISOString())
+      .order("scheduled_for").limit(Math.min(100, Math.max(1, limit)));
+    if (!due?.length) break;
+    const before = outcomes.length;
+    for (const row of due) outcomes.push(await processInstagramAutomationJob(db, row.id as string));
+    if (outcomes.slice(before).every(value => value === "skipped")) break;
+  }
   return {
     processed: outcomes.filter(value => value !== "skipped").length,
     completed: outcomes.filter(value => value === "completed").length,
     retried: outcomes.filter(value => value === "retry").length,
     deadLettered: outcomes.filter(value => value === "dead_letter").length,
   };
+}
+
+/**
+ * Runs the given flows right away instead of waiting for the worker tick:
+ * called after a webhook, it executes due blocks and sleeps through short
+ * delays (≤ FLOW_INLINE_DELAY_SECONDS). Anything longer is left to the worker.
+ * Safe to run alongside the worker — every job is claimed atomically.
+ */
+export async function driveInstagramRuns(db: Db, runIds: string[], budgetMs = 55_000) {
+  const ids = Array.from(new Set(runIds)).filter(Boolean);
+  if (!ids.length) return;
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < budgetMs) {
+    const { data: pending } = await db.from("marketing_instagram_automation_jobs")
+      .select("id,scheduled_for,action_type").in("run_id", ids).in("status", ["pending", "retry"])
+      .order("scheduled_for").limit(20);
+    const next = (pending ?? []).find(row => row.action_type !== "flow_timeout") ?? null;
+    if (!next) return;
+    const waitMs = new Date(next.scheduled_for as string).getTime() - Date.now();
+    if (waitMs > FLOW_INLINE_DELAY_SECONDS * 1000 || Date.now() + waitMs - startedAt > budgetMs) return;
+    if (waitMs > 0) await sleep(waitMs);
+    const outcome = await processInstagramAutomationJob(db, next.id as string);
+    // Someone else (the worker) took it, or it is blocked: let the worker carry on.
+    if (outcome === "skipped") {
+      const { data: still } = await db.from("marketing_instagram_automation_jobs").select("status").eq("id", next.id).maybeSingle();
+      if (still?.status === "pending" || still?.status === "retry") return;
+    }
+  }
 }

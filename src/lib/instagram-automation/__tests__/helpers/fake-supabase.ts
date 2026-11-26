@@ -7,7 +7,7 @@ type Filter = (row: Row) => boolean;
 
 const DEFAULTS: Record<string, () => Row> = {
   marketing_instagram_automation_events: () => ({ status: "received", received_at: new Date().toISOString() }),
-  marketing_instagram_contacts: () => ({ tags: [], crm_lead_id: null, opted_out_at: null, last_message_at: null, ad_window_until: null, username: null }),
+  marketing_instagram_contacts: () => ({ tags: [], fields: {}, full_name: null, profile_fetched_at: null, crm_lead_id: null, opted_out_at: null, last_message_at: null, ad_window_until: null, username: null }),
   marketing_instagram_automation_runs: () => ({ status: "queued", variables: {}, started_at: null, completed_at: null, crm_lead_id: null, waiting_for: null, wait_until: null }),
   marketing_instagram_automation_jobs: () => ({ status: "pending", attempts: 0, max_attempts: 5, scheduled_for: new Date().toISOString(), locked_at: null, last_error: null, external_message_id: null, completed_at: null }),
 };

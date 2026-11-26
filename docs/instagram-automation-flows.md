@@ -8,10 +8,10 @@ Evolução do submódulo de automações de comentários e Direct: a sequência 
 |---|---|---|
 | Gatilho | Em seguida | Mesmo gatilho de antes (comentário, DM, resposta a story, botão) + palavras-chave e resposta pública. Fica nas colunas da automação, para o webhook continuar casando pelo índice. |
 | Mensagem | Em seguida, ou uma saída por botão "Continua o fluxo" (+ "Não tocou" opcional) | Texto com até 3 botões: link (`web_url`) ou resposta (`postback`). Botão de resposta pausa o fluxo até o toque. |
-| Atraso | Em seguida | Agenda o próximo bloco para depois de N minutos/horas/dias. |
-| Esperar resposta | Respondeu / Sem resposta | Pausa até o lead mandar uma DM ou até o tempo limite. A resposta fica em `variables.lastReply`. |
+| Atraso | Em seguida | Pausa de segundos a dias e segue sozinho. Em pausas de até 1 min pode mostrar "digitando…" (`sender_action: typing_on`). No canvas é um relógio redondo. |
+| Aguardar resposta | Respondeu / (Resposta inválida) / Sem resposta | Para até o lead escrever no Direct ou até o tempo limite. Pode salvar a resposta como Nome, WhatsApp, E-mail ou campo personalizado; WhatsApp e e-mail são validados e ganham a saída "Resposta inválida". |
 | Condição | Sim / Não | Última resposta contém (lista separada por vírgula), contato tem tag, lead veio de anúncio. |
-| Ação | Em seguida | Cria/reaproveita oportunidade no CRM ou adiciona uma tag ao contato. |
+| Ação | Em seguida | CRM: cria o lead com nome (perfil do Instagram ou resposta coletada), WhatsApp em `contact`, e-mail, tags do contato e as demais respostas nas observações; se o lead já existe, completa nome/WhatsApp/e-mail. Tag: adiciona uma tag ao contato. |
 
 Código compartilhado (servidor e navegador) em `src/lib/instagram-automation/flow/`: tipos, validação, conversão das automações antigas e regras de execução puras.
 
@@ -51,3 +51,19 @@ Automações salvas no editor antigo (`flow IS NULL`) são convertidas em tempo 
 
 - Limite preventivo por contato subiu de 5 para 12 mensagens/24h por automação (fluxos com botões e follow-ups enviam mais que a sequência linear).
 - DMs não sobrescrevem mais o `username` do contato aprendido num comentário.
+
+## Variáveis nas mensagens
+
+`{primeiro_nome}`, `{nome}`, `{usuario}`, `{whatsapp}`, `{email}`, `{resposta}` e o slug de cada campo personalizado (`Cidade de interesse` → `{cidade_de_interesse}`). O nome vem da User Profile API (`GET /{IGSID}?fields=name,username`), buscado uma vez por contato e guardado em `marketing_instagram_contacts.full_name`; a Meta só libera o perfil depois que a pessoa falou com a conta no Direct. Variável sem valor some do texto junto com o espaço antes dela.
+
+## Velocidade
+
+- O webhook responde à Meta e, em seguida, executa o fluxo no próprio servidor (`driveInstagramRuns`): blocos seguidos e pausas de até 60 s rodam na hora.
+- O worker drena a fila em sequência por até 20 s a cada chamada e passa a rodar a cada 10 s (`20261126020000_instagram_flows_v2.sql`), cobrindo pausas longas e tempos limite.
+- Isso depende do app rodar como servidor Node contínuo (Coolify). Em ambiente serverless, o trabalho após a resposta pode ser interrompido; o worker continua cobrindo.
+
+## Editor
+
+- Ligações com ímã: ao arrastar, o bloco mais próximo (em cima dele ou com a entrada a ~70 px) é escolhido e a linha encaixa.
+- Duplicar bloco: botão no painel ou Ctrl/⌘ + D (a cópia vai logo abaixo, sem ligações).
+- Cards pretos com brilho da cor do tipo no canto superior esquerdo, no padrão dos outros módulos.

@@ -2,22 +2,28 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import {
-  AlertTriangle, CheckCircle2, GitBranch, Hourglass, Link2, Maximize2, MessageSquareText, Minus, MousePointerClick,
+  AlertTriangle, CheckCircle2, Copy, GitBranch, Hourglass, Link2, Maximize2, MessageSquareText, Minus, MousePointerClick,
   Plus, Tag, Target, Timer, Trash2, Workflow, X, Zap,
 } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { LeadOriginSelector } from "@/components/crm/LeadOriginSelector";
 import {
+  FLOW_FIELD_LABELS,
+  FLOW_INLINE_DELAY_SECONDS,
   FLOW_MAX_BUTTONS,
   FLOW_MAX_BUTTON_LABEL,
   FLOW_MAX_NODES,
   FLOW_MAX_TEXT,
   FLOW_MAX_TEXT_WITH_BUTTONS,
   FLOW_TRIGGER_ID,
+  FLOW_VARIABLES,
   connectNodes,
   createFlowNode,
   describeNode,
+  duplicateFlowNode,
+  fieldSlug,
   flowId,
+  formatSeconds,
   nextNodeId,
   nodeOutputs,
   nodeTitle,
@@ -26,12 +32,14 @@ import {
   validateFlow,
   type ActionNodeData,
   type AutomationFlow,
+  type CollectedFieldKind,
   type ConditionNodeData,
   type FlowButton,
   type FlowIssue,
   type FlowNode,
   type FlowNodeType,
   type MessageNodeData,
+  type WaitReplyNodeData,
 } from "@/lib/instagram-automation/flow";
 import "./automation-flow.css";
 
@@ -55,6 +63,8 @@ export type BuilderProfile = { id: string; full_name: string; job_title: string 
 type AddableType = Exclude<FlowNodeType, "trigger"> | "tag";
 
 const NODE_W = 248;
+/** The delay block is a small round clock. */
+const DELAY_D = 64;
 const HEADER_H = 46;
 const BODY_H = 56;
 const ROW_H = 30;
@@ -75,7 +85,7 @@ const TRIGGER_SHORT: Record<BuilderTrigger, string> = {
 const PALETTE: Array<{ type: AddableType; label: string; icon: typeof Zap }> = [
   { type: "message", label: "Mensagem", icon: MessageSquareText },
   { type: "delay", label: "Atraso", icon: Timer },
-  { type: "wait_reply", label: "Esperar resposta", icon: Hourglass },
+  { type: "wait_reply", label: "Aguardar resposta", icon: Hourglass },
   { type: "condition", label: "Condição", icon: GitBranch },
   { type: "action", label: "CRM", icon: Target },
   { type: "tag", label: "Tag", icon: Tag },
@@ -92,14 +102,23 @@ function nodeIcon(node: FlowNode) {
   }
 }
 
+function nodeWidth(node: FlowNode) {
+  return node.type === "delay" ? DELAY_D : NODE_W;
+}
 function nodeHeight(node: FlowNode) {
+  if (node.type === "delay") return DELAY_D;
   return HEADER_H + BODY_H + nodeOutputs(node).length * ROW_H + FOOT_H;
 }
+/** Where an incoming line ends: just outside the input dot so the arrowhead shows. */
 function inPort(node: FlowNode) {
-  // Ends just outside the input dot so the arrowhead stays visible.
+  if (node.type === "delay") return { x: node.position.x - 8, y: node.position.y + DELAY_D / 2 };
   return { x: node.position.x - 8, y: node.position.y + HEADER_H / 2 };
 }
+function inDot(node: FlowNode) {
+  return { x: node.position.x, y: node.position.y + (node.type === "delay" ? DELAY_D / 2 : HEADER_H / 2) };
+}
 function outPort(node: FlowNode, index: number) {
+  if (node.type === "delay") return { x: node.position.x + DELAY_D, y: node.position.y + DELAY_D / 2 };
   return { x: node.position.x + NODE_W, y: node.position.y + HEADER_H + BODY_H + index * ROW_H + ROW_H / 2 };
 }
 function curve(a: { x: number; y: number }, b: { x: number; y: number }) {
@@ -177,7 +196,7 @@ export function AutomationFlowBuilder({
   const [selected, setSelected] = useState<string | null>(null);
   const [selectedEdge, setSelectedEdge] = useState<string | null>(null);
   const [view, setView] = useState({ x: 40, y: 40, k: 1 });
-  const [connecting, setConnecting] = useState<{ source: string; handle: string; x: number; y: number } | null>(null);
+  const [connecting, setConnecting] = useState<{ source: string; handle: string; x: number; y: number; target: string | null } | null>(null);
   const [dropMenu, setDropMenu] = useState<{ source: string; handle: string; x: number; y: number; screenX: number; screenY: number } | null>(null);
   const canvasRef = useRef<HTMLDivElement | null>(null);
   const gesture = useRef<Gesture | null>(null);
@@ -204,6 +223,11 @@ export function AutomationFlowBuilder({
   }, [setFlow]);
 
   const privateReplies = useMemo(() => privateReplyIds(flow, state.triggerType), [flow, state.triggerType]);
+  const messageVariables = useMemo(() => {
+    const custom = flow.nodes.flatMap(node => node.type === "wait_reply" && node.data.saveAs === "custom" && node.data.fieldLabel
+      ? [{ key: fieldSlug(node.data.fieldLabel), label: node.data.fieldLabel }] : []);
+    return [...FLOW_VARIABLES, ...custom.filter((item, index) => item.key && custom.findIndex(other => other.key === item.key) === index)];
+  }, [flow.nodes]);
   const issues = useMemo(() => {
     const list: FlowIssue[] = [];
     if (!state.name.trim()) list.push({ nodeId: null, level: "error", message: "Dê um nome à automação" });
@@ -233,7 +257,7 @@ export function AutomationFlowBuilder({
     if (!canvas || !flow.nodes.length) return;
     const minX = Math.min(...flow.nodes.map(node => node.position.x));
     const minY = Math.min(...flow.nodes.map(node => node.position.y));
-    const maxX = Math.max(...flow.nodes.map(node => node.position.x + NODE_W));
+    const maxX = Math.max(...flow.nodes.map(node => node.position.x + nodeWidth(node)));
     const maxY = Math.max(...flow.nodes.map(node => node.position.y + nodeHeight(node)));
     const { width, height } = canvas.getBoundingClientRect();
     const fit = Math.min(1.05, Math.max(MIN_ZOOM, Math.min((width - 120) / (maxX - minX || 1), (height - 160) / (maxY - minY || 1))));
@@ -287,7 +311,7 @@ export function AutomationFlowBuilder({
     if (flow.nodes.length >= FLOW_MAX_NODES) return;
     const anchor = from ? flow.nodes.find(node => node.id === from.source) : selected ? flow.nodes.find(node => node.id === selected) : null;
     let position = at;
-    if (!position && anchor) position = { x: anchor.position.x + NODE_W + 90, y: anchor.position.y };
+    if (!position && anchor) position = { x: anchor.position.x + nodeWidth(anchor) + 90, y: anchor.position.y };
     if (!position) {
       const rect = canvasRef.current?.getBoundingClientRect();
       position = toWorld((rect?.left ?? 0) + (rect?.width ?? 600) / 2 - NODE_W / 2, (rect?.top ?? 0) + (rect?.height ?? 400) / 3);
@@ -303,7 +327,7 @@ export function AutomationFlowBuilder({
     // Linking from an output that already leads somewhere inserts the new block
     // in between instead of silently cutting the rest of the flow.
     const previousTarget = link ? nextNodeId(flow, link.source, link.handle) : null;
-    if (previousTarget && !at && anchor) node.position = { x: anchor.position.x + NODE_W + 90, y: anchor.position.y + nodeHeight(anchor) + 60 };
+    if (previousTarget && !at && anchor) node.position = { x: anchor.position.x + nodeWidth(anchor) + 90, y: anchor.position.y + nodeHeight(anchor) + 60 };
     const firstOutput = nodeOutputs(node)[0]?.handle;
     setFlow(current => {
       let next: AutomationFlow = { ...current, nodes: [...current.nodes, node] };
@@ -319,13 +343,22 @@ export function AutomationFlowBuilder({
       const { x, y, k } = viewRef.current;
       const left = node.position.x * k + x;
       const top = node.position.y * k + y;
-      const right = left + NODE_W * k;
+      const right = left + nodeWidth(node) * k;
       const bottom = top + nodeHeight(node) * k;
       const dx = right > rect.width - 40 ? rect.width - 40 - right : left < 40 ? 40 - left : 0;
       const dy = bottom > rect.height - 70 ? rect.height - 70 - bottom : top < 76 ? 76 - top : 0;
       if (dx || dy) setView(current => ({ ...current, x: current.x + dx, y: current.y + dy }));
     }
   }, [flow, selected, setFlow, toWorld]);
+
+  const duplicateSelected = useCallback(() => {
+    if (!selected || selected === FLOW_TRIGGER_ID || flow.nodes.length >= FLOW_MAX_NODES) return;
+    const { flow: next, node } = duplicateFlowNode(flow, selected);
+    if (!node) return;
+    setFlow(() => next);
+    setSelected(node.id);
+    setSelectedEdge(null);
+  }, [flow, selected, setFlow]);
 
   const removeSelected = useCallback(() => {
     if (selectedEdge) {
@@ -343,11 +376,31 @@ export function AutomationFlowBuilder({
       const target = event.target as HTMLElement | null;
       if (target && (target.closest("input,textarea,select,[contenteditable=true]"))) return;
       if (event.key === "Delete" || event.key === "Backspace") { event.preventDefault(); removeSelected(); }
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "d") { event.preventDefault(); duplicateSelected(); }
       if (event.key === "Escape" && (dropMenu || connecting)) { event.stopPropagation(); setDropMenu(null); setConnecting(null); }
     };
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);
-  }, [connecting, dropMenu, open, removeSelected]);
+  }, [connecting, dropMenu, duplicateSelected, open, removeSelected]);
+
+  /**
+   * Magnet: while dragging a line, the nearest block within reach (over it, or
+   * with its input dot within ~70px on screen) is picked as the target.
+   */
+  const magnetTarget = (point: { x: number; y: number }, source: string) => {
+    const reach = 70 / viewRef.current.k;
+    let best: string | null = null;
+    let bestDistance = Infinity;
+    for (const node of flow.nodes) {
+      if (node.id === source || node.id === FLOW_TRIGGER_ID) continue;
+      const inside = point.x >= node.position.x - 16 && point.x <= node.position.x + nodeWidth(node) + 16
+        && point.y >= node.position.y - 16 && point.y <= node.position.y + nodeHeight(node) + 16;
+      const dot = inDot(node);
+      const distance = inside ? 0 : Math.hypot(point.x - dot.x, point.y - dot.y);
+      if (distance <= reach && distance < bestDistance) { best = node.id; bestDistance = distance; }
+    }
+    return best;
+  };
 
   const onCanvasPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (event.button !== 0 || (event.target as HTMLElement).closest(".ig-flow-node,.ig-flow-floating")) return;
@@ -369,7 +422,7 @@ export function AutomationFlowBuilder({
     event.preventDefault();
     const point = toWorld(event.clientX, event.clientY);
     gesture.current = { kind: "connect", source: node.id, handle };
-    setConnecting({ source: node.id, handle, ...point });
+    setConnecting({ source: node.id, handle, ...point, target: null });
     setDropMenu(null);
     canvasRef.current?.setPointerCapture(event.pointerId);
   };
@@ -378,7 +431,8 @@ export function AutomationFlowBuilder({
     if (!current) return;
     if (current.kind === "connect") {
       const point = toWorld(event.clientX, event.clientY);
-      setConnecting(value => value ? { ...value, ...point } : value);
+      const target = magnetTarget(point, current.source);
+      setConnecting(value => value ? { ...value, ...point, target } : value);
       return;
     }
     const dx = event.clientX - current.startX;
@@ -403,7 +457,8 @@ export function AutomationFlowBuilder({
     if (current.kind !== "connect") return;
     setConnecting(null);
     const element = document.elementFromPoint(event.clientX, event.clientY) as HTMLElement | null;
-    const targetId = element?.closest<HTMLElement>("[data-node-id]")?.dataset.nodeId;
+    const targetId = magnetTarget(toWorld(event.clientX, event.clientY), current.source)
+      ?? element?.closest<HTMLElement>("[data-node-id]")?.dataset.nodeId;
     if (targetId && targetId !== current.source && targetId !== FLOW_TRIGGER_ID) {
       setFlow(value => connectNodes(value, current.source, current.handle, targetId));
       return;
@@ -500,7 +555,8 @@ export function AutomationFlowBuilder({
                   const source = flow.nodes.find(node => node.id === connecting.source);
                   if (!source) return null;
                   const index = nodeOutputs(source).findIndex(output => output.handle === connecting.handle);
-                  return <path d={curve(outPort(source, Math.max(0, index)), connecting).d} className="ig-flow-edge-draft" />;
+                  const snapped = connecting.target ? flow.nodes.find(node => node.id === connecting.target) : null;
+                  return <path d={curve(outPort(source, Math.max(0, index)), snapped ? inPort(snapped) : connecting).d} className={`ig-flow-edge-draft${snapped ? " is-snapped" : ""}`} />;
                 })()}
                 <defs>
                   <marker id="ig-flow-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
@@ -526,6 +582,31 @@ export function AutomationFlowBuilder({
 
               {flow.nodes.map(node => {
                 const Icon = nodeIcon(node);
+                if (node.type === "delay") {
+                  const delayIssues = issuesByNode.get(node.id) ?? [];
+                  const connected = Boolean(nextNodeId(flow, node.id, "next"));
+                  return (
+                    <div
+                      key={node.id}
+                      data-node-id={node.id}
+                      className={`ig-flow-node is-delay is-compact${selected === node.id ? " is-selected" : ""}${connecting?.target === node.id ? " is-drop-target" : ""}${delayIssues.some(issue => issue.level === "error") ? " has-error" : delayIssues.length ? " has-warning" : ""}`}
+                      style={{ left: node.position.x, top: node.position.y, width: DELAY_D, height: DELAY_D }}
+                      onPointerDown={event => onNodePointerDown(event, node)}
+                      title={`Atraso de ${formatSeconds(node.data.seconds)}`}
+                    >
+                      <span className="ig-flow-node-glow" aria-hidden="true" />
+                      <span className="ig-flow-port is-in" aria-hidden="true" />
+                      <Timer size={22} className="ig-flow-delay-icon" />
+                      <small className="ig-flow-delay-label">{formatSeconds(node.data.seconds)}{node.data.typing && node.data.seconds <= FLOW_INLINE_DELAY_SECONDS ? " · digitando" : ""}</small>
+                      <button
+                        type="button"
+                        className={`ig-flow-port is-out${connected ? " is-connected" : ""}`}
+                        aria-label="Ligar a saída do atraso"
+                        onPointerDown={event => onPortPointerDown(event, node, "next")}
+                      />
+                    </div>
+                  );
+                }
                 const outputs = nodeOutputs(node);
                 const nodeIssues = issuesByNode.get(node.id) ?? [];
                 const hasError = nodeIssues.some(issue => issue.level === "error");
@@ -538,10 +619,11 @@ export function AutomationFlowBuilder({
                   <div
                     key={node.id}
                     data-node-id={node.id}
-                    className={`ig-flow-node is-${node.type === "action" ? `action-${node.data.kind}` : node.type}${selected === node.id ? " is-selected" : ""}${hasError ? " has-error" : hasWarning ? " has-warning" : ""}`}
+                    className={`ig-flow-node is-${node.type === "action" ? `action-${node.data.kind}` : node.type}${selected === node.id ? " is-selected" : ""}${connecting?.target === node.id ? " is-drop-target" : ""}${hasError ? " has-error" : hasWarning ? " has-warning" : ""}`}
                     style={{ left: node.position.x, top: node.position.y, width: NODE_W, height: nodeHeight(node) }}
                     onPointerDown={event => onNodePointerDown(event, node)}
                   >
+                    <span className="ig-flow-node-glow" aria-hidden="true" />
                     {node.type !== "trigger" && <span className="ig-flow-port is-in" aria-hidden="true" />}
                     <header style={{ height: HEADER_H }}>
                       <span className="ig-flow-node-icon"><Icon size={14} /></span>
@@ -612,6 +694,8 @@ export function AutomationFlowBuilder({
                 pipelines={pipelines}
                 profiles={profiles}
                 selectedPipeline={selectedPipeline}
+                variables={messageVariables}
+                onDuplicate={duplicateSelected}
                 onState={patch => setState(value => ({ ...value, ...patch }))}
                 onData={data => updateData(selectedNode.id, data)}
                 onRemove={() => { setFlow(current => removeFlowNode(current, selectedNode.id)); setSelected(null); }}
@@ -662,7 +746,7 @@ function FlowOverview({ issues, flow, triggerType, onSelect }: { issues: FlowIss
 }
 
 function NodeInspector({
-  node, state, issues, isPrivateReply, pipelines, profiles, selectedPipeline, onState, onData, onRemove,
+  node, state, issues, isPrivateReply, pipelines, profiles, selectedPipeline, variables, onDuplicate, onState, onData, onRemove,
 }: {
   node: FlowNode;
   state: BuilderState;
@@ -674,6 +758,8 @@ function NodeInspector({
   onState: (patch: Partial<BuilderState>) => void;
   onData: (data: Record<string, unknown>) => void;
   onRemove: () => void;
+  variables: Array<{ key: string; label: string }>;
+  onDuplicate: () => void;
 }) {
   const Icon = nodeIcon(node);
   return (
@@ -681,7 +767,12 @@ function NodeInspector({
       <div className="ig-flow-panel-head">
         <span className={`ig-flow-chip is-${node.type === "action" ? `action-${node.data.kind}` : node.type}`}><Icon size={14} /></span>
         <div><span className="ig-eyebrow">{node.type === "trigger" ? "INÍCIO" : "BLOCO"}</span><h3>{nodeTitle(node)}</h3></div>
-        {node.type !== "trigger" && <button type="button" className="ig-btn ig-icon-btn ig-danger" onClick={onRemove} aria-label="Excluir bloco"><Trash2 size={15} /></button>}
+        {node.type !== "trigger" && (
+          <span className="ig-flow-panel-actions">
+            <button type="button" className="ig-btn ig-icon-btn" onClick={onDuplicate} aria-label="Duplicar bloco" title="Duplicar (Ctrl/⌘ + D)"><Copy size={15} /></button>
+            <button type="button" className="ig-btn ig-icon-btn ig-danger" onClick={onRemove} aria-label="Excluir bloco" title="Excluir (Delete)"><Trash2 size={15} /></button>
+          </span>
+        )}
       </div>
       {issues.length > 0 && (
         <ul className="ig-flow-issues">
@@ -689,19 +780,18 @@ function NodeInspector({
         </ul>
       )}
       {node.type === "trigger" && <TriggerFields state={state} onState={onState} />}
-      {node.type === "message" && <MessageFields data={node.data} isPrivateReply={isPrivateReply} onData={onData} />}
+      {node.type === "message" && <MessageFields data={node.data} isPrivateReply={isPrivateReply} variables={variables} onData={onData} />}
       {node.type === "delay" && (
         <>
-          <Field label="Aguardar"><DurationInput minutes={node.data.minutes} onChange={minutes => onData({ minutes })} /></Field>
-          <p className="ig-flow-muted">Depois do atraso o fluxo segue sozinho. Mensagens que caírem além de 24h da última interação do lead só são entregues a quem veio de anúncio.</p>
+          <p className="ig-flow-muted"><b>Atraso</b> é só uma pausa: o fluxo espera o tempo e segue sozinho, sem depender do lead. Use para dar ritmo entre uma mensagem e outra.</p>
+          <Field label="Pausar por"><DurationInput seconds={node.data.seconds} allowSeconds onChange={seconds => onData({ seconds })} /></Field>
+          <div className="ig-flow-toggle-row">
+            <span><b>Mostrar “digitando…”</b><small>Aparece para o lead durante pausas de até 1 minuto, com a conversa aberta.</small></span>
+            <Switch checked={node.data.typing} label="Mostrar digitando" onChange={typing => onData({ typing })} />
+          </div>
         </>
       )}
-      {node.type === "wait_reply" && (
-        <>
-          <Field label="Esperar a resposta por até"><DurationInput minutes={node.data.timeoutMinutes} onChange={timeoutMinutes => onData({ timeoutMinutes })} /></Field>
-          <p className="ig-flow-muted">Se o lead responder no Direct, segue por <b>Respondeu</b> e a resposta fica disponível para as condições. Se o tempo acabar, segue por <b>Sem resposta</b>.</p>
-        </>
-      )}
+      {node.type === "wait_reply" && <WaitFields data={node.data} onData={onData} />}
       {node.type === "condition" && <ConditionFields data={node.data} onData={onData} />}
       {node.type === "action" && <ActionFields data={node.data} pipelines={pipelines} profiles={profiles} selectedPipeline={selectedPipeline} onData={onData} />}
     </div>
@@ -744,16 +834,47 @@ function TriggerFields({ state, onState }: { state: BuilderState; onState: (patc
   );
 }
 
-function MessageFields({ data, isPrivateReply, onData }: { data: MessageNodeData; isPrivateReply: boolean; onData: (data: Record<string, unknown>) => void }) {
+function MessageFields({ data, isPrivateReply, variables, onData }: {
+  data: MessageNodeData;
+  isPrivateReply: boolean;
+  variables: Array<{ key: string; label: string }>;
+  onData: (data: Record<string, unknown>) => void;
+}) {
   const limit = data.buttons.length ? FLOW_MAX_TEXT_WITH_BUTTONS : FLOW_MAX_TEXT;
+  const textRef = useRef<HTMLTextAreaElement | null>(null);
+  // Where the cursor was in the text before a variable chip took the focus.
+  const caret = useRef<{ start: number; end: number } | null>(null);
+  const rememberCaret = () => {
+    const element = textRef.current;
+    if (element) caret.current = { start: element.selectionStart, end: element.selectionEnd };
+  };
+  const insertVariable = (key: string) => {
+    const element = textRef.current;
+    const token = `{${key}}`;
+    const start = Math.min(caret.current?.start ?? data.text.length, data.text.length);
+    const end = Math.min(caret.current?.end ?? data.text.length, data.text.length);
+    caret.current = { start: start + token.length, end: start + token.length };
+    const text = `${data.text.slice(0, start)}${token}${data.text.slice(end)}`.slice(0, FLOW_MAX_TEXT);
+    onData({ text });
+    requestAnimationFrame(() => {
+      element?.focus();
+      element?.setSelectionRange(start + token.length, start + token.length);
+    });
+  };
   const hasReply = data.buttons.some(button => button.kind === "reply");
   const setButtons = (buttons: FlowButton[]) => onData({ buttons, timeoutMinutes: buttons.some(button => button.kind === "reply") ? data.timeoutMinutes ?? null : null });
   return (
     <>
       {isPrivateReply && <div className="ig-flow-callout">Esta é a <b>resposta privada</b> ao comentário. Para continuar a conversa depois dela, use um botão do tipo “Continua o fluxo”.</div>}
       <Field label="Texto" hint={`${data.text.length}/${limit}`}>
-        <textarea rows={5} value={data.text} maxLength={FLOW_MAX_TEXT} onChange={event => onData({ text: event.target.value })} placeholder="Olá! Aqui está o material que você pediu…" />
+        <textarea ref={textRef} rows={5} value={data.text} maxLength={FLOW_MAX_TEXT} onSelect={rememberCaret} onKeyUp={rememberCaret} onClick={rememberCaret} onChange={event => { onData({ text: event.target.value }); rememberCaret(); }} placeholder="Oi {primeiro_nome}! Aqui está o material que você pediu…" />
       </Field>
+      <div className="ig-flow-variables" aria-label="Inserir variável">
+        {variables.map(variable => (
+          <button key={variable.key} type="button" onClick={() => insertVariable(variable.key)} title={`Insere {${variable.key}}`}>+ {variable.label}</button>
+        ))}
+      </div>
+      <p className="ig-flow-muted is-small">Se o dado não existir para o contato, a variável some do texto. O nome vem do perfil do Instagram de quem já falou com você no Direct.</p>
       <div className="ig-flow-buttons">
         <div className="ig-flow-subhead"><b>Botões</b><small>{data.buttons.length}/{FLOW_MAX_BUTTONS}</small></div>
         {data.buttons.map((button, index) => (
@@ -783,7 +904,7 @@ function MessageFields({ data, isPrivateReply, onData }: { data: MessageNodeData
           <Switch checked={Boolean(data.timeoutMinutes)} label="Seguir outro caminho se não tocar" onChange={checked => onData({ timeoutMinutes: checked ? 120 : null })} />
         </div>
       )}
-      {hasReply && data.timeoutMinutes ? <Field label="Esperar o toque por até"><DurationInput minutes={data.timeoutMinutes} onChange={timeoutMinutes => onData({ timeoutMinutes })} /></Field> : null}
+      {hasReply && data.timeoutMinutes ? <Field label="Esperar o toque por até"><DurationInput seconds={data.timeoutMinutes * 60} onChange={seconds => onData({ timeoutMinutes: Math.max(1, Math.round(seconds / 60)) })} /></Field> : null}
     </>
   );
 }
@@ -871,18 +992,69 @@ function Switch({ checked, label, onChange }: { checked: boolean; label: string;
   );
 }
 
-const UNITS = [{ id: "m", label: "minutos", factor: 1 }, { id: "h", label: "horas", factor: 60 }, { id: "d", label: "dias", factor: 1440 }] as const;
+const SAVE_OPTIONS: Array<{ value: CollectedFieldKind | ""; label: string }> = [
+  { value: "", label: "Não salvar" },
+  { value: "name", label: FLOW_FIELD_LABELS.name },
+  { value: "phone", label: FLOW_FIELD_LABELS.phone },
+  { value: "email", label: FLOW_FIELD_LABELS.email },
+  { value: "custom", label: "Outro campo…" },
+];
 
-function DurationInput({ minutes, onChange }: { minutes: number; onChange: (minutes: number) => void }) {
-  const [unit, setUnit] = useState<(typeof UNITS)[number]["id"]>(() => minutes >= 1440 && minutes % 1440 === 0 ? "d" : minutes >= 60 && minutes % 60 === 0 ? "h" : "m");
+function WaitFields({ data, onData }: { data: WaitReplyNodeData; onData: (data: Record<string, unknown>) => void }) {
+  const variable = data.saveAs === "custom" ? (data.fieldLabel ? fieldSlug(data.fieldLabel) : "") : data.saveAs === "phone" ? "whatsapp" : data.saveAs === "email" ? "email" : data.saveAs === "name" ? "nome" : "";
+  return (
+    <>
+      <p className="ig-flow-muted"><b>Aguardar resposta</b> para o fluxo até o lead escrever no Direct. Se ele responder, segue por <b>Respondeu</b>; se o tempo acabar sem resposta, segue por <b>Sem resposta</b>. É diferente do Atraso, que só pausa e segue sozinho.</p>
+      <Field label="Esperar a resposta por até"><DurationInput seconds={data.timeoutMinutes * 60} onChange={seconds => onData({ timeoutMinutes: Math.max(1, Math.round(seconds / 60)) })} /></Field>
+      <Field label="Salvar a resposta como" hint="Coleta de dados">
+        <select value={data.saveAs ?? ""} onChange={event => onData({ saveAs: event.target.value || null, ...(event.target.value === "custom" ? {} : { fieldLabel: undefined }) })}>
+          {SAVE_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+        </select>
+      </Field>
+      {data.saveAs === "custom" && (
+        <Field label="Nome do campo">
+          <input value={data.fieldLabel ?? ""} maxLength={40} onChange={event => onData({ fieldLabel: event.target.value })} placeholder="Ex.: Cidade, Orçamento, Bairro" />
+        </Field>
+      )}
+      {data.saveAs && (
+        <div className="ig-flow-callout is-data">
+          {variable ? <>Use <code>{`{${variable}}`}</code> nas próximas mensagens. </> : null}
+          {data.saveAs === "phone" || data.saveAs === "email"
+            ? <>Se a resposta não parecer um {data.saveAs === "phone" ? "WhatsApp (DDD + número)" : "e-mail"}, o fluxo segue por <b>Resposta inválida</b>; ligue essa saída a uma mensagem pedindo de novo.</>
+            : null}
+          {" "}No bloco <b>CRM</b>, nome, WhatsApp e e-mail vão para os campos do lead; os outros campos entram nas observações.
+        </div>
+      )}
+    </>
+  );
+}
+
+const UNITS = [
+  { id: "s", label: "segundos", factor: 1 },
+  { id: "m", label: "minutos", factor: 60 },
+  { id: "h", label: "horas", factor: 3600 },
+  { id: "d", label: "dias", factor: 86400 },
+] as const;
+type UnitId = (typeof UNITS)[number]["id"];
+
+/** Duration in seconds, shown in the most natural unit. allowSeconds enables the "segundos" unit. */
+function DurationInput({ seconds, allowSeconds = false, onChange }: { seconds: number; allowSeconds?: boolean; onChange: (seconds: number) => void }) {
+  const units = UNITS.filter(unit => allowSeconds || unit.id !== "s");
+  const [unit, setUnit] = useState<UnitId>(() => {
+    if (seconds >= 86400 && seconds % 86400 === 0) return "d";
+    if (seconds >= 3600 && seconds % 3600 === 0) return "h";
+    if (!allowSeconds || (seconds >= 60 && seconds % 60 === 0)) return "m";
+    return "s";
+  });
   const factor = UNITS.find(item => item.id === unit)!.factor;
-  const value = Math.round((minutes / factor) * 100) / 100;
+  const value = Math.round((seconds / factor) * 100) / 100;
+  const minimum = allowSeconds ? 1 : 60;
   return (
     <span className="ig-flow-duration">
-      <input type="number" min={1} step={unit === "m" ? 1 : 0.5} value={value} aria-label="Duração"
-        onChange={event => onChange(Math.max(1, Math.min(10_080, Math.round((Number(event.target.value) || 0) * factor))))} />
-      <select value={unit} aria-label="Unidade" onChange={event => setUnit(event.target.value as typeof unit)}>
-        {UNITS.map(item => <option key={item.id} value={item.id}>{item.label}</option>)}
+      <input type="number" min={unit === "s" ? 1 : 0.5} step={unit === "s" || unit === "m" ? 1 : 0.5} value={value} aria-label="Duração"
+        onChange={event => onChange(Math.max(minimum, Math.min(604_800, Math.round((Number(event.target.value) || 0) * factor))))} />
+      <select value={unit} aria-label="Unidade" onChange={event => setUnit(event.target.value as UnitId)}>
+        {units.map(item => <option key={item.id} value={item.id}>{item.label}</option>)}
       </select>
     </span>
   );

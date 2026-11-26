@@ -1,7 +1,7 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminSupabaseClient } from "@/lib/supabase-admin";
-import { ingestInstagramWebhook } from "@/lib/instagram-automation/engine";
+import { driveInstagramRuns, ingestInstagramWebhook } from "@/lib/instagram-automation/engine";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -34,7 +34,14 @@ export async function POST(req: NextRequest) {
   try { payload = JSON.parse(rawBody); }
   catch { return NextResponse.json({ error: "Invalid JSON" }, { status: 400 }); }
   try {
-    const result = await ingestInstagramWebhook(createAdminSupabaseClient(), payload);
+    const db = createAdminSupabaseClient();
+    const { runIds, ...result } = await ingestInstagramWebhook(db, payload);
+    // Meta only needs the acknowledgement; the flow starts right after it instead
+    // of on the next worker tick. The app runs as a long-lived Node server
+    // (Coolify), so this keeps going after the response is sent.
+    if (runIds.length) {
+      void driveInstagramRuns(db, runIds).catch(error => console.error("[instagram-automation/drive]", error));
+    }
     return NextResponse.json({ acknowledged: true, ...result });
   } catch (error) {
     console.error("[instagram-automation/webhook]", error);

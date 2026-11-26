@@ -1,6 +1,7 @@
-import { nodeOutputs, pruneDanglingEdges } from "./graph";
+import { isInteractionHandle, nodeOutputs, pruneDanglingEdges } from "./graph";
 import {
   FLOW_MAX_BUTTONS,
+  FLOW_MAX_DELAY_SECONDS,
   FLOW_MAX_BUTTON_LABEL,
   FLOW_MAX_NODES,
   FLOW_MAX_TEXT,
@@ -15,10 +16,12 @@ import {
   type FlowIssue,
   type FlowNode,
   type MessageNodeData,
+  type WaitReplyNodeData,
 } from "./types";
 
-/** Minutes an automated message may follow the contact's last interaction (24h window minus margin). */
-export const FLOW_STANDARD_WINDOW_MINUTES = 23 * 60;
+/** Seconds an automated message may follow the contact's last interaction (24h window minus margin). */
+export const FLOW_STANDARD_WINDOW_SECONDS = 23 * 60 * 60;
+const MAX_WINDOW_SECONDS = FLOW_MAX_WAIT_MINUTES * 60;
 
 const ID_PATTERN = /^[A-Za-z0-9_-]{1,48}$/;
 
@@ -65,6 +68,24 @@ function sanitizeMessage(raw: Record<string, unknown>): MessageNodeData {
   return { text: String(raw.text ?? "").trim().slice(0, FLOW_MAX_TEXT), buttons, timeoutMinutes: hasReply ? timeout : null };
 }
 
+function sanitizeDelay(raw: Record<string, unknown>) {
+  // Older flows stored whole minutes; delays are now in seconds.
+  const seconds = raw.seconds !== undefined ? Number(raw.seconds) : Number(raw.minutes ?? 1) * 60;
+  return {
+    seconds: Math.min(FLOW_MAX_DELAY_SECONDS, Math.max(1, Math.round(Number.isFinite(seconds) ? seconds : 60))),
+    typing: raw.typing === undefined ? raw.seconds !== undefined : raw.typing === true,
+  };
+}
+
+function sanitizeWait(raw: Record<string, unknown>): WaitReplyNodeData {
+  const saveAs = raw.saveAs === "name" || raw.saveAs === "phone" || raw.saveAs === "email" || raw.saveAs === "custom" ? raw.saveAs : null;
+  return {
+    timeoutMinutes: clampMinutes(raw.timeoutMinutes, 1),
+    saveAs,
+    ...(saveAs === "custom" ? { fieldLabel: String(raw.fieldLabel ?? "").trim().slice(0, 40) } : {}),
+  };
+}
+
 function sanitizeCondition(raw: Record<string, unknown>): ConditionNodeData {
   const kind = raw.kind === "has_tag" || raw.kind === "from_ad" ? raw.kind : "reply_contains";
   return { kind, value: kind === "from_ad" ? "" : String(raw.value ?? "").trim().slice(0, 120) };
@@ -105,8 +126,8 @@ export function sanitizeFlow(value: unknown): AutomationFlow {
     switch (node.type) {
       case "trigger": return { id, type: "trigger", position: pos, data: {} };
       case "message": return { id, type: "message", position: pos, data: sanitizeMessage(data) };
-      case "delay": return { id, type: "delay", position: pos, data: { minutes: clampMinutes(data.minutes, 1) } };
-      case "wait_reply": return { id, type: "wait_reply", position: pos, data: { timeoutMinutes: clampMinutes(data.timeoutMinutes, 1) } };
+      case "delay": return { id, type: "delay", position: pos, data: sanitizeDelay(data) };
+      case "wait_reply": return { id, type: "wait_reply", position: pos, data: sanitizeWait(data) };
       case "condition": return { id, type: "condition", position: pos, data: sanitizeCondition(data) };
       case "action": return { id, type: "action", position: pos, data: sanitizeAction(data) };
       default: throw badRequest("O fluxo tem um tipo de bloco desconhecido");
@@ -143,6 +164,7 @@ function validateNode(node: FlowNode, issues: FlowIssue[]) {
     }
   }
   if (node.type === "condition" && node.data.kind !== "from_ad" && !node.data.value) error("Defina o valor da condição");
+  if (node.type === "wait_reply" && node.data.saveAs === "custom" && !node.data.fieldLabel) error("Dê um nome ao campo que vai guardar a resposta");
   if (node.type === "action") {
     if (node.data.kind === "add_tag" && !node.data.tag) error("Informe o nome da tag");
     if (node.data.kind === "crm" && (!node.data.crm?.pipelineId || !node.data.crm?.stageId)) error("Selecione a pipeline e a etapa do CRM");
@@ -181,14 +203,14 @@ export function validateFlow(flow: AutomationFlow, triggerType: string): FlowIss
     if (node.type === "message") {
       if (!interacted) {
         if (sentPrivate) {
-          report(node.id, "error", "Depois da resposta privada, a conversa só continua quando o lead interage. Use um botão de resposta ou o bloco Esperar resposta antes desta mensagem.");
-        } else if (elapsed > FLOW_MAX_WAIT_MINUTES) {
+          report(node.id, "error", "Neste caminho o lead ainda não respondeu nem tocou em botão nenhum. Depois da resposta privada a um comentário, o Instagram só deixa mandar outra mensagem quando ele interage. Aqui use Tag ou CRM, ou deixe o caminho terminar.");
+        } else if (elapsed > MAX_WINDOW_SECONDS) {
           report(node.id, "error", "A resposta privada precisa sair em até 7 dias depois do comentário");
         }
         nextSentPrivate = true;
-      } else if (elapsed > FLOW_MAX_WAIT_MINUTES) {
+      } else if (elapsed > MAX_WINDOW_SECONDS) {
         report(node.id, "error", "Nenhuma mensagem automática pode sair mais de 7 dias depois da última interação do lead");
-      } else if (elapsed > FLOW_STANDARD_WINDOW_MINUTES) {
+      } else if (elapsed > FLOW_STANDARD_WINDOW_SECONDS) {
         report(node.id, "warning", "Fora da janela de 24h: só será entregue a leads que vieram de anúncio (até 7 dias)");
       }
     }
@@ -197,14 +219,14 @@ export function validateFlow(flow: AutomationFlow, triggerType: string): FlowIss
     }
     for (const output of nodeOutputs(node)) {
       const target = flow.edges.find(edge => edge.source === node.id && edge.sourceHandle === output.handle)?.target;
-      const interaction = output.handle === "reply" || output.handle.startsWith("button:");
+      const interaction = isInteractionHandle(output.handle);
       if (!target) {
         if (interaction) report(node.id, "warning", `A saída "${output.label}" não está ligada a nenhum bloco`);
         continue;
       }
       let added = 0;
-      if (node.type === "delay") added = node.data.minutes;
-      if (output.handle === "timeout") added = node.type === "wait_reply" ? node.data.timeoutMinutes : node.type === "message" ? node.data.timeoutMinutes ?? 0 : 0;
+      if (node.type === "delay") added = node.data.seconds;
+      if (output.handle === "timeout") added = 60 * (node.type === "wait_reply" ? node.data.timeoutMinutes : node.type === "message" ? node.data.timeoutMinutes ?? 0 : 0);
       walk(target, interacted || interaction, nextSentPrivate, interaction ? 0 : elapsed + added);
     }
   };

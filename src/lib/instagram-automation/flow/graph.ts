@@ -1,4 +1,5 @@
 import {
+  FLOW_FIELD_LABELS,
   FLOW_NODE_LABELS,
   FLOW_TRIGGER_ID,
   type AutomationFlow,
@@ -21,8 +22,13 @@ export function nodeOutputs(node: FlowNode): FlowOutput[] {
     case "delay":
     case "action":
       return [{ handle: "next", label: "Em seguida" }];
-    case "wait_reply":
-      return [{ handle: "reply", label: "Respondeu" }, { handle: "timeout", label: "Sem resposta" }];
+    case "wait_reply": {
+      const outputs = [{ handle: "reply", label: "Respondeu" }];
+      // WhatsApp and e-mail are validated; an answer that doesn't look like one gets its own branch.
+      if (node.data.saveAs === "phone" || node.data.saveAs === "email") outputs.push({ handle: "invalid", label: "Resposta inválida" });
+      outputs.push({ handle: "timeout", label: "Sem resposta" });
+      return outputs;
+    }
     case "condition":
       return [{ handle: "yes", label: "Sim" }, { handle: "no", label: "Não" }];
     case "message": {
@@ -36,6 +42,11 @@ export function nodeOutputs(node: FlowNode): FlowOutput[] {
 }
 
 /** True when this node stops the run until the contact interacts. */
+/** Outputs that only fire after the contact answered or tapped (they open Meta's window). */
+export function isInteractionHandle(handle: string) {
+  return handle === "reply" || handle === "invalid" || handle.startsWith("button:");
+}
+
 export function nodeWaitsForContact(node: FlowNode) {
   if (node.type === "wait_reply") return true;
   return node.type === "message" && node.data.buttons.some(button => button.kind === "reply");
@@ -53,8 +64,8 @@ export function createFlowNode(type: Exclude<FlowNodeType, "trigger">, position:
   const id = flowId(type === "wait_reply" ? "wait" : type);
   switch (type) {
     case "message": return { id, type, position, data: { text: "", buttons: [], timeoutMinutes: null } };
-    case "delay": return { id, type, position, data: { minutes: 60 } };
-    case "wait_reply": return { id, type, position, data: { timeoutMinutes: 120 } };
+    case "delay": return { id, type, position, data: { seconds: 10, typing: true } };
+    case "wait_reply": return { id, type, position, data: { timeoutMinutes: 60, saveAs: null } };
     case "condition": return { id, type, position, data: { kind: "reply_contains", value: "" } };
     case "action": return {
       id, type, position,
@@ -90,6 +101,19 @@ export function pruneDanglingEdges(flow: AutomationFlow): AutomationFlow {
   return edges.length === flow.edges.length ? flow : { ...flow, edges };
 }
 
+/** Copies a block (not its links) next to the original; buttons get new ids. */
+export function duplicateFlowNode(flow: AutomationFlow, nodeId: string): { flow: AutomationFlow; node: FlowNode | null } {
+  const original = flow.nodes.find(node => node.id === nodeId);
+  if (!original || original.type === "trigger") return { flow, node: null };
+  const copy = JSON.parse(JSON.stringify(original)) as FlowNode;
+  copy.id = flowId(original.type === "wait_reply" ? "wait" : original.type);
+  // Below the original, so the copy never covers its connectors.
+  const height = original.type === "delay" ? 64 : 46 + 56 + nodeOutputs(original).length * 30 + 10;
+  copy.position = { x: original.position.x, y: original.position.y + height + 48 };
+  if (copy.type === "message") copy.data.buttons = copy.data.buttons.map(button => ({ ...button, id: flowId("b") }));
+  return { flow: { ...flow, nodes: [...flow.nodes, copy] }, node: copy };
+}
+
 export function removeFlowNode(flow: AutomationFlow, nodeId: string): AutomationFlow {
   if (nodeId === FLOW_TRIGGER_ID) return flow;
   return {
@@ -97,6 +121,13 @@ export function removeFlowNode(flow: AutomationFlow, nodeId: string): Automation
     nodes: flow.nodes.filter(node => node.id !== nodeId),
     edges: flow.edges.filter(edge => edge.source !== nodeId && edge.target !== nodeId),
   };
+}
+
+export function formatSeconds(seconds: number) {
+  const value = Math.max(0, Math.round(seconds));
+  if (value < 60) return `${value}s`;
+  if (value % 60 === 0) return formatMinutes(value / 60);
+  return `${Math.floor(value / 60)}min${String(value % 60).padStart(2, "0")}`;
 }
 
 export function formatMinutes(minutes: number) {
@@ -112,8 +143,13 @@ export function describeNode(node: FlowNode): string {
   switch (node.type) {
     case "trigger": return "Início do fluxo";
     case "message": return node.data.text.trim() || "Escreva a mensagem";
-    case "delay": return `Aguarda ${formatMinutes(node.data.minutes)}`;
-    case "wait_reply": return `Até ${formatMinutes(node.data.timeoutMinutes)} pela resposta`;
+    case "delay": return formatSeconds(node.data.seconds);
+    case "wait_reply": {
+      const save = node.data.saveAs
+        ? ` · salva ${node.data.saveAs === "custom" ? (node.data.fieldLabel || "campo") : FLOW_FIELD_LABELS[node.data.saveAs]}`
+        : "";
+      return `Até ${formatMinutes(node.data.timeoutMinutes)} pela resposta${save}`;
+    }
     case "condition":
       if (node.data.kind === "from_ad") return "Lead veio de anúncio?";
       if (node.data.kind === "has_tag") return node.data.value ? `Tem a tag "${node.data.value}"?` : "Escolha a tag";
