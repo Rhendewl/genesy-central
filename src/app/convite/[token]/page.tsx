@@ -192,7 +192,7 @@ export default function ConvitePage() {
             className="text-[22px] font-extrabold tracking-tight"
             style={{ color: "#fff", letterSpacing: "-0.04em" }}
           >
-            Lancaster
+            Genesy
           </span>
         </div>
 

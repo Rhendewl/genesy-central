@@ -14,7 +14,12 @@ export function resolveFormRoute(routes: FormRoute[], formId: string, legacyCapt
   return { capture: Boolean(route?.is_active), route: route ?? null };
 }
 
-export async function captureMetaLead(db: SupabaseClient, event: MetaLeadEvent, ownerId: string) {
+export type CaptureOptions = {
+  /** Hora de chegada no CRM. Sem valor, usa a hora em que o lead foi enviado na Meta. */
+  receivedAt?: string;
+};
+
+export async function captureMetaLead(db: SupabaseClient, event: MetaLeadEvent, ownerId: string, options: CaptureOptions = {}) {
   const { data: page, error: pageError } = await db.from("meta_page_subscriptions")
     .select("user_id,encrypted_page_token,platform_account_id,capture_unconfigured_forms").eq("user_id", ownerId).eq("meta_page_id", event.page_id).eq("is_active", true).maybeSingle();
   if (pageError) throw new Error(pageError.message);
@@ -63,7 +68,8 @@ export async function captureMetaLead(db: SupabaseClient, event: MetaLeadEvent, 
   const lead = await fetchMetaLead(event.leadgen_id, decryptToken(encrypted));
   const originalTime = lead.created_time ? Date.parse(lead.created_time) : NaN;
   const arrivalMs = Number.isFinite(originalTime) ? originalTime : (event.created_time ?? NaN) * 1000;
-  const receivedAt = Number.isFinite(arrivalMs) && Number.isFinite(new Date(arrivalMs).getTime()) ? new Date(arrivalMs).toISOString() : undefined;
+  const receivedAt = options.receivedAt
+    ?? (Number.isFinite(arrivalMs) && Number.isFinite(new Date(arrivalMs).getTime()) ? new Date(arrivalMs).toISOString() : undefined);
   const notes = ["Formulário instantâneo Meta", `Formulário: ${routing.route?.form_name || event.form_id}`,
     ...(lead.campaign_name ? [`Campanha: ${lead.campaign_name}`] : []),
     ...(lead.ad_name ? [`Anúncio: ${lead.ad_name}`] : []), "", "Respostas do formulário",
@@ -98,14 +104,14 @@ export async function captureMetaLead(db: SupabaseClient, event: MetaLeadEvent, 
   return { status: "processed", step: "done", lead_id: result.leadId };
 }
 
-export async function processMetaLeadEvent(db: SupabaseClient, event: MetaLeadEvent, ownerId: string) {
+export async function processMetaLeadEvent(db: SupabaseClient, event: MetaLeadEvent, ownerId: string, options: CaptureOptions = {}) {
   const { data: log, error } = await db.from("meta_webhook_logs").insert({
     user_id: ownerId, page_id: event.page_id, form_id: event.form_id, leadgen_id: event.leadgen_id,
     payload: event, status: "received", step: "received",
   }).select("id").single();
   if (error) throw new Error(error.message);
   try {
-    const result = await captureMetaLead(db, event, ownerId);
+    const result = await captureMetaLead(db, event, ownerId, options);
     const saved = await db.from("meta_webhook_logs").update({ ...result, processed_at: new Date().toISOString() }).eq("id", log.id);
     if (saved.error) throw new Error(saved.error.message);
     return result;

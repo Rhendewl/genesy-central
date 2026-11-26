@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { createAdminSupabaseClient } from "@/lib/supabase-admin";
-import { getResendClient, buildInviteEmail } from "@/lib/resend";
+import { getResendClient, buildInviteEmail, buildInviteText } from "@/lib/resend";
 import { ROLE_LABELS } from "@/lib/roles";
 
 export async function POST(req: Request) {
@@ -57,8 +57,9 @@ export async function POST(req: Request) {
     const { error: emailErr } = await getResendClient().emails.send({
       from: process.env.RESEND_FROM_EMAIL ?? "onboarding@resend.dev",
       to: invite.email,
-      subject: "Você foi convidado para o Lancaster",
+      subject: "Seu convite para a plataforma Genesy",
       html: buildInviteEmail({ recipientName, inviteLink, roleName }),
+      text: buildInviteText({ recipientName, inviteLink, roleName }),
     });
 
     if (emailErr) {

@@ -40,6 +40,13 @@ export interface UserInvite {
   invited_by: string;
   expires_at: string;
   created_at: string;
+  token?: string | null;
+}
+
+/** Link público para aceitar o convite (mesma página aberta pelo e-mail). */
+export function inviteLinkFor(token: string | null | undefined) {
+  if (!token || typeof window === "undefined") return null;
+  return `${window.location.origin}/convite/${token}`;
 }
 
 export interface CreateUserPayload {
@@ -49,6 +56,8 @@ export interface CreateUserPayload {
   job_title: string;
   is_active: boolean;
   send_invite: boolean;
+  /** Gera um link de convite para copiar e enviar por onde preferir. */
+  invite_link?: boolean;
   permissions: string[];
   crm_pipeline_id: string | null;
 }
@@ -122,7 +131,7 @@ export function useUsers() {
     fetchAll();
   }, [fetchAll, memberLoading]);
 
-  const createUser = useCallback(async (payload: CreateUserPayload): Promise<{ error: string | null }> => {
+  const createUser = useCallback(async (payload: CreateUserPayload): Promise<{ error: string | null; inviteLink?: string | null }> => {
     try {
       const supabase = getSupabaseClient();
       const { data: { user } } = await supabase.auth.getUser();
@@ -147,7 +156,7 @@ export function useUsers() {
       if (err) return { error: err.message };
       setProfiles(prev => [{ ...data, permissions: Array.isArray(data.permissions) ? data.permissions : [] }, ...prev]);
 
-      if (payload.send_invite) {
+      if (payload.send_invite || payload.invite_link) {
         const { data: inviteData, error: invErr } = await supabase
           .from("user_invites")
           .insert({
@@ -163,19 +172,32 @@ export function useUsers() {
           return { error: `Convite não registrado: ${invErr.message}` };
         }
 
-        const res = await fetch("/api/invite/send", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ invite_id: inviteData.id }),
-        });
+        const inviteLink = payload.invite_link ? inviteLinkFor(inviteData.token) : null;
+        if (payload.invite_link && !inviteLink) {
+          await fetchAll();
+          return { error: "Usuário criado, mas o convite veio sem link. Atualize a página e copie o link em Convites pendentes." };
+        }
 
-        if (!res.ok) {
-          const body = await res.json().catch(() => ({}));
-          // Usuário foi criado com sucesso mas o e-mail falhou — retorna aviso distinto
-          return { error: `Usuário criado, mas o e-mail de convite falhou: ${body.error ?? "erro desconhecido"}` };
+        if (payload.send_invite) {
+          const res = await fetch("/api/invite/send", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ invite_id: inviteData.id }),
+          });
+
+          if (!res.ok) {
+            const body = await res.json().catch(() => ({}));
+            await fetchAll();
+            // Usuário foi criado com sucesso mas o e-mail falhou — o link continua valendo.
+            return {
+              error: `Usuário criado, mas o e-mail de convite falhou: ${body.error ?? "erro desconhecido"}${inviteLink ? "" : ". Use \"Copiar link\" em Convites pendentes."}`,
+              inviteLink,
+            };
+          }
         }
 
         await fetchAll();
+        return { error: null, inviteLink };
       }
 
       return { error: null };
@@ -233,6 +255,23 @@ export function useUsers() {
       return { error: null };
     } catch (e: unknown) {
       return { error: (e as { message?: string })?.message ?? "Erro ao remover usuário" };
+    }
+  }, []);
+
+  const resendInvite = useCallback(async (id: string): Promise<{ error: string | null }> => {
+    try {
+      const res = await fetch("/api/invite/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ invite_id: id }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        return { error: body.error ?? "Não foi possível reenviar o convite" };
+      }
+      return { error: null };
+    } catch (e: unknown) {
+      return { error: (e as { message?: string })?.message ?? "Não foi possível reenviar o convite" };
     }
   }, []);
 
@@ -307,6 +346,7 @@ export function useUsers() {
     toggleActive,
     deleteUser,
     revokeInvite,
+    resendInvite,
     resetPassword,
     uploadUserAvatar,
     removeUserAvatar,
