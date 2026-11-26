@@ -549,9 +549,9 @@ function PeriodSwitch({ value, onChange }: { value: number; onChange: (days: num
     return () => window.removeEventListener("resize", measure);
   }, [value]);
   return <div className="relative flex h-11 shrink-0 items-center rounded-xl border p-1" style={{ borderColor: "var(--border-card-hover)", background: "var(--hover)" }} role="group" aria-label="Período">
-    {pill && <span aria-hidden className="absolute bottom-1 top-1 rounded-lg transition-all duration-300 ease-out" style={{ left: pill.left, width: pill.width, background: BTN_GREEN, boxShadow: "0 6px 18px rgba(16,185,129,.35)" }} />}
+    {pill && <span aria-hidden className="absolute bottom-1 top-1 rounded-lg transition-all duration-300 ease-out" style={{ left: pill.left, width: pill.width, background: "linear-gradient(180deg,#ffffff,#e6e9ed)", boxShadow: "0 4px 16px rgba(0,0,0,.22), inset 0 1px 0 rgba(255,255,255,.9)" }} />}
     {PERIODS.map((period, index) => <button key={period.days} ref={element => { buttons.current[index] = element; }} type="button" aria-pressed={value === period.days} onClick={() => onChange(period.days)}
-      className="relative z-10 h-full rounded-lg px-3.5 text-xs font-semibold transition-colors duration-300" style={{ color: value === period.days ? "#fff" : "var(--text-subtitle)" }}>{period.text}</button>)}
+      className="relative z-10 h-full rounded-lg px-3.5 text-xs font-semibold transition-colors duration-300" style={{ color: value === period.days ? "#0b0b0c" : "var(--text-subtitle)" }}>{period.text}</button>)}
   </div>;
 }
 

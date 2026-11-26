@@ -25,7 +25,9 @@
   box-shadow:0 4px 24px rgba(0,0,0,.42),inset 0 1px 0 rgba(255,255,255,.05);transition:border-color .2s,box-shadow .2s,transform .2s}
 .ig-flow-card.is-active{--card-accent:#35a87c}.ig-flow-card.is-paused{--card-accent:#e2b55a}
 .ig-flow-card::before{content:"";position:absolute;left:-40px;top:-60px;width:260px;height:160px;border-radius:50%;z-index:-1;pointer-events:none;
-  background:radial-gradient(ellipse at center,color-mix(in srgb,var(--card-accent) 26%,transparent),transparent 70%);filter:blur(22px)}
+  background:radial-gradient(ellipse at center,color-mix(in srgb,var(--card-accent) 26%,transparent),transparent 70%);filter:blur(22px);
+  /* Blurred layers ignore overflow clipping in Chromium: cut the glow at the card's rounded corner. */
+  clip-path:inset(60px 0 0 40px round 19px 0 0 0)}
 @media(hover:hover){.ig-flow-card:hover{border-color:rgba(255,255,255,.13);box-shadow:0 8px 32px rgba(0,0,0,.52),inset 0 1px 0 rgba(255,255,255,.07);transform:translateY(-1px)}}
 .light .ig-flow-card{background:var(--glass-bg);border-color:var(--glass-border,rgba(0,0,0,.08));box-shadow:0 4px 20px rgba(0,0,0,.06)}
 .ig-flow-card-top{display:flex;align-items:center;justify-content:space-between;gap:10px}
@@ -65,11 +67,15 @@
 .ig-ins-chip{--chip:#9aa6b2;display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;font-size:11px;color:color-mix(in srgb,var(--chip) 80%,var(--foreground));background:color-mix(in srgb,var(--chip) 12%,transparent);border:1px solid color-mix(in srgb,var(--chip) 24%,transparent)}
 .ig-ins-chip.is-active{--chip:#35a87c}.ig-ins-chip.is-paused{--chip:#e2b55a}
 .ig-ins-chip i{width:6px;height:6px;border-radius:50%;background:var(--chip)}
-.ig-ins-periods{display:inline-flex;gap:3px;margin-left:auto;padding:4px;border-radius:12px;border:1px solid rgba(255,255,255,.08);background:rgba(0,0,0,.45)}
-.ig-ins-periods button{padding:7px 11px;border-radius:9px;font-size:11px;color:var(--muted-foreground)}
-.ig-ins-periods button[aria-checked=true]{color:var(--foreground);background:rgba(255,255,255,.09)}
+.ig-ins-periods{position:relative;display:inline-flex;gap:3px;margin-left:auto;padding:4px;border-radius:12px;border:1px solid rgba(255,255,255,.08);background:rgba(0,0,0,.45)}
+.ig-ins-periods button{position:relative;z-index:1;padding:7px 12px;border-radius:9px;font-size:11px;font-weight:500;color:var(--muted-foreground);transition:color .3s}
+.ig-ins-periods button:hover{color:var(--foreground)}
+.ig-ins-periods button[aria-checked=true]{color:#0b0b0c}
+.ig-ins-periods-pill{position:absolute;top:4px;bottom:4px;border-radius:9px;pointer-events:none;
+  background:linear-gradient(180deg,#ffffff,#e6e9ed);box-shadow:0 4px 16px rgba(0,0,0,.28),inset 0 1px 0 rgba(255,255,255,.9);
+  transition:left .3s cubic-bezier(.2,.8,.2,1),width .3s cubic-bezier(.2,.8,.2,1)}
 .light .ig-ins-periods{background:var(--glass-bg-soft);border-color:rgba(0,0,0,.08)}
-.light .ig-ins-periods button[aria-checked=true]{background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.light .ig-ins-periods-pill{box-shadow:0 2px 8px rgba(0,0,0,.12),inset 0 1px 0 #fff}
 .ig-ins-spin{animation:ig-ins-spin 1s linear infinite}@keyframes ig-ins-spin{to{transform:rotate(360deg)}}
 .ig-ins-error{display:flex;align-items:center;gap:8px;padding:12px 14px;border-radius:12px;font-size:12px;color:#f38c9c;border:1px solid rgba(243,140,156,.3);background:rgba(243,140,156,.06)}
 .ig-ins-loading,.ig-ins-empty{display:flex;flex-direction:column;align-items:center;gap:8px;padding:48px 20px;text-align:center;font-size:12px;color:var(--muted-foreground)}
@@ -81,7 +87,7 @@
 .ig-ins-kpi{--kpi-accent:#9aa6b2;position:relative;isolation:isolate;overflow:hidden;display:flex;flex-direction:column;gap:8px;min-width:0;padding:18px;border-radius:20px;
   border:1px solid rgba(255,255,255,.08);background:rgba(0,0,0,.52);backdrop-filter:blur(20px) saturate(160%);-webkit-backdrop-filter:blur(20px) saturate(160%);
   box-shadow:0 4px 24px rgba(0,0,0,.42),inset 0 1px 0 rgba(255,255,255,.05)}
-.ig-ins-kpi::before{content:"";position:absolute;left:8%;right:8%;top:-1px;height:90px;z-index:-1;pointer-events:none;
+.ig-ins-kpi::before{content:"";position:absolute;left:8%;right:8%;top:-1px;height:90px;z-index:-1;pointer-events:none;clip-path:inset(1px -40px -40px -40px);
   background:radial-gradient(ellipse at 50% 0%,color-mix(in srgb,var(--kpi-accent) 26%,transparent),transparent 74%);filter:blur(18px)}
 .ig-ins-kpi::after{content:"";position:absolute;inset:0;border-radius:inherit;padding:1px;pointer-events:none;
   background:linear-gradient(180deg,color-mix(in srgb,var(--kpi-accent) 45%,transparent),transparent 60%);
@@ -118,6 +124,14 @@
 .ig-ins-grid{display:grid;gap:14px;grid-template-columns:repeat(2,minmax(0,1fr))}
 .ig-ins-panel{display:flex;flex-direction:column;gap:14px;min-width:0;padding:18px}
 .ig-ins-panel.is-wide{grid-column:1/-1}
+.ig-ins-panel.is-fixed{height:460px}
+.ig-ins-scroll{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;margin-right:-10px;padding-right:10px;
+  scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.14) transparent;
+  -webkit-mask-image:linear-gradient(180deg,#000 calc(100% - 28px),transparent);mask-image:linear-gradient(180deg,#000 calc(100% - 28px),transparent);padding-bottom:22px}
+.light .ig-ins-scroll{scrollbar-color:rgba(0,0,0,.16) transparent}
+.ig-ins-scroll::-webkit-scrollbar{width:6px}.ig-ins-scroll::-webkit-scrollbar-thumb{border-radius:6px;background:rgba(255,255,255,.14)}
+.light .ig-ins-scroll::-webkit-scrollbar-thumb{background:rgba(0,0,0,.16)}
+.ig-ins-count{flex-shrink:0;padding:4px 9px;border-radius:999px;font-size:10.5px;color:var(--muted-foreground);border:1px solid var(--ins-line);background:rgba(255,255,255,.03)}
 .ig-ins-panel>header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
 .ig-ins-panel h3{margin-top:4px;font-size:15px;font-weight:500;letter-spacing:-.2px}
 .ig-ins-muted{font-size:12px;line-height:1.6;color:var(--muted-foreground)}
@@ -142,10 +156,18 @@
 .ig-ins-tooltip span{display:flex;align-items:center;gap:7px;color:var(--muted-foreground)}
 .ig-ins-tooltip strong{margin-left:auto;color:var(--foreground);font-variant-numeric:tabular-nums}
 
-.ig-ins-funnel{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:12px}
-.ig-ins-funnel li{display:flex;flex-direction:column;gap:6px}
-.ig-ins-funnel-head{display:flex;justify-content:space-between;gap:12px}
-.ig-ins-funnel-head>span:first-child{display:flex;flex-direction:column;min-width:0}
+.ig-ins-funnel{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.ig-ins-funnel li{--step:#6aa7ff;display:flex;flex-direction:column;gap:8px;padding:12px 13px;border-radius:14px;
+  border:1px solid rgba(255,255,255,.08);background:linear-gradient(180deg,rgba(255,255,255,.035),rgba(255,255,255,.01));
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.04);transition:border-color .18s,background .18s}
+.ig-ins-funnel li:hover{border-color:rgba(255,255,255,.15);background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.015))}
+.light .ig-ins-funnel li{border-color:rgba(0,0,0,.08);background:rgba(255,255,255,.7);box-shadow:0 1px 2px rgba(0,0,0,.04)}
+.ig-ins-funnel li.is-trigger{--step:#b956df}.ig-ins-funnel li:is(.is-delay,.is-wait_reply){--step:#e2b55a}
+.ig-ins-funnel li.is-condition{--step:#9aa6b2}.ig-ins-funnel li.is-action{--step:#68c69e}
+.ig-ins-funnel-head{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.ig-ins-funnel-step{flex-shrink:0;display:grid;place-items:center;width:24px;height:24px;border-radius:8px;font-style:normal;font-size:11px;font-weight:600;font-variant-numeric:tabular-nums;
+  color:color-mix(in srgb,var(--step) 85%,var(--foreground));background:color-mix(in srgb,var(--step) 16%,transparent);border:1px solid color-mix(in srgb,var(--step) 28%,transparent)}
+.ig-ins-funnel-head>span:nth-child(2){display:flex;flex-direction:column;min-width:0;flex:1}
 .ig-ins-funnel-head b{font-size:12px;font-weight:500}
 .ig-ins-funnel-head small{font-size:10.5px;color:var(--muted-foreground);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ig-ins-funnel-value{display:flex;align-items:baseline;gap:6px;flex-shrink:0}
@@ -156,7 +178,7 @@
 .light .ig-ins-bar-track{background:rgba(0,0,0,.05)}
 .ig-ins-bar-track i{position:absolute;inset:0 auto 0 0;border-radius:4px;background:linear-gradient(90deg,var(--ins-bar-from),var(--ins-bar-to));box-shadow:0 0 12px var(--ins-bar-glow);transition:width .5s ease}
 
-.ig-ins-bars{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:12px}
+.ig-ins-bars{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:14px}
 .ig-ins-bars li{display:grid;grid-template-columns:minmax(0,1fr) minmax(80px,1.2fr) auto;align-items:center;gap:10px}
 .ig-ins-bar-label{display:flex;flex-direction:column;min-width:0;font-size:12px;font-weight:500}
 .ig-ins-bar-label small{font-size:10px;font-weight:400;color:var(--muted-foreground);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -197,6 +219,7 @@
   .ig-ins-strip{grid-template-columns:repeat(3,minmax(0,1fr))}
 }
 @media(max-width:760px){
+  .ig-ins-panel.is-fixed{height:400px}
   .ig-ins-grid{grid-template-columns:1fr}
   .ig-ins-strip{grid-template-columns:repeat(2,minmax(0,1fr))}
   .ig-ins-periods{margin-left:0}
@@ -207,3 +230,7 @@
 @media(max-width:520px){.ig-ins-kpis{grid-template-columns:1fr}.ig-flow-cards{grid-template-columns:1fr}}
 .light .ig-ins-mini.is-warn b,.light .ig-flow-card-stats .is-warn b,.light .ig-ins-delta.is-down{color:#c63d55!important}
 .light .ig-ins-lost{color:#c63d55}
+.ig-flow-card .ig-flow-mini{flex-wrap:nowrap;min-width:0}
+.ig-flow-card .ig-flow-mini>small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.ig-flow-mini>.is-fading{opacity:.32;filter:saturate(.6)}
+.ig-flow-mini>i.is-fading{opacity:.35;background:linear-gradient(90deg,color-mix(in srgb,var(--foreground) 25%,transparent),transparent)}

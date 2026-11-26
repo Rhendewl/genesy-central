@@ -105,21 +105,34 @@ function nodeIcon(node: FlowNode) {
 function nodeWidth(node: FlowNode) {
   return node.type === "delay" ? DELAY_D : NODE_W;
 }
+/** Blocks with one plain "Em seguida" output show no output rows: the dot sits mid-right. */
+function hasSingleNext(node: FlowNode) {
+  const outputs = nodeOutputs(node);
+  return outputs.length === 1 && outputs[0].handle === "next";
+}
+/** Height of a block with no output rows; also used to place a new block on a drop. */
+const PLAIN_NODE_H = HEADER_H + BODY_H + FOOT_H;
 function nodeHeight(node: FlowNode) {
   if (node.type === "delay") return DELAY_D;
-  return HEADER_H + BODY_H + nodeOutputs(node).length * ROW_H + FOOT_H;
+  return hasSingleNext(node) ? PLAIN_NODE_H : HEADER_H + BODY_H + nodeOutputs(node).length * ROW_H + FOOT_H;
 }
 /** Where an incoming line ends: just outside the input dot so the arrowhead shows. */
 function inPort(node: FlowNode) {
-  if (node.type === "delay") return { x: node.position.x - 8, y: node.position.y + DELAY_D / 2 };
-  return { x: node.position.x - 8, y: node.position.y + HEADER_H / 2 };
+  return { x: node.position.x - 8, y: node.position.y + nodeHeight(node) / 2 };
 }
 function inDot(node: FlowNode) {
-  return { x: node.position.x, y: node.position.y + (node.type === "delay" ? DELAY_D / 2 : HEADER_H / 2) };
+  return { x: node.position.x, y: node.position.y + nodeHeight(node) / 2 };
 }
 function outPort(node: FlowNode, index: number) {
-  if (node.type === "delay") return { x: node.position.x + DELAY_D, y: node.position.y + DELAY_D / 2 };
+  if (node.type === "delay" || hasSingleNext(node)) return { x: node.position.x + nodeWidth(node), y: node.position.y + nodeHeight(node) / 2 };
   return { x: node.position.x + NODE_W, y: node.position.y + HEADER_H + BODY_H + index * ROW_H + ROW_H / 2 };
+}
+/** Canvas width not covered by the floating glass panel (desktop layout). */
+function visibleCanvasWidth(canvas: HTMLElement) {
+  const rect = canvas.getBoundingClientRect();
+  const panel = canvas.parentElement?.querySelector<HTMLElement>(".ig-flow-inspector")?.getBoundingClientRect();
+  const covered = panel && panel.top < rect.bottom - 40 && panel.left < rect.right && panel.left > rect.left ? rect.right - panel.left : 0;
+  return rect.width - covered;
 }
 function curve(a: { x: number; y: number }, b: { x: number; y: number }) {
   const dx = Math.max(56, Math.abs(b.x - a.x) / 2);
@@ -263,7 +276,8 @@ export function AutomationFlowBuilder({
     const minY = Math.min(...flow.nodes.map(node => node.position.y));
     const maxX = Math.max(...flow.nodes.map(node => node.position.x + nodeWidth(node)));
     const maxY = Math.max(...flow.nodes.map(node => node.position.y + nodeHeight(node)));
-    const { width, height } = canvas.getBoundingClientRect();
+    const width = visibleCanvasWidth(canvas);
+    const height = canvas.getBoundingClientRect().height;
     const fit = Math.min(1.05, Math.max(MIN_ZOOM, Math.min((width - 120) / (maxX - minX || 1), (height - 160) / (maxY - minY || 1))));
     const k = readable ? Math.max(fit, Math.min(0.8, width < 640 ? 0.7 : 0.8)) : fit;
     const overflows = (maxX - minX) * k > width - 80;
@@ -477,9 +491,10 @@ export function AutomationFlowBuilder({
       const rect = canvasRef.current?.getBoundingClientRect();
       const point = toWorld(event.clientX, event.clientY);
       // Keep the menu (≈ 220 × 290) inside the canvas.
-      const screenX = Math.max(8, Math.min(event.clientX - (rect?.left ?? 0), (rect?.width ?? 0) - 236));
+      const usable = canvasRef.current ? visibleCanvasWidth(canvasRef.current) : rect?.width ?? 0;
+      const screenX = Math.max(8, Math.min(event.clientX - (rect?.left ?? 0), usable - 236));
       const screenY = Math.max(8, Math.min(event.clientY - (rect?.top ?? 0), (rect?.height ?? 0) - 296));
-      setDropMenu({ source: current.source, handle: current.handle, x: point.x, y: point.y - HEADER_H / 2, screenX, screenY });
+      setDropMenu({ source: current.source, handle: current.handle, x: point.x, y: point.y - PLAIN_NODE_H / 2, screenX, screenY });
     }
   };
 
@@ -642,7 +657,15 @@ export function AutomationFlowBuilder({
                       {(hasError || hasWarning) && <AlertTriangle size={13} className="ig-flow-node-alert" aria-label={nodeIssues[0].message} />}
                     </header>
                     <p className="ig-flow-node-body" style={{ height: BODY_H }}>{node.type === "trigger" ? triggerSummary : describeNode(node)}</p>
-                    <ul className="ig-flow-node-outputs">
+                    {hasSingleNext(node) ? (
+                      <button
+                        type="button"
+                        className={`ig-flow-port is-out is-mid${nextNodeId(flow, node.id, "next") ? " is-connected" : ""}`}
+                        aria-label="Ligar a saída Em seguida"
+                        title="Em seguida"
+                        onPointerDown={event => onPortPointerDown(event, node, "next")}
+                      />
+                    ) : <ul className="ig-flow-node-outputs">
                       {outputs.map(output => {
                         const connected = Boolean(nextNodeId(flow, node.id, output.handle));
                         return (
@@ -657,7 +680,7 @@ export function AutomationFlowBuilder({
                           </li>
                         );
                       })}
-                    </ul>
+                    </ul>}
                   </div>
                 );
               })}

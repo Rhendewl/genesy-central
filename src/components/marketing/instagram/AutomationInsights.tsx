@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle, ArrowDownRight, ArrowUpRight, Clock3, Database, MessageSquareText, MousePointerClick, RefreshCw, Target, Users, Zap,
 } from "lucide-react";
@@ -105,11 +105,7 @@ export function AutomationInsights({ automations, initialId }: { automations: In
             <i />{selected.status === "active" ? "Ativa" : selected.status === "paused" ? "Pausada" : "Rascunho"} · {TRIGGERS[selected.trigger_type] ?? selected.trigger_type}
           </span>
         )}
-        <div className="ig-ins-periods" role="radiogroup" aria-label="Período">
-          {PERIODS.map(period => (
-            <button key={period} type="button" role="radio" aria-checked={days === period} onClick={() => setDays(period)}>{period} dias</button>
-          ))}
-        </div>
+        <PeriodSwitch value={days} onChange={setDays} />
         <button type="button" className="ig-btn ig-icon-btn" onClick={() => void load()} aria-label="Atualizar" disabled={loading}><RefreshCw size={15} className={loading ? "ig-ins-spin" : ""} /></button>
       </div>
 
@@ -177,16 +173,16 @@ function InsightsBody({ data, loading }: { data: Insights; loading: boolean }) {
           <DailyChart daily={data.daily} />
         </article>
 
-        <article className="ig-glass ig-ins-panel">
-          <header><div><span className="ig-eyebrow">FUNIL</span><h3>Até onde as pessoas chegam</h3></div></header>
-          <Funnel steps={data.funnel} />
+        <article className="ig-glass ig-ins-panel is-fixed">
+          <header><div><span className="ig-eyebrow">FUNIL</span><h3>Até onde as pessoas chegam</h3></div><span className="ig-ins-count">{data.funnel.length} etapas</span></header>
+          <div className="ig-ins-scroll"><Funnel steps={data.funnel} /></div>
         </article>
 
-        <article className="ig-glass ig-ins-panel">
-          <header><div><span className="ig-eyebrow">ESCOLHAS</span><h3>Botões mais tocados</h3></div></header>
+        <article className="ig-glass ig-ins-panel is-fixed">
+          <header><div><span className="ig-eyebrow">ESCOLHAS</span><h3>Botões mais tocados</h3></div>{data.buttons.length > 0 && <span className="ig-ins-count">{data.buttons.length} botões</span>}</header>
           {data.buttons.length ? (
-            <ul className="ig-ins-bars">
-              {data.buttons.slice(0, 6).map(button => {
+            <div className="ig-ins-scroll"><ul className="ig-ins-bars">
+              {data.buttons.map(button => {
                 const max = Math.max(1, ...data.buttons.map(item => item.taps));
                 return (
                   <li key={`${button.nodeId}-${button.buttonId}`} title={button.message}>
@@ -196,7 +192,7 @@ function InsightsBody({ data, loading }: { data: Insights; loading: boolean }) {
                   </li>
                 );
               })}
-            </ul>
+            </ul></div>
           ) : <p className="ig-ins-muted">Este fluxo não tem botões de resposta.</p>}
         </article>
 
@@ -243,6 +239,29 @@ function InsightsBody({ data, loading }: { data: Insights; loading: boolean }) {
           ) : <p className="ig-ins-muted">Ninguém entrou neste fluxo no período.</p>}
         </article>
       </section>
+    </div>
+  );
+}
+
+/** Period chips with a white highlight that slides to the selected option. */
+function PeriodSwitch({ value, onChange }: { value: (typeof PERIODS)[number]; onChange: (days: (typeof PERIODS)[number]) => void }) {
+  const buttons = useRef<Array<HTMLButtonElement | null>>([]);
+  const [pill, setPill] = useState<{ left: number; width: number } | null>(null);
+  useLayoutEffect(() => {
+    const measure = () => {
+      const element = buttons.current[PERIODS.indexOf(value)];
+      if (element) setPill({ left: element.offsetLeft, width: element.offsetWidth });
+    };
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [value]);
+  return (
+    <div className="ig-ins-periods" role="radiogroup" aria-label="Período">
+      {pill && <span className="ig-ins-periods-pill" aria-hidden="true" style={{ left: pill.left, width: pill.width }} />}
+      {PERIODS.map((period, index) => (
+        <button key={period} ref={element => { buttons.current[index] = element; }} type="button" role="radio" aria-checked={value === period} onClick={() => onChange(period)}>{period} dias</button>
+      ))}
     </div>
   );
 }
@@ -394,6 +413,7 @@ function Funnel({ steps }: { steps: Insights["funnel"] }) {
         return (
           <li key={step.nodeId} className={`is-${step.type}`}>
             <div className="ig-ins-funnel-head">
+              <em className="ig-ins-funnel-step">{index + 1}</em>
               <span><b>{step.title}</b><small>{step.summary}</small></span>
               <span className="ig-ins-funnel-value"><b>{number(step.reached)}</b><small>{percent(share)}</small></span>
             </div>

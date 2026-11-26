@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowUpRight, BarChart3, CheckCircle2, GitBranch, Hourglass, MessageSquareText, Pencil, Tag, Target, Timer, Trash2, Webhook, Workflow, XCircle, Zap } from "lucide-react";
+import { ArrowUpRight, BarChart3, GitBranch, Hourglass, MessageSquareText, Pencil, Tag, Target, Timer, Trash2, Webhook, Workflow, Zap } from "lucide-react";
 import { toast } from "sonner";
 import {
   AutomationFlowBuilder,
@@ -149,7 +149,6 @@ export function InstagramAutomations({ accountId, createSignal = 0 }: { accountI
   return (
     <div className="ig-auto-shell pb-10">
       <div className="ig-auto-heading"><h2>Comentários e Direct</h2><p>Fluxos ativos, métricas e respostas da sua audiência.</p></div>
-      {visibleConnections.map(connection => <section key={connection.id} className="mb-5 flex items-start gap-3 rounded-2xl border p-4" style={{ background: "var(--glass-bg-soft)" }}>{connection.webhook_subscribed ? <CheckCircle2 className="mt-0.5 text-emerald-500" size={19} /> : <XCircle className="mt-0.5 text-amber-500" size={19} />}<div><h3 className="text-sm font-semibold">@{connection.username}</h3><p className="text-xs text-[var(--muted-foreground)]">{connection.webhook_subscribed ? "Webhooks de comentários e mensagens assinados" : "Reconecte a conta após liberar as permissões na Meta"}</p>{connection.webhook_error && <p className="mt-1 text-xs text-amber-500">{connection.webhook_error}</p>}</div></section>)}
       <div className="ig-auto-tabs" role="tablist" aria-label="Automações">
         <button type="button" role="tab" aria-selected={view === "flows"} onClick={() => setView("flows")}><Workflow size={14} />Fluxos</button>
         <button type="button" role="tab" aria-selected={view === "insights"} onClick={() => setView("insights")}><BarChart3 size={14} />Insights</button>
@@ -233,7 +232,7 @@ function FlowMiniMap({ flow, label }: { flow: AutomationFlow; label: string }) {
   const path: FlowNode[] = [];
   const seen = new Set<string>();
   let current: FlowNode | undefined = flow.nodes.find(node => node.type === "trigger");
-  while (current && !seen.has(current.id) && path.length < 7) {
+  while (current && !seen.has(current.id) && path.length < 5) {
     seen.add(current.id);
     path.push(current);
     const from: FlowNode = current;
@@ -244,10 +243,12 @@ function FlowMiniMap({ flow, label }: { flow: AutomationFlow; label: string }) {
     <div className="ig-flow-mini" aria-label={label}>
       {path.map((node, index) => {
         const Icon = node.type === "action" ? (node.data.kind === "add_tag" ? Tag : Target) : MINI_ICONS[node.type];
+        // The fifth icon fades out: it hints that the flow keeps going.
+        const fading = index === 4;
         return (
           <Fragment key={node.id}>
-            {index > 0 && <i />}
-            <span className={`is-${node.type === "action" ? `action-${node.data.kind}` : node.type}`}><Icon size={12} /></span>
+            {index > 0 && <i className={fading ? "is-fading" : undefined} />}
+            <span className={`is-${node.type === "action" ? `action-${node.data.kind}` : node.type}${fading ? " is-fading" : ""}`}><Icon size={12} /></span>
           </Fragment>
         );
       })}
