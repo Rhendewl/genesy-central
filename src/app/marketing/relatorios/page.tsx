@@ -21,13 +21,24 @@ import {
 } from "recharts";
 import { ChevronLeft, ChevronRight, Info } from "lucide-react";
 import { useSearchParams } from "next/navigation";
+import { toast } from "sonner";
 import { InstagramGlyph, InstagramReports } from "@/components/marketing/InstagramReports";
 import { InstagramStudio } from "@/components/marketing/instagram/InstagramStudio";
 import { MarketingEmptyState, MarketingSkeleton } from "@/components/marketing/MarketingUI";
 import { useMarketing } from "@/context/MarketingContext";
+import { useMarketingAccess } from "@/hooks/useMarketingAccess";
 import { marketingStats } from "@/lib/marketing/domain";
 import { CONTENT_STATUS_LABELS, FORMAT_LABELS, PLATFORM_LABELS } from "@/types/marketing";
 import { KpiReadingGuide, type KpiGuidanceItem } from "@/components/insights/KpiReadingGuide";
+
+type InstagramArea = "reports" | "overview" | "posts" | "calendar" | "automations";
+const INSTAGRAM_AREAS: ReadonlyArray<readonly [InstagramArea, string]> = [
+  ["reports", "Painel profissional"],
+  ["overview", "Planejamento"],
+  ["posts", "Publicações"],
+  ["calendar", "Agenda"],
+  ["automations", "Automações"],
+];
 
 const CHART_COLORS = ["#27a3ff", "#27f2e6", "#22c55e", "#a78bfa", "#fe7b4a", "#f472b6", "#94a3b8"];
 const axisTick = { fill: "var(--text-body)", fontSize: 11 };
@@ -45,7 +56,10 @@ export default function MarketingReportsPage() {
   const searchParams = useSearchParams();
   const today = new Date();
   const [view, setView] = useState<"editorial" | "instagram">("instagram");
-  const [area, setArea] = useState<"reports" | "overview" | "posts" | "calendar" | "automations">("reports");
+  const access = useMarketingAccess();
+  const allowedAreas = INSTAGRAM_AREAS.filter(([id]) => access.can(`marketing.instagram.${id}`));
+  const canSeeEditorial = access.can("marketing.calendario");
+  const [area, setArea] = useState<InstagramArea>("reports");
   const areaSeg = useSegmentIndicator({ background: "linear-gradient(to right, #7c3aed, #db2777, #f97316)", boxShadow: "0 1px 2px rgba(0,0,0,.12)" });
   const viewSeg = useSegmentIndicator({ background: view === "instagram" ? "linear-gradient(to right, #7c3aed, #db2777, #f97316)" : "var(--primary)", boxShadow: "0 1px 2px rgba(0,0,0,.12)" });
   const [period, setPeriod] = useState<"month" | "7d" | "15d" | "30d">("30d");
@@ -53,12 +67,27 @@ export default function MarketingReportsPage() {
   const [start, setStart] = useState(format(subDays(today, 29), "yyyy-MM-dd"));
   const [end, setEnd] = useState(format(today, "yyyy-MM-dd"));
   useEffect(() => {
-    if (new URLSearchParams(window.location.search).get("view") === "editorial") setView("editorial");
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("view") === "editorial") setView("editorial");
+    // Retorno do OAuth do Instagram — aqui para aparecer em qualquer aba liberada.
+    if (params.get("instagram_connected") === "1") toast.success("Instagram conectado. Iniciando a primeira sincronização.");
+    const oauthError = params.get("instagram_error");
+    if (oauthError === "account_in_use") toast.error("Esta conta do Instagram já foi conectada por outra pessoa da organização.");
+    else if (oauthError) toast.error("Não foi possível conectar o Instagram. Tente novamente.");
   }, []);
   useEffect(() => {
     const requestedArea = searchParams.get("area");
     if (requestedArea === "overview" || requestedArea === "posts" || requestedArea === "calendar" || requestedArea === "automations") setArea(requestedArea);
   }, [searchParams]);
+  // Mantém a área ativa dentro do que o membro pode ver.
+  const firstAllowedArea = allowedAreas[0]?.[0];
+  const areaAllowed = allowedAreas.some(([id]) => id === area);
+  useEffect(() => {
+    if (!access.isLoading && !areaAllowed && firstAllowedArea) setArea(firstAllowedArea);
+  }, [access.isLoading, areaAllowed, firstAllowedArea]);
+  useEffect(() => {
+    if (!access.isLoading && !canSeeEditorial && view === "editorial") setView("instagram");
+  }, [access.isLoading, canSeeEditorial, view]);
   const compareDays = differenceInCalendarDays(new Date(`${end}T12:00:00`), new Date(`${start}T12:00:00`)) + 1;
   const compareEnd = format(subDays(new Date(`${start}T12:00:00`), 1), "yyyy-MM-dd");
   const compareStart = format(subDays(new Date(`${start}T12:00:00`), compareDays), "yyyy-MM-dd");
@@ -155,19 +184,13 @@ export default function MarketingReportsPage() {
       <div className="px-4 sm:px-6">
         <nav ref={areaSeg.trackRef} className="relative mb-4 flex max-w-full gap-1 overflow-x-auto rounded-xl border p-1 backdrop-blur-2xl" aria-label="Áreas da Central do Instagram" style={{ background: "linear-gradient(135deg,color-mix(in srgb,var(--background) 55%,transparent),color-mix(in srgb,var(--background) 30%,transparent))", borderColor: "color-mix(in srgb,var(--foreground) 18%,transparent)", backdropFilter: "blur(24px) saturate(135%)", WebkitBackdropFilter: "blur(24px) saturate(135%)", boxShadow: "inset 0 1px 0 color-mix(in srgb,#fff 11%,transparent),0 10px 28px #00000010" }}>
           {areaSeg.indicator}
-          {([
-            ["reports", "Painel profissional"],
-            ["overview", "Planejamento"],
-            ["posts", "Publicações"],
-            ["calendar", "Agenda"],
-            ["automations", "Automações"],
-          ] as const).map(([id, label]) => <button key={id} onClick={() => setArea(id)} data-active={area === id} className={`relative z-[1] shrink-0 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${area === id ? "text-white" : "text-[var(--muted-foreground)] hover:text-[var(--text-title)]"}`}>{label}</button>)}
+          {allowedAreas.map(([id, label]) => <button key={id} onClick={() => setArea(id)} data-active={area === id} className={`relative z-[1] shrink-0 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${area === id ? "text-white" : "text-[var(--muted-foreground)] hover:text-[var(--text-title)]"}`}>{label}</button>)}
         </nav>
-        {area === "reports" && <>
+        {areaAllowed && area === "reports" && <>
         <div ref={viewSeg.trackRef} className="relative mb-4 inline-flex max-w-full rounded-xl border p-1 backdrop-blur-2xl" style={{ background: "linear-gradient(135deg,color-mix(in srgb,var(--background) 55%,transparent),color-mix(in srgb,var(--background) 30%,transparent))", borderColor: "color-mix(in srgb,var(--foreground) 18%,transparent)", backdropFilter: "blur(24px) saturate(135%)", WebkitBackdropFilter: "blur(24px) saturate(135%)", boxShadow: "inset 0 1px 0 color-mix(in srgb,#fff 11%,transparent),0 10px 28px #00000010" }}>
           {viewSeg.indicator}
           <button onClick={() => setView("instagram")} data-active={view === "instagram"} className={`relative z-[1] flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${view === "instagram" ? "text-white" : "text-[var(--muted-foreground)] hover:text-[var(--text-title)]"}`}><InstagramGlyph size={14} /> Instagram</button>
-          <button onClick={() => setView("editorial")} data-active={view === "editorial"} className={`relative z-[1] rounded-lg px-3 py-2 text-sm font-medium transition-colors ${view === "editorial" ? "text-white" : "text-[var(--muted-foreground)] hover:text-[var(--text-title)]"}`}>Operação editorial</button>
+          {canSeeEditorial && <button onClick={() => setView("editorial")} data-active={view === "editorial"} className={`relative z-[1] rounded-lg px-3 py-2 text-sm font-medium transition-colors ${view === "editorial" ? "text-white" : "text-[var(--muted-foreground)] hover:text-[var(--text-title)]"}`}>Operação editorial</button>}
         </div>
         <PeriodFilter
           period={period}
@@ -283,10 +306,10 @@ export default function MarketingReportsPage() {
           </>
         )}
         </>}
-        {area === "overview" && <InstagramStudio embedded initialTab="overview" />}
-        {area === "posts" && <InstagramStudio embedded initialTab="posts" />}
-        {area === "calendar" && <InstagramStudio embedded initialTab="calendar" />}
-        {area === "automations" && <InstagramStudio embedded initialTab="automations" />}
+        {areaAllowed && area === "overview" && <InstagramStudio embedded initialTab="overview" />}
+        {areaAllowed && area === "posts" && <InstagramStudio embedded initialTab="posts" />}
+        {areaAllowed && area === "calendar" && <InstagramStudio embedded initialTab="calendar" />}
+        {areaAllowed && area === "automations" && <InstagramStudio embedded initialTab="automations" />}
       </div>
     </div>
   );

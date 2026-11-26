@@ -109,12 +109,6 @@ export function InstagramReports({ start, end, compareStart, compareEnd }: { sta
     },
   ];
 
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("instagram_connected") === "1") toast.success("Instagram conectado. Iniciando a primeira sincronização.");
-    if (params.get("instagram_error")) toast.error("Não foi possível conectar o Instagram. Tente novamente.");
-  }, []);
-
   if (instagram.isLoading) return <LoadingState />;
 
   if (!instagram.connections.length) {

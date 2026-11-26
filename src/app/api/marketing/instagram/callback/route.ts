@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
+import { createAdminSupabaseClient } from "@/lib/supabase-admin";
 import { encryptToken, verifyState } from "@/lib/crypto";
 import {
   exchangeInstagramCode, exchangeInstagramLongLivedToken, getInstagramProfile,
   INSTAGRAM_AUTOMATION_SCOPES, INSTAGRAM_AUTOMATION_WEBHOOK_FIELDS, subscribeInstagramWebhooks,
 } from "@/lib/instagram-api";
 import { getMarketingServerContext } from "@/lib/marketing/server";
+import { canAccess } from "@/lib/module-permissions";
+import { canConnectInstagramAccounts } from "@/lib/marketing/instagram-access";
 import { requestOrigin } from "@/lib/request-origin";
 
 export const dynamic = "force-dynamic";
@@ -30,7 +33,10 @@ export async function GET(req: NextRequest) {
     const state = verifyState<InstagramState>(stateParam);
     const supabase = await createServerSupabaseClient();
     const context = await getMarketingServerContext(supabase);
-    if (!context.isAdmin || context.user.id !== state.userId || context.organizationId !== state.organizationId) {
+    if (
+      !canConnectInstagramAccounts(context) || !canAccess(context.permissions, "marketing.instagram", context.isAdmin)
+      || context.user.id !== state.userId || context.organizationId !== state.organizationId
+    ) {
       return redirectWith(req, "instagram_error", "invalid_session");
     }
 
@@ -51,6 +57,20 @@ export async function GET(req: NextRequest) {
     const profile = await getInstagramProfile(accessToken);
     const instagramUserId = String(profile.user_id ?? profile.id ?? short.user_id ?? "");
     if (!instagramUserId || !profile.username) throw new Error("Perfil profissional do Instagram não encontrado");
+    // A conta mantém quem a conectou primeiro. Um membro com contas próprias
+    // não pode assumir uma conta que outra pessoa da organização já conectou.
+    // Leitura com service_role: o RLS esconderia do membro a conta de outra pessoa.
+    const { data: existing, error: existingError } = await createAdminSupabaseClient()
+      .from("marketing_instagram_connections")
+      .select("id,connected_by")
+      .eq("organization_id", context.organizationId)
+      .eq("instagram_user_id", instagramUserId)
+      .maybeSingle();
+    if (existingError) throw new Error(existingError.message);
+    if (existing && !context.isAdmin && existing.connected_by !== context.user.id) {
+      return redirectWith(req, "instagram_error", "account_in_use");
+    }
+    const connectedBy = existing?.connected_by ?? context.user.id;
     const now = new Date().toISOString();
     let webhookSubscribed = false;
     let webhookError: string | null = null;
@@ -64,7 +84,7 @@ export async function GET(req: NextRequest) {
     }
     const { error } = await supabase.from("marketing_instagram_connections").upsert({
       organization_id: context.organizationId,
-      connected_by: context.user.id,
+      connected_by: connectedBy,
       instagram_user_id: instagramUserId,
       username: profile.username,
       display_name: profile.name ?? null,

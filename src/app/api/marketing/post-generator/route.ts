@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminSupabaseClient } from "@/lib/supabase-admin";
 import { apiError, getMarketingServerContext } from "@/lib/marketing/server";
+import { assertMarketingAccess } from "@/lib/marketing/instagram-access";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import type { PostTemplate } from "@/lib/marketing/post-generator";
 
@@ -26,6 +27,7 @@ export async function GET(req: NextRequest) {
   const supabase = await createServerSupabaseClient();
   try {
     const context = await getMarketingServerContext(supabase);
+    assertMarketingAccess(context, "marketing.gerador");
     const template = parseTemplate(req.nextUrl.searchParams.get("template"));
     const known = req.nextUrl.searchParams.get("known");
     const location = projectLocation(context.organizationId, template);
@@ -62,6 +64,7 @@ export async function POST(req: NextRequest) {
   const supabase = await createServerSupabaseClient();
   try {
     const context = await getMarketingServerContext(supabase);
+    assertMarketingAccess(context, "marketing.gerador");
     const body = await req.json().catch(() => null) as { template?: unknown; fileSize?: unknown } | null;
     const template = parseTemplate(body?.template);
     const fileSize = Number(body?.fileSize);

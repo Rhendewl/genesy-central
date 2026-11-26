@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
 
 export default function MarketingInstagramPage() {
-  redirect("/marketing/relatorios?area=automacoes");
+  redirect("/marketing/relatorios?area=automations");
 }

@@ -5,6 +5,7 @@ vi.mock("@/components/marketing/InstagramReports", () => ({ InstagramGlyph: () =
 vi.mock("@/components/marketing/InstagramAutomations", () => ({ InstagramAutomations: ({accountId}:{accountId:string}) => createElement("div", null, `Automações de ${accountId}`) }));
 vi.mock("@/components/ui/dialog", () => ({ Dialog: ({ children }: { children: React.ReactNode }) => createElement("div", null, children), DialogContent: ({ children }: { children: React.ReactNode }) => createElement("div", {className:"test-dialog"}, children), DialogTitle: ({ children }: { children: React.ReactNode }) => createElement("h2", null, children) }));
 vi.mock("@/hooks/useModalOpen", () => ({useModalOpen:vi.fn()}));
+vi.mock("@/hooks/useMarketingAccess", () => ({ useMarketingAccess: () => ({ can: () => true, isLoading: false, isAdmin: true, ownInstagramOnly: false, home: "/marketing/relatorios" }) }));
 const mocks = vi.hoisted(() => ({ upload: vi.fn(), prepare: vi.fn() }));
 vi.mock("@/lib/supabase", () => ({ getSupabaseClient: () => ({ storage: { from: () => ({ uploadToSignedUrl: mocks.upload }) } }) }));
 vi.mock("@/lib/marketing/instagram-studio-media", () => ({ prepareStudioImage: mocks.prepare, prepareStudioVideo: mocks.prepare }));

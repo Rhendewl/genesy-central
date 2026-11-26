@@ -1,5 +1,6 @@
 import { ModuleAccessGate } from "@/components/layout/ModuleAccessGate";
 import { MarketingSubNav } from "@/components/marketing/MarketingSubNav";
+import { MarketingSubmoduleGate } from "@/components/marketing/MarketingSubmoduleGate";
 import { MarketingProvider } from "@/context/MarketingContext";
 
 export default function MarketingLayout({ children }: { children: React.ReactNode }) {
@@ -17,7 +18,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
       >
         <MarketingProvider>
           <MarketingSubNav />
-          {children}
+          <MarketingSubmoduleGate>{children}</MarketingSubmoduleGate>
         </MarketingProvider>
       </div>
     </ModuleAccessGate>
