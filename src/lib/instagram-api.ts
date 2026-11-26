@@ -177,6 +177,28 @@ export function sendInstagramMessagePayload(
   );
 }
 
+/** typing_on / typing_off / mark_seen in a conversation that is inside Meta's window. */
+export function sendInstagramSenderAction(
+  userId: string,
+  recipientId: string,
+  action: "typing_on" | "typing_off" | "mark_seen",
+  accessToken: string,
+) {
+  return instagramPost<{ recipient_id?: string }>(
+    `/${INSTAGRAM_GRAPH_VERSION}/${userId}/messages`,
+    accessToken,
+    { recipient: { id: recipientId }, sender_action: action },
+  );
+}
+
+/** Profile of someone who messaged the account (User Profile API). */
+export function getInstagramUserProfile(scopedId: string, accessToken: string) {
+  return instagramGet<{ name?: string; username?: string }>(
+    `/${INSTAGRAM_GRAPH_VERSION}/${encodeURIComponent(scopedId)}?fields=name,username`,
+    accessToken,
+  );
+}
+
 export async function exchangeInstagramCode(code: string, redirectUri: string) {
   const clientId = process.env.INSTAGRAM_APP_ID ?? process.env.META_APP_ID;
   const clientSecret = process.env.INSTAGRAM_APP_SECRET ?? process.env.META_APP_SECRET;

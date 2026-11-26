@@ -3,7 +3,12 @@ import {
   buildFlowPayload,
   connectNodes,
   contactWindow,
+  duplicateFlowNode,
   emptyFlow,
+  firstName,
+  renderTemplate,
+  templateVariables,
+  validateCollectedAnswer,
   evaluateCondition,
   flowErrors,
   instagramMessageBody,
@@ -22,6 +27,10 @@ import {
 } from "../flow";
 
 const RUN = "8f14e45f-ceea-467a-9575-6f8b2d1c7a10";
+
+function msg(id: string, text: string, buttons: FlowButton[] = [], timeoutMinutes: number | null = null): FlowNode {
+  return message(id, text, buttons, timeoutMinutes);
+}
 
 function message(id: string, text: string, buttons: FlowButton[] = [], timeoutMinutes: number | null = null): FlowNode {
   return { id, type: "message", position: { x: 0, y: 0 }, data: { text, buttons, timeoutMinutes } };
@@ -45,7 +54,7 @@ describe("legacy automations as flows", () => {
     expect(converted.nodes.map(node => node.type)).toEqual(["trigger", "message", "delay", "message", "action"]);
     expect(nextNodeId(converted, "trigger", "next")).toBe("legacy_msg_0");
     expect(nextNodeId(converted, "legacy_msg_0", "next")).toBe("legacy_delay_1");
-    expect(converted.nodes[2]).toMatchObject({ data: { minutes: 30 } });
+    expect(converted.nodes[2]).toMatchObject({ data: { seconds: (30) * 60, typing: false } });
     expect(converted.nodes[3]).toMatchObject({ data: { buttons: [{ kind: "url", url: "https://a.com", label: "Ver" }] } });
     expect(converted.nodes[4]).toMatchObject({ data: { kind: "crm", crm: { pipelineId: "p", stageId: "s", dealValue: 10 } } });
     expect(flowErrors(validateFlow(converted, "message"))).toEqual([]);
@@ -60,7 +69,7 @@ describe("legacy automations as flows", () => {
 
 describe("flow validation", () => {
   it("blocks a second message after a comment's private reply without interaction", () => {
-    const graph = flow([message("a", "Oi"), { id: "d", type: "delay", position: { x: 0, y: 0 }, data: { minutes: 10 } }, message("b", "De novo")],
+    const graph = flow([message("a", "Oi"), { id: "d", type: "delay", position: { x: 0, y: 0 }, data: { seconds: (10) * 60, typing: false } }, message("b", "De novo")],
       [["trigger", "next", "a"], ["a", "next", "d"], ["d", "next", "b"]]);
     const errors = flowErrors(validateFlow(graph, "comment"));
     expect(errors).toHaveLength(1);
@@ -72,7 +81,7 @@ describe("flow validation", () => {
       message("a", "Quer a tabela?", [{ id: "yes", label: "Quero", kind: "reply" }]),
       message("b", "Aqui está"),
       { id: "w", type: "wait_reply", position: { x: 0, y: 0 }, data: { timeoutMinutes: 120 } },
-      { id: "d", type: "delay", position: { x: 0, y: 0 }, data: { minutes: 1200 } },
+      { id: "d", type: "delay", position: { x: 0, y: 0 }, data: { seconds: (1200) * 60, typing: false } },
       message("c", "Ficou alguma dúvida?"),
     ], [["trigger", "next", "a"], ["a", "button:yes", "b"], ["b", "next", "w"], ["w", "timeout", "d"], ["d", "next", "c"]]);
     const issues = validateFlow(graph, "comment");
@@ -82,11 +91,11 @@ describe("flow validation", () => {
   });
 
   it("warns when a follow-up only fits the 7-day ad window and errors beyond it", () => {
-    const late = flow([message("a", "Oi"), { id: "d", type: "delay", position: { x: 0, y: 0 }, data: { minutes: 2 * 1440 } }, message("b", "Volta")],
+    const late = flow([message("a", "Oi"), { id: "d", type: "delay", position: { x: 0, y: 0 }, data: { seconds: (2 * 1440) * 60, typing: false } }, message("b", "Volta")],
       [["trigger", "next", "a"], ["a", "next", "d"], ["d", "next", "b"]]);
     expect(validateFlow(late, "message")).toEqual([expect.objectContaining({ nodeId: "b", level: "warning" })]);
-    const tooLate = flow([message("a", "Oi"), { id: "d", type: "delay", position: { x: 0, y: 0 }, data: { minutes: 7 * 1440 } },
-      { id: "d2", type: "delay", position: { x: 0, y: 0 }, data: { minutes: 60 } }, message("b", "Volta")],
+    const tooLate = flow([message("a", "Oi"), { id: "d", type: "delay", position: { x: 0, y: 0 }, data: { seconds: (7 * 1440) * 60, typing: false } },
+      { id: "d2", type: "delay", position: { x: 0, y: 0 }, data: { seconds: (60) * 60, typing: false } }, message("b", "Volta")],
     [["trigger", "next", "a"], ["a", "next", "d"], ["d", "next", "d2"], ["d2", "next", "b"]]);
     expect(flowErrors(validateFlow(tooLate, "message"))).toEqual([expect.objectContaining({ nodeId: "b" })]);
   });
@@ -123,7 +132,7 @@ describe("flow sanitization", () => {
       nodes: [
         { id: "trigger", type: "trigger", position: { x: "10", y: 5.6 } },
         { id: "m", type: "message", data: { text: "  Oi  ", buttons: [{ id: "b1", label: "Quero saber mais sobre", kind: "reply" }], timeoutMinutes: "30" } },
-        { id: "z", type: "delay", data: { minutes: 999999 } },
+        { id: "z", type: "delay", data: { seconds: (999999) * 60, typing: false } },
       ],
       edges: [
         { id: "e1", source: "trigger", sourceHandle: "next", target: "m" },
@@ -134,7 +143,7 @@ describe("flow sanitization", () => {
     });
     expect(sanitized.nodes[0].position).toEqual({ x: 10, y: 6 });
     expect(sanitized.nodes[1]).toMatchObject({ data: { text: "Oi", timeoutMinutes: 30, buttons: [{ label: "Quero saber mais sob" }] } });
-    expect(sanitized.nodes[2]).toMatchObject({ data: { minutes: 10080 } });
+    expect(sanitized.nodes[2]).toMatchObject({ data: { seconds: (10080) * 60, typing: false } });
     expect(sanitized.edges.map(edge => edge.id)).toEqual(["e1", "e3"]);
   });
 
@@ -212,5 +221,56 @@ describe("flow runtime rules", () => {
       { type: "web_url", url: "https://a.com", title: "Site" },
     ] } } });
     expect(instagramMessageBody({ text: "Oi", buttons: [], timeoutMinutes: null }, id => id)).toEqual({ text: "Oi" });
+  });
+});
+
+describe("variables and collected answers", () => {
+  it("greets by first name and drops empty variables cleanly", () => {
+    const vars = templateVariables({ fullName: "maria   EDUARDA 🌸", username: "duda", lastReply: "Sim", fields: { whatsapp: "5585999990000", cidade: "Fortaleza" } });
+    expect(renderTemplate("Oi {primeiro_nome}! Seu zap é {whatsapp}, em {cidade}.", vars)).toBe("Oi Maria! Seu zap é 5585999990000, em Fortaleza.");
+    const empty = templateVariables({ fullName: null, username: null, lastReply: null, fields: {} });
+    expect(renderTemplate("Oi {primeiro_nome}, tudo bem?", empty)).toBe("Oi, tudo bem?");
+    expect(renderTemplate("{primeiro_nome}, tudo bem?", empty)).toBe("Tudo bem?");
+    expect(renderTemplate("Use {desconhecido}", empty)).toBe("Use {desconhecido}");
+    expect(firstName("🔥 Ana")).toBe("");
+    expect(firstName("joão silva")).toBe("João");
+  });
+
+  it("validates WhatsApp and e-mail answers", () => {
+    expect(validateCollectedAnswer("phone", "(85) 99999-0000")).toEqual({ ok: true, value: "5585999990000" });
+    expect(validateCollectedAnswer("phone", "meu número é 123")).toMatchObject({ ok: false });
+    expect(validateCollectedAnswer("email", "Pode mandar pra Ana@Exemplo.com.br")).toEqual({ ok: true, value: "ana@exemplo.com.br" });
+    expect(validateCollectedAnswer("email", "não tenho")).toMatchObject({ ok: false });
+    expect(validateCollectedAnswer("custom", "  Fortaleza ")).toEqual({ ok: true, value: "Fortaleza" });
+  });
+
+  it("adds an invalid-answer branch only for validated fields", () => {
+    const wait = (saveAs: "phone" | "custom" | null): FlowNode => ({ id: "w", type: "wait_reply", position: { x: 0, y: 0 }, data: { timeoutMinutes: 5, saveAs, fieldLabel: "Cidade" } });
+    expect(nodeOutputs(wait("phone")).map(output => output.handle)).toEqual(["reply", "invalid", "timeout"]);
+    expect(nodeOutputs(wait("custom")).map(output => output.handle)).toEqual(["reply", "timeout"]);
+    expect(nodeOutputs(wait(null)).map(output => output.handle)).toEqual(["reply", "timeout"]);
+  });
+
+  it("treats the invalid branch as an interaction in comment flows", () => {
+    const graph = flow([
+      msg("a", "Qual seu WhatsApp?"),
+      { id: "w", type: "wait_reply", position: { x: 0, y: 0 }, data: { timeoutMinutes: 5, saveAs: "phone" } },
+      msg("b", "Não entendi, manda só os números"),
+      msg("c", "Sem resposta"),
+    ], [["trigger", "next", "a"], ["a", "next", "w"], ["w", "invalid", "b"], ["w", "timeout", "c"]]);
+    const errors = flowErrors(validateFlow(graph, "comment"));
+    expect(errors.map(issue => issue.nodeId)).toEqual(["c"]);
+    expect(errors[0].message).toContain("Tag ou CRM");
+  });
+
+  it("duplicates a block with fresh ids and no links", () => {
+    const graph = flow([msg("a", "Oi", [{ id: "x", label: "Sim", kind: "reply" }])], [["trigger", "next", "a"]]);
+    const { flow: copy, node } = duplicateFlowNode(graph, "a");
+    expect(node).not.toBeNull();
+    expect(copy.nodes).toHaveLength(3);
+    expect(node!.id).not.toBe("a");
+    expect(node!.type === "message" && node!.data.buttons[0].id).not.toBe("x");
+    expect(copy.edges).toHaveLength(1);
+    expect(duplicateFlowNode(graph, "trigger").node).toBeNull();
   });
 });

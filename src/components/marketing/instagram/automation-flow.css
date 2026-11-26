@@ -36,10 +36,11 @@
 /* Layout */
 .ig-flow-body{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 360px}
 
-/* Canvas */
+/* Canvas: near-black with a faint dot grid (light theme: soft grey). */
 .ig-flow-canvas{position:relative;overflow:hidden;cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none;
-  background-color:color-mix(in srgb,var(--foreground) 1.5%,transparent);
-  background-image:radial-gradient(circle,color-mix(in srgb,var(--foreground) 15%,transparent) 1px,transparent 1.3px)}
+  background-color:#040405;
+  background-image:radial-gradient(circle,rgba(255,255,255,.075) 1px,transparent 1.3px)}
+.light .ig-flow-canvas{background-color:#eef0f3;background-image:radial-gradient(circle,rgba(0,0,0,.12) 1px,transparent 1.3px)}
 .ig-flow-canvas:active{cursor:grabbing}
 .ig-flow-canvas.is-connecting{cursor:crosshair}
 .ig-flow-world{position:absolute;left:0;top:0;width:0;height:0;transform-origin:0 0}
@@ -50,22 +51,36 @@
 .ig-flow-edge-hit{fill:none;stroke:transparent;stroke-width:16;pointer-events:stroke;cursor:pointer}
 .ig-flow-edge:hover .ig-flow-edge-line{stroke:color-mix(in srgb,var(--foreground) 60%,transparent)}
 #ig-flow-arrow path{fill:color-mix(in srgb,var(--foreground) 50%,transparent)}
-.ig-flow-edge-draft{fill:none;stroke:color-mix(in srgb,var(--flow-trigger) 75%,var(--foreground));stroke-width:2;stroke-dasharray:6 5;animation:ig-flow-dash .6s linear infinite}
+.ig-flow-edge-draft{fill:none;stroke:color-mix(in srgb,var(--foreground) 55%,transparent);stroke-width:2;stroke-dasharray:6 5;animation:ig-flow-dash .6s linear infinite}
+.ig-flow-edge-draft.is-snapped{stroke:color-mix(in srgb,var(--foreground) 90%,transparent);stroke-dasharray:none}
 @keyframes ig-flow-dash{to{stroke-dashoffset:-11}}
 .ig-flow-edge-remove{position:absolute;display:grid;place-items:center;width:22px;height:22px;transform:translate(-50%,-50%);border-radius:50%;border:1px solid color-mix(in srgb,var(--flow-danger) 55%,transparent);background:var(--background);color:var(--flow-danger);box-shadow:0 4px 14px #0003}
 
-/* Blocks */
+/* Blocks: black cards like the rest of the platform (lc-card-base), the block
+   type shown only by a soft colour glow in the top-left corner. */
 .ig-flow-node{position:absolute;display:flex;flex-direction:column;border-radius:16px;cursor:grab;
-  border:1px solid color-mix(in srgb,var(--foreground) 15%,transparent);
-  background:linear-gradient(160deg,color-mix(in srgb,var(--background) 92%,var(--node-accent) 8%),color-mix(in srgb,var(--background) 88%,transparent));
-  backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
-  box-shadow:inset 0 1px 0 color-mix(in srgb,var(--foreground) 7%,transparent),0 10px 30px #00000022;
+  border:1px solid rgba(255,255,255,.08);
+  background:rgba(7,7,8,.94);
+  box-shadow:0 4px 24px rgba(0,0,0,.42),inset 0 1px 0 rgba(255,255,255,.05);
   transition:border-color .18s,box-shadow .18s}
-.ig-flow-node:hover{border-color:color-mix(in srgb,var(--foreground) 26%,transparent)}
+.ig-flow-node>*:not(.ig-flow-node-glow):not(.ig-flow-port){position:relative;z-index:1}
+.ig-flow-node-glow{position:absolute;inset:0;border-radius:inherit;overflow:hidden;pointer-events:none;z-index:0}
+.ig-flow-node-glow::before{content:"";position:absolute;left:-30px;top:-40px;width:190px;height:120px;border-radius:50%;
+  background:radial-gradient(ellipse at center,color-mix(in srgb,var(--node-accent) 40%,transparent),transparent 70%);filter:blur(18px);opacity:.9}
+.ig-flow-node-glow::after{content:"";position:absolute;inset:0;border-radius:inherit;padding:1px;
+  background:radial-gradient(ellipse 220px 160px at top left,color-mix(in srgb,var(--node-accent) 55%,transparent),transparent 80%);
+  -webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);-webkit-mask-composite:xor;
+  mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);mask-composite:exclude;opacity:.7}
+.ig-flow-node:hover{border-color:rgba(255,255,255,.14)}
 .ig-flow-node:active{cursor:grabbing}
-.ig-flow-node.is-selected{border-color:color-mix(in srgb,var(--node-accent) 70%,var(--foreground) 10%);box-shadow:0 0 0 3px color-mix(in srgb,var(--node-accent) 22%,transparent),0 14px 38px #0000002e}
+.ig-flow-node.is-selected{border-color:color-mix(in srgb,var(--node-accent) 60%,rgba(255,255,255,.2));box-shadow:0 0 0 3px color-mix(in srgb,var(--node-accent) 18%,transparent),0 14px 38px rgba(0,0,0,.55)}
+.ig-flow-node.is-drop-target{border-color:color-mix(in srgb,var(--node-accent) 80%,#fff);box-shadow:0 0 0 4px color-mix(in srgb,var(--node-accent) 28%,transparent),0 14px 38px rgba(0,0,0,.55)}
+.ig-flow-node.is-drop-target .ig-flow-port.is-in{transform:scale(1.45);border-color:var(--node-accent);background:color-mix(in srgb,var(--node-accent) 55%,#000)}
+.light .ig-flow-node{background:rgba(255,255,255,.96);border-color:rgba(0,0,0,.08);box-shadow:0 4px 20px rgba(0,0,0,.08)}
+.light .ig-flow-node:hover{border-color:rgba(0,0,0,.16)}
 .ig-flow-node.has-error{border-color:color-mix(in srgb,var(--flow-danger) 60%,transparent)}
-.ig-flow-node header{display:flex;align-items:center;gap:8px;padding:0 12px;border-bottom:1px solid var(--ig-line);flex-shrink:0}
+.ig-flow-node header{display:flex;align-items:center;gap:8px;padding:0 12px;border-bottom:1px solid rgba(255,255,255,.06);flex-shrink:0}
+.light .ig-flow-node header{border-bottom-color:rgba(0,0,0,.06)}
 .ig-flow-node header b{font-size:12px;font-weight:600;letter-spacing:-.1px;white-space:nowrap}
 .ig-flow-node header small{margin-left:auto;padding:3px 7px;border-radius:999px;font-size:9.5px;white-space:nowrap;
   background:color-mix(in srgb,var(--node-accent) 16%,transparent);color:color-mix(in srgb,var(--node-accent) 72%,var(--foreground))}
@@ -74,12 +89,14 @@
 .ig-flow-node header small+.ig-flow-node-alert{margin-left:0}
 .ig-flow-node header b+.ig-flow-node-alert{margin-left:auto}
 .ig-flow-node-icon,.ig-flow-chip{display:grid;place-items:center;flex-shrink:0;width:26px;height:26px;border-radius:8px;
-  background:color-mix(in srgb,var(--node-accent) 20%,transparent);color:color-mix(in srgb,var(--node-accent) 86%,var(--foreground))}
+  background:color-mix(in srgb,var(--node-accent) 14%,rgba(255,255,255,.03));border:1px solid color-mix(in srgb,var(--node-accent) 22%,transparent);
+  color:color-mix(in srgb,var(--node-accent) 90%,var(--foreground))}
 .ig-flow-chip{width:22px;height:22px;border-radius:7px}
 .ig-flow-node-body{margin:0;padding:9px 12px 0;font-size:11.5px;line-height:1.45;color:color-mix(in srgb,var(--foreground) 78%,var(--muted-foreground));
   overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow-wrap:anywhere;flex-shrink:0}
 .ig-flow-node-outputs{list-style:none;margin:0;padding:0}
-.ig-flow-node-outputs li{position:relative;display:flex;align-items:center;justify-content:flex-end;padding:0 18px 0 12px;font-size:10.5px;color:var(--muted-foreground);border-top:1px dashed color-mix(in srgb,var(--foreground) 8%,transparent)}
+.ig-flow-node-outputs li{position:relative;display:flex;align-items:center;justify-content:flex-end;padding:0 18px 0 12px;font-size:10.5px;color:var(--muted-foreground);border-top:1px dashed rgba(255,255,255,.06)}
+.light .ig-flow-node-outputs li{border-top-color:rgba(0,0,0,.06)}
 .ig-flow-node-outputs li span{display:inline-flex;align-items:center;gap:5px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ig-flow-node-outputs li.is-yes span,.ig-flow-node-outputs li.is-reply span{color:color-mix(in srgb,var(--flow-crm) 80%,var(--foreground))}
 .ig-flow-node-outputs li.is-no span{color:color-mix(in srgb,var(--flow-danger) 80%,var(--foreground))}
@@ -88,7 +105,9 @@
 
 .ig-flow-port{position:absolute;width:14px;height:14px;border-radius:50%;border:2px solid color-mix(in srgb,var(--foreground) 40%,transparent);background:var(--background);transition:transform .15s,border-color .15s,background .15s}
 .ig-flow-port.is-in{left:-8px;top:16px;pointer-events:none}
-.ig-flow-port.is-out{right:-8px;top:50%;transform:translateY(-50%);cursor:crosshair;touch-action:none}
+.ig-flow-port.is-out{right:-8px;top:50%;transform:translateY(-50%);cursor:crosshair;touch-action:none;z-index:2}
+/* Bigger invisible grab area around the output dot. */
+.ig-flow-port.is-out::before{content:"";position:absolute;inset:-9px;border-radius:50%}
 .ig-flow-port.is-out.is-connected{background:color-mix(in srgb,var(--foreground) 65%,transparent);border-color:color-mix(in srgb,var(--foreground) 65%,transparent)}
 .ig-flow-port.is-out:hover{transform:translateY(-50%) scale(1.3);border-color:var(--node-accent);background:color-mix(in srgb,var(--node-accent) 45%,var(--background))}
 .ig-flow-canvas.is-connecting .ig-flow-node:not(.is-trigger):hover{border-color:color-mix(in srgb,var(--node-accent) 70%,transparent)}
@@ -154,6 +173,22 @@
 .ig-flow-switch span{position:absolute;left:2px;top:2px;width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 3px #0004;transition:transform .18s}
 .ig-flow-switch[aria-checked=true] span{transform:translateX(18px)}
 .ig-flow-duration{display:grid;grid-template-columns:minmax(0,1fr) 110px;gap:8px}
+
+/* Delay: a small round clock */
+.ig-flow-node.is-compact{border-radius:50%;align-items:center;justify-content:center}
+.ig-flow-node.is-compact .ig-flow-node-glow::before{left:-24px;top:-24px;width:90px;height:90px}
+.ig-flow-node.is-compact .ig-flow-node-glow::after{background:radial-gradient(circle at 20% 15%,color-mix(in srgb,var(--node-accent) 60%,transparent),transparent 75%)}
+.ig-flow-delay-icon{color:color-mix(in srgb,var(--node-accent) 90%,var(--foreground))}
+.ig-flow-node.is-compact .ig-flow-port.is-in{top:calc(50% - 7px)}
+.ig-flow-delay-label{position:absolute!important;top:calc(100% + 7px);left:50%;transform:translateX(-50%);white-space:nowrap;font-size:10.5px;font-weight:500;color:color-mix(in srgb,var(--foreground) 75%,var(--muted-foreground));pointer-events:none}
+
+.ig-flow-panel-actions{margin-left:auto;display:flex;gap:6px}
+.ig-flow-variables{display:flex;flex-wrap:wrap;gap:6px;margin-top:-6px}
+.ig-flow-variables button{padding:5px 9px;border-radius:999px;font-size:10px;border:1px solid color-mix(in srgb,var(--foreground) 12%,transparent);color:color-mix(in srgb,var(--foreground) 80%,var(--muted-foreground));background:color-mix(in srgb,var(--foreground) 3%,transparent);transition:background .15s,border-color .15s}
+.ig-flow-variables button:hover{background:color-mix(in srgb,var(--foreground) 8%,transparent);border-color:color-mix(in srgb,var(--foreground) 24%,transparent)}
+.ig-flow-muted.is-small{font-size:10px;margin-top:-6px}
+.ig-flow-callout.is-data{border-color:color-mix(in srgb,var(--flow-crm) 32%,transparent);background:color-mix(in srgb,var(--flow-crm) 7%,transparent)}
+.ig-flow-callout code{padding:1px 5px;border-radius:5px;font-size:10.5px;background:color-mix(in srgb,var(--foreground) 8%,transparent)}
 
 /* Automation list cards: mini map of the flow */
 .ig-flow-mini{display:flex;align-items:center;gap:4px;margin-top:12px;flex-wrap:wrap}

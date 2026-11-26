@@ -6,6 +6,8 @@ const mocks = vi.hoisted(() => ({
   sendPayload: vi.fn(async () => ({ message_id: "mid-out" })),
   sendLegacy: vi.fn(async () => ({ message_id: "mid-legacy" })),
   createLead: vi.fn(async () => ({ ok: true, leadId: "lead-1" })),
+  senderAction: vi.fn(async () => ({})),
+  profile: vi.fn(async () => ({ name: "Maria Eduarda", username: "duda" })),
 }));
 
 vi.mock("@/lib/crypto", () => ({ decryptToken: () => "token" }));
@@ -13,12 +15,14 @@ vi.mock("@/lib/instagram-api", () => ({
   replyToInstagramComment: mocks.reply,
   sendInstagramMessage: mocks.sendLegacy,
   sendInstagramMessagePayload: mocks.sendPayload,
+  sendInstagramSenderAction: mocks.senderAction,
+  getInstagramUserProfile: mocks.profile,
 }));
 vi.mock("@/lib/crm/lead-service", () => ({
   LeadService: class { createLead = mocks.createLead; },
 }));
 
-import { ingestInstagramWebhook, runDueInstagramAutomationJobs } from "../engine";
+import { driveInstagramRuns, ingestInstagramWebhook, runDueInstagramAutomationJobs } from "../engine";
 import type { AutomationFlow, FlowNode } from "../flow";
 
 type Db = Parameters<typeof runDueInstagramAutomationJobs>[0];
@@ -111,7 +115,8 @@ describe("Instagram flow engine", () => {
     await ingestInstagramWebhook(db, dm("Até 1 mi, por favor", "m-reply"));
     await drain(db);
     expect(mocks.createLead).toHaveBeenCalledTimes(1);
-    expect((mocks.createLead.mock.calls[0] as any[])[0]).toMatchObject({ stageId: "s1", name: "@maria" });
+    // The name comes from the Instagram profile (User Profile API).
+    expect((mocks.createLead.mock.calls[0] as any[])[0]).toMatchObject({ stageId: "s1", name: "Maria Eduarda", contact: "instagram:@maria" });
     expect(run(fake)).toMatchObject({ status: "completed", waiting_for: null });
     expect(run(fake).variables.lastReply).toBe("Até 1 mi, por favor");
     const counted = fake.rows(JOBS).filter(job => job.payload?.counted).map(job => job.payload.nodeId);
@@ -157,7 +162,7 @@ describe("Instagram flow engine", () => {
   });
 
   it("skips a follow-up that falls outside the 24h window", async () => {
-    const flow = graph([msg("a", "Oi"), { id: "d", type: "delay", position: { x: 0, y: 0 }, data: { minutes: 30 } }, msg("b", "Ainda por aí?")],
+    const flow = graph([msg("a", "Oi"), { id: "d", type: "delay", position: { x: 0, y: 0 }, data: { minutes: 30 } as never }, msg("b", "Ainda por aí?")],
       [["trigger", "next", "a"], ["a", "next", "d"], ["d", "next", "b"]]);
     const { fake, db } = setup(flow, { trigger_type: "message", public_reply_text: null });
     await ingestInstagramWebhook(db, dm("quero saber", "m1"));
@@ -171,7 +176,7 @@ describe("Instagram flow engine", () => {
   });
 
   it("keeps the 7-day window for conversations started from an ad", async () => {
-    const flow = graph([msg("a", "Oi"), { id: "d", type: "delay", position: { x: 0, y: 0 }, data: { minutes: 2880 } }, msg("b", "Lembra de mim?")],
+    const flow = graph([msg("a", "Oi"), { id: "d", type: "delay", position: { x: 0, y: 0 }, data: { minutes: 2880 } as never }, msg("b", "Lembra de mim?")],
       [["trigger", "next", "a"], ["a", "next", "d"], ["d", "next", "b"]]);
     const { fake, db } = setup(flow, { trigger_type: "message", public_reply_text: null });
     await ingestInstagramWebhook(db, dm("quero saber", "m1", { referral: { source: "ADS", ad_id: "ad-9" } }));
@@ -203,6 +208,47 @@ describe("Instagram flow engine", () => {
     await drain(db);
     expect(sentTexts()).toEqual(["Primeira", "Segunda"]);
     expect(mocks.createLead).toHaveBeenCalledTimes(1);
+    expect(run(fake).status).toBe("completed");
+  });
+
+  it("starts right after the webhook, shows typing during short delays and personalizes by name", async () => {
+    const flow = graph([
+      msg("a", "Oi {primeiro_nome}!"),
+      { id: "d", type: "delay", position: { x: 0, y: 0 }, data: { seconds: 1, typing: true } },
+      msg("b", "Tudo certo por aí?"),
+    ], [["trigger", "next", "a"], ["a", "next", "d"], ["d", "next", "b"]]);
+    const { db } = setup(flow, { trigger_type: "message", public_reply_text: null });
+    const result = await ingestInstagramWebhook(db, dm("quero", "m1"));
+    const started = Date.now();
+    await driveInstagramRuns(db, result.runIds);
+    expect(Date.now() - started).toBeLessThan(5000);
+    expect(sentTexts()).toEqual(["Oi Maria!", "Tudo certo por aí?"]);
+    expect(mocks.senderAction).toHaveBeenCalledWith(ACCOUNT, "person-1", "typing_on", "token");
+  });
+
+  it("collects a WhatsApp answer, branches on invalid input and fills the CRM lead", async () => {
+    const flow = graph([
+      msg("ask", "Qual seu WhatsApp?"),
+      { id: "w", type: "wait_reply", position: { x: 0, y: 0 }, data: { timeoutMinutes: 10, saveAs: "phone" } },
+      msg("again", "Manda só os números, por favor"),
+      { id: "w2", type: "wait_reply", position: { x: 0, y: 0 }, data: { timeoutMinutes: 10, saveAs: "phone" } },
+      { id: "crm", type: "action", position: { x: 0, y: 0 }, data: { kind: "crm", crm: { pipelineId: "p1", stageId: "s1", originId: null, assignedTo: null, dealValue: 0 } } },
+      msg("ok", "Anotado: {whatsapp}"),
+    ], [
+      ["trigger", "next", "ask"], ["ask", "next", "w"], ["w", "invalid", "again"], ["again", "next", "w2"],
+      ["w", "reply", "crm"], ["w2", "reply", "crm"], ["crm", "next", "ok"],
+    ]);
+    const { fake, db } = setup(flow, { trigger_type: "message", public_reply_text: null });
+    await ingestInstagramWebhook(db, dm("quero", "m1"));
+    await drain(db);
+    await ingestInstagramWebhook(db, dm("não sei", "m2"));
+    await drain(db);
+    expect(sentTexts()).toEqual(["Qual seu WhatsApp?", "Manda só os números, por favor"]);
+    await ingestInstagramWebhook(db, dm("85 99999-0000", "m3"));
+    await drain(db);
+    expect(sentTexts()[2]).toBe("Anotado: 5585999990000");
+    expect((mocks.createLead.mock.calls[0] as any[])[0]).toMatchObject({ contact: "5585999990000", name: "Maria Eduarda" });
+    expect(fake.rows("marketing_instagram_contacts")[0].fields).toEqual({ whatsapp: "5585999990000" });
     expect(run(fake).status).toBe("completed");
   });
 });

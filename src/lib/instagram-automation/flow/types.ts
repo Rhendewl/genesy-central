@@ -25,8 +25,20 @@ export interface MessageNodeData {
   timeoutMinutes?: number | null;
 }
 
-export interface DelayNodeData { minutes: number }
-export interface WaitReplyNodeData { timeoutMinutes: number }
+export interface DelayNodeData {
+  seconds: number;
+  /** Shows "digitando…" in the conversation while a short delay runs. */
+  typing: boolean;
+}
+
+/** Where a collected answer goes. name/phone/email map to the CRM lead fields. */
+export type CollectedFieldKind = "name" | "phone" | "email" | "custom";
+export interface WaitReplyNodeData {
+  timeoutMinutes: number;
+  saveAs?: CollectedFieldKind | null;
+  /** Label of a custom field ("Cidade", "Orçamento"…); its variable is the slug: {cidade}. */
+  fieldLabel?: string;
+}
 
 export type ConditionKind = "reply_contains" | "has_tag" | "from_ad";
 export interface ConditionNodeData { kind: ConditionKind; value: string }
@@ -80,6 +92,9 @@ export const FLOW_MAX_TEXT = 1000;
 export const FLOW_MAX_TEXT_WITH_BUTTONS = 640;
 export const FLOW_MAX_BUTTON_LABEL = 20;
 export const FLOW_MAX_WAIT_MINUTES = 7 * 24 * 60;
+export const FLOW_MAX_DELAY_SECONDS = FLOW_MAX_WAIT_MINUTES * 60;
+/** Delays up to this long run inside the same worker pass instead of waiting for the next tick. */
+export const FLOW_INLINE_DELAY_SECONDS = 60;
 /** Hard stop against loops: nodes executed in a single run. */
 export const FLOW_MAX_STEPS_PER_RUN = 60;
 export const FLOW_PAYLOAD_PREFIX = "igflow:";
@@ -88,7 +103,24 @@ export const FLOW_NODE_LABELS: Record<FlowNodeType, string> = {
   trigger: "Gatilho",
   message: "Mensagem",
   delay: "Atraso",
-  wait_reply: "Esperar resposta",
+  wait_reply: "Aguardar resposta",
   condition: "Condição",
   action: "Ação",
 };
+
+export const FLOW_FIELD_LABELS: Record<CollectedFieldKind, string> = {
+  name: "Nome",
+  phone: "WhatsApp",
+  email: "E-mail",
+  custom: "Campo personalizado",
+};
+
+/** Variables available in message texts. Custom fields add {their_slug}. */
+export const FLOW_VARIABLES: Array<{ key: string; label: string }> = [
+  { key: "primeiro_nome", label: "Primeiro nome" },
+  { key: "nome", label: "Nome completo" },
+  { key: "usuario", label: "@usuário" },
+  { key: "whatsapp", label: "WhatsApp" },
+  { key: "email", label: "E-mail" },
+  { key: "resposta", label: "Última resposta" },
+];

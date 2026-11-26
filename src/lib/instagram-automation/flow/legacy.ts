@@ -32,7 +32,7 @@ export function legacyStepsToFlow(automation: LegacyAutomationShape): Automation
   steps.forEach((step, index) => {
     const delay = Math.max(0, Math.round(Number(step.delayMinutes) || 0));
     if (delay > 0 && automation.triggerType !== "comment") {
-      link({ id: `legacy_delay_${index}`, type: "delay", position: { x: 40 + COLUMN * nodes.length, y: 40 }, data: { minutes: delay } });
+      link({ id: `legacy_delay_${index}`, type: "delay", position: { x: 40 + COLUMN * nodes.length, y: 40 }, data: { seconds: delay * 60, typing: false } });
     }
     const button = step.button?.url ? [{ id: `legacy_btn_${index}`, kind: "url" as const, label: String(step.button.label || "Abrir link"), url: String(step.button.url) }] : [];
     link({
