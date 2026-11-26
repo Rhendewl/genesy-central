@@ -14,10 +14,12 @@
 <link rel="icon" href="/favicon.ico" sizes="any">
 <link rel="icon" href="/icon.png" type="image/png" sizes="512x512">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="preload" href="/fonts/inter-latin-wght.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" as="image" href="/scripts/mockup.webp" imagesrcset="/scripts/mockup-400.webp 400w, /scripts/mockup-520.webp 520w, /scripts/mockup.webp 652w" imagesizes="(max-width: 860px) min(72vw, 320px), 420px" fetchpriority="high">
 <style>
+/* Fonte Inter servida pelo próprio site (sem esperar o Google Fonts) + fallback com as mesmas medidas, para o texto não pular quando ela chega. */
+@font-face{font-family:Inter;font-style:normal;font-weight:100 900;font-display:swap;src:url(/fonts/inter-latin-wght.woff2) format("woff2");unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:"Inter Fallback";src:local("Arial"),local("Helvetica Neue"),local("Roboto");ascent-override:90.44%;descent-override:22.52%;line-gap-override:0%;size-adjust:107.12%}
 /*
 VOICE: direta, de landing page de alta conversão, confiante e premium, falando com corretor, imobiliária e construtora.
 IDEA: a capa do próprio ebook: o celular preto como objeto principal sobre um hero branco e limpo.
@@ -28,11 +30,11 @@ LAYOUT: hero branco em duas colunas, faixa do +R$ 150 mi, bloco escuro de prints
 :root{color-scheme:light;--ink:#0b0d0f;--soft:#4a535a;--muted:#6b747b;--steel:#8a949c;--line:rgba(11,13,15,.1);--dark:#050607;--green:#16a34a}
 *{box-sizing:border-box;min-width:0}
 html{scroll-behavior:smooth}
-body{margin:0;background:#fff;color:var(--ink);font:16px/1.55 Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased;overflow-x:clip}
+body{margin:0;background:#fff;color:var(--ink);font:16px/1.55 Inter,"Inter Fallback",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased;overflow-x:clip}
 img{max-width:100%;display:block}
 a{color:inherit}
 .wrap{width:min(1180px,calc(100% - 40px));margin:0 auto}
-.serif{font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-weight:800;letter-spacing:-.035em}
+.serif{font-family:Inter,"Inter Fallback",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-weight:800;letter-spacing:-.035em}
 
 /* HERO (branco) */
 .hero{position:relative;overflow:hidden;padding:clamp(40px,6vw,80px) 0 0;isolation:isolate;background:linear-gradient(180deg,#fff 0%,#f6f7f8 100%)}
@@ -49,7 +51,7 @@ h1 em{font-style:normal;white-space:nowrap;background:linear-gradient(180deg,#0b
 .bullets li b{color:var(--ink);font-weight:700}
 .check{width:26px;height:26px;border-radius:8px;background:var(--ink);display:grid;place-items:center;margin-top:-1px}
 .check svg{width:14px;height:14px}
-.cta{appearance:none;border:0;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:12px;min-height:58px;padding:0 30px;border-radius:14px;background:var(--ink);color:#fff;font:700 16px/1 Inter,sans-serif;text-decoration:none;box-shadow:0 18px 40px rgba(11,13,15,.22);transition:transform .25s,box-shadow .25s}
+.cta{appearance:none;border:0;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:12px;min-height:58px;padding:0 30px;border-radius:14px;background:var(--ink);color:#fff;font:700 16px/1 Inter,"Inter Fallback",sans-serif;text-decoration:none;box-shadow:0 18px 40px rgba(11,13,15,.22);transition:transform .25s,box-shadow .25s}
 .cta:hover{transform:translateY(-2px);box-shadow:0 22px 50px rgba(11,13,15,.3)}
 .cta svg{width:18px;height:18px}
 .cta.light{background:#fff;color:var(--dark);box-shadow:0 18px 40px rgba(0,0,0,.25)}
@@ -57,11 +59,11 @@ h1 em{font-style:normal;white-space:nowrap;background:linear-gradient(180deg,#0b
 .cta-note{display:flex;align-items:center;gap:8px;margin-top:14px;font-size:13px;color:var(--muted)}
 .mock{position:relative;display:grid;place-items:center;padding-top:34px}
 .mock::before{content:"";position:absolute;width:78%;aspect-ratio:1;border-radius:50%;background:radial-gradient(circle,rgba(11,13,15,.12),transparent 65%);filter:blur(14px);top:18%}
-.mock img{position:relative;width:min(100%,420px);height:auto;filter:drop-shadow(0 40px 50px rgba(11,13,15,.28)) drop-shadow(0 8px 14px rgba(11,13,15,.18));animation:float 7s ease-in-out infinite}
+.mock img{position:relative;width:min(100%,420px);height:auto;filter:drop-shadow(0 40px 50px rgba(11,13,15,.28)) drop-shadow(0 8px 14px rgba(11,13,15,.18));animation:float 7s ease-in-out infinite;will-change:transform}
 @keyframes float{0%,100%{transform:translateY(0) rotate(0)}50%{transform:translateY(-12px) rotate(-.6deg)}}
 
 /* Selo 100% gratuito: no topo do celular, pulsando, com brilho desfocado */
-.free{position:absolute;z-index:3;top:14px;right:12%;width:108px;height:108px;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;color:#fff;text-align:center;font-family:Inter,sans-serif;background:radial-gradient(circle at 30% 25%,rgba(74,222,128,.95),rgba(21,128,61,.95) 70%);border:2px solid rgba(255,255,255,.55);-webkit-backdrop-filter:blur(12px) saturate(160%);backdrop-filter:blur(12px) saturate(160%);box-shadow:0 14px 30px rgba(22,163,74,.45),inset 0 1px 0 rgba(255,255,255,.5),inset 0 0 0 5px rgba(255,255,255,.08);transform:rotate(-10deg);animation:badge 2.2s ease-in-out infinite}
+.free{position:absolute;z-index:3;top:14px;right:12%;width:108px;height:108px;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;color:#fff;text-align:center;font-family:Inter,"Inter Fallback",sans-serif;background:radial-gradient(circle at 30% 25%,rgba(74,222,128,.95),rgba(21,128,61,.95) 70%);border:2px solid rgba(255,255,255,.55);-webkit-backdrop-filter:blur(12px) saturate(160%);backdrop-filter:blur(12px) saturate(160%);box-shadow:0 14px 30px rgba(22,163,74,.45),inset 0 1px 0 rgba(255,255,255,.5),inset 0 0 0 5px rgba(255,255,255,.08);transform:rotate(-10deg);animation:badge 2.2s ease-in-out infinite}
 .free::before{content:"";position:absolute;inset:-18px;z-index:-1;border-radius:50%;background:radial-gradient(closest-side,rgba(34,197,94,.7),rgba(34,197,94,0));filter:blur(12px);animation:halo 2.2s ease-in-out infinite}
 .free::after{content:"";position:absolute;inset:-2px;border-radius:50%;border:2px solid rgba(34,197,94,.7);animation:ring 2.2s ease-out infinite}
 .free b{font-size:27px;font-weight:900;line-height:1;letter-spacing:-.04em}
@@ -115,11 +117,11 @@ footer img{width:112px;height:auto}
 @keyframes pop{from{opacity:0;transform:translateY(14px) scale(.98)}to{opacity:1;transform:none}}
 .close{position:absolute;top:12px;right:12px;width:44px;height:44px;border:0;background:transparent;color:var(--muted);cursor:pointer;border-radius:50%;display:grid;place-items:center}
 .close:hover{color:var(--ink);background:#f1f3f4}
-.box h4{font-family:Inter,sans-serif;font-weight:800;letter-spacing:-.03em;font-size:26px;line-height:1.1;margin:0 40px 6px 0}
+.box h4{font-family:Inter,"Inter Fallback",sans-serif;font-weight:800;letter-spacing:-.03em;font-size:26px;line-height:1.1;margin:0 40px 6px 0}
 .box .sub{margin:0 0 20px;color:var(--muted);font-size:15px}
 .field{display:grid;gap:6px;margin-bottom:14px}
 .field label,.legend{font-size:13px;font-weight:600;color:var(--ink)}
-.field input{width:100%;height:50px;border-radius:12px;border:1px solid #d9dde0;background:#f8f9fa;color:var(--ink);font:16px Inter,sans-serif;padding:0 14px;transition:border-color .2s,background .2s}
+.field input{width:100%;height:50px;border-radius:12px;border:1px solid #d9dde0;background:#f8f9fa;color:var(--ink);font:16px Inter,"Inter Fallback",sans-serif;padding:0 14px;transition:border-color .2s,background .2s}
 .field input::placeholder{color:#9aa3ab}
 .field input:focus{border-color:var(--ink);background:#fff;outline:none}
 .field input[aria-invalid=true]{border-color:#dc2626}
@@ -187,7 +189,7 @@ footer img{width:112px;height:auto}
       </div>
       <div class="mock">
         <div class="free" aria-label="100% gratuito, PDF"><b>100%</b><span>GRATUITO</span><small>PDF</small></div>
-        <img src="/scripts/mockup.webp" alt="Ebook Scripts Imobiliários aberto em um celular" width="652" height="1251">
+        <img src="/scripts/mockup.webp" srcset="/scripts/mockup-400.webp 400w, /scripts/mockup-520.webp 520w, /scripts/mockup.webp 652w" sizes="(max-width: 860px) min(72vw, 320px), 420px" alt="Ebook Scripts Imobiliários aberto em um celular" width="652" height="1251" fetchpriority="high">
       </div>
     </div>
   </div>
@@ -211,17 +213,17 @@ footer img{width:112px;height:auto}
       <button class="btn-ghost" type="button" id="next" aria-label="Próximo resultado"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></button>
     </div>
   </div>
-  <div class="track" id="track" tabindex="0" aria-label="Prints de resultados de clientes">
-    <figure class="shot"><img src="/testimonials/1.webp" alt="Print de resultado de cliente Genesy 1" width="945" height="1181" loading="lazy"></figure>
-    <figure class="shot"><img src="/testimonials/2.webp" alt="Print de resultado de cliente Genesy 2" width="945" height="1181" loading="lazy"></figure>
-    <figure class="shot"><img src="/testimonials/3.webp" alt="Print de resultado de cliente Genesy 3" width="945" height="1181" loading="lazy"></figure>
-    <figure class="shot"><img src="/testimonials/4.webp" alt="Print de resultado de cliente Genesy 4" width="945" height="1181" loading="lazy"></figure>
-    <figure class="shot"><img src="/testimonials/5.webp" alt="Print de resultado de cliente Genesy 5" width="945" height="1181" loading="lazy"></figure>
-    <figure class="shot"><img src="/testimonials/6.webp" alt="Print de resultado de cliente Genesy 6" width="945" height="1181" loading="lazy"></figure>
-    <figure class="shot"><img src="/testimonials/7.webp" alt="Print de resultado de cliente Genesy 7" width="945" height="1181" loading="lazy"></figure>
-    <figure class="shot"><img src="/testimonials/8.webp" alt="Print de resultado de cliente Genesy 8" width="945" height="1181" loading="lazy"></figure>
-    <figure class="shot"><img src="/testimonials/9.webp" alt="Print de resultado de cliente Genesy 9" width="945" height="1181" loading="lazy"></figure>
-    <figure class="shot"><img src="/testimonials/10.webp" alt="Print de resultado de cliente Genesy 10" width="945" height="1181" loading="lazy"></figure>
+  <div class="track" id="track" data-lazy-group tabindex="0" aria-label="Prints de resultados de clientes">
+    <figure class="shot"><img src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==" data-src="/scripts/prints/1.webp" alt="Print de resultado de cliente Genesy 1" width="945" height="1181" decoding="async"></figure>
+    <figure class="shot"><img src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==" data-src="/scripts/prints/2.webp" alt="Print de resultado de cliente Genesy 2" width="945" height="1181" decoding="async"></figure>
+    <figure class="shot"><img src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==" data-src="/scripts/prints/3.webp" alt="Print de resultado de cliente Genesy 3" width="945" height="1181" decoding="async"></figure>
+    <figure class="shot"><img src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==" data-src="/scripts/prints/4.webp" alt="Print de resultado de cliente Genesy 4" width="945" height="1181" decoding="async"></figure>
+    <figure class="shot"><img src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==" data-src="/scripts/prints/5.webp" alt="Print de resultado de cliente Genesy 5" width="945" height="1181" decoding="async"></figure>
+    <figure class="shot"><img src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==" data-src="/scripts/prints/6.webp" alt="Print de resultado de cliente Genesy 6" width="945" height="1181" decoding="async"></figure>
+    <figure class="shot"><img src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==" data-src="/scripts/prints/7.webp" alt="Print de resultado de cliente Genesy 7" width="945" height="1181" decoding="async"></figure>
+    <figure class="shot"><img src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==" data-src="/scripts/prints/8.webp" alt="Print de resultado de cliente Genesy 8" width="945" height="1181" decoding="async"></figure>
+    <figure class="shot"><img src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==" data-src="/scripts/prints/9.webp" alt="Print de resultado de cliente Genesy 9" width="945" height="1181" decoding="async"></figure>
+    <figure class="shot"><img src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==" data-src="/scripts/prints/10.webp" alt="Print de resultado de cliente Genesy 10" width="945" height="1181" decoding="async"></figure>
   </div>
   <div class="wrap after">
     <h3 class="serif">Agora é a sua vez de usar a mesma base.</h3>
@@ -231,7 +233,7 @@ footer img{width:112px;height:auto}
 
 <footer>
   <div class="wrap">
-    <img src="/webp/genesy-branco.webp" alt="Genesy" width="112" height="24">
+    <img src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==" data-src="/webp/genesy-branco-240.webp" alt="Genesy" width="112" height="24" decoding="async">
     <a class="ig" href="https://instagram.com/lancastermatos" target="_blank" rel="noopener">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/></svg>
       @lancastermatos
@@ -447,5 +449,24 @@ footer img{width:112px;height:auto}
   track.addEventListener("keydown", e => { if (e.key === "ArrowRight") { e.preventDefault(); step(1); } if (e.key === "ArrowLeft") { e.preventDefault(); step(-1); } });
 }
 </script>
+<script>
+{
+  // Imagens abaixo da dobra só começam a baixar depois que a página carregou, perto de aparecer na tela.
+  // Assim a banda do celular fica toda para o topo da página (o que o visitante vê primeiro).
+  const show = img => { if (img.dataset.srcset) img.srcset = img.dataset.srcset; img.src = img.dataset.src; delete img.dataset.src; };
+  const start = () => {
+    const imgs = [...document.querySelectorAll("img[data-src]")];
+    if (!("IntersectionObserver" in window)) return imgs.forEach(show);
+    const io = new IntersectionObserver(entries => entries.forEach(e => {
+      if (!e.isIntersecting) return;
+      io.unobserve(e.target);
+      (e.target.tagName === "IMG" ? [e.target] : [...e.target.querySelectorAll("img[data-src]")]).forEach(show);
+    }), { rootMargin: "800px 0px" });
+    new Set(imgs.map(img => img.closest("[data-lazy-group]") || img)).forEach(el => io.observe(el));
+  };
+  if (document.readyState === "complete") start(); else addEventListener("load", () => setTimeout(start, 0), { once: true });
+}
+</script>
+<noscript><style>img[data-src]{display:none}</style></noscript>
 </body>
 </html>

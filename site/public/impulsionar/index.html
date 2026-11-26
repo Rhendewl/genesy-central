@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Guia do Impulsionar | Genesy</title>
+<meta name="description" content="Guia prático gratuito: como usar o Impulsionar do Instagram pra colocar comprador no seu direct, e não curtida de curioso.">
+<meta property="og:title" content="Comprador no seu direct, sem agência e sem campanha complicada | Genesy">
+<meta property="og:description" content="O guia do Impulsionar do Instagram para corretores, imobiliárias e construtoras. Baixe grátis.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://genesycompany.com/impulsionar">
+<meta name="twitter:card" content="summary_large_image">
+<meta property="og:image" content="https://genesycompany.com/og.png">
+<link rel="canonical" href="https://genesycompany.com/impulsionar">
+<link rel="icon" href="/favicon.ico" sizes="any">
+<link rel="icon" href="/icon.png" type="image/png" sizes="512x512">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="preload" href="/fonts/inter-latin-wght.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" as="image" href="/impulsionar/celular-760.webp" imagesrcset="/impulsionar/celular-420.webp 420w, /impulsionar/celular-540.webp 540w, /impulsionar/celular-760.webp 760w" imagesizes="(max-width: 860px) min(68vw, 300px), 400px" fetchpriority="high">
+<style>
+/* Fonte Inter servida pelo próprio site (sem esperar o Google Fonts) + fallback com as mesmas medidas, para o texto não pular quando ela chega. */
+@font-face{font-family:Inter;font-style:normal;font-weight:100 900;font-display:swap;src:url(/fonts/inter-latin-wght.woff2) format("woff2");unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:"Inter Fallback";src:local("Arial"),local("Helvetica Neue"),local("Roboto");ascent-override:90.44%;descent-override:22.52%;line-gap-override:0%;size-adjust:107.12%}
+/*
+VOICE: direta, de landing page de alta conversão, confiante e premium, falando com corretor, imobiliária e construtora.
+IDEA: a capa do próprio guia: o celular preto com o botão azul "Impulsionar publicação" como objeto principal.
+PICTURE: o mockup do celular com o selo "100% gratuito" pulsando; depois o Lancaster com o print real da venda por cima.
+COLOUR and TYPE: mesmo sistema da LP dos scripts: branco e preto, cinza-aço, verde só no selo, azul do botão como acento; Inter.
+LAYOUT: hero branco em duas colunas, bloco escuro "sobre mim" com foto e print, rodapé com logo e @.
+*/
+:root{color-scheme:light;--ink:#0b0d0f;--soft:#4a535a;--muted:#6b747b;--line:rgba(11,13,15,.1);--dark:#050607;--green:#16a34a;--blue:#1877f2}
+*{box-sizing:border-box;min-width:0}
+html{scroll-behavior:smooth}
+body{margin:0;background:#fff;color:var(--ink);font:16px/1.55 Inter,"Inter Fallback",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased;overflow-x:clip}
+img{max-width:100%;display:block}
+a{color:inherit}
+.wrap{width:min(1180px,calc(100% - 40px));margin:0 auto}
+.serif{font-family:Inter,"Inter Fallback",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-weight:800;letter-spacing:-.035em}
+
+/* HERO (branco) */
+.hero{position:relative;overflow:hidden;padding:clamp(40px,6vw,80px) 0 clamp(48px,6vw,88px);isolation:isolate;background:linear-gradient(180deg,#fff 0%,#f6f7f8 100%)}
+.hero::before{content:"";position:absolute;inset:0;z-index:-2;background-image:linear-gradient(rgba(11,13,15,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(11,13,15,.05) 1px,transparent 1px);background-size:64px 64px;mask-image:radial-gradient(ellipse at 70% 30%,#000 10%,transparent 70%);-webkit-mask-image:radial-gradient(ellipse at 70% 30%,#000 10%,transparent 70%)}
+.pill{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line);background:#fff;border-radius:999px;padding:7px 14px;font-size:13px;color:var(--soft);box-shadow:0 1px 2px rgba(0,0,0,.04)}
+.pill i{width:7px;height:7px;border-radius:50%;background:#22c55e;box-shadow:0 0 10px #22c55e;flex:none}
+.hero-grid{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr);gap:clamp(24px,4vw,64px);align-items:center}
+h1{font-size:clamp(34px,4.3vw,56px);line-height:1.02;margin:18px 0 18px;text-wrap:balance;color:var(--ink)}
+h1 em{font-style:normal;white-space:nowrap;background:linear-gradient(180deg,#0b0d0f 30%,#5b6870);-webkit-background-clip:text;background-clip:text;color:transparent}
+.lead{font-size:clamp(16px,1.6vw,18px);color:var(--soft);max-width:560px;margin:0 0 26px}
+.lead strong{color:var(--ink)}
+.bullets{list-style:none;padding:0;margin:0 0 30px;display:grid;gap:12px;max-width:580px}
+.bullets li{display:grid;grid-template-columns:26px 1fr;gap:12px;align-items:start;font-size:16px;color:var(--soft)}
+.bullets li b{color:var(--ink);font-weight:700}
+.check{width:26px;height:26px;border-radius:8px;background:var(--ink);display:grid;place-items:center;margin-top:-1px}
+.check svg{width:14px;height:14px}
+.cta{appearance:none;border:0;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:12px;min-height:58px;padding:0 30px;border-radius:14px;background:var(--ink);color:#fff;font:700 16px/1 Inter,"Inter Fallback",sans-serif;text-decoration:none;box-shadow:0 18px 40px rgba(11,13,15,.22);transition:transform .25s,box-shadow .25s}
+.cta:hover{transform:translateY(-2px);box-shadow:0 22px 50px rgba(11,13,15,.3)}
+.cta svg{width:18px;height:18px}
+.cta.light{background:#fff;color:var(--dark);box-shadow:0 18px 40px rgba(0,0,0,.25)}
+.cta:focus-visible,.chip input:focus-visible+span,.field input:focus-visible{outline:2px solid #22c55e;outline-offset:3px}
+.cta-note{display:flex;align-items:center;gap:8px;margin-top:14px;font-size:13px;color:var(--muted)}
+.mock{position:relative;display:grid;place-items:center;padding-top:34px}
+.mock::before{content:"";position:absolute;width:78%;aspect-ratio:1;border-radius:50%;background:radial-gradient(circle,rgba(24,119,242,.16),transparent 65%);filter:blur(14px);top:22%}
+.mock img{position:relative;width:min(100%,400px);height:auto;filter:drop-shadow(0 40px 50px rgba(11,13,15,.28)) drop-shadow(0 8px 14px rgba(11,13,15,.18));animation:float 7s ease-in-out infinite;will-change:transform}
+@keyframes float{0%,100%{transform:translateY(0) rotate(0)}50%{transform:translateY(-12px) rotate(-.6deg)}}
+
+/* Selo 100% gratuito (igual à LP dos scripts) */
+.free{position:absolute;z-index:3;top:14px;right:12%;width:108px;height:108px;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;color:#fff;text-align:center;font-family:Inter,"Inter Fallback",sans-serif;background:radial-gradient(circle at 30% 25%,rgba(74,222,128,.95),rgba(21,128,61,.95) 70%);border:2px solid rgba(255,255,255,.55);-webkit-backdrop-filter:blur(12px) saturate(160%);backdrop-filter:blur(12px) saturate(160%);box-shadow:0 14px 30px rgba(22,163,74,.45),inset 0 1px 0 rgba(255,255,255,.5),inset 0 0 0 5px rgba(255,255,255,.08);transform:rotate(-10deg);animation:badge 2.2s ease-in-out infinite}
+.free::before{content:"";position:absolute;inset:-18px;z-index:-1;border-radius:50%;background:radial-gradient(closest-side,rgba(34,197,94,.7),rgba(34,197,94,0));filter:blur(12px);animation:halo 2.2s ease-in-out infinite}
+.free::after{content:"";position:absolute;inset:-2px;border-radius:50%;border:2px solid rgba(34,197,94,.7);animation:ring 2.2s ease-out infinite}
+.free b{font-size:27px;font-weight:900;line-height:1;letter-spacing:-.04em}
+.free span{font-size:11px;font-weight:800;line-height:1;letter-spacing:.06em}
+.free small{margin-top:3px;font-size:9px;font-weight:700;line-height:1;letter-spacing:.12em;padding:3px 7px;border-radius:999px;background:rgba(255,255,255,.22)}
+@keyframes badge{0%,100%{transform:rotate(-10deg) scale(1)}50%{transform:rotate(-10deg) scale(1.08)}}
+@keyframes halo{0%,100%{opacity:.5;transform:scale(.9)}50%{opacity:1;transform:scale(1.1)}}
+@keyframes ring{0%{opacity:.9;transform:scale(1)}100%{opacity:0;transform:scale(1.45)}}
+
+/* SOBRE MIM (escuro) */
+.about{background:var(--dark);color:#fff;padding:clamp(56px,7vw,104px) 0;position:relative;overflow:hidden;isolation:isolate}
+.about::before{content:"";position:absolute;z-index:-1;width:60vw;aspect-ratio:1;left:-20vw;top:-10%;border-radius:50%;background:radial-gradient(circle,rgba(180,130,70,.16),transparent 65%)}
+.about-grid{display:grid;grid-template-columns:minmax(0,.95fr) minmax(0,1.05fr);gap:clamp(32px,5vw,80px);align-items:center}
+.photo{position:relative;padding:0 clamp(24px,5vw,56px) clamp(56px,7vw,88px) 0}
+.portrait{border-radius:24px;overflow:hidden;border:1px solid rgba(255,255,255,.12);box-shadow:0 30px 80px rgba(0,0,0,.5);aspect-ratio:860/1147;background:#1a1410}
+.portrait img{width:100%;height:100%;object-fit:cover}
+.print{position:absolute;right:0;bottom:0;width:clamp(170px,44%,250px);margin:0;border-radius:18px;overflow:hidden;border:1px solid rgba(255,255,255,.18);background:#000;box-shadow:0 30px 60px rgba(0,0,0,.6);transform:rotate(3deg)}
+.print img{width:100%;height:auto}
+.print figcaption{padding:10px 14px 12px;font-size:13px;color:rgba(255,255,255,.72);border-top:1px solid rgba(255,255,255,.1)}
+.print figcaption b{color:#fff}
+.kicker{display:inline-flex;align-items:center;gap:8px;font-size:14px;font-weight:600;color:rgba(255,255,255,.7);margin-bottom:14px}
+.kicker i{width:7px;height:7px;border-radius:50%;background:#22c55e;box-shadow:0 0 10px #22c55e}
+h2{font-size:clamp(32px,4.2vw,52px);line-height:1.05;margin:0 0 18px;text-wrap:balance}
+.about p{margin:0 0 16px;color:rgba(255,255,255,.78);font-size:clamp(16px,1.5vw,17px);max-width:560px}
+.about p strong{color:#fff}
+.name{font-size:18px;color:#fff!important;margin-bottom:6px!important}
+.name span{display:block;font-size:14px;color:rgba(255,255,255,.6)}
+.stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:26px 0 18px;max-width:560px}
+.stat{border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.04);border-radius:16px;padding:16px 14px}
+.stat b{display:block;font-size:clamp(22px,2.1vw,28px);line-height:1;letter-spacing:-.035em;font-weight:800;white-space:nowrap}
+.stat b.g{color:#22c55e}
+.stat span{display:block;margin-top:6px;font-size:13px;color:rgba(255,255,255,.62);line-height:1.3}
+.place{display:flex;align-items:center;gap:8px;font-size:14px;color:rgba(255,255,255,.62);margin-bottom:28px}
+.place svg{width:16px;height:16px;flex:none}
+.case{display:grid;grid-template-columns:auto minmax(0,1fr);gap:16px;align-items:center;max-width:560px;padding:18px 20px;border-radius:16px;background:linear-gradient(135deg,rgba(24,119,242,.18),rgba(24,119,242,.04));border:1px solid rgba(24,119,242,.35);margin-bottom:30px}
+.case .n{font-size:clamp(22px,2.4vw,28px);font-weight:800;letter-spacing:-.03em;line-height:1.1;white-space:nowrap}
+.case .n small{display:block;font-size:12px;font-weight:600;letter-spacing:0;color:rgba(255,255,255,.6);margin-top:4px}
+.case p{margin:0;font-size:15px}
+
+/* RODAPÉ */
+footer{background:var(--dark);color:#d5dade;border-top:1px solid rgba(255,255,255,.08);padding:32px 0 calc(32px + env(safe-area-inset-bottom))}
+footer .wrap{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+footer img{width:112px;height:auto}
+.ig{display:inline-flex;align-items:center;gap:10px;text-decoration:none;font-weight:500;min-height:44px}
+.ig svg{width:20px;height:20px}
+.ig:hover{color:#fff}
+
+/* POP-UP (igual à LP dos scripts) */
+.modal{position:fixed;inset:0;z-index:100;display:none;align-items:center;justify-content:center;padding:16px;background:rgba(5,6,7,.6);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+.modal.open{display:flex}
+.box{position:relative;width:min(460px,100%);max-height:calc(100dvh - 32px);overflow:auto;background:#fff;color:var(--ink);border-radius:22px;padding:28px 24px 24px;box-shadow:0 40px 120px rgba(0,0,0,.35);animation:pop .35s cubic-bezier(.2,.8,.2,1)}
+@keyframes pop{from{opacity:0;transform:translateY(14px) scale(.98)}to{opacity:1;transform:none}}
+.close{position:absolute;top:12px;right:12px;width:44px;height:44px;border:0;background:transparent;color:var(--muted);cursor:pointer;border-radius:50%;display:grid;place-items:center}
+.close:hover{color:var(--ink);background:#f1f3f4}
+.box h4{font-family:Inter,"Inter Fallback",sans-serif;font-weight:800;letter-spacing:-.03em;font-size:26px;line-height:1.1;margin:0 40px 6px 0}
+.box .sub{margin:0 0 20px;color:var(--muted);font-size:15px}
+.field{display:grid;gap:6px;margin-bottom:14px}
+.field label,.legend{font-size:13px;font-weight:600;color:var(--ink)}
+.field input{width:100%;height:50px;border-radius:12px;border:1px solid #d9dde0;background:#f8f9fa;color:var(--ink);font:16px Inter,"Inter Fallback",sans-serif;padding:0 14px;transition:border-color .2s,background .2s}
+.field input::placeholder{color:#9aa3ab}
+.field input:focus{border-color:var(--ink);background:#fff;outline:none}
+.field input[aria-invalid=true]{border-color:#dc2626}
+.chips{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:8px 0 6px}
+.chip{position:relative}
+.chip input{position:absolute;opacity:0;inset:0;cursor:pointer;margin:0}
+.chip span{display:flex;align-items:center;justify-content:center;text-align:center;min-height:48px;padding:6px 8px;border-radius:12px;border:1px solid #d9dde0;background:#f8f9fa;font-size:14px;font-weight:600;color:var(--soft);transition:all .2s;line-height:1.2}
+.chip input:checked+span{background:var(--ink);color:#fff;border-color:var(--ink)}
+.err{min-height:20px;color:#dc2626;font-size:13px;margin:4px 0 8px}
+.box .cta{width:100%}
+.box .cta[disabled]{opacity:.6;cursor:wait}
+.privacy{margin:12px 0 0;font-size:12px;color:var(--muted);text-align:center}
+.done{display:none;text-align:center}
+.done.show{display:block}
+.done .ok{width:64px;height:64px;border-radius:50%;margin:4px auto 16px;background:rgba(22,163,74,.1);border:1px solid rgba(22,163,74,.3);display:grid;place-items:center}
+.done .ok svg{width:30px;height:30px;color:var(--green)}
+.done h4{margin:0 0 8px}
+.done .cta{background:var(--green);box-shadow:0 18px 40px rgba(22,163,74,.3)}
+.hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
+
+@media(max-width:860px){
+  .hero-grid,.about-grid{grid-template-columns:1fr}
+  .copy{display:contents}
+  .copy-a{order:1}.mock{order:2}.copy-b{order:3}
+  .mock img{width:min(68%,300px)}
+  .photo{max-width:520px;margin:0 auto;width:100%}
+}
+@media(max-width:600px){
+  .wrap{width:calc(100% - 32px)}
+  .cta{width:100%}
+  .cta-note{justify-content:center}
+  .free{width:88px;height:88px;top:8px;right:8%}.free b{font-size:22px}.free span{font-size:9.5px}.free small{font-size:8px}
+  .stats{grid-template-columns:1fr 1fr 1.25fr;gap:8px}.stat{padding:12px 10px}.stat b{font-size:clamp(16px,5vw,20px)}.stat span{font-size:12px}
+  .case{grid-template-columns:1fr;gap:8px}
+  .chips{grid-template-columns:1fr}
+  footer .wrap{justify-content:center;flex-direction:column}
+}
+@media(prefers-reduced-motion:reduce){.mock img,.box,.free,.free::before,.free::after{animation:none}html{scroll-behavior:auto}}
+</style>
+</head>
+<body>
+
+<section class="hero" id="oferta">
+  <div class="wrap">
+    <div class="hero-grid">
+      <div class="copy">
+        <div class="copy-a">
+          <span class="pill"><i></i>Guia prático · Instagram para imóveis</span>
+          <h1 class="serif">Comprador chamando <em>no seu direct,</em> sem agência e sem campanha complicada.</h1>
+          <p class="lead">O passo a passo que transformou <strong>R$ 570 em uma venda de R$ 640 mil</strong>. Gratuito, pra você aplicar hoje.</p>
+        </div>
+        <div class="copy-b">
+          <ul class="bullets">
+            <li><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span><span><b>O post que qualifica antes do clique:</b> o que precisa estar na tela e os 4 formatos que trazem comprador.</span></li>
+            <li><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span><span><b>Configuração tela por tela:</b> objetivo, público, interesses e orçamento certos pra imóvel.</span></li>
+            <li><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span><span><b>O direct onde a venda começa:</b> roteiro em 4 movimentos pra transformar conversa em visita.</span></li>
+            <li><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span><span><b>Como ler o resultado:</b> o custo por visita que o relatório do app não te mostra.</span></li>
+            <li><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span><span><b>Os 7 erros que queimam dinheiro</b> e a hora certa de trocar o botão pelo Gerenciador.</span></li>
+          </ul>
+          <button class="cta" type="button" data-open>Quero o guia gratuito <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14m-6-6l6 6-6 6"/></svg></button>
+          <div class="cta-note"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 018 0v4"/></svg> PDF de 20 páginas. Preencha em 20 segundos e baixe na hora.</div>
+        </div>
+      </div>
+      <div class="mock">
+        <div class="free" aria-label="100% gratuito, PDF"><b>100%</b><span>GRATUITO</span><small>PDF</small></div>
+        <img src="/impulsionar/celular-760.webp" srcset="/impulsionar/celular-420.webp 420w, /impulsionar/celular-540.webp 540w, /impulsionar/celular-760.webp 760w" sizes="(max-width: 860px) min(68vw, 300px), 400px" alt="Guia Como vender imóveis apertando um botão aberto em um celular" width="760" height="1602" fetchpriority="high">
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="about" id="sobre">
+  <div class="wrap about-grid">
+    <div class="photo">
+      <div class="portrait"><img src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==" data-src="/impulsionar/lancaster-900.webp" data-srcset="/impulsionar/lancaster-500.webp 500w, /impulsionar/lancaster-900.webp 900w" sizes="(max-width: 860px) min(92vw, 520px), 480px" alt="Lancaster Matos, CEO da Genesy Inteligência Imobiliária" width="900" height="1200" decoding="async"></div>
+      <figure class="print">
+        <img src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==" data-src="/impulsionar/depoimento.webp" alt="Print de WhatsApp: corretor avisa que fechou uma venda com um lead que veio do patrocinado, + R$ 640.000 em VGV" width="520" height="531" decoding="async">
+        <figcaption><b>Mensagem real</b> de um corretor parceiro.</figcaption>
+      </figure>
+    </div>
+    <div>
+      <div class="kicker"><i></i>Quem escreve este guia</div>
+      <h2 class="serif">Não estudo o mercado imobiliário de fora. Vivo ele por dentro, todo dia.</h2>
+      <p class="name"><strong>Lancaster Matos</strong><span>CEO da Genesy Inteligência Imobiliária</span></p>
+      <p>Passo a semana dentro de imobiliárias e construtoras, ao lado do corretor, vendo o que transforma lead em visita e venda. Por isso este guia traz <strong>só o que já foi testado com dinheiro de verdade</strong>, pronto pra você copiar.</p>
+      <div class="stats">
+        <div class="stat"><b>8 anos</b><span>em marketing</span></div>
+        <div class="stat"><b>4 anos</b><span>só no imobiliário</span></div>
+        <div class="stat"><b class="g">+R$ 150 mi</b><span>em vendas geradas</span></div>
+      </div>
+      <div class="place"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0114 0C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>Sede em João Pessoa (PB). Atendendo o Brasil inteiro.</div>
+      <div class="case">
+        <div class="n">R$ 570 → R$ 640 mil<small>investido no botão → VGV vendido</small></div>
+        <p>Um post certo. Um lead do patrocinado. Venda fechada.</p>
+      </div>
+      <button class="cta light" type="button" data-open>Baixar o guia gratuito <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14m-6-6l6 6-6 6"/></svg></button>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <img src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==" data-src="/webp/genesy-branco-240.webp" alt="Genesy" width="112" height="24" decoding="async">
+    <a class="ig" href="https://instagram.com/lancastermatos" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/></svg>
+      @lancastermatos
+    </a>
+  </div>
+</footer>
+
+<div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="mTitle">
+  <div class="box">
+    <button class="close" type="button" id="close" aria-label="Fechar"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+
+    <form id="form" novalidate>
+      <h4 id="mTitle">Receba o guia do Impulsionar</h4>
+      <p class="sub">Preencha os dados abaixo para liberar o download.</p>
+      <div class="field"><label for="nome">Nome</label><input id="nome" name="nome" autocomplete="name" placeholder="Seu nome" required></div>
+      <div class="field"><label for="email">E-mail</label><input id="email" name="email" type="email" autocomplete="email" inputmode="email" placeholder="voce@email.com" required></div>
+      <div class="field"><label for="whatsapp">WhatsApp</label><input id="whatsapp" name="whatsapp" type="tel" autocomplete="tel-national" inputmode="numeric" placeholder="(00) 00000-0000" maxlength="15" required></div>
+      <div class="legend" id="perfilLabel">Você é</div>
+      <div class="chips" role="radiogroup" aria-labelledby="perfilLabel">
+        <label class="chip"><input type="radio" name="perfil" value="Corretor"><span>Corretor</span></label>
+        <label class="chip"><input type="radio" name="perfil" value="Imobiliária"><span>Imobiliária</span></label>
+        <label class="chip"><input type="radio" name="perfil" value="Construtora"><span>Construtora</span></label>
+      </div>
+      <div class="hp" aria-hidden="true"><input name="website" tabindex="-1" autocomplete="off"></div>
+      <p class="err" id="err" role="alert"></p>
+      <button class="cta" type="submit" id="send"><span id="sendLabel">Liberar meu download</span> <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14m-6-6l6 6-6 6"/></svg></button>
+      <p class="privacy">Seus dados estão seguros com a Genesy. Nada de spam.</p>
+    </form>
+
+    <div class="done" id="done">
+      <div class="ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></div>
+      <h4 class="serif" id="doneTitle">Download liberado!</h4>
+      <p class="sub">Toque no botão abaixo para baixar o PDF do guia.</p>
+      <a class="cta" id="dl" href="/impulsionar/guia-impulsionar.pdf" download="Guia-Impulsionar-Imoveis-Genesy.pdf">Baixar o guia (PDF) <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0l-5-5m5 5l5-5M4 21h16"/></svg></a>
+      <p class="privacy">Siga <a href="https://instagram.com/lancastermatos" target="_blank" rel="noopener">@lancastermatos</a> para mais conteúdo.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+{
+  // Página "Guia do Impulsionar" no módulo Site Genesy do dashboard (aba própria).
+  // Acessos, cliques, Pixel do Meta e leads vão para a chave abaixo; o lead entra na
+  // pipeline configurada na aba da página (Genesy CRM).
+  const SITE_KEY = "guia-impulsionar";
+  const CONTENT = "Guia do Impulsionar";
+  const API = "https://dash.genesycompany.com/api/site/" + SITE_KEY;
+
+  const $ = id => document.getElementById(id);
+  const modal = $("modal"), form = $("form"), done = $("done"), err = $("err"), send = $("send"), phone = $("whatsapp");
+  const post = (path, body, method) => fetch(API + path, { method: method || "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body), keepalive: true });
+  const uid = () => (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : Date.now().toString(36) + "-" + Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
+
+  /* ---------- Analytics (mesmo padrão do genesycompany.com) ---------- */
+  let token = null, activeSeconds = 0, lastTick = Date.now();
+  const params = new URLSearchParams(location.search);
+  let visitorId = null;
+  try { visitorId = localStorage.getItem("genesy_site_visitor"); } catch (_) {}
+  if (!visitorId) { visitorId = uid(); try { localStorage.setItem("genesy_site_visitor", visitorId); } catch (_) {} }
+  const sendEvents = events => { if (token && events.length) post("/events", { token, events }).catch(() => {}); };
+  const viewed = new Set();
+  const seen = section => { if (viewed.has(section)) return; viewed.add(section); sendEvents([{ type: "section_view", section, path: location.pathname, idempotency_key: token + ":" + section }]); };
+
+  /* ---------- Pixel do Meta (ID vem da aba da página no dashboard) ---------- */
+  let pixelOn = false, pixelLoaded = false;
+  const cookie = name => { const m = document.cookie.match(new RegExp("(?:^|; )" + name + "=([^;]*)")); return m ? decodeURIComponent(m[1]) : null; };
+  const pixelIds = () => { let fbc = cookie("_fbc"); const fbclid = params.get("fbclid"); if (!fbc && fbclid) fbc = "fb.1." + Date.now() + "." + fbclid; return { fbp: cookie("_fbp"), fbc, url: location.href }; };
+  const loadPixel = id => new Promise(resolve => {
+    if (window.fbq) return resolve(pixelLoaded);
+    const fbq = function () { fbq.callMethod ? fbq.callMethod.apply(fbq, arguments) : fbq.queue.push(arguments); };
+    fbq.push = fbq; fbq.loaded = true; fbq.version = "2.0"; fbq.queue = [];
+    window.fbq = fbq; if (!window._fbq) window._fbq = fbq;
+    fbq("init", id);
+    const s = document.createElement("script"); s.async = true; s.src = "https://connect.facebook.net/en_US/fbevents.js";
+    s.onload = () => { pixelLoaded = true; resolve(true); }; s.onerror = () => resolve(false);
+    document.head.appendChild(s); setTimeout(() => resolve(pixelLoaded), 6000);
+  });
+  // Dispara no navegador e registra no painel; o servidor repete pela API de Conversões com o mesmo id.
+  const pixelEvent = (name, data) => {
+    if (!pixelOn) return null;
+    const eventId = uid();
+    if (window.fbq) window.fbq("track", name, data || {}, { eventID: eventId });
+    const meta = Object.assign({ event: name, event_id: eventId, loaded: pixelLoaded }, pixelIds());
+    if (name !== "Lead") sendEvents([{ type: "pixel", metadata: meta }]);
+    return meta;
+  };
+
+  const device = matchMedia("(max-width: 767px)").matches ? "mobile" : matchMedia("(max-width: 1100px)").matches ? "tablet" : "desktop";
+  const ua = navigator.userAgent;
+  const browser = /Edg/i.test(ua) ? "Edge" : /Chrome/i.test(ua) ? "Chrome" : /Safari/i.test(ua) ? "Safari" : /Firefox/i.test(ua) ? "Firefox" : "Outro";
+  const config = fetch(API + "/config").then(r => r.ok ? r.json() : null).catch(() => null);
+  const observer = new IntersectionObserver(entries => entries.forEach(e => { if (e.isIntersecting && e.target.id) seen(e.target.id); }), { threshold: 0.35 });
+  post("/session", {
+    visitor_id: visitorId, path: location.pathname, referrer: document.referrer,
+    utm_source: params.get("utm_source") || undefined, utm_medium: params.get("utm_medium") || undefined,
+    utm_campaign: params.get("utm_campaign") || undefined, utm_term: params.get("utm_term") || undefined,
+    utm_content: params.get("utm_content") || undefined, device, browser, language: navigator.language,
+    click_id: ["gclid", "gbraid", "wbraid", "ttclid", "msclkid", "fbclid"].find(key => params.get(key)) || undefined
+  }).then(r => r.ok ? r.json() : null).then(json => {
+    if (!json || !json.token) return null;
+    token = json.token;
+    sendEvents([{ type: "page_view", path: location.pathname, idempotency_key: token + ":page" }]);
+    document.querySelectorAll("section[id]").forEach(s => observer.observe(s));
+    return config;
+  }).then(async cfg => {
+    if (!cfg || !cfg.meta_pixel_id) return;
+    pixelLoaded = await loadPixel(String(cfg.meta_pixel_id));
+    pixelOn = true;
+    pixelEvent("PageView");
+    if (modal.classList.contains("open")) pixelEvent("ViewContent", { content_name: CONTENT });
+  }).catch(() => {});
+
+  setInterval(() => {
+    const now = Date.now();
+    if (document.visibilityState === "visible" && document.hasFocus()) activeSeconds += Math.min(15, Math.round((now - lastTick) / 1000));
+    lastTick = now;
+    if (token) post("/session", { token, active_seconds: activeSeconds }, "PATCH").catch(() => {});
+  }, 15000);
+  addEventListener("pagehide", () => { if (token) post("/session", { token, active_seconds: activeSeconds, ended: true }, "PATCH").catch(() => {}); });
+
+  document.addEventListener("click", e => {
+    const el = e.target.closest && e.target.closest("a, button");
+    if (!el || el.closest("#modal form")) return;
+    const href = el.getAttribute("href") || "";
+    const label = (el.getAttribute("aria-label") || el.textContent || "").replace(/\s+/g, " ").trim().slice(0, 80);
+    const kind = /instagram\.com/i.test(href) ? "instagram" : el.id === "dl" ? "download" : el.tagName === "BUTTON" ? "botao" : "link";
+    const sec = el.closest("section[id]");
+    sendEvents([{ type: "click", section: sec ? sec.id : (el.closest("footer") ? "rodape" : el.closest("#modal") ? "cta" : null), path: location.pathname, metadata: { label, href, kind } }]);
+  }, true);
+
+  /* ---------- Pop-up ---------- */
+  let lastFocus = null;
+  const open = () => {
+    lastFocus = document.activeElement; modal.classList.add("open"); document.body.style.overflow = "hidden";
+    seen("cta");
+    pixelEvent("ViewContent", { content_name: CONTENT });
+    setTimeout(() => (done.classList.contains("show") ? $("dl") : $("nome")).focus(), 50);
+  };
+  const close = () => { modal.classList.remove("open"); document.body.style.overflow = ""; if (lastFocus) lastFocus.focus(); };
+  document.querySelectorAll("[data-open]").forEach(b => b.addEventListener("click", open));
+  $("close").addEventListener("click", close);
+  modal.addEventListener("click", e => { if (e.target === modal) close(); });
+  document.addEventListener("keydown", e => { if (e.key === "Escape" && modal.classList.contains("open")) close(); });
+
+  phone.addEventListener("input", () => {
+    const d = phone.value.replace(/\D/g, "").slice(0, 11), cut = d.length === 11 ? 7 : 6;
+    let v = d;
+    if (d.length > 2) v = "(" + d.slice(0, 2) + ") " + d.slice(2);
+    if (d.length > 6) v = "(" + d.slice(0, 2) + ") " + d.slice(2, cut) + "-" + d.slice(cut);
+    phone.value = v;
+  });
+
+  form.addEventListener("submit", async e => {
+    e.preventDefault();
+    const data = new FormData(form);
+    const nome = String(data.get("nome") || "").trim();
+    const email = String(data.get("email") || "").trim();
+    const zap = String(data.get("whatsapp") || "").replace(/\D/g, "");
+    const perfil = data.get("perfil");
+    form.querySelectorAll("input").forEach(i => i.removeAttribute("aria-invalid"));
+    let msg = "";
+    if (nome.length < 2) { msg = "Informe seu nome."; form.nome.setAttribute("aria-invalid", "true"); }
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) { msg = "Informe um e-mail válido."; form.email.setAttribute("aria-invalid", "true"); }
+    else if (zap.length < 10) { msg = "Informe um WhatsApp com DDD."; phone.setAttribute("aria-invalid", "true"); }
+    else if (!perfil) { msg = "Selecione se você é corretor, imobiliária ou construtora."; }
+    err.textContent = msg;
+    if (msg) return;
+
+    send.disabled = true; $("sendLabel").textContent = "Enviando…";
+    const pixel = pixelEvent("Lead", { content_name: CONTENT });
+    const body = { token, name: nome, phone: phone.value, email, profile: perfil, website: data.get("website") || "", pixel };
+    // Tenta duas vezes; o download é liberado de qualquer forma para não travar o visitante.
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const r = await Promise.race([post("/lead", body), new Promise((_, no) => setTimeout(() => no(new Error("timeout")), 8000))]);
+        if (r.ok || r.status === 400) break;
+      } catch (_) {}
+    }
+
+    $("doneTitle").textContent = "Pronto, " + nome.split(" ")[0] + "!";
+    form.style.display = "none";
+    done.classList.add("show");
+    $("dl").focus();
+  });
+}
+</script>
+<script>
+{
+  // Imagens abaixo da dobra só começam a baixar depois que a página carregou, perto de aparecer na tela.
+  // Assim a banda do celular fica toda para o topo da página (o que o visitante vê primeiro).
+  const show = img => { if (img.dataset.srcset) img.srcset = img.dataset.srcset; img.src = img.dataset.src; delete img.dataset.src; };
+  const start = () => {
+    const imgs = [...document.querySelectorAll("img[data-src]")];
+    if (!("IntersectionObserver" in window)) return imgs.forEach(show);
+    const io = new IntersectionObserver(entries => entries.forEach(e => {
+      if (!e.isIntersecting) return;
+      io.unobserve(e.target);
+      (e.target.tagName === "IMG" ? [e.target] : [...e.target.querySelectorAll("img[data-src]")]).forEach(show);
+    }), { rootMargin: "800px 0px" });
+    new Set(imgs.map(img => img.closest("[data-lazy-group]") || img)).forEach(el => io.observe(el));
+  };
+  if (document.readyState === "complete") start(); else addEventListener("load", () => setTimeout(start, 0), { once: true });
+}
+</script>
+<noscript><style>img[data-src]{display:none}</style></noscript>
+</body>
+</html>
