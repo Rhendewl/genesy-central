@@ -55,6 +55,8 @@ type RunVariables = {
   privateReplyUsed?: boolean; lastReply?: string | null; fromAd?: boolean; endReason?: string;
   /** Answers collected by "Aguardar resposta" blocks, keyed like the message variables. */
   fields?: Record<string, string>;
+  /** Replies and button taps that continued this run (used by Insights). */
+  interactions?: number;
 };
 
 const SEND_ACTIONS = new Set(["public_reply", "private_reply", "dm"]);
@@ -209,7 +211,7 @@ async function resumeWaitingRun(db: Db, contactId: string, event: NormalizedInst
   if (!run) return payload ? { status: "stale" } : null;
   const node = findNode(run.flow_snapshot, run.current_node_id);
   let handle = payload ? `button:${payload.buttonId}` : "reply";
-  const variables: RunVariables = { ...(run.variables ?? {}), lastReply: event.text };
+  const variables: RunVariables = { ...(run.variables ?? {}), lastReply: event.text, interactions: (run.variables?.interactions ?? 0) + 1 };
   let collected: Record<string, string> | null = null;
   if (payload) {
     const button = node?.type === "message" ? node.data.buttons.find(item => item.id === payload.buttonId) : null;

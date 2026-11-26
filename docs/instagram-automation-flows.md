@@ -67,3 +67,18 @@ Automações salvas no editor antigo (`flow IS NULL`) são convertidas em tempo 
 - Ligações com ímã: ao arrastar, o bloco mais próximo (em cima dele ou com a entrada a ~70 px) é escolhido e a linha encaixa.
 - Duplicar bloco: botão no painel ou Ctrl/⌘ + D (a cópia vai logo abaixo, sem ligações).
 - Cards pretos com brilho da cor do tipo no canto superior esquerdo, no padrão dos outros módulos.
+- Zoom com Ctrl/⌘ + rolagem (ou pinça no trackpad), centrado no cursor; rolagem sem tecla move o quadro.
+- Tema escuro: barra superior e painel do bloco em vidro quase preto com blur. Tema claro inalterado.
+
+## Cards dos fluxos
+
+Cada card mostra: quantas pessoas **entraram no fluxo**, a % que **concluiu** (anel), **concluíram**, **envios realizados** (mensagens, respostas públicas e ações de CRM) e **com falha**. O brilho do card segue o status (verde ativa, âmbar pausada, cinza rascunho). "Ver insights" abre a aba Insights já no fluxo.
+
+## Insights
+
+Aba "Insights" ao lado de "Fluxos": escolhe o fluxo e o período (7, 30 ou 90 dias). Dados vêm de `GET /api/marketing/instagram/automations/{id}/insights?days=` (`src/lib/instagram-automation/insights.ts`), sem SQL novo.
+
+- **Principais**: entraram (com variação vs. período anterior e mini gráfico), concluíram (%), interagiram (responderam ou tocaram em botão; contador `variables.interactions` da execução), viraram lead no CRM.
+- **Faixa**: envios realizados, tempo médio até concluir, em andamento agora, deixaram dados, com falha.
+- **Entradas e conclusões por dia** (fuso America/Fortaleza), **funil** por bloco (pessoas distintas que chegaram em cada bloco, sem os atrasos), **botões mais tocados**, **horário de chegada**, **dados coletados**, **onde o fluxo foi interrompido** e **últimas pessoas** com WhatsApp/e-mail coletados.
+- Execuções anteriores a esta versão não têm o contador de interações; para elas, "Interagiram" considera só toques em botão registrados.
