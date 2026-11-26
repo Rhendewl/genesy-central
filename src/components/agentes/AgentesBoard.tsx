@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   Activity, Bot, Check, CheckCircle2, Cpu, ExternalLink, Hourglass, Inbox, Lightbulb, Loader2, Maximize2, PenLine, RefreshCw, Rocket, Sparkles, Timer, X,
 } from "lucide-react";
@@ -412,7 +412,7 @@ function Esteira({ agente, itens, agora, decidir }: { agente: EsteiraAgente; ite
             return (
               <div
                 key={col.etapa}
-                className="workspace-stage-column app-accent-border flex min-h-[200px] flex-col gap-2 rounded-[20px] p-2.5 transition-all duration-200"
+                className="workspace-stage-column app-accent-border flex h-[540px] min-h-0 flex-col gap-2 rounded-[20px] p-2.5 transition-all duration-200"
                 style={{
                   background: "var(--glass-bg-soft)",
                   backdropFilter: "blur(14px) saturate(140%)",
@@ -426,13 +426,61 @@ function Esteira({ agente, itens, agora, decidir }: { agente: EsteiraAgente; ite
                   <span className="min-w-0 flex-1 truncate text-[10px] font-semibold uppercase tracking-wide" style={{ color: "var(--text-card-secondary)" }}>{col.label}</span>
                   <span className="min-w-[20px] flex-none rounded-full px-1.5 py-0.5 text-center text-[11px] font-semibold tabular-nums" style={{ background: alpha(ui.cor, 0.16), color: ui.cor }}>{col.itens.length}</span>
                 </div>
-                {col.itens.length === 0 && <span className="m-auto text-[11px]" style={{ color: "var(--text-muted)" }}>—</span>}
-                {col.itens.map((item) => <CardItem key={item.id} item={item} agente={agente} agora={agora} decidir={decidir} />)}
+                {col.itens.length === 0 ? (
+                  <span className="m-auto text-[11px]" style={{ color: "var(--text-muted)" }}>—</span>
+                ) : (
+                  <ColunaRolavel>
+                    {col.itens.map((item) => <CardItem key={item.id} item={item} agente={agente} agora={agora} decidir={decidir} />)}
+                  </ColunaRolavel>
+                )}
               </div>
             );
           })}
         </div>
       </div>
+    </div>
+  );
+}
+
+/** Faixa (px) em que os cards esmaecem nas bordas da coluna quando há mais conteúdo para rolar. */
+const FADE_PX = 72;
+
+/**
+ * Lista com rolagem interna da coluna da esteira. A coluna tem altura fixa (cabem ~3 cards);
+ * o que passa disso esmaece embaixo (e em cima, depois de rolar) e fica acessível pela rolagem.
+ */
+function ColunaRolavel({ children }: { children: ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [fade, setFade] = useState({ topo: false, base: false });
+
+  const medir = useCallback(() => {
+    const el = ref.current;
+    if (!el) return;
+    const topo = el.scrollTop > 2;
+    const base = el.scrollTop + el.clientHeight < el.scrollHeight - 2;
+    setFade((f) => (f.topo === topo && f.base === base ? f : { topo, base }));
+  }, []);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    medir();
+    const ro = new ResizeObserver(medir);
+    ro.observe(el);
+    Array.from(el.children).forEach((c) => ro.observe(c));
+    return () => ro.disconnect();
+  }, [medir, children]);
+
+  const mask = `linear-gradient(to bottom, ${fade.topo ? "transparent" : "#000"} 0, #000 ${fade.topo ? FADE_PX : 0}px, #000 calc(100% - ${fade.base ? FADE_PX : 0}px), ${fade.base ? "transparent" : "#000"} 100%)`;
+
+  return (
+    <div
+      ref={ref}
+      onScroll={medir}
+      className="-mx-1 -mt-1 flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto overscroll-contain px-1 pb-1 pt-1 [scrollbar-width:thin]"
+      style={{ WebkitMaskImage: mask, maskImage: mask }}
+    >
+      {children}
     </div>
   );
 }
