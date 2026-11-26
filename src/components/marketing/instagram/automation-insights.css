@@ -2,8 +2,11 @@
    Black glass surfaces with a soft accent glow, same language as the
    financial and workspace metric cards. */
 
-.ig-auto-shell{--ins-entered:#5b9cf0;--ins-completed:#35a87c;--ins-line:rgba(255,255,255,.07)}
-.light .ig-auto-shell{--ins-entered:#2f6fd6;--ins-completed:#1f9468;--ins-line:rgba(0,0,0,.08)}
+.ig-auto-shell{--ins-entered:#5b9cf0;--ins-completed:#35a87c;--ins-line:rgba(255,255,255,.07);
+  /* Same gradients as the VGV and Relatórios charts */
+  --ins-bar-from:rgba(39,163,255,.7);--ins-bar-to:#27f2e6;--ins-bar-glow:rgba(39,242,230,.28);
+  --ins-col-top:#27a3ff;--ins-col-peak:#27f2e6;--ins-ring-a:#86efc4;--ins-ring-b:#16a271}
+.light .ig-auto-shell{--ins-entered:#2f6fd6;--ins-completed:#1f9468;--ins-line:rgba(0,0,0,.08);--ins-bar-from:rgba(31,143,230,.72);--ins-bar-to:#16c6cf;--ins-bar-glow:transparent;--ins-col-top:#1f8fe6;--ins-col-peak:#12b9c4;--ins-ring-a:#4fd39f;--ins-ring-b:#11845a}
 
 /* Tabs Fluxos / Insights */
 .ig-auto-tabs{display:inline-flex;gap:3px;padding:4px;margin-bottom:18px;border-radius:14px;border:1px solid rgba(255,255,255,.08);
@@ -96,10 +99,12 @@
 .ig-ins-delta.is-down{color:#f38c9c!important}
 .ig-ins-spark{position:absolute;right:16px;bottom:16px;width:44%;height:40px;opacity:.9}
 .ig-ins-spark-line{fill:none;stroke:var(--ins-entered);stroke-width:2;stroke-linejoin:round;stroke-linecap:round;vector-effect:non-scaling-stroke}
-.ig-ins-spark-area{fill:color-mix(in srgb,var(--ins-entered) 12%,transparent);stroke:none}
-.ig-ins-ring-track{fill:none;stroke:rgba(255,255,255,.08);stroke-width:6}
+.ig-ins-ring-track{fill:none;stroke:rgba(255,255,255,.08)}
 .light .ig-ins-ring-track{stroke:rgba(0,0,0,.08)}
-.ig-ins-ring-value{fill:none;stroke:var(--ins-completed);stroke-width:6;stroke-linecap:round;transition:stroke-dasharray .5s ease}
+.ig-ins-ring-value{fill:none;stroke-linecap:round;transition:stroke-dasharray .5s ease;filter:drop-shadow(0 0 6px color-mix(in srgb,var(--ins-ring-b) 35%,transparent))}
+.light .ig-ins-ring-value{filter:none}
+.ig-ins-ring-stop-a{stop-color:var(--ins-ring-a)}.ig-ins-ring-stop-b{stop-color:var(--ins-ring-b)}
+.ig-ins-stop-entered{stop-color:var(--ins-entered)}.ig-ins-stop-completed{stop-color:var(--ins-completed)}
 .ig-flow-card-rate .ig-ins-ring{width:46px;height:46px}
 
 .ig-ins-strip{display:grid;gap:10px;grid-template-columns:repeat(5,minmax(0,1fr))}
@@ -126,7 +131,6 @@
 .ig-ins-chart svg{display:block;overflow:visible}
 .ig-ins-grid-line{stroke:var(--ins-line);stroke-width:1}
 .ig-ins-axis{font-size:10px;fill:var(--muted-foreground)}
-.ig-ins-area{fill:color-mix(in srgb,var(--ins-entered) 10%,transparent)}
 .ig-ins-line{fill:none;stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
 .ig-ins-line.is-entered{stroke:var(--ins-entered)}.ig-ins-line.is-completed{stroke:var(--ins-completed)}
 .ig-ins-crosshair{stroke:color-mix(in srgb,var(--foreground) 25%,transparent);stroke-width:1}
@@ -150,7 +154,7 @@
 .ig-ins-lost{font-size:10px;color:color-mix(in srgb,#f38c9c 80%,var(--muted-foreground))}
 .ig-ins-bar-track{position:relative;display:block;height:8px;border-radius:4px;background:rgba(255,255,255,.05);overflow:hidden}
 .light .ig-ins-bar-track{background:rgba(0,0,0,.05)}
-.ig-ins-bar-track i{position:absolute;inset:0 auto 0 0;border-radius:4px;background:var(--ins-entered);transition:width .5s ease}
+.ig-ins-bar-track i{position:absolute;inset:0 auto 0 0;border-radius:4px;background:linear-gradient(90deg,var(--ins-bar-from),var(--ins-bar-to));box-shadow:0 0 12px var(--ins-bar-glow);transition:width .5s ease}
 
 .ig-ins-bars{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:12px}
 .ig-ins-bars li{display:grid;grid-template-columns:minmax(0,1fr) minmax(80px,1.2fr) auto;align-items:center;gap:10px}
@@ -161,9 +165,10 @@
 .ig-ins-hours{display:flex;flex-direction:column;gap:6px}
 .ig-ins-hours-bars{display:grid;grid-template-columns:repeat(24,minmax(0,1fr));align-items:end;gap:3px;height:120px}
 .ig-ins-hours-bars span{position:relative;display:flex;align-items:flex-end;height:100%;cursor:default}
-.ig-ins-hours-bars i{display:block;width:100%;border-radius:4px 4px 0 0;background:color-mix(in srgb,var(--ins-entered) 45%,transparent)}
-.ig-ins-hours-bars span.is-peak i{background:var(--ins-entered)}
-.ig-ins-hours-bars span:hover i{background:var(--ins-entered)}
+.ig-ins-hours-bars i{display:block;width:100%;border-radius:4px 4px 0 0;transition:filter .15s;
+  background:linear-gradient(180deg,color-mix(in srgb,var(--ins-col-top) 80%,transparent),color-mix(in srgb,var(--ins-col-top) 18%,transparent))}
+.ig-ins-hours-bars span.is-peak i{background:linear-gradient(180deg,var(--ins-col-peak),color-mix(in srgb,var(--ins-col-top) 35%,transparent));box-shadow:0 -2px 14px var(--ins-bar-glow)}
+.ig-ins-hours-bars span:hover i{filter:brightness(1.3) saturate(1.1)}
 .ig-ins-hours-bars span:hover::after{content:attr(data-tip);position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);white-space:nowrap;padding:5px 8px;border-radius:8px;font-size:10.5px;
   background:rgba(8,8,9,.94);border:1px solid rgba(255,255,255,.1);color:var(--foreground);z-index:3}
 .light .ig-ins-hours-bars span:hover::after{background:#fff;border-color:rgba(0,0,0,.08)}

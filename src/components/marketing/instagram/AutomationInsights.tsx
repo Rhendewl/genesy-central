@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle, ArrowDownRight, ArrowUpRight, Clock3, Database, MessageSquareText, MousePointerClick, RefreshCw, Target, Users, Zap,
 } from "lucide-react";
@@ -257,13 +257,27 @@ function MiniStat({ icon, label, value, hint, tone }: { icon: React.ReactNode; l
   );
 }
 
-function Ring({ value }: { value: number }) {
-  const radius = 22;
+function useSvgId(prefix: string) {
+  return `${prefix}-${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`;
+}
+
+/** Completion ring with the platform's light-to-deep gradient stroke. */
+export function Ring({ value, size = 56 }: { value: number; size?: number }) {
+  const id = useSvgId("ig-ring");
+  const stroke = size >= 52 ? 6 : 5;
+  const center = size / 2;
+  const radius = center - stroke / 2 - 1;
   const circumference = 2 * Math.PI * radius;
   return (
-    <svg className="ig-ins-ring" viewBox="0 0 56 56" width="56" height="56" aria-hidden="true">
-      <circle cx="28" cy="28" r={radius} className="ig-ins-ring-track" />
-      <circle cx="28" cy="28" r={radius} className="ig-ins-ring-value" strokeDasharray={`${circumference * Math.min(1, value)} ${circumference}`} transform="rotate(-90 28 28)" />
+    <svg className="ig-ins-ring" viewBox={`0 0 ${size} ${size}`} width={size} height={size} aria-hidden="true">
+      <defs>
+        <linearGradient id={id} gradientUnits="userSpaceOnUse" x1="0" y1="0" x2={size} y2={size}>
+          <stop offset="0%" className="ig-ins-ring-stop-a" />
+          <stop offset="100%" className="ig-ins-ring-stop-b" />
+        </linearGradient>
+      </defs>
+      <circle cx={center} cy={center} r={radius} className="ig-ins-ring-track" strokeWidth={stroke} />
+      {value > 0 && <circle cx={center} cy={center} r={radius} className="ig-ins-ring-value" stroke={`url(#${id})`} strokeWidth={stroke} strokeDasharray={`${circumference * Math.min(1, value)} ${circumference}`} transform={`rotate(-90 ${center} ${center})`} />}
     </svg>
   );
 }
@@ -272,10 +286,17 @@ function Sparkline({ values }: { values: number[] }) {
   const max = Math.max(1, ...values);
   const width = 120;
   const height = 34;
+  const id = useSvgId("ig-spark");
   const points = values.map((value, index) => `${(index / Math.max(1, values.length - 1)) * width},${height - 2 - (value / max) * (height - 6)}`);
   return (
     <svg className="ig-ins-spark" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" aria-hidden="true">
-      <polyline points={`0,${height} ${points.join(" ")} ${width},${height}`} className="ig-ins-spark-area" />
+      <defs>
+        <linearGradient id={id} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" className="ig-ins-stop-entered" stopOpacity={0.45} />
+          <stop offset="100%" className="ig-ins-stop-entered" stopOpacity={0} />
+        </linearGradient>
+      </defs>
+      <polyline points={`0,${height} ${points.join(" ")} ${width},${height}`} fill={`url(#${id})`} />
       <polyline points={points.join(" ")} className="ig-ins-spark-line" />
     </svg>
   );
@@ -297,6 +318,8 @@ function useWidth<T extends HTMLElement>() {
 function DailyChart({ daily }: { daily: Insights["daily"] }) {
   const { ref, width } = useWidth<HTMLDivElement>();
   const [hover, setHover] = useState<number | null>(null);
+  const enteredId = useSvgId("ig-area-in");
+  const completedId = useSvgId("ig-area-done");
   const height = 220;
   const pad = { top: 12, right: 12, bottom: 26, left: 34 };
   const max = niceMax(Math.max(0, ...daily.map(day => Math.max(day.entered, day.completed))));
@@ -305,7 +328,7 @@ function DailyChart({ daily }: { daily: Insights["daily"] }) {
   const x = (index: number) => pad.left + (daily.length <= 1 ? plotW / 2 : (index / (daily.length - 1)) * plotW);
   const y = (value: number) => pad.top + plotH - (value / max) * plotH;
   const line = (key: "entered" | "completed") => daily.map((day, index) => `${index ? "L" : "M"}${x(index)},${y(day[key])}`).join(" ");
-  const area = `${line("entered")} L${x(daily.length - 1)},${y(0)} L${x(0)},${y(0)} Z`;
+  const area = (key: "entered" | "completed") => `${line(key)} L${x(daily.length - 1)},${y(0)} L${x(0)},${y(0)} Z`;
   const ticks = [0, max / 4, max / 2, (3 * max) / 4, max];
   const labelEvery = Math.max(1, Math.ceil(daily.length / Math.max(2, Math.floor(plotW / 64))));
   const onMove = (event: React.PointerEvent<SVGSVGElement>) => {
@@ -327,7 +350,18 @@ function DailyChart({ daily }: { daily: Insights["daily"] }) {
         {daily.map((day, index) => index % labelEvery === 0 || index === daily.length - 1 ? (
           <text key={day.date} x={x(index)} y={height - 8} className="ig-ins-axis" textAnchor="middle">{shortDate(day.date)}</text>
         ) : null)}
-        <path d={area} className="ig-ins-area" />
+        <defs>
+          <linearGradient id={enteredId} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" className="ig-ins-stop-entered" stopOpacity={0.42} />
+            <stop offset="100%" className="ig-ins-stop-entered" stopOpacity={0.02} />
+          </linearGradient>
+          <linearGradient id={completedId} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" className="ig-ins-stop-completed" stopOpacity={0.3} />
+            <stop offset="100%" className="ig-ins-stop-completed" stopOpacity={0} />
+          </linearGradient>
+        </defs>
+        <path d={area("entered")} fill={`url(#${enteredId})`} />
+        <path d={area("completed")} fill={`url(#${completedId})`} />
         <path d={line("entered")} className="ig-ins-line is-entered" />
         <path d={line("completed")} className="ig-ins-line is-completed" />
         {hovered && hover !== null && (

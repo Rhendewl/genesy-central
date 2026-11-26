@@ -9,7 +9,7 @@ import {
   starterFlow,
   type BuilderState,
 } from "@/components/marketing/instagram/AutomationFlowBuilder";
-import { AutomationInsights } from "@/components/marketing/instagram/AutomationInsights";
+import { AutomationInsights, Ring } from "@/components/marketing/instagram/AutomationInsights";
 import "@/components/marketing/instagram/automation-insights.css";
 import { flowStats, legacyStepsToFlow, nextNodeId, type AutomationFlow, type FlowNode } from "@/lib/instagram-automation/flow";
 
@@ -194,7 +194,7 @@ export function InstagramAutomations({ accountId, createSignal = 0 }: { accountI
                   <div><strong>{triggers.toLocaleString("pt-BR")}</strong><span>pessoas entraram no fluxo</span></div>
                   <div className="ig-flow-card-rate">
                     <div><b>{Math.round(rate * 100)}%</b><small>concluíram</small></div>
-                    <RateRing value={rate} />
+                    <Ring value={rate} size={46} />
                   </div>
                 </div>
                 <div className="ig-flow-card-stats">
@@ -256,14 +256,4 @@ function FlowMiniMap({ flow, label }: { flow: AutomationFlow; label: string }) {
   );
 }
 
-function RateRing({ value }: { value: number }) {
-  const radius = 19;
-  const circumference = 2 * Math.PI * radius;
-  return (
-    <svg className="ig-ins-ring" viewBox="0 0 46 46" width="46" height="46" aria-hidden="true">
-      <circle cx="23" cy="23" r={radius} className="ig-ins-ring-track" />
-      <circle cx="23" cy="23" r={radius} className="ig-ins-ring-value" strokeDasharray={`${circumference * Math.min(1, value)} ${circumference}`} transform="rotate(-90 23 23)" />
-    </svg>
-  );
-}
 function Notice({ children, tone }: { children: React.ReactNode; tone: "warning" | "neutral" }) { return <div className={`rounded-xl border p-4 text-sm ${tone === "warning" ? "border-amber-500/30 text-amber-500" : "text-[var(--muted-foreground)]"}`}>{children}</div>; }
