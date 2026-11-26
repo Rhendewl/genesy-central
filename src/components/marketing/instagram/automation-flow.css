@@ -16,6 +16,23 @@
 .ig-flow-dialog .is-action-crm{--node-accent:var(--flow-crm)}
 .ig-flow-dialog .is-action-add_tag{--node-accent:var(--flow-tag)}
 
+/* Dark theme: near-black glass shell, top bar and inspector, like the platform's
+   lc-card-base surfaces. The light theme keeps the studio composer look. */
+.ig-studio-composer.ig-flow-dialog:not(.light *){background:rgba(6,6,7,.86)!important;border-color:rgba(255,255,255,.09)!important;
+  backdrop-filter:blur(40px) saturate(150%);-webkit-backdrop-filter:blur(40px) saturate(150%);box-shadow:0 30px 80px rgba(0,0,0,.6),inset 0 1px 0 rgba(255,255,255,.05)}
+.ig-flow-dialog:not(.light *) .ig-flow-topbar{position:relative;z-index:6;border-bottom-color:rgba(255,255,255,.06);
+  background:linear-gradient(180deg,rgba(255,255,255,.035),rgba(255,255,255,0) 70%),rgba(4,4,5,.72);
+  backdrop-filter:blur(24px) saturate(150%);-webkit-backdrop-filter:blur(24px) saturate(150%)}
+.ig-flow-dialog:not(.light *) .ig-flow-inspector{position:relative;border-left-color:rgba(255,255,255,.06);
+  background:radial-gradient(ellipse 320px 220px at 0% 0%,rgba(255,255,255,.035),transparent 70%),rgba(4,4,5,.78);
+  backdrop-filter:blur(28px) saturate(150%);-webkit-backdrop-filter:blur(28px) saturate(150%);box-shadow:inset 1px 0 0 rgba(255,255,255,.03)}
+.ig-flow-dialog:not(.light *) :is(.ig-flow-topbar,.ig-flow-inspector) :is(input:not([type=file]),select,textarea){background:rgba(0,0,0,.5);border-color:rgba(255,255,255,.09)}
+.ig-flow-dialog:not(.light *) .ig-flow-topbar .ig-flow-title input{background:transparent}
+.ig-flow-dialog:not(.light *) :is(.ig-flow-topbar,.ig-flow-inspector) .ig-flow-segmented{background:rgba(0,0,0,.45);border-color:rgba(255,255,255,.08)}
+.ig-flow-dialog:not(.light *) :is(.ig-flow-topbar,.ig-flow-inspector) .ig-btn:not(.ig-primary){background:rgba(255,255,255,.03);border-color:rgba(255,255,255,.09)}
+.ig-flow-dialog:not(.light *) .ig-flow-button-row{background:rgba(0,0,0,.35);border-color:rgba(255,255,255,.07)}
+.ig-flow-dialog:not(.light *) :is(.ig-flow-palette,.ig-flow-zoom,.ig-flow-drop-menu){background:rgba(6,6,7,.78);border-color:rgba(255,255,255,.09)}
+
 /* Top bar */
 .ig-flow-topbar{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:16px 20px;border-bottom:1px solid var(--ig-line)}
 .ig-flow-title{display:flex;flex-direction:column;gap:4px;min-width:0;flex:1}
@@ -64,7 +81,7 @@
   box-shadow:0 4px 24px rgba(0,0,0,.42),inset 0 1px 0 rgba(255,255,255,.05);
   transition:border-color .18s,box-shadow .18s}
 .ig-flow-node>*:not(.ig-flow-node-glow):not(.ig-flow-port){position:relative;z-index:1}
-.ig-flow-node-glow{position:absolute;inset:0;border-radius:inherit;overflow:hidden;pointer-events:none;z-index:0}
+.ig-flow-node-glow{position:absolute;inset:0;border-radius:inherit;overflow:hidden;pointer-events:none;z-index:0;clip-path:inset(0 round 16px)}
 .ig-flow-node-glow::before{content:"";position:absolute;left:-30px;top:-40px;width:190px;height:120px;border-radius:50%;
   background:radial-gradient(ellipse at center,color-mix(in srgb,var(--node-accent) 40%,transparent),transparent 70%);filter:blur(18px);opacity:.9}
 .ig-flow-node-glow::after{content:"";position:absolute;inset:0;border-radius:inherit;padding:1px;
@@ -176,6 +193,9 @@
 
 /* Delay: a small round clock */
 .ig-flow-node.is-compact{border-radius:50%;align-items:center;justify-content:center}
+/* The blurred glow is a composited layer, which ignores overflow clipping in
+   Chromium when zoomed: clip it to the circle explicitly. */
+.ig-flow-node.is-compact .ig-flow-node-glow{clip-path:circle(50% at 50% 50%)}
 .ig-flow-node.is-compact .ig-flow-node-glow::before{left:-24px;top:-24px;width:90px;height:90px}
 .ig-flow-node.is-compact .ig-flow-node-glow::after{background:radial-gradient(circle at 20% 15%,color-mix(in srgb,var(--node-accent) 60%,transparent),transparent 75%)}
 .ig-flow-delay-icon{color:color-mix(in srgb,var(--node-accent) 90%,var(--foreground))}

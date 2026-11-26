@@ -199,6 +199,10 @@ export function AutomationFlowBuilder({
   const [connecting, setConnecting] = useState<{ source: string; handle: string; x: number; y: number; target: string | null } | null>(null);
   const [dropMenu, setDropMenu] = useState<{ source: string; handle: string; x: number; y: number; screenX: number; screenY: number } | null>(null);
   const canvasRef = useRef<HTMLDivElement | null>(null);
+  // The dialog mounts its content after `open` flips, so listeners that need the
+  // canvas element hang on this state instead of the ref.
+  const [canvasEl, setCanvasEl] = useState<HTMLDivElement | null>(null);
+  const attachCanvas = useCallback((element: HTMLDivElement | null) => { canvasRef.current = element; setCanvasEl(element); }, []);
   const gesture = useRef<Gesture | null>(null);
   const viewRef = useRef(view);
   viewRef.current = view;
@@ -277,10 +281,10 @@ export function AutomationFlowBuilder({
   const fitted = useRef(false);
   useEffect(() => {
     if (!open) { fitted.current = false; return; }
-    if (fitted.current) return;
+    if (fitted.current || !canvasEl) return;
     const frame = requestAnimationFrame(() => { fitView(true); fitted.current = true; });
     return () => cancelAnimationFrame(frame);
-  }, [fitView, open]);
+  }, [canvasEl, fitView, open]);
 
   const zoomAt = useCallback((factor: number, clientX?: number, clientY?: number) => {
     const rect = canvasRef.current?.getBoundingClientRect();
@@ -296,16 +300,22 @@ export function AutomationFlowBuilder({
   }, []);
 
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas || !open) return;
+    const canvas = canvasEl;
+    if (!canvas) return;
+    // Ctrl/⌘ + scroll (and trackpad pinch, which arrives as ctrl + wheel) zooms
+    // around the cursor; plain scroll pans, like ManyChat and Figma.
     const onWheel = (event: WheelEvent) => {
       event.preventDefault();
-      if (event.ctrlKey || event.metaKey) zoomAt(Math.exp(-event.deltaY * 0.01), event.clientX, event.clientY);
-      else setView(current => ({ ...current, x: current.x - event.deltaX, y: current.y - event.deltaY }));
+      if (event.ctrlKey || event.metaKey) {
+        const delta = Math.max(-80, Math.min(80, event.deltaMode === 1 ? event.deltaY * 16 : event.deltaY));
+        zoomAt(Math.exp(-delta * 0.002), event.clientX, event.clientY);
+      } else {
+        setView(current => ({ ...current, x: current.x - event.deltaX, y: current.y - event.deltaY }));
+      }
     };
     canvas.addEventListener("wheel", onWheel, { passive: false });
     return () => canvas.removeEventListener("wheel", onWheel);
-  }, [open, zoomAt]);
+  }, [canvasEl, zoomAt]);
 
   const addNode = useCallback((type: AddableType, at?: { x: number; y: number }, from?: { source: string; handle: string }) => {
     if (flow.nodes.length >= FLOW_MAX_NODES) return;
@@ -526,7 +536,7 @@ export function AutomationFlowBuilder({
 
         <div className="ig-flow-body">
           <div
-            ref={canvasRef}
+            ref={attachCanvas}
             className={`ig-flow-canvas${connecting ? " is-connecting" : ""}`}
             style={{ backgroundSize: `${22 * view.k}px ${22 * view.k}px`, backgroundPosition: `${view.x}px ${view.y}px` }}
             onPointerDown={onCanvasPointerDown}

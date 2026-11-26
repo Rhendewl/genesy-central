@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { CheckCircle2, GitBranch, Hourglass, MessageSquareText, Pencil, Tag, Target, Timer, Trash2, Webhook, XCircle, Zap } from "lucide-react";
+import { ArrowUpRight, BarChart3, CheckCircle2, GitBranch, Hourglass, MessageSquareText, Pencil, Tag, Target, Timer, Trash2, Webhook, Workflow, XCircle, Zap } from "lucide-react";
 import { toast } from "sonner";
 import {
   AutomationFlowBuilder,
@@ -9,6 +9,8 @@ import {
   starterFlow,
   type BuilderState,
 } from "@/components/marketing/instagram/AutomationFlowBuilder";
+import { AutomationInsights, Ring } from "@/components/marketing/instagram/AutomationInsights";
+import "@/components/marketing/instagram/automation-insights.css";
 import { flowStats, legacyStepsToFlow, nextNodeId, type AutomationFlow, type FlowNode } from "@/lib/instagram-automation/flow";
 
 type Step = { type: "message"; text: string; delayMinutes: number; button?: { label: string; url: string } | null };
@@ -56,6 +58,8 @@ export function InstagramAutomations({ accountId, createSignal = 0 }: { accountI
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editorOpen, setEditorOpen] = useState(false);
   const [initial, setInitial] = useState<BuilderState>(() => blankState(accountId ?? ""));
+  const [view, setView] = useState<"flows" | "insights">("flows");
+  const [insightsId, setInsightsId] = useState<string | null>(null);
   const openedSignal = useRef(0);
 
   const load = useCallback(async () => {
@@ -143,40 +147,70 @@ export function InstagramAutomations({ accountId, createSignal = 0 }: { accountI
   };
 
   return (
-    <div className="pb-10">
+    <div className="ig-auto-shell pb-10">
       <div className="ig-auto-heading"><h2>Comentários e Direct</h2><p>Fluxos ativos, métricas e respostas da sua audiência.</p></div>
       {visibleConnections.map(connection => <section key={connection.id} className="mb-5 flex items-start gap-3 rounded-2xl border p-4" style={{ background: "var(--glass-bg-soft)" }}>{connection.webhook_subscribed ? <CheckCircle2 className="mt-0.5 text-emerald-500" size={19} /> : <XCircle className="mt-0.5 text-amber-500" size={19} />}<div><h3 className="text-sm font-semibold">@{connection.username}</h3><p className="text-xs text-[var(--muted-foreground)]">{connection.webhook_subscribed ? "Webhooks de comentários e mensagens assinados" : "Reconecte a conta após liberar as permissões na Meta"}</p>{connection.webhook_error && <p className="mt-1 text-xs text-amber-500">{connection.webhook_error}</p>}</div></section>)}
+      <div className="ig-auto-tabs" role="tablist" aria-label="Automações">
+        <button type="button" role="tab" aria-selected={view === "flows"} onClick={() => setView("flows")}><Workflow size={14} />Fluxos</button>
+        <button type="button" role="tab" aria-selected={view === "insights"} onClick={() => setView("insights")}><BarChart3 size={14} />Insights</button>
+      </div>
+      {view === "insights" ? (
+        <AutomationInsights automations={visibleAutomations} initialId={insightsId} />
+      ) : (
       <section className="ig-glass p-4 sm:p-5">
         <div className="mb-4 flex items-center justify-between gap-3">
-          <div><span className="ig-eyebrow">SUAS REGRAS</span><h3 className="mt-1 font-semibold">Automações configuradas</h3></div>
+          <div><span className="ig-eyebrow">SEUS FLUXOS</span><h3 className="mt-1 font-semibold">Automações configuradas</h3></div>
           {isAdmin && connections.length > 0 ? <button type="button" className="ig-btn" onClick={openNew}><Webhook size={15} />Novo fluxo</button> : <Webhook size={18} />}
         </div>
         {loading ? <p className="text-sm text-[var(--muted-foreground)]">Carregando automações…</p>
           : !isAdmin && !visibleAutomations.length ? <Notice tone="neutral">Nenhuma automação criada ainda.</Notice>
           : connections.length === 0 ? <Notice tone="warning">Conecte primeiro uma conta profissional na aba Instagram.</Notice>
           : visibleAutomations.length === 0 ? <Notice tone="neutral">Nenhuma automação criada ainda. Crie um fluxo para começar a responder às interações.</Notice>
-          : <div className="grid gap-3 md:grid-cols-2">{visibleAutomations.map(item => {
+          : <div className="ig-flow-cards">{visibleAutomations.map(item => {
             const flow = automationFlow(item);
             const stats = flowStats(flow);
+            const { triggers, completed, failed, messagesSent } = item.metrics;
+            const rate = triggers ? completed / triggers : 0;
+            const keywords = item.match_type === "any" ? ["qualquer texto"] : item.keywords;
             return (
-              <article key={item.id} className="rounded-2xl border p-4" style={{ background: "var(--glass-bg-soft)" }}>
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="mb-1 flex items-center gap-2"><span className={`h-2 w-2 shrink-0 rounded-full ${item.status === "active" ? "bg-emerald-500" : item.status === "paused" ? "bg-amber-500" : "bg-slate-400"}`} /><h4 className="truncate text-sm font-semibold">{item.name}</h4></div>
-                    <p className="text-xs text-[var(--muted-foreground)]">{TRIGGER_SHORT[item.trigger_type]} · {item.match_type === "any" ? "qualquer texto" : item.keywords.join(", ")}</p>
-                  </div>
-                  {isAdmin && <div className="flex items-center gap-2">
-                    <button type="button" role="switch" aria-checked={item.status === "active"} aria-label={`${item.status === "active" ? "Pausar" : "Ativar"} ${item.name}`} disabled={togglingId === item.id} onClick={() => void toggle(item)} className="relative h-[22px] w-10 shrink-0 rounded-full transition-colors disabled:opacity-50" style={{ background: item.status === "active" ? "var(--primary)" : "var(--border)" }}><span className="absolute left-0.5 top-0.5 h-[18px] w-[18px] rounded-full bg-white shadow transition-transform" style={{ transform: item.status === "active" ? "translateX(18px)" : "translateX(0)" }} /></button>
-                    <button onClick={() => edit(item)} className="rounded-lg p-2 hover:bg-[var(--hover)]" aria-label={`Editar ${item.name}`}><Pencil size={14} /></button>
-                    <button onClick={() => remove(item.id)} className="rounded-lg p-2 text-red-400 hover:bg-[var(--hover)]" aria-label={`Excluir ${item.name}`}><Trash2 size={14} /></button>
+              <article key={item.id} className={`ig-flow-card is-${item.status}`}>
+                <div className="ig-flow-card-top">
+                  <span className="ig-flow-card-status"><i />{item.status === "active" ? "Ativa" : item.status === "paused" ? "Pausada" : "Rascunho"}</span>
+                  {isAdmin && <div className="ig-flow-card-actions">
+                    <button type="button" role="switch" aria-checked={item.status === "active"} aria-label={`${item.status === "active" ? "Pausar" : "Ativar"} ${item.name}`} disabled={togglingId === item.id} onClick={() => void toggle(item)} className="relative mr-1 h-[22px] w-10 shrink-0 rounded-full transition-colors disabled:opacity-50" style={{ background: item.status === "active" ? "var(--primary)" : "var(--border)" }}><span className="absolute left-0.5 top-0.5 h-[18px] w-[18px] rounded-full bg-white shadow transition-transform" style={{ transform: item.status === "active" ? "translateX(18px)" : "translateX(0)" }} /></button>
+                    <button type="button" onClick={() => edit(item)} aria-label={`Editar ${item.name}`} title="Editar fluxo"><Pencil size={14} /></button>
+                    <button type="button" onClick={() => remove(item.id)} aria-label={`Excluir ${item.name}`} title="Excluir" className="hover:!text-red-400"><Trash2 size={14} /></button>
                   </div>}
                 </div>
-                <div className="mt-4 grid grid-cols-4 gap-2 text-center"><Metric value={item.metrics.triggers} label="Gatilhos" /><Metric value={item.metrics.messagesSent} label="Ações" /><Metric value={item.metrics.completed} label="Concluídas" /><Metric value={item.metrics.failed} label="Falhas" /></div>
-                <FlowMiniMap flow={flow} label={`${stats.blocks} bloco${stats.blocks === 1 ? "" : "s"} · ${stats.messages} mensage${stats.messages === 1 ? "m" : "ns"}${stats.hasBranches ? " · com ramificações" : ""}${stats.hasCrm ? " · CRM" : ""}`} />
+                <div>
+                  <h4>{item.name}</h4>
+                  <p className="ig-flow-card-trigger">
+                    {TRIGGER_SHORT[item.trigger_type]}
+                    {keywords.slice(0, 3).map(keyword => <em key={keyword}>{keyword}</em>)}
+                    {keywords.length > 3 && <em>+{keywords.length - 3}</em>}
+                  </p>
+                </div>
+                <div className="ig-flow-card-hero">
+                  <div><strong>{triggers.toLocaleString("pt-BR")}</strong><span>pessoas entraram no fluxo</span></div>
+                  <div className="ig-flow-card-rate">
+                    <div><b>{Math.round(rate * 100)}%</b><small>concluíram</small></div>
+                    <Ring value={rate} size={46} />
+                  </div>
+                </div>
+                <div className="ig-flow-card-stats">
+                  <span title="Pessoas que chegaram ao fim do fluxo"><b>{completed.toLocaleString("pt-BR")}</b><small>Concluíram</small></span>
+                  <span title="Mensagens, respostas e ações de CRM enviadas"><b>{messagesSent.toLocaleString("pt-BR")}</b><small>Envios realizados</small></span>
+                  <span className={failed ? "is-warn" : ""} title="Execuções com erro de envio"><b>{failed.toLocaleString("pt-BR")}</b><small>Com falha</small></span>
+                </div>
+                <div className="ig-flow-card-foot">
+                  <FlowMiniMap flow={flow} label={`${stats.blocks} bloco${stats.blocks === 1 ? "" : "s"}${stats.hasBranches ? " · ramificado" : ""}${stats.hasCrm ? " · CRM" : ""}`} />
+                  <button type="button" className="ig-text-link" onClick={() => { setInsightsId(item.id); setView("insights"); }}>Ver insights <ArrowUpRight size={13} /></button>
+                </div>
               </article>
             );
           })}</div>}
       </section>
+      )}
       <AutomationFlowBuilder
         open={editorOpen}
         initial={initial}
@@ -222,5 +256,4 @@ function FlowMiniMap({ flow, label }: { flow: AutomationFlow; label: string }) {
   );
 }
 
-function Metric({ value, label }: { value: number; label: string }) { return <div className="rounded-lg border px-1 py-2"><strong className="block text-sm">{value}</strong><span className="text-[10px] text-[var(--muted-foreground)]">{label}</span></div>; }
 function Notice({ children, tone }: { children: React.ReactNode; tone: "warning" | "neutral" }) { return <div className={`rounded-xl border p-4 text-sm ${tone === "warning" ? "border-amber-500/30 text-amber-500" : "text-[var(--muted-foreground)]"}`}>{children}</div>; }
