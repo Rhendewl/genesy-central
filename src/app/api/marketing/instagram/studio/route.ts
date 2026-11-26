@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import sharp from "sharp";
 import { verifyState } from "@/lib/crypto";
 import { apiError } from "@/lib/marketing/server";
+import { assertMarketingAccess, canConnectInstagramAccounts, scopeByConnectionIds, scopeInstagramConnections, visibleInstagramConnectionIds } from "@/lib/marketing/instagram-access";
 import { syncInstagramEditorial } from "@/lib/marketing/editorial-instagram";
 import { canPublishStudio, studioAccount, studioContext, studioFail } from "@/lib/marketing/instagram-studio-server";
 import { validateStudioAssets, type InstagramStudioFormat, type StudioAssetManifest } from "@/lib/marketing/instagram-studio";
@@ -11,11 +12,13 @@ type UploadTicket = { purpose: string; id: string; organizationId: string; userI
 export async function GET(req: NextRequest) {
   try {
     const { ctx, db, client } = await studioContext(false);
+    assertMarketingAccess(ctx, "marketing.instagram");
+    const visibleIds = await visibleInstagramConnectionIds(client, ctx);
     const id = req.nextUrl.searchParams.get("id");
     const [connections, media, automations] = await Promise.all([
-      client.from("marketing_instagram_connections").select("id,username,profile_picture_url,followers_count,status,requested_scopes,token_expires_at,webhook_subscribed").eq("organization_id", ctx.organizationId).order("username"),
-      client.from("marketing_instagram_media").select("id,connection_id,instagram_media_id,media_type,media_product_type,caption,media_url,thumbnail_url,permalink,published_at,likes,comments,reach,saved,shares,total_interactions").eq("organization_id", ctx.organizationId).order("published_at", { ascending: false }).limit(100),
-      client.from("marketing_instagram_automations").select("id,connection_id,name,status,keywords,trigger_type,trigger_count,action_count").eq("organization_id", ctx.organizationId),
+      scopeInstagramConnections(client.from("marketing_instagram_connections").select("id,username,profile_picture_url,followers_count,status,requested_scopes,token_expires_at,webhook_subscribed").eq("organization_id", ctx.organizationId), ctx).order("username"),
+      scopeByConnectionIds(client.from("marketing_instagram_media").select("id,connection_id,instagram_media_id,media_type,media_product_type,caption,media_url,thumbnail_url,permalink,published_at,likes,comments,reach,saved,shares,total_interactions").eq("organization_id", ctx.organizationId), visibleIds).order("published_at", { ascending: false }).limit(100),
+      scopeByConnectionIds(client.from("marketing_instagram_automations").select("id,connection_id,name,status,keywords,trigger_type,trigger_count,action_count").eq("organization_id", ctx.organizationId), visibleIds),
     ]);
     for (const result of [connections, media, automations]) if (result.error) throw result.error;
     let posts: Record<string, unknown>[] = [];
@@ -40,7 +43,7 @@ export async function GET(req: NextRequest) {
         return { ...post, format, asset_count: paths.length, preview_url: signed?.data?.signedUrl ?? null, ...(assets ? { asset_urls: assets } : {}) };
       }));
     }
-    return NextResponse.json({ is_admin: ctx.isAdmin, connections: (connections.data ?? []).map(account => ({ id: account.id, username: account.username,
+    return NextResponse.json({ is_admin: ctx.isAdmin, can_manage_accounts: canConnectInstagramAccounts(ctx), connections: (connections.data ?? []).map(account => ({ id: account.id, username: account.username,
       profile_picture_url: account.profile_picture_url, followers_count: account.followers_count ?? 0, status: account.status, webhook_subscribed: account.webhook_subscribed, can_publish: canPublishStudio(account) })),
       media: media.data ?? [], automations: automations.data ?? [], posts }, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error) { const e = apiError(error); return NextResponse.json({ error: e.message }, { status: e.status }); }

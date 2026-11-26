@@ -3,7 +3,14 @@ import { getPlatformEventBus } from "@/lib/event-bus/platform";
 import { marketingWorkspaceTaskTitle } from "@/lib/marketing/domain";
 import type { MarketingPriority } from "@/types/marketing";
 
-export interface MarketingServerContext { user: User; profileId: string | null; organizationId: string; isAdmin: boolean; }
+export interface MarketingServerContext {
+  user: User;
+  profileId: string | null;
+  organizationId: string;
+  isAdmin: boolean;
+  /** user_profiles.permissions do membro (vazio para o dono da conta). */
+  permissions?: string[];
+}
 
 export async function getMarketingServerContext(supabase: SupabaseClient): Promise<MarketingServerContext> {
   const { data: { user } } = await supabase.auth.getUser();
@@ -14,7 +21,7 @@ export async function getMarketingServerContext(supabase: SupabaseClient): Promi
   const permissions = Array.isArray(profile?.permissions) ? profile.permissions : [];
   const isAdmin = organizationId === user.id || profile?.role === "admin";
   if (profile && (!profile.is_active || (!isAdmin && !permissions.includes("marketing")))) throw Object.assign(new Error("Sem acesso ao módulo Marketing"), { status: 403 });
-  return { user, profileId: profile?.id ?? null, organizationId, isAdmin };
+  return { user, profileId: profile?.id ?? null, organizationId, isAdmin, permissions };
 }
 
 export function apiError(error: unknown) {

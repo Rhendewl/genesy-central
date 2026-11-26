@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { apiError, getMarketingServerContext } from "@/lib/marketing/server";
+import {
+  assertCanManageInstagramConnection, assertMarketingAccess, canConnectInstagramAccounts,
+  scopeByConnectionIds, scopeInstagramConnections, visibleInstagramConnectionIds,
+} from "@/lib/marketing/instagram-access";
 import { decryptToken } from "@/lib/crypto";
 import { getInstagramAccountDailyExactMetrics, getInstagramAccountDailyInsights, getInstagramAccountTotals, type InstagramAccountMetrics } from "@/lib/instagram-api";
 
@@ -23,16 +27,18 @@ export async function GET(req: NextRequest) {
   const supabase = await createServerSupabaseClient();
   try {
     const context = await getMarketingServerContext(supabase);
+    assertMarketingAccess(context, "marketing.instagram.reports");
+    const visibleIds = await visibleInstagramConnectionIds(supabase, context);
     const start = req.nextUrl.searchParams.get("start");
     const end = req.nextUrl.searchParams.get("end");
     const compareStart = req.nextUrl.searchParams.get("compareStart");
     const compareEnd = req.nextUrl.searchParams.get("compareEnd");
     const historyStart = req.nextUrl.searchParams.get("historyStart") ?? compareStart ?? start;
     const [connections, media, previousMedia, insights] = await Promise.all([
-      supabase
+      scopeInstagramConnections(supabase
         .from("marketing_instagram_connections")
         .select("id,instagram_user_id,username,display_name,profile_picture_url,followers_count,media_count,status,last_sync_at,sync_error,token_expires_at,created_at,encrypted_access_token,requested_scopes,webhook_subscribed,webhook_fields,webhook_error")
-        .eq("organization_id", context.organizationId)
+        .eq("organization_id", context.organizationId), context)
         .order("created_at"),
       (() => {
         let query = supabase
@@ -40,6 +46,7 @@ export async function GET(req: NextRequest) {
           .select("id,connection_id,marketing_content_id,instagram_media_id,media_type,media_product_type,caption,media_url,thumbnail_url,permalink,published_at,reach,views,plays,likes,comments,saved,shares,total_interactions,average_watch_time,total_watch_time,last_synced_at")
           .eq("organization_id", context.organizationId)
           .order("published_at", { ascending: false });
+        query = scopeByConnectionIds(query, visibleIds);
         if (start) query = query.gte("published_at", `${start}T00:00:00`);
         if (end) query = query.lte("published_at", `${end}T23:59:59.999`);
         return query.limit(250);
@@ -50,6 +57,7 @@ export async function GET(req: NextRequest) {
           .select("id,connection_id,marketing_content_id,instagram_media_id,media_type,media_product_type,caption,media_url,thumbnail_url,permalink,published_at,reach,views,plays,likes,comments,saved,shares,total_interactions,average_watch_time,total_watch_time,last_synced_at")
           .eq("organization_id", context.organizationId)
           .order("published_at", { ascending: false });
+        query = scopeByConnectionIds(query, visibleIds);
         if (compareStart) query = query.gte("published_at", `${compareStart}T00:00:00`);
         if (compareEnd) query = query.lte("published_at", `${compareEnd}T23:59:59.999`);
         return query.limit(250);
@@ -60,6 +68,7 @@ export async function GET(req: NextRequest) {
           .select("insight_date,followers_count,reach,views,profile_views,accounts_engaged,total_interactions,likes,comments,shares,saves,profile_links_taps")
           .eq("organization_id", context.organizationId)
           .order("insight_date");
+        query = scopeByConnectionIds(query, visibleIds);
         if (historyStart) query = query.gte("insight_date", historyStart);
         if (end) query = query.lte("insight_date", end);
         return query.limit(1000);
@@ -139,6 +148,8 @@ export async function GET(req: NextRequest) {
         : insights.error ? [] : (insights.data ?? []).map(({ followers_count, ...row }) => ({ ...row, follower_count: followers_count })),
       metrics_source: metricsSource,
       is_admin: context.isAdmin,
+      // Membro com contas próprias só recebe as contas que conectou; pode geri-las.
+      can_manage: canConnectInstagramAccounts(context),
     });
   } catch (error) {
     const parsed = apiError(error);
@@ -150,9 +161,18 @@ export async function DELETE(req: NextRequest) {
   const supabase = await createServerSupabaseClient();
   try {
     const context = await getMarketingServerContext(supabase);
-    if (!context.isAdmin) throw Object.assign(new Error("Apenas administradores podem desconectar contas"), { status: 403 });
+    assertMarketingAccess(context, "marketing.instagram");
     const body = await req.json().catch(() => ({})) as { connectionId?: string };
     if (!body.connectionId) throw Object.assign(new Error("Conta não informada"), { status: 400 });
+    const { data: target, error: targetError } = await supabase
+      .from("marketing_instagram_connections")
+      .select("id,connected_by")
+      .eq("id", body.connectionId)
+      .eq("organization_id", context.organizationId)
+      .maybeSingle();
+    if (targetError) throw new Error(targetError.message);
+    if (!target) throw Object.assign(new Error("Conta do Instagram não encontrada"), { status: 404 });
+    assertCanManageInstagramConnection(context, target, "Apenas administradores podem desconectar esta conta");
     // Scheduled posts deliberately restrict deletion of their connection. Keep
     // the account as an audit trail, cancel the pending queue, and reactivate
     // this same record when OAuth connects the account again.

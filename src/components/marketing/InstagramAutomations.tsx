@@ -52,7 +52,9 @@ export function InstagramAutomations({ accountId, createSignal = 0 }: { accountI
   const [connections, setConnections] = useState<Connection[]>([]);
   const [pipelines, setPipelines] = useState<Pipeline[]>([]);
   const [profiles, setProfiles] = useState<Profile[]>([]);
+  // "isAdmin" = pode criar/editar fluxos (admin ou dono das contas exibidas).
   const [isAdmin, setIsAdmin] = useState(false);
+  const [canUseCrm, setCanUseCrm] = useState(true);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [togglingId, setTogglingId] = useState<string | null>(null);
@@ -71,7 +73,8 @@ export function InstagramAutomations({ accountId, createSignal = 0 }: { accountI
       if (!response.ok) toast.error(data.error ?? "Não foi possível carregar as automações");
       else {
         setAutomations(data.automations ?? []); setConnections(data.connections ?? []);
-        setPipelines(data.pipelines ?? []); setIsAdmin(Boolean(data.is_admin));
+        setPipelines(data.pipelines ?? []); setIsAdmin(Boolean(data.can_manage ?? data.is_admin));
+        setCanUseCrm(data.can_use_crm ?? true);
         setProfiles(data.profiles ?? []);
       }
     } catch { toast.error("Não foi possível carregar as automações. Tente atualizar."); } finally { setLoading(false); }
@@ -226,6 +229,7 @@ export function InstagramAutomations({ accountId, createSignal = 0 }: { accountI
         connections={visibleConnections}
         pipelines={pipelines}
         profiles={profiles}
+        canUseCrm={canUseCrm}
         saving={saving}
         onClose={() => { setEditorOpen(false); setEditingId(null); }}
         onSave={state => void save(state)}

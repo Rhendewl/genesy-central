@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { signState } from "@/lib/crypto";
 import { apiError, getMarketingServerContext } from "@/lib/marketing/server";
+import { assertMarketingAccess, canConnectInstagramAccounts } from "@/lib/marketing/instagram-access";
 import { INSTAGRAM_AUTOMATION_SCOPES } from "@/lib/instagram-api";
 import { requestOrigin } from "@/lib/request-origin";
 
@@ -12,7 +13,8 @@ export async function GET(req: NextRequest) {
   const supabase = await createServerSupabaseClient();
   try {
     const context = await getMarketingServerContext(supabase);
-    if (!context.isAdmin) throw Object.assign(new Error("Apenas administradores podem conectar uma conta"), { status: 403 });
+    assertMarketingAccess(context, "marketing.instagram");
+    if (!canConnectInstagramAccounts(context)) throw Object.assign(new Error("Apenas administradores podem conectar uma conta"), { status: 403 });
     const clientId = process.env.INSTAGRAM_APP_ID ?? process.env.META_APP_ID;
     if (!clientId) throw new Error("INSTAGRAM_APP_ID não configurado");
 

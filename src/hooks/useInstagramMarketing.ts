@@ -37,7 +37,7 @@ export function useInstagramMarketing(start: string, end: string, compareStart: 
       const data = await parseResponse<{
         connections: MarketingInstagramConnection[]; media: MarketingInstagramMedia[]; previous_media: MarketingInstagramMedia[];
         account_totals: MarketingInstagramAccountTotals; previous_account_totals: MarketingInstagramAccountTotals;
-        daily_insights: MarketingInstagramDailyInsight[]; metrics_source: "account" | "content_fallback"; is_admin: boolean;
+        daily_insights: MarketingInstagramDailyInsight[]; metrics_source: "account" | "content_fallback"; is_admin: boolean; can_manage?: boolean;
       }>(
         await fetch(`/api/marketing/instagram?${params}`, { cache: "no-store" }),
       );
@@ -49,7 +49,9 @@ export function useInstagramMarketing(start: string, end: string, compareStart: 
       setPreviousAccountTotals(data.previous_account_totals);
       setDailyInsights(data.daily_insights);
       setMetricsSource(data.metrics_source);
-      setIsAdmin(data.is_admin);
+      // "isAdmin" aqui significa "pode gerenciar as contas exibidas": inclui o
+      // membro que só vê as contas que ele mesmo conectou.
+      setIsAdmin(data.can_manage ?? data.is_admin);
     } catch (requestError) {
       if (requestId !== requestSequence.current) return;
       setError(requestError instanceof Error ? requestError.message : "Erro ao carregar o Instagram");

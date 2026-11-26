@@ -7,6 +7,7 @@ import { Binoculars, CalendarDays, PanelsTopLeft } from "lucide-react";
 import { InstagramGlyph } from "@/components/marketing/InstagramReports";
 import { cn } from "@/lib/utils";
 import { useGlobalStore } from "@/store";
+import { useMarketingAccess } from "@/hooks/useMarketingAccess";
 
 function MetaGlyph({ size = 16, ...props }: SVGProps<SVGSVGElement> & { size?: string | number }) {
   return (
@@ -24,23 +25,25 @@ function MetaGlyph({ size = 16, ...props }: SVGProps<SVGSVGElement> & { size?: s
 
 type NavIcon = ComponentType<{ size?: string | number; className?: string }>;
 
-const ITEMS: Array<{ href: string; label: string; icon: NavIcon; exact?: boolean }> = [
-  { href: "/marketing/relatorios", label: "Central do Instagram", icon: InstagramGlyph },
-  { href: "/marketing/concorrentes", label: "Concorrentes", icon: Binoculars },
-  { href: "/marketing/calendario", label: "Calendário Editorial", icon: CalendarDays },
-  { href: "/marketing/gerador", label: "Gerador de Posts", icon: PanelsTopLeft },
-  { href: "/marketing/trafego", label: "Tráfego Pago", icon: MetaGlyph },
+const ITEMS: Array<{ href: string; label: string; icon: NavIcon; permission: string; exact?: boolean }> = [
+  { href: "/marketing/relatorios", label: "Central do Instagram", icon: InstagramGlyph, permission: "marketing.instagram" },
+  { href: "/marketing/concorrentes", label: "Concorrentes", icon: Binoculars, permission: "marketing.concorrentes" },
+  { href: "/marketing/calendario", label: "Calendário Editorial", icon: CalendarDays, permission: "marketing.calendario" },
+  { href: "/marketing/gerador", label: "Gerador de Posts", icon: PanelsTopLeft, permission: "marketing.gerador" },
+  { href: "/marketing/trafego", label: "Tráfego Pago", icon: MetaGlyph, permission: "marketing.trafego" },
 ];
 
 export function MarketingSubNav() {
   const pathname = usePathname();
   const canvasMode = useGlobalStore((state) => state.canvasMode);
+  const { can, isLoading } = useMarketingAccess();
   if (canvasMode) return null;
+  const items = isLoading ? [] : ITEMS.filter((item) => can(item.permission));
   return (
     <div className="border-b px-4 pt-3 sm:px-6 sm:pt-4" style={{ borderColor: "var(--border)" }}>
       <div className="-mx-4 overflow-x-auto px-4 [scrollbar-width:none] sm:mx-0 sm:px-0">
         <nav className="flex min-w-max gap-1">
-          {ITEMS.map((item) => {
+          {items.map((item) => {
             const active = item.exact ? pathname === item.href : pathname.startsWith(item.href);
             const Icon = item.icon;
             return (

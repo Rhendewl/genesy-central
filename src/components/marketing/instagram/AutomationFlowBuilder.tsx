@@ -197,7 +197,7 @@ type Gesture =
   | { kind: "connect"; source: string; handle: string };
 
 export function AutomationFlowBuilder({
-  open, initial, editing, connections, pipelines, profiles, saving, onClose, onSave,
+  open, initial, editing, connections, pipelines, profiles, saving, onClose, onSave, canUseCrm = true,
 }: {
   open: boolean;
   initial: BuilderState;
@@ -206,6 +206,8 @@ export function AutomationFlowBuilder({
   pipelines: BuilderPipeline[];
   profiles: BuilderProfile[];
   saving: boolean;
+  /** Falso para membros sem acesso ao CRM: a ação "Oportunidade no CRM" some. */
+  canUseCrm?: boolean;
   onClose: () => void;
   onSave: (state: BuilderState) => void;
 }) {
@@ -739,6 +741,7 @@ export function AutomationFlowBuilder({
                 isPrivateReply={privateReplies.has(selectedNode.id)}
                 pipelines={pipelines}
                 profiles={profiles}
+                canUseCrm={canUseCrm}
                 selectedPipeline={selectedPipeline}
                 variables={messageVariables}
                 onDuplicate={duplicateSelected}
@@ -792,7 +795,7 @@ function FlowOverview({ issues, flow, triggerType, onSelect }: { issues: FlowIss
 }
 
 function NodeInspector({
-  node, state, issues, isPrivateReply, pipelines, profiles, selectedPipeline, variables, onDuplicate, onState, onData, onRemove,
+  node, state, issues, isPrivateReply, pipelines, profiles, canUseCrm, selectedPipeline, variables, onDuplicate, onState, onData, onRemove,
 }: {
   node: FlowNode;
   state: BuilderState;
@@ -800,6 +803,7 @@ function NodeInspector({
   isPrivateReply: boolean;
   pipelines: BuilderPipeline[];
   profiles: BuilderProfile[];
+  canUseCrm: boolean;
   selectedPipeline: (id: string | null | undefined) => BuilderPipeline | undefined;
   onState: (patch: Partial<BuilderState>) => void;
   onData: (data: Record<string, unknown>) => void;
@@ -839,7 +843,7 @@ function NodeInspector({
       )}
       {node.type === "wait_reply" && <WaitFields data={node.data} onData={onData} />}
       {node.type === "condition" && <ConditionFields data={node.data} onData={onData} />}
-      {node.type === "action" && <ActionFields data={node.data} pipelines={pipelines} profiles={profiles} selectedPipeline={selectedPipeline} onData={onData} />}
+      {node.type === "action" && <ActionFields data={node.data} pipelines={pipelines} profiles={profiles} canUseCrm={canUseCrm} selectedPipeline={selectedPipeline} onData={onData} />}
     </div>
   );
 }
@@ -982,10 +986,11 @@ function ConditionFields({ data, onData }: { data: ConditionNodeData; onData: (d
   );
 }
 
-function ActionFields({ data, pipelines, profiles, selectedPipeline, onData }: {
+function ActionFields({ data, pipelines, profiles, canUseCrm, selectedPipeline, onData }: {
   data: ActionNodeData;
   pipelines: BuilderPipeline[];
   profiles: BuilderProfile[];
+  canUseCrm: boolean;
   selectedPipeline: (id: string | null | undefined) => BuilderPipeline | undefined;
   onData: (data: Record<string, unknown>) => void;
 }) {
@@ -995,10 +1000,12 @@ function ActionFields({ data, pipelines, profiles, selectedPipeline, onData }: {
   return (
     <>
       <div className="ig-flow-segmented is-wide" role="radiogroup" aria-label="Tipo de ação">
-        <button type="button" role="radio" aria-checked={data.kind === "crm"} onClick={() => onData({ kind: "crm", crm })}><Target size={13} />Oportunidade no CRM</button>
+        {canUseCrm && <button type="button" role="radio" aria-checked={data.kind === "crm"} onClick={() => onData({ kind: "crm", crm })}><Target size={13} />Oportunidade no CRM</button>}
         <button type="button" role="radio" aria-checked={data.kind === "add_tag"} onClick={() => onData({ kind: "add_tag", tag: data.tag ?? "" })}><Tag size={13} />Adicionar tag</button>
       </div>
-      {data.kind === "add_tag" ? (
+      {!canUseCrm && data.kind === "crm" ? (
+        <p className="ig-flow-muted">Seu acesso não inclui o CRM. Escolha <b>Adicionar tag</b> para esta ação.</p>
+      ) : data.kind === "add_tag" ? (
         <Field label="Tag" hint="Use em condições mais adiante no fluxo ou em outras automações.">
           <input value={data.tag ?? ""} maxLength={40} onChange={event => onData({ tag: event.target.value })} placeholder="quente" />
         </Field>

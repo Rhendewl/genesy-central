@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { createAdminSupabaseClient } from "@/lib/supabase-admin";
 import { getMarketingServerContext, apiError } from "@/lib/marketing/server";
+import { assertMarketingAccess } from "@/lib/marketing/instagram-access";
 import { discoveryIssue } from "@/lib/marketing/discovery-error";
 import { discoveryReady } from "@/lib/marketing/competitor-discovery";
 import {
@@ -30,6 +31,7 @@ export async function GET(req: NextRequest) {
   try {
     const db = await createServerSupabaseClient();
     const ctx = await getMarketingServerContext(db);
+    assertMarketingAccess(ctx, "marketing.concorrentes");
     const days = Number(req.nextUrl.searchParams.get("days") ?? 30);
     if (![30, 60, 90].includes(days))
       throw Object.assign(new Error("Período inválido"), { status: 400 });
@@ -98,6 +100,7 @@ export async function POST(req: NextRequest) {
   try {
     const session = await createServerSupabaseClient();
     const ctx = await getMarketingServerContext(session);
+    assertMarketingAccess(ctx, "marketing.concorrentes");
     if (!ctx.isAdmin)
       throw Object.assign(
         new Error("Apenas administradores podem gerenciar concorrentes."),

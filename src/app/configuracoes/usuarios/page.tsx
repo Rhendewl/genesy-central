@@ -26,6 +26,15 @@ import { AdministrativeAccessGate } from "@/components/layout/AdministrativeAcce
 import { usePipelines } from "@/hooks/usePipelines";
 import type { CrmPipelineWithStages } from "@/types/crm";
 import { isAdministrativeMember } from "@/lib/user-access";
+import {
+  INSTAGRAM_OWN_ACCOUNTS_PERMISSION,
+  MODULE_SUBMODULES,
+  allSubmoduleKeys,
+  expandLegacyPermissions,
+  normalizePermissions,
+  topLevelPermissions,
+  type PermissionNode,
+} from "@/lib/module-permissions";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Constants
@@ -351,48 +360,145 @@ function Toggle({ label, description, checked, onChange }: {
 // PermissionsGrid — checkboxes de módulos
 // ─────────────────────────────────────────────────────────────────────────────
 
+function PermissionCheck({ active, label, onClick, small = false }: { active: boolean; label: string; onClick: () => void; small?: boolean }) {
+  return (
+    <button
+      type="button"
+      role="checkbox"
+      aria-checked={active}
+      onClick={onClick}
+      className={`flex items-center gap-2 rounded-xl text-left font-medium transition-all ${small ? "px-2.5 py-1.5 text-[11px]" : "px-3 py-2.5 text-[12px]"}`}
+      style={{
+        background: active ? "rgba(39,163,255,0.1)" : "var(--hover)",
+        border: active ? "1px solid rgba(39,163,255,0.3)" : "1px solid var(--glass-border)",
+        color: active ? "#27a3ff" : "var(--icon)",
+      }}
+    >
+      <span
+        className="flex h-4 w-4 shrink-0 items-center justify-center rounded"
+        style={{
+          background: active ? "#27a3ff" : "var(--hover)",
+          border: active ? "none" : "1px solid var(--glass-border)",
+        }}
+      >
+        {active && <Check size={10} color="#000" strokeWidth={3} />}
+      </span>
+      {label}
+    </button>
+  );
+}
+
+function nodeKeys(node: PermissionNode): string[] {
+  return [node.key, ...(node.children ?? []).flatMap(nodeKeys)];
+}
+
 function PermissionsGrid({
   permissions,
   onChange,
+  isAdminRole,
 }: {
   permissions: string[];
   onChange: (perms: string[]) => void;
+  isAdminRole: boolean;
 }) {
-  function toggle(key: string) {
-    onChange(
-      permissions.includes(key)
-        ? permissions.filter((k) => k !== key)
-        : [...permissions, key]
-    );
+  const set = new Set(permissions);
+
+  function apply(next: Set<string>) {
+    // Um nível sem filhos marcados voltaria a liberar tudo (compatibilidade),
+    // então desmarca de baixo para cima o que ficou vazio.
+    const prune = (parentKey: string, nodes: PermissionNode[]) => {
+      for (const node of nodes) if (node.children?.length) prune(node.key, node.children);
+      if (next.has(parentKey) && !nodes.some((node) => next.has(node.key))) next.delete(parentKey);
+    };
+    for (const [moduleKey, nodes] of Object.entries(MODULE_SUBMODULES)) prune(moduleKey, nodes);
+    onChange(normalizePermissions(Array.from(next)));
+  }
+
+  function toggleModule(key: string) {
+    const next = new Set(set);
+    if (next.has(key)) {
+      next.delete(key);
+    } else {
+      next.add(key);
+      // Ao ligar um módulo com submódulos, começa com tudo liberado.
+      for (const sub of allSubmoduleKeys(key)) next.add(sub);
+    }
+    apply(next);
+  }
+
+  function toggleNode(moduleKey: string, node: PermissionNode, parentKey: string) {
+    const next = new Set(set);
+    if (next.has(node.key)) {
+      for (const key of nodeKeys(node)) next.delete(key);
+    } else {
+      next.add(moduleKey);
+      next.add(parentKey);
+      for (const key of nodeKeys(node)) next.add(key);
+    }
+    apply(next);
+  }
+
+  function toggleFlag(flag: string) {
+    const next = new Set(set);
+    if (next.has(flag)) next.delete(flag); else next.add(flag);
+    apply(next);
   }
 
   return (
-    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
-      {ALL_MODULES.map(({ key, label }) => {
-        const active = permissions.includes(key);
+    <div className="space-y-3">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+        {ALL_MODULES.map(({ key, label }) => (
+          <PermissionCheck key={key} active={set.has(key)} label={label} onClick={() => toggleModule(key)} />
+        ))}
+      </div>
+
+      {Object.entries(MODULE_SUBMODULES).filter(([moduleKey]) => set.has(moduleKey)).map(([moduleKey, nodes]) => {
+        const moduleLabel = ALL_MODULES.find((item) => item.key === moduleKey)?.label ?? moduleKey;
         return (
-          <button
-            key={key}
-            type="button"
-            onClick={() => toggle(key)}
-            className="flex items-center gap-2 rounded-xl px-3 py-2.5 text-left text-[12px] font-medium transition-all"
-            style={{
-              background: active ? "rgba(39,163,255,0.1)" : "var(--hover)",
-              border: active ? "1px solid rgba(39,163,255,0.3)" : "1px solid var(--glass-border)",
-              color: active ? "#27a3ff" : "var(--icon)",
-            }}
-          >
-            <span
-              className="flex h-4 w-4 shrink-0 items-center justify-center rounded"
-              style={{
-                background: active ? "#27a3ff" : "var(--hover)",
-                border: active ? "none" : "1px solid var(--glass-border)",
-              }}
-            >
-              {active && <Check size={10} color="#000" strokeWidth={3} />}
-            </span>
-            {label}
-          </button>
+          <div key={moduleKey} className="space-y-2.5 rounded-xl p-3.5" style={{ background: "var(--hover)", border: "1px solid var(--border)" }}>
+            <p className="text-[11px] font-medium uppercase tracking-widest" style={{ color: "color-mix(in srgb, var(--text-title) 40%, transparent)" }}>
+              Submódulos de {moduleLabel}
+            </p>
+            <div className="space-y-2">
+              {nodes.map((node) => {
+                const active = set.has(node.key);
+                return (
+                  <div key={node.key} className="space-y-2">
+                    <PermissionCheck active={active} label={node.label} onClick={() => toggleNode(moduleKey, node, moduleKey)} />
+                    {active && node.children?.length ? (
+                      <div className="ml-6 space-y-2">
+                        <div className="flex flex-wrap gap-1.5">
+                          {node.children.map((child) => (
+                            <PermissionCheck
+                              key={child.key}
+                              small
+                              active={set.has(child.key)}
+                              label={child.label}
+                              onClick={() => toggleNode(moduleKey, child, node.key)}
+                            />
+                          ))}
+                        </div>
+                        {node.key === "marketing.instagram" && (
+                          isAdminRole ? (
+                            <p className="text-[11px]" style={{ color: "color-mix(in srgb, var(--text-title) 35%, transparent)" }}>
+                              Administradores sempre veem todas as contas do Instagram.
+                            </p>
+                          ) : (
+                            <Toggle
+                              label="Somente as contas que ele conectar"
+                              description="Ele conecta o próprio Instagram e gerencia as automações dessas contas, sem ver as contas da organização."
+                              checked={set.has(INSTAGRAM_OWN_ACCOUNTS_PERMISSION)}
+                              onChange={() => toggleFlag(INSTAGRAM_OWN_ACCOUNTS_PERMISSION)}
+                            />
+                          )
+                        )}
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         );
       })}
     </div>
@@ -455,11 +561,13 @@ function UserModal({
     job_title:   initial.job_title ?? "",
     is_active:   initial.is_active,
     send_invite: (initial as CreateUserPayload).send_invite ?? false,
-    permissions: initial.permissions ?? ROLE_DEFAULT_PERMISSIONS[initial.role as UserRole],
+    permissions: expandLegacyPermissions(initial.permissions ?? ROLE_DEFAULT_PERMISSIONS[initial.role as UserRole]),
     crm_pipeline_id: initial.crm_pipeline_id ?? null,
   });
 
   const isCreate = mode === "create";
+  // A pipeline só é obrigatória para quem vai usar o CRM.
+  const needsPipeline = !isAdministrativeMember(form) && form.permissions.includes("crm");
   const inputStyle = {
     background: "var(--hover)",
     border: "1px solid var(--border)",
@@ -477,7 +585,7 @@ function UserModal({
     setForm(prev => ({
       ...prev,
       role,
-      permissions: ROLE_DEFAULT_PERMISSIONS[role],
+      permissions: expandLegacyPermissions(ROLE_DEFAULT_PERMISSIONS[role]),
       ...(role === "admin" ? { crm_pipeline_id: null } : {}),
     }));
   }
@@ -489,7 +597,7 @@ function UserModal({
       job_title: jobTitle,
       ...(preset ? {
         role: preset.role,
-        permissions: ROLE_DEFAULT_PERMISSIONS[preset.role],
+        permissions: expandLegacyPermissions(ROLE_DEFAULT_PERMISSIONS[preset.role]),
         ...(preset.role === "admin" ? { crm_pipeline_id: null } : {}),
       } : undefined),
     }));
@@ -497,8 +605,12 @@ function UserModal({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!isAdministrativeMember(form) && !form.crm_pipeline_id) return;
-    await onSubmit(form as unknown as CreateUserPayload);
+    if (needsPipeline && !form.crm_pipeline_id) return;
+    await onSubmit({
+      ...form,
+      permissions: normalizePermissions(form.permissions),
+      crm_pipeline_id: needsPipeline ? form.crm_pipeline_id : form.crm_pipeline_id ?? null,
+    } as unknown as CreateUserPayload);
   }
 
   return (
@@ -642,7 +754,7 @@ function UserModal({
               </div>
             </div>
 
-            {!isAdministrativeMember(form) && (
+            {needsPipeline && (
               <div className="space-y-1.5">
                 <label className="text-[11px] font-medium uppercase tracking-widest" style={{ color: "color-mix(in srgb, var(--text-title) 40%, transparent)" }}>
                   Pipeline do CRM *
@@ -677,12 +789,13 @@ function UserModal({
                   Módulos disponíveis
                 </label>
                 <span className="text-[11px]" style={{ color: "color-mix(in srgb, var(--text-title) 25%, transparent)" }}>
-                  {form.permissions.length} de {ALL_MODULES.length} ativos
+                  {topLevelPermissions(form.permissions).length} de {ALL_MODULES.length} ativos
                 </span>
               </div>
               <PermissionsGrid
                 permissions={form.permissions}
                 onChange={(perms) => setField("permissions", perms)}
+                isAdminRole={form.role === "admin"}
               />
             </div>
 
@@ -1032,14 +1145,14 @@ function UsuariosContent() {
                   <p className="text-[14px] font-medium" style={{ color: "var(--text-title)" }}>{profile.full_name}</p>
                   {/* Mini permissões */}
                   <div className="mt-0.5 flex flex-wrap gap-1">
-                    {profile.permissions.slice(0, 4).map(p => (
+                    {topLevelPermissions(profile.permissions).slice(0, 4).map(p => (
                       <span key={p} className="rounded px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide" style={{ background: "var(--hover)", color: "color-mix(in srgb, var(--text-title) 30%, transparent)" }}>
                         {p}
                       </span>
                     ))}
-                    {profile.permissions.length > 4 && (
+                    {topLevelPermissions(profile.permissions).length > 4 && (
                       <span className="rounded px-1.5 py-0.5 text-[9px]" style={{ color: "color-mix(in srgb, var(--text-title) 20%, transparent)" }}>
-                        +{profile.permissions.length - 4}
+                        +{topLevelPermissions(profile.permissions).length - 4}
                       </span>
                     )}
                   </div>

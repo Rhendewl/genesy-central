@@ -4,17 +4,39 @@ import { apiError, getMarketingServerContext } from "@/lib/marketing/server";
 import { assertInstagramConnectionReady, sanitizeInstagramAutomationInput, ANY_COMMENT_ERROR } from "@/lib/instagram-automation/validation";
 import { validateInstagramCrmReferences, validateInstagramFlowCrmReferences } from "@/lib/instagram-automation/crm-config";
 import { flowErrors, legacyStepsToFlow, sanitizeFlow, validateFlow } from "@/lib/instagram-automation/flow";
+import {
+  assertCanManageInstagramConnection, assertInstagramCrmAllowed, assertMarketingAccess, canConnectInstagramAccounts,
+} from "@/lib/marketing/instagram-access";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { MarketingServerContext } from "@/lib/marketing/server";
+
+const NOT_OWNER = "Você só pode alterar automações das contas que conectou";
 
 async function contextForEdit() {
   const supabase = await createServerSupabaseClient();
   const context = await getMarketingServerContext(supabase);
-  if (!context.isAdmin) throw Object.assign(new Error("Apenas administradores podem editar automações"), { status: 403 });
+  assertMarketingAccess(context, "marketing.instagram.automations");
+  if (!canConnectInstagramAccounts(context)) throw Object.assign(new Error("Apenas administradores podem editar automações"), { status: 403 });
   return { supabase, context };
+}
+
+/** Confere que a automação existe na organização e pertence a uma conta que o membro gerencia. */
+async function assertAutomationManageable(supabase: SupabaseClient, context: MarketingServerContext, id: string) {
+  if (context.isAdmin) return;
+  const { data: automation, error } = await supabase.from("marketing_instagram_automations")
+    .select("id,connection_id").eq("id", id).eq("organization_id", context.organizationId).maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!automation) throw Object.assign(new Error("Automação não encontrada"), { status: 404 });
+  const { data: connection } = await supabase.from("marketing_instagram_connections")
+    .select("id,connected_by").eq("id", automation.connection_id).eq("organization_id", context.organizationId).maybeSingle();
+  if (!connection) throw Object.assign(new Error("Automação não encontrada"), { status: 404 });
+  assertCanManageInstagramConnection(context, connection, NOT_OWNER);
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   try {
     const { supabase, context } = await contextForEdit();
+    await assertAutomationManageable(supabase, context, params.id);
     const body = await req.json().catch(() => ({})) as { status?: unknown };
     if (body.status !== "active" && body.status !== "paused") {
       throw Object.assign(new Error("Escolha se a automação ficará ativa ou pausada."), { status: 400 });
@@ -53,10 +75,13 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
   try {
     const { supabase, context } = await contextForEdit();
+    await assertAutomationManageable(supabase, context, params.id);
     const input = sanitizeInstagramAutomationInput(await req.json().catch(() => ({})));
-    const { data: connection } = await supabase.from("marketing_instagram_connections").select("id,status,webhook_subscribed,webhook_fields,requested_scopes")
+    const { data: connection } = await supabase.from("marketing_instagram_connections").select("id,status,webhook_subscribed,webhook_fields,requested_scopes,connected_by")
       .eq("id", input.connectionId).eq("organization_id", context.organizationId).maybeSingle();
     if (!connection) throw Object.assign(new Error("Conta do Instagram não encontrada"), { status: 404 });
+    assertCanManageInstagramConnection(context, connection, NOT_OWNER);
+    assertInstagramCrmAllowed(context, input);
     assertInstagramConnectionReady(input, connection);
     await validateInstagramCrmReferences(supabase, context.organizationId, input);
     await validateInstagramFlowCrmReferences(supabase, context.organizationId, input);
@@ -79,6 +104,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
   try {
     const { supabase, context } = await contextForEdit();
+    await assertAutomationManageable(supabase, context, params.id);
     const { error } = await supabase.from("marketing_instagram_automations").delete()
       .eq("id", params.id).eq("organization_id", context.organizationId);
     if (error) throw new Error(error.message);
