@@ -2,7 +2,7 @@
 
 **Data:** 2026-07-08
 **Branch:** `main` (commit `ae6016a`, 102 commits)
-**Deploy:** Vercel — push em `main` dispara deploy automático
+**Deploy:** Coolify (VPS Hostinger, app "Genesy Dashboard") — push em `main` dispara deploy automático via webhook do GitHub
 **Testes:** 770/770 passing · 39 arquivos de teste
 **Typecheck:** `npx tsc --noEmit` → EXIT 0
 **Working tree:** limpo (sem alterações pendentes)
@@ -77,13 +77,13 @@ No Railway, no serviço do worker:
    ```json
    {"ok":true}
    ```
-6. Na Vercel do dashboard, configurar:
+6. No Coolify (app Genesy Dashboard → Environment Variables), configurar:
    ```txt
    WHATSAPP_QR_WORKER_URL=https://<worker>.up.railway.app
    WHATSAPP_QR_WORKER_SECRET=<mesmo valor do Railway>
    CONVERSATIONS_WORKER_SECRET=<mesmo valor do webhook>
    ```
-7. Fazer redeploy da Vercel.
+7. Fazer redeploy no Coolify.
 8. Testar em produção:
    - `/conversas` → Conectar WhatsApp
    - QR real deve aparecer
@@ -297,7 +297,7 @@ Google Calendar usa OAuth próprio (client id/secret) — checar `src/app/api/go
 ## Links úteis
 
 - **GitHub:** https://github.com/Rhendewl/genesy-central
-- **Vercel:** https://vercel.com/dashboard (deploy automático no push para `main`)
+- **Coolify:** http://187.53.126.66:8000 → My first project → Genesy Dashboard (deploy automático no push para `main` via webhook do GitHub)
 - **Supabase:** https://supabase.com/dashboard/project/cvgraytzgbsmgpvsviav
 - **Produção:** https://dash.genesycompany.com
 
@@ -308,8 +308,8 @@ Google Calendar usa OAuth próprio (client id/secret) — checar `src/app/api/go
 Sprint em andamento: **Conversas / WhatsApp QR**.
 
 1. Finalizar deploy do worker no Railway seguindo o checkpoint acima.
-2. Configurar env vars do worker no Railway e do dashboard na Vercel.
-3. Redeploy da Vercel.
+2. Configurar env vars do worker no Railway e do dashboard no Coolify.
+3. Redeploy no Coolify.
 4. Testar conexão QR real no módulo `/conversas`.
 5. Validar envio/recebimento e execução de fluxo ponta a ponta.
 6. Depois disso, confirmar com o time se o cron do Workflow Engine segue estável em produção após o ajuste de `ae6016a`.
