@@ -103,7 +103,7 @@ describe("Instagram flow engine", () => {
 
     expect(await ingestInstagramWebhook(db, tap(payload, "tap-1"))).toMatchObject({ matched: 1 });
     await drain(db);
-    expect(mocks.sendPayload.mock.calls[1][1]).toEqual({ id: "person-1" });
+    expect((mocks.sendPayload.mock.calls[1] as any[])[1]).toEqual({ id: "person-1" });
     expect(sentTexts()).toEqual(["Quer a tabela?", "Aqui está a tabela"]);
     expect(run(fake)).toMatchObject({ status: "waiting", waiting_for: "reply", current_node_id: "w" });
     expect(fake.rows(JOBS).find(job => job.action_type === "flow_timeout" && job.payload.nodeId === "m1")?.status).toBe("skipped");

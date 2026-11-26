@@ -517,7 +517,7 @@ async function processFlowJob(db: Db, job: JobRow, blocked: boolean, now: string
     if (connection.status !== "connected") throw Object.assign(new Error("A conexão do Instagram não está ativa"), { permanent: true });
     if (automation.status !== "active") return await skipJob(db, job, "Automação pausada ou desativada");
     if (contact?.opted_out_at) return await skipJob(db, job, "Contato cancelou o recebimento de mensagens automáticas");
-    step = await executeNode(node);
+    step = await executeNode(node, connection);
   } catch (caught) {
     return await failOrRetry(db, job, automation.id, caught);
   }
@@ -542,7 +542,7 @@ async function processFlowJob(db: Db, job: JobRow, blocked: boolean, now: string
   else await enqueueFlowJob(db, run, flow, target, addMinutes(new Date().toISOString(), step.delayMinutes ?? 0));
   return "completed" as const;
 
-  async function executeNode(current: FlowNode): Promise<FlowStep> {
+  async function executeNode(current: FlowNode, conn: { instagram_user_id: string; encrypted_access_token: string }): Promise<FlowStep> {
     switch (current.type) {
       case "trigger": {
         const text = String(automation.public_reply_text ?? "").trim();
@@ -550,7 +550,7 @@ async function processFlowJob(db: Db, job: JobRow, blocked: boolean, now: string
           if (!event.comment_id) throw Object.assign(new Error("Comentário sem ID para resposta pública"), { permanent: true });
           const limitReason = await outboundLimitReason(db, automation.id, run.contact_id ?? null);
           if (limitReason) return { kind: "skip", reason: limitReason };
-          externalMessageId = (await replyToInstagramComment(event.comment_id, text, decryptToken(connection.encrypted_access_token))).id;
+          externalMessageId = (await replyToInstagramComment(event.comment_id, text, decryptToken(conn.encrypted_access_token))).id;
           counted = true; sent = true;
         }
         return { kind: "advance", handle: "next" };
@@ -569,7 +569,7 @@ async function processFlowJob(db: Db, job: JobRow, blocked: boolean, now: string
         if (delivery.channel === "dm" && !event.sender_scoped_id) throw Object.assign(new Error("Mensagem sem destinatário do Instagram"), { permanent: true });
         const recipient = delivery.channel === "private_reply" ? { comment_id: event.comment_id as string } : { id: event.sender_scoped_id as string };
         const body = instagramMessageBody(current.data, buttonId => buildFlowPayload(run.id, current.id, buttonId));
-        externalMessageId = (await sendInstagramMessagePayload(connection.instagram_user_id, recipient, body, decryptToken(connection.encrypted_access_token))).message_id;
+        externalMessageId = (await sendInstagramMessagePayload(conn.instagram_user_id, recipient, body, decryptToken(conn.encrypted_access_token))).message_id;
         counted = true; sent = true;
         if (delivery.channel === "private_reply") variables.privateReplyUsed = true;
         if (nodeWaitsForContact(current)) return { kind: "wait", waitingFor: "button", timeoutMinutes: current.data.timeoutMinutes ?? null };

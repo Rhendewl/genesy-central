@@ -210,7 +210,7 @@ export function validateFlow(flow: AutomationFlow, triggerType: string): FlowIss
   };
   walk(FLOW_TRIGGER_ID, !isComment, false, 0);
 
-  if (![...reachable].some(id => nodes.get(id)?.type === "message")) {
+  if (!Array.from(reachable).some(id => nodes.get(id)?.type === "message")) {
     issues.push({ nodeId: FLOW_TRIGGER_ID, level: "error", message: "Ligue ao menos uma mensagem ao gatilho" });
   }
   // Loose blocks never run, so their incomplete fields must not block activation.
