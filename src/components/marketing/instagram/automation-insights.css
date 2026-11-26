@@ -234,3 +234,7 @@
 .ig-flow-card .ig-flow-mini>small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
 .ig-flow-mini>.is-fading{opacity:.32;filter:saturate(.6)}
 .ig-flow-mini>i.is-fading{opacity:.35;background:linear-gradient(90deg,color-mix(in srgb,var(--foreground) 25%,transparent),transparent)}
+.ig-flow-card-posts{display:inline-flex;align-items:center;gap:6px;padding:2px 8px 2px 3px;border-radius:999px;font-size:10.5px;
+  color:color-mix(in srgb,var(--foreground) 82%,var(--muted-foreground));background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08)}
+.light .ig-flow-card-posts{background:rgba(0,0,0,.04);border-color:rgba(0,0,0,.07)}
+.ig-flow-card-posts .ig-pick-stack>*{box-shadow:0 0 0 1.5px #0c0c0d}

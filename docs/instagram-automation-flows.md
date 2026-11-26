@@ -82,3 +82,12 @@ Aba "Insights" ao lado de "Fluxos": escolhe o fluxo e o período (7, 30 ou 90 di
 - **Faixa**: envios realizados, tempo médio até concluir, em andamento agora, deixaram dados, com falha.
 - **Entradas e conclusões por dia** (fuso America/Fortaleza), **funil** por bloco (pessoas distintas que chegaram em cada bloco, sem os atrasos), **botões mais tocados**, **horário de chegada**, **dados coletados**, **onde o fluxo foi interrompido** e **últimas pessoas** com WhatsApp/e-mail coletados.
 - Execuções anteriores a esta versão não têm o contador de interações; para elas, "Interagiram" considera só toques em botão registrados.
+
+## Posts do gatilho de comentário
+
+No bloco Gatilho, com "Comentar em uma publicação", o campo **Posts** escolhe entre **Todos os posts** (inclusive os futuros) e **Posts específicos** (até 30, escolhidos por miniatura).
+
+- Banco: `marketing_instagram_automations.media_ids text[]` (`20261126150000_instagram_automation_posts.sql`). Lista vazia = todos os posts.
+- O webhook já traz o `media.id` do comentário; `eligibleAutomations` (`matching.ts`) só aceita fluxos limitados quando o comentário é num dos posts escolhidos e coloca esses fluxos **antes** dos de todos os posts. Continua valendo um único fluxo por comentário.
+- "Qualquer comentário" (sem palavra-chave) só pode ficar ativo com posts específicos; em todos os posts continua exigindo palavra ou frase, para não responder a qualquer comentário da conta.
+- As miniaturas vêm direto do Instagram por `GET /api/marketing/instagram/automations/media?connectionId=` (páginas de 24, `&after=`) ou `&ids=` (posts já escolhidos), porque os links das imagens expiram. Trocar a conta no editor limpa os posts escolhidos.

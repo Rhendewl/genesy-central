@@ -41,6 +41,7 @@ import {
   type MessageNodeData,
   type WaitReplyNodeData,
 } from "@/lib/instagram-automation/flow";
+import { PostScopeField, PostStack } from "./AutomationPostPicker";
 import "./automation-flow.css";
 
 export type BuilderTrigger = "comment" | "message" | "story_reply" | "postback";
@@ -54,6 +55,9 @@ export interface BuilderState {
   matchType: BuilderMatch;
   keywords: string;
   publicReplyText: string;
+  /** Comment triggers: all posts, or only the posts in mediaIds. */
+  postScope: "all" | "specific";
+  mediaIds: string[];
   flow: AutomationFlow;
 }
 export type BuilderConnection = { id: string; username: string };
@@ -250,9 +254,11 @@ export function AutomationFlowBuilder({
     if (!state.name.trim()) list.push({ nodeId: null, level: "error", message: "Dê um nome à automação" });
     if (!state.connectionId) list.push({ nodeId: null, level: "error", message: "Escolha a conta profissional" });
     if (state.matchType !== "any" && !keywordList(state.keywords).length) list.push({ nodeId: FLOW_TRIGGER_ID, level: "error", message: "Informe ao menos uma palavra ou frase" });
-    if (state.triggerType === "comment" && state.matchType === "any") list.push({ nodeId: FLOW_TRIGGER_ID, level: "error", message: "Comentários exigem uma palavra ou frase específica" });
+    const scoped = state.triggerType === "comment" && state.postScope === "specific";
+    if (scoped && !state.mediaIds.length) list.push({ nodeId: FLOW_TRIGGER_ID, level: "error", message: "Escolha ao menos um post" });
+    if (state.triggerType === "comment" && state.matchType === "any" && !scoped) list.push({ nodeId: FLOW_TRIGGER_ID, level: "error", message: "Qualquer comentário só vale para posts específicos" });
     return [...list, ...validateFlow(flow, state.triggerType)];
-  }, [flow, state.connectionId, state.keywords, state.matchType, state.name, state.triggerType]);
+  }, [flow, state.connectionId, state.keywords, state.matchType, state.mediaIds.length, state.name, state.postScope, state.triggerType]);
   const errors = issues.filter(issue => issue.level === "error");
   // Drafts only need what the server requires to store them; anything that can run must be valid.
   const blocking = state.status === "draft" ? errors.filter(issue => issue.nodeId === null || issue.message.startsWith("Informe ao menos")) : errors;
@@ -500,9 +506,13 @@ export function AutomationFlowBuilder({
 
   const selectedNode = flow.nodes.find(node => node.id === selected) ?? null;
   const selectedPipeline = (id: string | null | undefined) => pipelines.find(item => item.id === id);
+  const scopedPosts = state.triggerType === "comment" && state.postScope === "specific";
+  const triggerWhere = scopedPosts
+    ? ` em ${state.mediaIds.length || "?"} ${state.mediaIds.length === 1 ? "post" : "posts"}`
+    : state.triggerType === "comment" ? " em todos os posts" : "";
   const triggerSummary = state.matchType === "any"
-    ? `${TRIGGER_SHORT[state.triggerType]} com qualquer texto`
-    : `${TRIGGER_SHORT[state.triggerType]}: ${keywordList(state.keywords).join(", ") || "defina as palavras"}`;
+    ? `${TRIGGER_SHORT[state.triggerType]}${triggerWhere} com qualquer texto`
+    : `${TRIGGER_SHORT[state.triggerType]}${triggerWhere}: ${keywordList(state.keywords).join(", ") || "defina as palavras"}`;
 
   const save = () => {
     if (blocking.length || saving) return;
@@ -530,7 +540,7 @@ export function AutomationFlowBuilder({
           </div>
           <div className="ig-flow-controls">
             {connections.length > 1 && (
-              <select aria-label="Conta profissional" value={state.connectionId} onChange={event => setState(value => ({ ...value, connectionId: event.target.value }))}>
+              <select aria-label="Conta profissional" value={state.connectionId} onChange={event => setState(value => ({ ...value, connectionId: event.target.value, mediaIds: event.target.value === value.connectionId ? value.mediaIds : [] }))}>
                 {connections.map(item => <option key={item.id} value={item.id}>@{item.username}</option>)}
               </select>
             )}
@@ -656,7 +666,10 @@ export function AutomationFlowBuilder({
                       {badge && <small>{badge}</small>}
                       {(hasError || hasWarning) && <AlertTriangle size={13} className="ig-flow-node-alert" aria-label={nodeIssues[0].message} />}
                     </header>
-                    <p className="ig-flow-node-body" style={{ height: BODY_H }}>{node.type === "trigger" ? triggerSummary : describeNode(node)}</p>
+                    <p className={`ig-flow-node-body${node.type === "trigger" && scopedPosts && state.mediaIds.length ? " has-posts" : ""}`} style={{ height: BODY_H }}>
+                      {node.type === "trigger" && scopedPosts && state.mediaIds.length > 0 && <PostStack connectionId={state.connectionId} ids={state.mediaIds} size={26} max={4} />}
+                      <span>{node.type === "trigger" ? triggerSummary : describeNode(node)}</span>
+                    </p>
                     {hasSingleNext(node) ? (
                       <button
                         type="button"
@@ -837,17 +850,24 @@ function TriggerFields({ state, onState }: { state: BuilderState; onState: (patc
       <Field label="Quando alguém">
         <select value={state.triggerType} onChange={event => {
           const triggerType = event.target.value as BuilderTrigger;
-          onState({ triggerType, matchType: triggerType === "comment" && state.matchType === "any" ? "contains" : state.matchType });
+          const keepsAny = triggerType !== "comment" || state.postScope === "specific";
+          onState({ triggerType, matchType: state.matchType === "any" && !keepsAny ? "contains" : state.matchType });
         }}>
           {(Object.keys(TRIGGER_LABELS) as BuilderTrigger[]).map(key => <option key={key} value={key}>{TRIGGER_LABELS[key]}</option>)}
         </select>
       </Field>
+      {state.triggerType === "comment" && (
+        <Field label="Posts" hint={state.postScope === "specific" ? "Só comentários nesses posts iniciam o fluxo." : "Qualquer post ou Reels, inclusive os futuros."}>
+          <PostScopeField connectionId={state.connectionId} scope={state.postScope} mediaIds={state.mediaIds}
+            onChange={({ scope, mediaIds }) => onState({ postScope: scope, mediaIds, ...(scope === "all" && state.matchType === "any" ? { matchType: "contains" as BuilderMatch } : {}) })} />
+        </Field>
+      )}
       <Field label="Correspondência">
         <select value={state.matchType} onChange={event => onState({ matchType: event.target.value as BuilderMatch })}>
           <option value="contains">Contém a palavra/frase</option>
           <option value="exact">É exatamente igual</option>
           <option value="starts_with">Começa com</option>
-          {state.triggerType !== "comment" && <option value="any">Qualquer texto</option>}
+          {(state.triggerType !== "comment" || state.postScope === "specific") && <option value="any">{state.triggerType === "comment" ? "Qualquer comentário" : "Qualquer texto"}</option>}
         </select>
       </Field>
       {state.matchType !== "any" && (

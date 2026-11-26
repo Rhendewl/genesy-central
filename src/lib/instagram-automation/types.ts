@@ -25,6 +25,8 @@ export interface InstagramAutomationInput {
   crmOriginId?: string | null;
   crmAssignedTo?: string | null;
   crmDealValue?: number;
+  /** Comment automations only: posts that can start it. Empty = all posts. */
+  mediaIds?: string[];
   /** Visual builder graph. When present it replaces steps + CRM toggle. */
   flow?: AutomationFlow | null;
 }

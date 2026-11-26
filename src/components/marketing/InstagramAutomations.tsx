@@ -10,6 +10,7 @@ import {
   type BuilderState,
 } from "@/components/marketing/instagram/AutomationFlowBuilder";
 import { AutomationInsights, Ring } from "@/components/marketing/instagram/AutomationInsights";
+import { PostStack } from "@/components/marketing/instagram/AutomationPostPicker";
 import "@/components/marketing/instagram/automation-insights.css";
 import { flowStats, legacyStepsToFlow, nextNodeId, type AutomationFlow, type FlowNode } from "@/lib/instagram-automation/flow";
 
@@ -17,7 +18,7 @@ type Step = { type: "message"; text: string; delayMinutes: number; button?: { la
 type Automation = {
   id: string; connection_id: string; name: string; status: "draft" | "active" | "paused";
   trigger_type: "comment" | "message" | "story_reply" | "postback";
-  match_type: "contains" | "exact" | "starts_with" | "any"; keywords: string[];
+  match_type: "contains" | "exact" | "starts_with" | "any"; keywords: string[]; media_ids?: string[] | null;
   public_reply_text: string | null; steps: Step[]; flow: AutomationFlow | null; crm_enabled: boolean;
   crm_pipeline_id: string | null; crm_stage_id: string | null;
   crm_origin_id: string | null; crm_assigned_to: string | null; crm_deal_value: number;
@@ -42,7 +43,7 @@ function automationFlow(item: Automation): AutomationFlow {
 function blankState(connectionId: string): BuilderState {
   return {
     name: "", connectionId, status: "draft", triggerType: "comment", matchType: "contains",
-    keywords: "", publicReplyText: "Te mandei no direct!", flow: starterFlow(),
+    keywords: "", publicReplyText: "Te mandei no direct!", postScope: "all", mediaIds: [], flow: starterFlow(),
   };
 }
 
@@ -96,6 +97,7 @@ export function InstagramAutomations({ accountId, createSignal = 0 }: { accountI
     setInitial({
       name: item.name, connectionId: item.connection_id, status: item.status, triggerType: item.trigger_type,
       matchType: item.match_type, keywords: item.keywords.join("\n"), publicReplyText: item.public_reply_text ?? "",
+      postScope: (item.media_ids ?? []).length ? "specific" : "all", mediaIds: item.media_ids ?? [],
       flow: automationFlow(item),
     });
     setEditorOpen(true);
@@ -106,6 +108,7 @@ export function InstagramAutomations({ accountId, createSignal = 0 }: { accountI
     const payload = {
       name: state.name, connectionId: state.connectionId, status: state.status,
       triggerType: state.triggerType, matchType: state.matchType, keywords: keywordList(state.keywords),
+      mediaIds: state.triggerType === "comment" && state.postScope === "specific" ? state.mediaIds : [],
       publicReplyText: state.triggerType === "comment" ? state.publicReplyText : null,
       steps: [], crmEnabled: false, flow: state.flow,
     };
@@ -170,7 +173,7 @@ export function InstagramAutomations({ accountId, createSignal = 0 }: { accountI
             const stats = flowStats(flow);
             const { triggers, completed, failed, messagesSent } = item.metrics;
             const rate = triggers ? completed / triggers : 0;
-            const keywords = item.match_type === "any" ? ["qualquer texto"] : item.keywords;
+            const keywords = item.match_type === "any" ? [item.trigger_type === "comment" ? "qualquer comentário" : "qualquer texto"] : item.keywords;
             return (
               <article key={item.id} className={`ig-flow-card is-${item.status}`}>
                 <div className="ig-flow-card-top">
@@ -185,6 +188,12 @@ export function InstagramAutomations({ accountId, createSignal = 0 }: { accountI
                   <h4>{item.name}</h4>
                   <p className="ig-flow-card-trigger">
                     {TRIGGER_SHORT[item.trigger_type]}
+                    {item.trigger_type === "comment" && (item.media_ids ?? []).length > 0 && (
+                      <span className="ig-flow-card-posts" title="Só nesses posts">
+                        <PostStack connectionId={item.connection_id} ids={(item.media_ids ?? []).slice(0, 3)} size={20} max={3} />
+                        {(item.media_ids ?? []).length === 1 ? "1 post" : `${(item.media_ids ?? []).length} posts`}
+                      </span>
+                    )}
                     {keywords.slice(0, 3).map(keyword => <em key={keyword}>{keyword}</em>)}
                     {keywords.length > 3 && <em>+{keywords.length - 3}</em>}
                   </p>

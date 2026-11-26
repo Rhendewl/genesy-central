@@ -36,7 +36,7 @@ describe("Instagram automation input", () => {
     expect(() => sanitizeInstagramAutomationInput({
       connectionId: "connection", name: "Todos", status: "active", triggerType: "comment", matchType: "any",
       steps: [{ type: "message", text: "Olá", delayMinutes: 0 }], crmEnabled: false,
-    })).toThrow("exigem uma palavra");
+    })).toThrow("escolha os posts específicos");
   });
 
   it("requires spacing between consecutive direct messages", () => {
