@@ -21,14 +21,14 @@ export function buildInviteEmail({
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Convite Lancaster</title>
+  <title>Convite Genesy</title>
 </head>
 <body style="margin:0;padding:0;background:#0a0a0a;font-family:'Segoe UI',Helvetica,Arial,sans-serif;">
   <div style="max-width:480px;margin:48px auto 0;padding:0 16px 48px;">
 
     <!-- Logo -->
     <div style="text-align:center;margin-bottom:32px;">
-      <span style="font-size:22px;font-weight:800;color:#fff;letter-spacing:-0.04em;">Lancaster</span>
+      <span style="font-size:22px;font-weight:800;color:#fff;letter-spacing:-0.04em;">Genesy</span>
     </div>
 
     <!-- Card -->
@@ -43,7 +43,7 @@ export function buildInviteEmail({
         </h2>
         <p style="margin:0 0 28px;font-size:14px;line-height:1.7;color:rgba(255,255,255,0.55);">
           Olá <strong style="color:#fff;">${recipientName}</strong>,<br>
-          você foi convidado para acessar a plataforma Lancaster como
+          você foi convidado para acessar a plataforma Genesy como
           <strong style="color:#27a3ff;">${roleName}</strong>.
           Clique no botão abaixo para criar sua senha e começar.
         </p>
@@ -139,4 +139,17 @@ export function buildCommercialAnalysisEmail({
   </table>
 </body>
 </html>`;
+}
+
+/** Versão em texto puro do convite: melhora a entrega e serve de alternativa ao HTML. */
+export function buildInviteText({ recipientName, inviteLink, roleName }: { recipientName: string; inviteLink: string; roleName: string }) {
+  return [
+    `Olá, ${recipientName}!`,
+    "",
+    `Você foi convidado para acessar a plataforma Genesy como ${roleName}.`,
+    "Para criar sua senha e entrar, abra o link abaixo:",
+    inviteLink,
+    "",
+    "Se você não esperava este convite, ignore este e-mail.",
+  ].join("\n");
 }

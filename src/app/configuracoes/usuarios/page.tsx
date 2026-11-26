@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft, Plus, Search, Users, UserCheck, Mail, ShieldCheck,
   MoreHorizontal, Pencil, Power, KeyRound, Trash2, X,
-  ChevronDown, UserX, Check, Camera, Upload, Loader2,
+  ChevronDown, UserX, Check, Camera, Upload, Loader2, Link2, Copy,
 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -19,6 +19,7 @@ import {
   ALL_MODULES,
   CreateUserPayload,
   UpdateUserPayload,
+  inviteLinkFor,
 } from "@/hooks/useUsers";
 import { useModalOpen } from "@/hooks/useModalOpen";
 import { PrimaryButton } from "@/components/ui/PrimaryButton";
@@ -506,6 +507,68 @@ function PermissionsGrid({
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// InviteLinkDialog — link de convite pronto para copiar
+// ─────────────────────────────────────────────────────────────────────────────
+
+function InviteLinkDialog({ link, onClose }: { link: string; onClose: () => void }) {
+  useModalOpen(true);
+  const [copied, setCopied] = useState(false);
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(link);
+      setCopied(true);
+      toast.success("Link do convite copiado");
+    } catch {
+      toast.error("Não foi possível copiar. Selecione o link e copie manualmente.");
+    }
+  }
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <motion.div
+        className="lc-modal-backdrop absolute inset-0"
+        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+        onClick={onClose}
+        style={{ backdropFilter: "blur(6px)", background: "rgba(0,0,0,0.4)" }}
+      />
+      <motion.div
+        initial={{ opacity: 0, scale: 0.96, y: 12 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.96, y: 12 }}
+        className="lc-modal-panel relative w-full max-w-md space-y-4 rounded-2xl p-6"
+        style={{ background: "var(--bg-modal)", border: "1px solid var(--border-modal)", boxShadow: "0 24px 64px var(--shadow-modal)" }}
+        role="dialog" aria-label="Link do convite"
+      >
+        <div className="flex items-start justify-between">
+          <div>
+            <h2 className="text-[17px] font-bold" style={{ color: "var(--text-title)" }}>Link do convite</h2>
+            <p className="mt-0.5 text-[12px]" style={{ color: "color-mix(in srgb, var(--text-title) 45%, transparent)" }}>
+              Mande este link para a pessoa. Ao abrir, ela cria a senha e entra com os acessos que você escolheu.
+            </p>
+          </div>
+          <button onClick={onClose} aria-label="Fechar" className="flex h-8 w-8 items-center justify-center rounded-full" style={{ color: "color-mix(in srgb, var(--text-title) 40%, transparent)" }}>
+            <X size={15} />
+          </button>
+        </div>
+        <input
+          readOnly value={link} onFocus={e => e.currentTarget.select()}
+          className="h-10 w-full rounded-xl px-3.5 text-[13px] outline-none"
+          style={{ background: "var(--hover)", border: "1px solid var(--border)", color: "var(--text-title)" }}
+        />
+        <p className="text-[11px]" style={{ color: "color-mix(in srgb, var(--text-title) 35%, transparent)" }}>
+          O link é pessoal, vale para o e-mail cadastrado e expira junto com o convite. Ele também fica em Convites pendentes.
+        </p>
+        <div className="flex justify-end gap-2">
+          <button onClick={onClose} className="rounded-xl px-4 py-2 text-[13px]" style={{ background: "var(--hover)", border: "1px solid var(--glass-border)", color: "var(--icon)" }}>
+            Fechar
+          </button>
+          <PrimaryButton type="button" onClick={() => void copy()}>
+            {copied ? <Check size={14} /> : <Copy size={14} />} {copied ? "Copiado" : "Copiar link"}
+          </PrimaryButton>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // UserModal (create + edit)
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -516,6 +579,7 @@ const EMPTY_CREATE: CreateUserPayload = {
   job_title:   "",
   is_active:   true,
   send_invite: false,
+  invite_link: true,
   permissions: ROLE_DEFAULT_PERMISSIONS["viewer"],
   crm_pipeline_id: null,
 };
@@ -550,6 +614,7 @@ function UserModal({
     job_title: string;
     is_active: boolean;
     send_invite: boolean;
+    invite_link: boolean;
     permissions: string[];
     crm_pipeline_id: string | null;
   };
@@ -561,6 +626,7 @@ function UserModal({
     job_title:   initial.job_title ?? "",
     is_active:   initial.is_active,
     send_invite: (initial as CreateUserPayload).send_invite ?? false,
+    invite_link: (initial as CreateUserPayload).invite_link ?? false,
     permissions: expandLegacyPermissions(initial.permissions ?? ROLE_DEFAULT_PERMISSIONS[initial.role as UserRole]),
     crm_pipeline_id: initial.crm_pipeline_id ?? null,
   });
@@ -815,6 +881,14 @@ function UserModal({
                   onChange={v => setField("send_invite", v)}
                 />
               )}
+              {isCreate && (
+                <Toggle
+                  label="Gerar link de convite"
+                  description="Cria um link para você copiar e mandar por WhatsApp ou onde preferir"
+                  checked={form.invite_link}
+                  onChange={v => setField("invite_link", v)}
+                />
+              )}
             </div>
 
             {/* Footer */}
@@ -939,8 +1013,9 @@ function UsuariosContent() {
   const {
     profiles, invites, isLoading, stats,
     createUser, updateUser, toggleActive, deleteUser,
-    revokeInvite, resetPassword, uploadUserAvatar, removeUserAvatar,
+    revokeInvite, resendInvite, resetPassword, uploadUserAvatar, removeUserAvatar,
   } = useUsers();
+  const [createdInviteLink, setCreatedInviteLink] = useState<string | null>(null);
   const { pipelines } = usePipelines();
 
   const [modal, setModal] = useState<ModalState>(null);
@@ -967,15 +1042,14 @@ function UsuariosContent() {
   async function handleCreate(data: CreateUserPayload | UpdateUserPayload) {
     setSaving(true);
     const payload = data as CreateUserPayload;
-    const { error } = await createUser(payload);
+    const { error, inviteLink } = await createUser(payload);
     setSaving(false);
-    if (error) { toast.error("Erro ao criar usuário", { description: error }); return; }
-    if (payload.send_invite) {
-      toast.success("Usuário criado e convite enviado por e-mail");
-    } else {
-      toast.success("Usuário criado com sucesso");
-    }
+    if (error && !inviteLink) { toast.error("Erro ao criar usuário", { description: error }); return; }
+    if (error) toast.error("Convite por e-mail não enviado", { description: error });
+    else if (payload.send_invite) toast.success("Usuário criado e convite enviado por e-mail");
+    else toast.success("Usuário criado com sucesso");
     setModal(null);
+    if (inviteLink) setCreatedInviteLink(inviteLink);
   }
 
   async function handleEdit(data: CreateUserPayload | UpdateUserPayload) {
@@ -1008,6 +1082,22 @@ function UsuariosContent() {
     if (error) { toast.error("Erro ao remover", { description: error }); return; }
     toast.success("Usuário removido");
     setModal(null);
+  }
+
+  async function copyInviteLink(link: string | null) {
+    if (!link) { toast.error("Este convite não tem link. Exclua e crie de novo."); return; }
+    try {
+      await navigator.clipboard.writeText(link);
+      toast.success("Link do convite copiado");
+    } catch {
+      setCreatedInviteLink(link);
+    }
+  }
+
+  async function handleResendInvite(id: string) {
+    const { error } = await resendInvite(id);
+    if (error) toast.error("Não foi possível reenviar", { description: error });
+    else toast.success("Convite reenviado por e-mail");
   }
 
   async function handleRevokeInvite(id: string) {
@@ -1221,6 +1311,24 @@ function UsuariosContent() {
                   <div className="flex items-center gap-3">
                     <RoleBadge role={invite.role} />
                     <button
+                      onClick={() => void copyInviteLink(inviteLinkFor(invite.token))}
+                      title="Copiar link do convite"
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all hover:scale-[1.02] active:scale-95"
+                      style={{ background: "rgba(39,163,255,0.08)", border: "1px solid rgba(39,163,255,0.25)", color: "#27a3ff" }}
+                    >
+                      <Link2 size={12} />
+                      Copiar link
+                    </button>
+                    <button
+                      onClick={() => void handleResendInvite(invite.id)}
+                      title="Reenviar convite por e-mail"
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all hover:scale-[1.02] active:scale-95"
+                      style={{ background: "var(--hover)", border: "1px solid var(--glass-border)", color: "var(--icon)" }}
+                    >
+                      <Mail size={12} />
+                      Reenviar
+                    </button>
+                    <button
                       onClick={() => handleRevokeInvite(invite.id)}
                       title="Excluir convite"
                       className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all hover:scale-[1.02] active:scale-95"
@@ -1239,6 +1347,9 @@ function UsuariosContent() {
 
       {/* Modals */}
       <AnimatePresence>
+        {createdInviteLink && (
+          <InviteLinkDialog link={createdInviteLink} onClose={() => setCreatedInviteLink(null)} />
+        )}
         {modal?.type === "create" && (
           <UserModal
             mode="create"
