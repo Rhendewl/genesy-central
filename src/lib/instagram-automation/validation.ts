@@ -1,5 +1,6 @@
 import type { InstagramAutomationInput } from "./types";
 import { validateInstagramSequence } from "./matching";
+import { flowErrors, sanitizeFlow, validateFlow } from "./flow/validate";
 
 export function sanitizeInstagramAutomationInput(body: Partial<InstagramAutomationInput>) {
   const steps = Array.isArray(body.steps) ? body.steps.map(step => ({
@@ -30,6 +31,17 @@ export function sanitizeInstagramAutomationInput(body: Partial<InstagramAutomati
     throw Object.assign(new Error("Para reduzir risco de spam, comentários ativos exigem uma palavra ou frase específica"), { status: 400 });
   }
   if (input.triggerType !== "comment") input.publicReplyText = null;
+  if (body.flow) {
+    // The builder owns messages and CRM blocks; the linear columns stay empty.
+    input.flow = sanitizeFlow(body.flow);
+    input.steps = [];
+    Object.assign(input, { crmEnabled: false, crmPipelineId: null, crmStageId: null, crmOriginId: null, crmAssignedTo: null, crmDealValue: 0 });
+    // Drafts may be saved half-done; anything that can run must be valid.
+    const [firstError] = flowErrors(validateFlow(input.flow, input.triggerType));
+    if (firstError && input.status !== "draft") throw Object.assign(new Error(firstError.message), { status: 400 });
+    return input;
+  }
+  input.flow = null;
   const sequenceError = validateInstagramSequence(input);
   if (sequenceError) throw Object.assign(new Error(sequenceError), { status: 400 });
   if (input.crmEnabled && (!input.crmPipelineId || !input.crmStageId)) {

@@ -8,6 +8,8 @@ function isoFromTimestamp(value: unknown, fallback: unknown) {
   return Number.isNaN(date.getTime()) ? new Date().toISOString() : date.toISOString();
 }
 
+type Referral = { source?: unknown; ad_id?: unknown; type?: unknown };
+
 function fallbackId(value: unknown) {
   return createHash("sha256").update(JSON.stringify(value)).digest("hex").slice(0, 40);
 }
@@ -58,9 +60,12 @@ export function parseInstagramWebhook(payload: unknown): NormalizedInstagramEven
       if (!rawMessaging || typeof rawMessaging !== "object") continue;
       const item = rawMessaging as {
         sender?: { id?: unknown }; recipient?: { id?: unknown }; timestamp?: unknown; is_self?: unknown;
-        message?: { mid?: unknown; text?: unknown; is_echo?: unknown; is_self?: unknown; quick_reply?: { payload?: unknown }; reply_to?: { story?: unknown } };
-        postback?: { mid?: unknown; title?: unknown; payload?: unknown };
+        message?: { mid?: unknown; text?: unknown; is_echo?: unknown; is_self?: unknown; quick_reply?: { payload?: unknown }; reply_to?: { story?: unknown }; referral?: Referral };
+        postback?: { mid?: unknown; title?: unknown; payload?: unknown; referral?: Referral };
+        referral?: Referral;
       };
+      const referral = item.message?.referral ?? item.postback?.referral ?? item.referral;
+      const fromAd = String(referral?.source ?? "").toUpperCase() === "ADS" || Boolean(referral?.ad_id);
       if (item.is_self || item.message?.is_echo || item.message?.is_self) continue;
       const senderId = item.sender?.id ? String(item.sender.id) : null;
       if (!senderId || senderId === accountId) continue;
@@ -83,6 +88,8 @@ export function parseInstagramWebhook(payload: unknown): NormalizedInstagramEven
         text,
         occurredAt: isoFromTimestamp(item.timestamp, entry.time),
         rawPayload,
+        fromAd,
+        adId: referral?.ad_id ? String(referral.ad_id) : null,
       });
     }
   }

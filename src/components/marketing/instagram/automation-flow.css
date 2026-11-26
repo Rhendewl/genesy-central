@@ -1,0 +1,187 @@
+/* Visual automation builder (Central do Instagram → Automações).
+   Follows the studio glass language: monochrome surfaces, hairline borders,
+   one soft accent per block type. */
+
+.ig-studio-composer.ig-flow-dialog{
+  --ig-line:color-mix(in srgb,var(--foreground) 10%,transparent);
+  --flow-trigger:#b956df;--flow-message:#6aa7ff;--flow-wait:#e2b55a;--flow-condition:#9aa6b2;--flow-crm:#68c69e;--flow-tag:#f0a37a;
+  --flow-danger:#f38c9c;
+  display:flex!important;flex-direction:column;max-width:1480px!important;width:calc(100% - 24px)!important;height:calc(100dvh - 24px)!important;
+  max-height:none!important;padding:0!important;gap:0!important;overflow:hidden!important;border-radius:24px!important
+}
+.ig-flow-dialog .is-trigger{--node-accent:var(--flow-trigger)}
+.ig-flow-dialog .is-message{--node-accent:var(--flow-message)}
+.ig-flow-dialog .is-delay,.ig-flow-dialog .is-wait_reply{--node-accent:var(--flow-wait)}
+.ig-flow-dialog .is-condition{--node-accent:var(--flow-condition)}
+.ig-flow-dialog .is-action-crm{--node-accent:var(--flow-crm)}
+.ig-flow-dialog .is-action-add_tag{--node-accent:var(--flow-tag)}
+
+/* Top bar */
+.ig-flow-topbar{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:16px 20px;border-bottom:1px solid var(--ig-line)}
+.ig-flow-title{display:flex;flex-direction:column;gap:4px;min-width:0;flex:1}
+.ig-studio-composer.ig-flow-dialog .ig-flow-title input{width:min(460px,100%);min-height:34px;padding:2px 0;border:0;border-bottom:1px solid transparent;border-radius:0;background:transparent;font-size:20px;font-weight:500;letter-spacing:-.6px;outline:none}
+.ig-studio-composer.ig-flow-dialog .ig-flow-title input:focus-visible{outline:none;border-bottom-color:color-mix(in srgb,var(--foreground) 30%,transparent)}
+.ig-flow-title input::placeholder{color:var(--muted-foreground)}
+.ig-flow-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.ig-flow-controls select{max-width:190px}
+
+.ig-flow-segmented{display:inline-flex;gap:3px;padding:4px;border:1px solid color-mix(in srgb,var(--foreground) 12%,transparent);border-radius:12px;background:color-mix(in srgb,var(--foreground) 3%,transparent)}
+.ig-flow-segmented button{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:7px 11px;border-radius:9px;font-size:11px;color:var(--muted-foreground);transition:background .18s,color .18s;white-space:nowrap}
+.ig-flow-segmented button:hover{color:var(--foreground)}
+.ig-flow-segmented button[aria-checked=true]{background:color-mix(in srgb,var(--foreground) 10%,transparent);color:var(--foreground);box-shadow:inset 0 1px 0 color-mix(in srgb,var(--foreground) 8%,transparent)}
+.ig-flow-segmented .ig-dot{margin-top:0}
+.ig-flow-segmented.is-small button{font-size:10px;padding:6px 9px;flex:1}
+.ig-flow-segmented.is-wide{display:flex}.ig-flow-segmented.is-wide button{flex:1}
+
+/* Layout */
+.ig-flow-body{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 360px}
+
+/* Canvas */
+.ig-flow-canvas{position:relative;overflow:hidden;cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none;
+  background-color:color-mix(in srgb,var(--foreground) 1.5%,transparent);
+  background-image:radial-gradient(circle,color-mix(in srgb,var(--foreground) 15%,transparent) 1px,transparent 1.3px)}
+.ig-flow-canvas:active{cursor:grabbing}
+.ig-flow-canvas.is-connecting{cursor:crosshair}
+.ig-flow-world{position:absolute;left:0;top:0;width:0;height:0;transform-origin:0 0}
+.ig-flow-edges{position:absolute;left:0;top:0;overflow:visible;pointer-events:none}
+.ig-flow-edge-line{fill:none;stroke:color-mix(in srgb,var(--foreground) 32%,transparent);stroke-width:1.6;transition:stroke .18s}
+.ig-flow-edge.is-muted .ig-flow-edge-line{stroke-dasharray:5 5}
+.ig-flow-edge.is-active .ig-flow-edge-line{stroke:color-mix(in srgb,var(--foreground) 78%,transparent);stroke-width:2}
+.ig-flow-edge-hit{fill:none;stroke:transparent;stroke-width:16;pointer-events:stroke;cursor:pointer}
+.ig-flow-edge:hover .ig-flow-edge-line{stroke:color-mix(in srgb,var(--foreground) 60%,transparent)}
+#ig-flow-arrow path{fill:color-mix(in srgb,var(--foreground) 50%,transparent)}
+.ig-flow-edge-draft{fill:none;stroke:color-mix(in srgb,var(--flow-trigger) 75%,var(--foreground));stroke-width:2;stroke-dasharray:6 5;animation:ig-flow-dash .6s linear infinite}
+@keyframes ig-flow-dash{to{stroke-dashoffset:-11}}
+.ig-flow-edge-remove{position:absolute;display:grid;place-items:center;width:22px;height:22px;transform:translate(-50%,-50%);border-radius:50%;border:1px solid color-mix(in srgb,var(--flow-danger) 55%,transparent);background:var(--background);color:var(--flow-danger);box-shadow:0 4px 14px #0003}
+
+/* Blocks */
+.ig-flow-node{position:absolute;display:flex;flex-direction:column;border-radius:16px;cursor:grab;
+  border:1px solid color-mix(in srgb,var(--foreground) 15%,transparent);
+  background:linear-gradient(160deg,color-mix(in srgb,var(--background) 92%,var(--node-accent) 8%),color-mix(in srgb,var(--background) 88%,transparent));
+  backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
+  box-shadow:inset 0 1px 0 color-mix(in srgb,var(--foreground) 7%,transparent),0 10px 30px #00000022;
+  transition:border-color .18s,box-shadow .18s}
+.ig-flow-node:hover{border-color:color-mix(in srgb,var(--foreground) 26%,transparent)}
+.ig-flow-node:active{cursor:grabbing}
+.ig-flow-node.is-selected{border-color:color-mix(in srgb,var(--node-accent) 70%,var(--foreground) 10%);box-shadow:0 0 0 3px color-mix(in srgb,var(--node-accent) 22%,transparent),0 14px 38px #0000002e}
+.ig-flow-node.has-error{border-color:color-mix(in srgb,var(--flow-danger) 60%,transparent)}
+.ig-flow-node header{display:flex;align-items:center;gap:8px;padding:0 12px;border-bottom:1px solid var(--ig-line);flex-shrink:0}
+.ig-flow-node header b{font-size:12px;font-weight:600;letter-spacing:-.1px;white-space:nowrap}
+.ig-flow-node header small{margin-left:auto;padding:3px 7px;border-radius:999px;font-size:9.5px;white-space:nowrap;
+  background:color-mix(in srgb,var(--node-accent) 16%,transparent);color:color-mix(in srgb,var(--node-accent) 72%,var(--foreground))}
+.ig-flow-node-alert{flex-shrink:0;color:var(--flow-danger)}
+.ig-flow-node.has-warning .ig-flow-node-alert{color:var(--flow-wait)}
+.ig-flow-node header small+.ig-flow-node-alert{margin-left:0}
+.ig-flow-node header b+.ig-flow-node-alert{margin-left:auto}
+.ig-flow-node-icon,.ig-flow-chip{display:grid;place-items:center;flex-shrink:0;width:26px;height:26px;border-radius:8px;
+  background:color-mix(in srgb,var(--node-accent) 20%,transparent);color:color-mix(in srgb,var(--node-accent) 86%,var(--foreground))}
+.ig-flow-chip{width:22px;height:22px;border-radius:7px}
+.ig-flow-node-body{margin:0;padding:9px 12px 0;font-size:11.5px;line-height:1.45;color:color-mix(in srgb,var(--foreground) 78%,var(--muted-foreground));
+  overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow-wrap:anywhere;flex-shrink:0}
+.ig-flow-node-outputs{list-style:none;margin:0;padding:0}
+.ig-flow-node-outputs li{position:relative;display:flex;align-items:center;justify-content:flex-end;padding:0 18px 0 12px;font-size:10.5px;color:var(--muted-foreground);border-top:1px dashed color-mix(in srgb,var(--foreground) 8%,transparent)}
+.ig-flow-node-outputs li span{display:inline-flex;align-items:center;gap:5px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ig-flow-node-outputs li.is-yes span,.ig-flow-node-outputs li.is-reply span{color:color-mix(in srgb,var(--flow-crm) 80%,var(--foreground))}
+.ig-flow-node-outputs li.is-no span{color:color-mix(in srgb,var(--flow-danger) 80%,var(--foreground))}
+.ig-flow-node-outputs li.is-timeout span{color:color-mix(in srgb,var(--flow-wait) 80%,var(--foreground))}
+.ig-flow-node-outputs li.is-button span{color:color-mix(in srgb,var(--node-accent) 80%,var(--foreground))}
+
+.ig-flow-port{position:absolute;width:14px;height:14px;border-radius:50%;border:2px solid color-mix(in srgb,var(--foreground) 40%,transparent);background:var(--background);transition:transform .15s,border-color .15s,background .15s}
+.ig-flow-port.is-in{left:-8px;top:16px;pointer-events:none}
+.ig-flow-port.is-out{right:-8px;top:50%;transform:translateY(-50%);cursor:crosshair;touch-action:none}
+.ig-flow-port.is-out.is-connected{background:color-mix(in srgb,var(--foreground) 65%,transparent);border-color:color-mix(in srgb,var(--foreground) 65%,transparent)}
+.ig-flow-port.is-out:hover{transform:translateY(-50%) scale(1.3);border-color:var(--node-accent);background:color-mix(in srgb,var(--node-accent) 45%,var(--background))}
+.ig-flow-canvas.is-connecting .ig-flow-node:not(.is-trigger):hover{border-color:color-mix(in srgb,var(--node-accent) 70%,transparent)}
+.ig-flow-canvas.is-connecting .ig-flow-node:not(.is-trigger):hover .ig-flow-port.is-in{transform:scale(1.35);border-color:var(--node-accent)}
+
+/* Floating controls */
+.ig-flow-floating{z-index:5}
+.ig-flow-palette,.ig-flow-zoom,.ig-flow-drop-menu{position:absolute;border:1px solid color-mix(in srgb,var(--foreground) 14%,transparent);
+  background:color-mix(in srgb,var(--background) 84%,transparent);backdrop-filter:blur(20px) saturate(130%);-webkit-backdrop-filter:blur(20px) saturate(130%);
+  box-shadow:inset 0 1px 0 color-mix(in srgb,var(--foreground) 7%,transparent),0 10px 28px #0000001f}
+.ig-flow-palette{top:14px;left:14px;display:flex;gap:2px;padding:5px;border-radius:14px;max-width:calc(100% - 28px);overflow-x:auto;scrollbar-width:none}
+.ig-flow-palette button,.ig-flow-drop-menu button{display:inline-flex;align-items:center;gap:7px;padding:6px 11px 6px 6px;border-radius:10px;font-size:11px;font-weight:500;color:var(--foreground);white-space:nowrap;transition:background .15s}
+.ig-flow-palette button:hover,.ig-flow-drop-menu button:hover{background:color-mix(in srgb,var(--foreground) 7%,transparent)}
+.ig-flow-palette button:disabled{opacity:.4;cursor:not-allowed}
+.ig-flow-drop-menu{display:flex;flex-direction:column;min-width:200px;padding:6px;border-radius:14px}
+.ig-flow-drop-menu small{padding:5px 8px 7px;font-size:9px!important;letter-spacing:1.4px;text-transform:uppercase;color:var(--muted-foreground)}
+.ig-flow-zoom{right:14px;bottom:14px;display:flex;align-items:center;gap:2px;padding:4px;border-radius:12px}
+.ig-flow-zoom button{display:grid;place-items:center;width:30px;height:30px;border-radius:8px;color:var(--foreground)}
+.ig-flow-zoom button:hover{background:color-mix(in srgb,var(--foreground) 7%,transparent)}
+.ig-flow-zoom span{min-width:42px;text-align:center;font-size:10px;color:var(--muted-foreground);font-variant-numeric:tabular-nums}
+.ig-flow-hint{position:absolute;left:16px;bottom:18px;max-width:min(560px,calc(100% - 220px));margin:0;font-size:10px;line-height:1.5;color:var(--muted-foreground);pointer-events:none}
+
+/* Inspector */
+.ig-flow-inspector{min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:20px;border-left:1px solid var(--ig-line);background:color-mix(in srgb,var(--background) 55%,transparent)}
+.ig-flow-panel{display:flex;flex-direction:column;gap:15px}
+.ig-flow-panel h3{margin-top:3px;font-size:16px;font-weight:500;letter-spacing:-.3px}
+.ig-flow-panel-head{display:flex;align-items:center;gap:11px}
+.ig-flow-panel-head .ig-flow-chip{width:34px;height:34px;border-radius:11px}
+.ig-flow-panel-head>button{margin-left:auto}
+.ig-studio-composer .ig-flow-field>span{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+.ig-studio-composer .ig-flow-field>span small{font-weight:400;text-align:right}
+.ig-flow-field :is(input,select,textarea){width:100%}
+.ig-flow-field textarea{resize:vertical;line-height:1.55}
+.ig-flow-muted{margin:0;font-size:11px;line-height:1.6;color:var(--muted-foreground)}
+.ig-flow-muted b{font-weight:600;color:var(--foreground)}
+.ig-flow-callout{padding:11px 13px;border-radius:12px;font-size:11px;line-height:1.6;color:color-mix(in srgb,var(--foreground) 85%,var(--muted-foreground));
+  border:1px solid color-mix(in srgb,var(--flow-trigger) 32%,transparent);background:color-mix(in srgb,var(--flow-trigger) 8%,transparent)}
+.ig-flow-callout b{font-weight:600}
+.ig-flow-status{display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border-radius:14px;border:1px solid}
+.ig-flow-status b{display:block;font-size:12px;font-weight:600;color:var(--foreground)}
+.ig-flow-status small{display:block;margin-top:2px;font-size:10px!important;color:var(--muted-foreground)}
+.ig-flow-status.is-ok{color:var(--flow-crm);border-color:color-mix(in srgb,var(--flow-crm) 28%,transparent);background:color-mix(in srgb,var(--flow-crm) 6%,transparent)}
+.ig-flow-status.is-error{color:var(--flow-danger);border-color:color-mix(in srgb,var(--flow-danger) 30%,transparent);background:color-mix(in srgb,var(--flow-danger) 6%,transparent)}
+.ig-flow-issues{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.ig-flow-issues :is(button,span){display:block;width:100%;padding:8px 10px;border-radius:10px;border:1px solid;font-size:11px;line-height:1.5;text-align:left}
+.ig-flow-issues button:not(:disabled):hover{background:color-mix(in srgb,var(--foreground) 4%,transparent)}
+.ig-flow-issues .is-error :is(button,span){border-color:color-mix(in srgb,var(--flow-danger) 32%,transparent);color:color-mix(in srgb,var(--flow-danger) 85%,var(--foreground))}
+.ig-flow-issues .is-warning :is(button,span){border-color:color-mix(in srgb,var(--flow-wait) 32%,transparent);color:color-mix(in srgb,var(--flow-wait) 85%,var(--foreground))}
+.ig-flow-rules{display:flex;flex-direction:column;gap:9px;padding-top:15px;border-top:1px solid var(--ig-line)}
+.ig-flow-rules ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.ig-flow-rules li{font-size:11px;line-height:1.55;color:var(--muted-foreground)}
+.ig-flow-rules li b{font-weight:500;color:var(--foreground)}
+.ig-flow-buttons{display:flex;flex-direction:column;gap:9px}
+.ig-flow-subhead{display:flex;align-items:baseline;justify-content:space-between;font-size:11px}
+.ig-flow-subhead b{font-weight:500}
+.ig-flow-button-row{display:flex;flex-direction:column;gap:8px;padding:10px;border-radius:12px;border:1px solid var(--ig-line);background:color-mix(in srgb,var(--foreground) 2%,transparent)}
+.ig-flow-button-fields{display:flex;gap:6px}.ig-flow-button-fields input{flex:1;min-width:0}
+.ig-flow-toggle-row{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.ig-flow-toggle-row b{display:block;font-size:12px;font-weight:500}
+.ig-flow-toggle-row small{display:block;margin-top:2px}
+.ig-flow-switch{position:relative;flex-shrink:0;width:40px;height:22px;border-radius:999px;background:var(--border);transition:background .18s}
+.ig-flow-switch[aria-checked=true]{background:var(--primary)}
+.ig-flow-switch span{position:absolute;left:2px;top:2px;width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 3px #0004;transition:transform .18s}
+.ig-flow-switch[aria-checked=true] span{transform:translateX(18px)}
+.ig-flow-duration{display:grid;grid-template-columns:minmax(0,1fr) 110px;gap:8px}
+
+/* Automation list cards: mini map of the flow */
+.ig-flow-mini{display:flex;align-items:center;gap:4px;margin-top:12px;flex-wrap:wrap}
+.ig-flow-mini>span{display:grid;place-items:center;width:22px;height:22px;border-radius:7px;background:color-mix(in srgb,var(--node-accent) 18%,transparent);color:color-mix(in srgb,var(--node-accent) 85%,var(--foreground))}
+.ig-flow-mini>i{width:8px;height:1px;background:color-mix(in srgb,var(--foreground) 25%,transparent)}
+.ig-flow-mini>small{margin-left:4px;font-size:10px;color:var(--muted-foreground)}
+.ig-flow-mini .is-trigger{--node-accent:#b956df}.ig-flow-mini .is-message{--node-accent:#6aa7ff}
+.ig-flow-mini .is-delay,.ig-flow-mini .is-wait_reply{--node-accent:#e2b55a}.ig-flow-mini .is-condition{--node-accent:#9aa6b2}
+.ig-flow-mini .is-action-crm{--node-accent:#68c69e}.ig-flow-mini .is-action-add_tag{--node-accent:#f0a37a}
+
+@media(max-width:900px){
+  .ig-flow-topbar{flex-direction:column;align-items:stretch;gap:12px;padding:14px 16px}
+  .ig-flow-controls{justify-content:flex-start}
+  .ig-flow-controls>.ig-primary{margin-left:auto}
+  .ig-flow-body{grid-template-columns:1fr;grid-template-rows:minmax(340px,1fr) auto}
+  .ig-flow-inspector{max-height:46dvh;border-left:0;border-top:1px solid var(--ig-line);padding:16px}
+  .ig-flow-hint{display:none}
+}
+@media(max-width:640px){
+  .ig-studio-composer.ig-flow-dialog{width:calc(100% - 10px)!important;height:calc(100dvh - 10px)!important;padding:0!important;border-radius:20px!important}
+  .ig-studio-composer.ig-flow-dialog .ig-flow-title input{font-size:17px}
+  .ig-flow-topbar{gap:10px;padding:12px 14px}
+  .ig-flow-controls{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .ig-flow-controls select{max-width:none;width:100%;grid-column:1/-1}
+  .ig-flow-controls .ig-flow-segmented{grid-column:1/-1}
+  .ig-flow-controls .ig-flow-segmented button{flex:1;padding:7px 9px}
+  .ig-flow-controls>.ig-primary{margin-left:0}
+  .ig-flow-body{grid-template-rows:minmax(300px,1fr) auto}
+  .ig-flow-inspector{max-height:42dvh}
+  .ig-flow-palette button{padding:6px 9px 6px 6px;font-size:10px}
+}

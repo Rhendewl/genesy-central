@@ -3,7 +3,9 @@ export const INSTAGRAM_PRIVATE_REPLY_WINDOW_MINUTES = 7 * 24 * 60;
 export const INSTAGRAM_MAX_SEQUENCE_MESSAGES = 5;
 export const INSTAGRAM_AUTOMATION_HOURLY_LIMIT = 30;
 export const INSTAGRAM_AUTOMATION_DAILY_LIMIT = 200;
-export const INSTAGRAM_CONTACT_DAILY_LIMIT = 5;
+// Flows with buttons and follow-ups legitimately send more than a linear
+// sequence did; this still caps how often one person hears from one automation.
+export const INSTAGRAM_CONTACT_DAILY_LIMIT = 12;
 
 const OPT_OUT_COMMANDS = new Set([
   "parar", "pare", "sair", "stop", "cancelar", "cancele", "descadastrar",

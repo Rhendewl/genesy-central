@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { apiError, getMarketingServerContext } from "@/lib/marketing/server";
 import { assertInstagramConnectionReady, sanitizeInstagramAutomationInput } from "@/lib/instagram-automation/validation";
-import { validateInstagramCrmReferences } from "@/lib/instagram-automation/crm-config";
+import { validateInstagramCrmReferences, validateInstagramFlowCrmReferences } from "@/lib/instagram-automation/crm-config";
 
 export const dynamic = "force-dynamic";
 
@@ -40,12 +40,14 @@ export async function POST(req: NextRequest) {
     if (!connection) throw Object.assign(new Error("Conta do Instagram não encontrada"), { status: 404 });
     assertInstagramConnectionReady(input, connection);
     await validateInstagramCrmReferences(supabase, context.organizationId, input);
+    await validateInstagramFlowCrmReferences(supabase, context.organizationId, input);
     const { data, error } = await supabase.from("marketing_instagram_automations").insert({
       organization_id: context.organizationId, connection_id: input.connectionId, created_by: context.user.id,
       name: input.name, status: input.status, trigger_type: input.triggerType, match_type: input.matchType,
       keywords: input.keywords, public_reply_text: input.publicReplyText, steps: input.steps,
       crm_enabled: input.crmEnabled, crm_pipeline_id: input.crmPipelineId, crm_stage_id: input.crmStageId,
       crm_origin_id: input.crmOriginId, crm_assigned_to: input.crmAssignedTo, crm_deal_value: input.crmDealValue,
+      flow: input.flow ?? null,
     }).select("*").single();
     if (error) throw new Error(error.message);
     return NextResponse.json({ automation: data }, { status: 201 });

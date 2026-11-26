@@ -163,6 +163,20 @@ export function sendInstagramMessage(
   );
 }
 
+/** Sends an already-built Graph API message body (text, button template…). */
+export function sendInstagramMessagePayload(
+  userId: string,
+  recipient: { id: string } | { comment_id: string },
+  message: Record<string, unknown>,
+  accessToken: string,
+) {
+  return instagramPost<{ recipient_id?: string; message_id: string }>(
+    `/${INSTAGRAM_GRAPH_VERSION}/${userId}/messages`,
+    accessToken,
+    { recipient, message },
+  );
+}
+
 export async function exchangeInstagramCode(code: string, redirectUri: string) {
   const clientId = process.env.INSTAGRAM_APP_ID ?? process.env.META_APP_ID;
   const clientSecret = process.env.INSTAGRAM_APP_SECRET ?? process.env.META_APP_SECRET;
