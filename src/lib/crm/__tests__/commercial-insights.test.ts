@@ -29,7 +29,7 @@ describe("buildCommercialInsights", () => {
   });
 
   it("resume conversão, gargalo e equipe com o número em destaque", () => {
-    expect(byId.conversion?.value).toBe("20%");
+    expect(byId.conversion).toMatchObject({ value: "20%", tone: "good" });
     expect(byId.conversion?.detail).toContain("R$ 5000");
     expect(byId.bottleneck?.title).toContain("Imóvel pendente");
   });

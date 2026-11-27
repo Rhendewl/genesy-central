@@ -71,7 +71,7 @@ export function buildCommercialInsights(input: CommercialInsightInput): Commerci
     const saleRate = (c.sales / c.leads) * 100;
     const money = c.revenue > 0 && input.formatMoney ? ` · ${input.formatMoney(c.revenue)} em vendas` : "";
     out.push({
-      id: "conversion", tone: c.sales > 0 ? "good" : c.meetings > 0 ? "info" : "attention",
+      id: "conversion", tone: meetingRate >= 15 ? "good" : meetingRate >= 5 ? "info" : "attention",
       value: fmtPct(meetingRate),
       title: "Dos leads chegaram à reunião",
       detail: `${plural(c.meetings, "reunião", "reuniões")} e ${plural(c.sales, "venda", "vendas")} entre ${plural(c.leads, "lead", "leads")} (${fmtPct(saleRate)} viraram venda)${money}.`,
