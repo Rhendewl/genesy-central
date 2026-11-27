@@ -62,3 +62,19 @@ describe("analyzeOrigins", () => {
     expect(resolveOrigin({ origin_id: "o-meta", source: "manual" }, origins).name).toBe("Meta Lead Ads");
   });
 });
+
+describe("stageKind", () => {
+  it("usa a marcação da etapa e, sem ela, reconhece pelo nome", async () => {
+    const { stageKind } = await import("../origin-analytics");
+    expect(stageKind({ name: "Vendido", is_won: true })).toBe("sale");
+    expect(stageKind({ name: "Em negociação", metric_type: "qualified_lead" })).toBe("qualified_lead");
+    expect(stageKind({ name: "Reunião agendada", metric_type: null })).toBe("meeting_scheduled");
+    expect(stageKind({ name: "Visita Realizada" })).toBe("meeting_held");
+    expect(stageKind({ name: "Reunião sem comparecimento" })).toBe("meeting_scheduled");
+    expect(stageKind({ name: "Perdidos" })).toBe("lost");
+    expect(stageKind({ name: "Desqualificado" })).toBe("lost");
+    expect(stageKind({ name: "Qualificado" })).toBe("qualified_lead");
+    expect(stageKind({ name: "Em qualificação" })).toBeNull();
+    expect(stageKind({ name: "Follow-up 01" })).toBeNull();
+  });
+});

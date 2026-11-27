@@ -88,6 +88,30 @@ function topList(entries: Map<string, { leads: number; sales: number }>, limit =
 const LEGACY_MEETING = new Set(["reuniao_agendada", "reuniao_realizada", "no_show", "venda_realizada"]);
 const LEGACY_HELD = new Set(["reuniao_realizada", "venda_realizada"]);
 
+export type StageKind = "qualified_lead" | "meeting_scheduled" | "meeting_held" | "sale" | "lost";
+
+const normalize = (value: string) => value.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim();
+
+/**
+ * O que a etapa representa para a conversão. Usa a marcação da etapa
+ * (venda, perda, métrica); quando ela está vazia, reconhece pelo nome as
+ * etapas mais comuns — "Reunião agendada", "Visita realizada", "Perdido"…
+ */
+export function stageKind(stage: Pick<TimingStage, "name" | "metric_type" | "is_won" | "is_lost">): StageKind | null {
+  if (stage.is_won || stage.metric_type === "sale") return "sale";
+  if (stage.is_lost || stage.metric_type === "lost") return "lost";
+  if (stage.metric_type === "meeting_held" || stage.metric_type === "meeting_scheduled" || stage.metric_type === "qualified_lead") return stage.metric_type as StageKind;
+  const name = normalize(stage.name ?? "");
+  if (!name) return null;
+  if (/(no.?show|sem comparecimento|nao compareceu|faltou)/.test(name)) return "meeting_scheduled";
+  if (/(reuniao|visita|apresentacao|call|demonstracao) (realizada|feita|concluida)/.test(name)) return "meeting_held";
+  if (/(reuniao|visita|apresentacao|call|demonstracao) (agendada|marcada|confirmada)/.test(name)) return "meeting_scheduled";
+  if (/^(vendido|venda (realizada|fechada|concluida)|contrato (fechado|assinado)|ganho|fechado|virou cliente)/.test(name)) return "sale";
+  if (/^(perdido|perdidos|perda|declinou|desqualificado|descartado)/.test(name)) return "lost";
+  if (/^(qualificado|lead qualificado|qualificada)$/.test(name)) return "qualified_lead";
+  return null;
+}
+
 export type SegmentResolver = (lead: Lead) => { key: string; name: string; color: string | null } | null;
 
 export interface SegmentInput {
@@ -116,7 +140,7 @@ export function analyzeSegments(input: SegmentInput, resolve: SegmentResolver): 
     return !!segment;
   });
   const stageById = new Map(stages.map(stage => [stage.id, stage]));
-  const hasStageMetrics = stages.some(stage => stage.metric_type || stage.is_won || stage.is_lost);
+  const hasStageMetrics = stages.some(stage => stageKind(stage) !== null);
 
   // Etapas por onde cada lead passou (na pipeline atual), para medir se chegou a reunião/venda.
   const visited = new Map<string, Set<string>>();
@@ -137,11 +161,12 @@ export function analyzeSegments(input: SegmentInput, resolve: SegmentResolver): 
     });
     return hit;
   };
-  const isSale = (s: TimingStage) => !!s.is_won || s.metric_type === "sale";
-  const isLost = (s: TimingStage) => !!s.is_lost || s.metric_type === "lost";
-  const isHeld = (s: TimingStage) => s.metric_type === "meeting_held" || isSale(s);
-  const isMeeting = (s: TimingStage) => s.metric_type === "meeting_scheduled" || isHeld(s);
-  const isQualified = (s: TimingStage) => s.metric_type === "qualified_lead" || isMeeting(s);
+  const kind = (s: TimingStage) => stageKind(s);
+  const isSale = (s: TimingStage) => kind(s) === "sale";
+  const isLost = (s: TimingStage) => kind(s) === "lost";
+  const isHeld = (s: TimingStage) => kind(s) === "meeting_held" || isSale(s);
+  const isMeeting = (s: TimingStage) => kind(s) === "meeting_scheduled" || isHeld(s);
+  const isQualified = (s: TimingStage) => kind(s) === "qualified_lead" || isMeeting(s);
 
   type Acc = {
     name: string; color: string | null; leads: number; qualified: number; meetings: number; held: number; sales: number; lost: number;
