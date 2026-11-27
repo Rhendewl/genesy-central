@@ -31,7 +31,7 @@ export function createCrmStageNotificationConsumer(db: Db): EventConsumer {
       // inscrição push pertencem ao dono real do CRM, armazenado em leads.user_id.
       const { data: lead } = await db
         .from("leads")
-        .select("name, email, contact, user_id, assigned_to")
+        .select("name, email, contact, user_id, assigned_to, source")
         .eq("id", payload.leadId)
         .maybeSingle();
       if (!lead?.user_id) return;
@@ -44,10 +44,10 @@ export function createCrmStageNotificationConsumer(db: Db): EventConsumer {
         .eq("stage_id", payload.stageId)
         .maybeSingle();
 
-      // Sem regra: todo lead que CHEGA numa pipeline avisa o responsável por padrão,
-      // sem precisar configurar nada. Regra desligada = silêncio.
+      // Sem regra: todo lead que CHEGA numa pipeline avisa por padrão, sem
+      // precisar configurar nada. Regra desligada (enabled = false) = silêncio.
       const isArrival = payload.fromStageId == null;
-      if (rule && !rule.enabled) return;
+      if (rule && rule.enabled === false) return;
       if (!rule && !isArrival) return;
       const channels = rule ? ((rule.channels as string[]) ?? []) : ["pwa"];
       if (!channels.includes("pwa")) return;
@@ -81,11 +81,19 @@ export function createCrmStageNotificationConsumer(db: Db): EventConsumer {
       const title = renderTemplate(rule ? rule.title as string : "Novo Lead • {{lead_name}}", vars);
       const body  = renderTemplate(rule ? rule.body as string : "{{lead_name}} está esperando seu contato!", vars);
 
-      // Destinatários: com regra, o dono da conta e o responsável; no aviso padrão, só o responsável.
-      const recipients = new Set<string>(rule ? [lead.user_id as string] : []);
+      // Destinatários: o dono da conta e o responsável pelo lead.
+      // Só um lead digitado à mão no CRM ("manual") deixa de avisar quem o
+      // cadastrou. Leads de formulários, sites, Meta e roletas são criados pelo
+      // sistema em nome do dono (payload.userId = dono), então o dono e o
+      // responsável sempre são avisados da chegada.
       const responsibleAuth = assignee?.is_active ? (assignee.auth_user_id as string | null) : null;
-      // Quem cadastrou o próprio lead não precisa ser avisado.
-      if (responsibleAuth && !(isArrival && !rule && responsibleAuth === payload.userId)) recipients.add(responsibleAuth);
+      const createdByHand = isArrival && !rule && (lead.source ?? "manual") === "manual";
+      const recipients = new Set<string>();
+      for (const candidate of [lead.user_id as string, responsibleAuth]) {
+        if (!candidate) continue;
+        if (createdByHand && candidate === payload.userId) continue;
+        recipients.add(candidate);
+      }
       if (!recipients.size) return;
       const results = await Promise.allSettled(Array.from(recipients).map(userId => dispatchPushToUser(db, userId, title, body, {
         tag: `crm-stage-${event.id}`,
