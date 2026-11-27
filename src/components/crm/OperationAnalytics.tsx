@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useId, useMemo, useState, type ReactNode } from "react";
 import { useSegmentIndicator } from "@/components/ui/useSegmentIndicator";
-import { Clock3, ArrowRight, RefreshCw, Info, ChevronDown, Users, Timer, CheckCircle2, CircleAlert, ArrowUpRight, BarChart3, Moon, Sun, Radar } from "lucide-react";
+import { Clock3, ArrowRight, RefreshCw, Info, ChevronDown, Users, Timer, CheckCircle2, CircleAlert, ArrowUpRight, BarChart3, Moon, Sun, Radar, Lightbulb } from "lucide-react";
 import type { Lead } from "@/types";
 import type { TimingStage, TimingEvent } from "@/lib/crm/operation-analytics";
 import { analyzeOperation, crmDate, CRM_TIME_ZONE, durationLabel, summarizeDurations } from "@/lib/crm/operation-analytics";
@@ -9,6 +9,10 @@ import { MobileFilterDisclosure } from "./MobileFilterDisclosure";
 import "./crm-mobile.css";
 import { AnalyticsPeriodPicker } from "./AnalyticsPeriodPicker";
 import { LeadTrackingAnalytics } from "./LeadTrackingAnalytics";
+import { InsightCards } from "@/components/insights/InsightCards";
+import { buildCommercialInsights } from "@/lib/crm/commercial-insights";
+import { analyzeSegments } from "@/lib/crm/origin-analytics";
+import { useFinancialPrivacyStore, FINANCIAL_VALUE_MASK } from "@/store/financial-privacy";
 import { useUsers } from "@/hooks/useUsers";
 import "./crm-analysis.css";
 
@@ -103,6 +107,28 @@ export function OperationAnalytics({ leads, history, stages, pipelines, refresh,
   const nightCount = arrivals.filter(isNightHour).length;
   const dayCount = arrivals.length - nightCount;
   const pct = (value: number) => arrivals.length ? `${Math.round(value / arrivals.length * 100)}%` : "—";
+  const valuesHidden = useFinancialPrivacyStore(state => state.valuesHidden);
+  const insights = useMemo(() => {
+    const night: number[] = [], day: number[] = [];
+    for (const t of data.timings) {
+      if (t.firstAdvanceMs === null || !t.arrival) continue;
+      (isNightHour(Number(arrivalHour.format(new Date(t.arrival)))) ? night : day).push(t.firstAdvanceMs);
+    }
+    const totals = analyzeSegments({ leads: cohort, stages, history }, () => ({ key: "all", name: "Todos", color: null }));
+    const all = totals.rows[0];
+    return buildCommercialInsights({
+      timings: data.timings, slaMinutes: sla, withinSla: data.withinSla, firstContact: data.firstContact,
+      waiting: data.waiting, overdue: data.overdue,
+      oldestWaitingMs: pending[0]?.waitingSince ? now - Date.parse(pending[0].waitingSince) : null,
+      slowest: slowest ? { name: slowest.stage.name ?? "Etapa", ms: slowest.completed.average ?? 0, current: slowest.current } : null,
+      team: assigneeRows.map(row => ({ name: responsible(row.id === "none" ? null : row.id), medianMs: row.stats.median, measured: row.stats.count, waiting: row.rows.filter(t => t.waiting).length })),
+      arrivals: { night: nightCount, day: dayCount, nightMedianMs: summarizeDurations(night).median, dayMedianMs: summarizeDurations(day).median },
+      conversion: { leads: cohort.length, meetings: all?.meetings ?? 0, sales: all?.sales ?? 0, revenue: all?.revenue ?? 0, hasStageMetrics: totals.hasStageMetrics },
+      now,
+      formatMoney: value => valuesHidden ? FINANCIAL_VALUE_MASK : value.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }),
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data, cohort, stages, history, sla, now, valuesHidden, slowest?.stage.id, nightCount, dayCount, profiles]);
   const arrivalVerdict = !arrivals.length ? "Sem horários de chegada no período" : nightCount === dayCount ? "Chegadas divididas entre dia e noite" : nightCount > dayCount ? "A maior parte dos leads chega à noite" : "A maior parte dos leads chega de dia";
   return <section className="crm-analysis mb-8 space-y-6 px-4 sm:px-6" aria-label="Análise de tempo e atendimento">
     <header className="flex flex-wrap items-center justify-between gap-4"><div><p className="crm-analysis-eyebrow">{view === "comercial" ? "Visão da operação" : "Origens e rastreamento"}</p><h2 className="mt-1 text-xl font-semibold tracking-tight text-[var(--text-title)] sm:text-2xl">{view === "comercial" ? "Onde o atendimento avança. Onde ele demora." : "De onde vêm os leads e o que mais converte."}</h2><p className="mt-2 text-sm text-[var(--muted-foreground)]">{view === "comercial" ? "Veja quanto tempo os leads levam para sair de cada etapa." : "Origem cadastrada, canais e UTMs, campanhas, criativos e dispositivos — com a conversão de cada um."}</p></div><button onClick={() => { setNow(Date.now()); refresh(); }} className="crm-analysis-refresh"><RefreshCw size={15}/>Atualizar análise</button></header>
@@ -128,6 +154,10 @@ export function OperationAnalytics({ leads, history, stages, pipelines, refresh,
     {view === "rastreamento" && <LeadTrackingAnalytics leads={cohort} stages={stages} history={history} firstContactMs={firstContactMs} />}
 
     {view === "comercial" && <>
+    <section className="crm-analysis-panel" aria-label="Leitura rápida da operação">
+      <div className="mb-4 flex items-start justify-between gap-3"><div><p className="crm-analysis-eyebrow">Leitura rápida</p><h3 className="mt-1 text-base font-semibold text-[var(--text-title)]">O que mais importa agora na operação</h3><p className="mt-1 text-xs text-[var(--muted-foreground)]">Resumo automático do período e dos filtros selecionados.</p></div><Lightbulb size={18} className="shrink-0 text-amber-400" /></div>
+      <InsightCards items={insights} />
+    </section>
     <div className="crm-analysis-summary">
       <article className={`${panel} crm-analysis-hero crm-analysis-feature`}><div className="crm-analysis-card-heading"><span className="crm-analysis-icon text-sky-400"><Timer size={19}/></span><span>Primeiro atendimento</span></div><p className="crm-analysis-big-number">{durationLabel(data.firstContact[metric])}</p><p className="text-xs text-[var(--muted-foreground)]">{routeLabel} · {metricLabels[metric].toLowerCase()}</p><div className="crm-analysis-card-footer"><span>Mediana <strong>{durationLabel(data.firstContact.median)}</strong></span><span>{data.firstContact.count} tempos medidos</span></div></article>
       <article className={`${panel} crm-analysis-feature`}><div className="crm-analysis-card-heading"><span className="crm-analysis-icon text-emerald-400"><CheckCircle2 size={19}/></span><span>Atendidos em até {durationLabel(sla*60000)}</span></div><div className="mt-5 flex items-center justify-between gap-3"><div><p className="text-3xl font-semibold tracking-tight sm:text-4xl">{data.withinSla===null?"—":`${data.withinSla.toFixed(0)}%`}</p><p className="mt-2 text-xs text-[var(--muted-foreground)]">{data.firstContact.count} primeiros atendimentos medidos</p></div><div className="crm-analysis-ring" role="img" aria-label={data.withinSla===null?"Sem tempos de atendimento medidos":`${data.withinSla.toFixed(0)}% atendidos em até ${durationLabel(sla*60000)}`} style={{background:`conic-gradient(#34d399 ${progress*3.6}deg, var(--border) 0deg)`}}><CheckCircle2 size={18} className="relative z-10 text-emerald-400"/></div></div><div className="crm-analysis-card-footer"><span>P90 <strong>{durationLabel(data.firstContact.p90)}</strong></span><span title="90% dos tempos de primeiro atendimento estão abaixo desse valor">90% dos tempos até esse valor</span></div></article>

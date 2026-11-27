@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
-  AlertTriangle, Award, BadgeDollarSign, CalendarCheck2, CheckCircle2, Compass, Crown, Globe2, Info, Lightbulb, Loader2,
-  Megaphone, Monitor, PieChart, Radar, Smartphone, Tablet, Tags, TrendingUp, XCircle,
+  Award, BadgeDollarSign, CalendarCheck2, Compass, Crown, Globe2, Lightbulb, Loader2,
+  Megaphone, Monitor, PieChart, Radar, Smartphone, Tablet, Tags, TrendingUp,
 } from "lucide-react";
 import type { Lead } from "@/types";
 import type { TimingEvent, TimingStage } from "@/lib/crm/operation-analytics";
@@ -14,6 +14,7 @@ import { useLeadOrigins } from "@/hooks/useLeadOrigins";
 import { useLeadAttribution } from "@/hooks/useLeadAttribution";
 import { useFinancialPrivacyStore, FINANCIAL_VALUE_MASK } from "@/store/financial-privacy";
 import { Donut, PillSwitch, niceMax, nf, pctText, solidGradient, GRADIENTS } from "@/components/insights/kit";
+import { InsightCards } from "@/components/insights/InsightCards";
 
 const panel = "crm-analysis-panel";
 const brl = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
@@ -51,25 +52,8 @@ function Highlight({ icon, label, name, value, detail, color }: { icon: ReactNod
   </article>;
 }
 
-const TONES: Record<TrackingInsight["tone"], { color: string; icon: ReactNode; label: string }> = {
-  critical:  { color: "#f43f5e", icon: <XCircle size={15} />,       label: "Prioridade" },
-  attention: { color: "#f59e0b", icon: <AlertTriangle size={15} />, label: "Atenção" },
-  good:      { color: "#10b981", icon: <CheckCircle2 size={15} />,  label: "Destaque" },
-  info:      { color: "#38bdf8", icon: <Info size={15} />,          label: "Leitura" },
-};
-
 function Insights({ items }: { items: TrackingInsight[] }) {
-  if (!items.length) return <p className="rounded-xl border border-dashed border-[var(--border)] px-4 py-6 text-center text-xs text-[var(--muted-foreground)]">Ainda não há diferenças relevantes entre as origens no período.</p>;
-  return <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-    {items.map(item => {
-      const tone = TONES[item.tone];
-      return <article key={item.id} className="rounded-2xl border p-4" style={{ borderColor: `${tone.color}40`, background: `linear-gradient(160deg, ${tone.color}14, transparent 60%)` }}>
-        <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide" style={{ color: tone.color }}>{tone.icon}{tone.label}</div>
-        <h5 className="text-sm font-semibold leading-snug text-[var(--text-title)]">{item.title}</h5>
-        <p className="mt-1.5 text-xs leading-relaxed text-[var(--muted-foreground)]">{item.detail}</p>
-      </article>;
-    })}
-  </div>;
+  return <InsightCards items={[...items]} empty="Ainda não há diferenças relevantes entre as origens no período." />;
 }
 
 function RateBar({ value, best, color }: { value: number; best: number; color: string }) {
