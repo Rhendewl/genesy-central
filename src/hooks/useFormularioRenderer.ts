@@ -125,6 +125,11 @@ export function useFormularioRenderer(slug: string, initialForm: Form | null = n
   const phoneLeadSentRef      = useRef(false);
   const endingIdRef           = useRef<string | null>(null);
   const pendingRedirectUrlRef = useRef<string | null>(null);
+  // Analytics: "iniciou" é publicado uma vez por sessão, na primeira interação
+  // real (botão de começar ou primeira resposta) — não na abertura da página.
+  const startedRef            = useRef(false);
+  const stepStartRef          = useRef<number>(Date.now());
+  const lastViewedStepRef     = useRef<string | null>(null);
 
   // Event Bus ref — created in load effect (before any await) and stable across renders
   const busRef           = useRef<EventBus<FormEventType> | null>(null);
@@ -214,11 +219,34 @@ export function useFormularioRenderer(slug: string, initialForm: Form | null = n
         startTimeRef.current    = Date.now();
       }
 
-      // form.started → analytics consumer maps to "session_started" in DB
-      busRef.current?.publish("form.started", { formSlug: slug });
     } finally {
       isCreatingSessionRef.current = false;
     }
+  }, [slug]);
+
+  // ── Analytics helpers ──────────────────────────────────────────────────────
+  // A sessão representa o acesso (criada na abertura); form.started marca o
+  // início de fato, para separar quem só olhou de quem começou a responder.
+  const markStarted = useCallback(() => {
+    if (startedRef.current) return;
+    startedRef.current = true;
+    busRef.current?.publish("form.started", { formSlug: slug });
+  }, [slug]);
+
+  // Publica a visualização da etapa uma única vez por entrada nela.
+  const publishStepView = useCallback((steps: Form["steps"], index: number) => {
+    const step = steps[index];
+    const bus  = busRef.current;
+    if (!step || !bus) return;
+    const key = `${index}:${step.id}`;
+    if (lastViewedStepRef.current === key) return;
+    lastViewedStepRef.current = key;
+    bus.publish("form.step.viewed", {
+      formSlug:  slug,
+      stepId:    step.id,
+      stepIndex: index,
+      stepType:  step.type,
+    });
   }, [slug]);
 
   // ── Load form + create bus ─────────────────────────────────────────────────
@@ -256,6 +284,7 @@ export function useFormularioRenderer(slug: string, initialForm: Form | null = n
         if (stored) {
           sessionTokenRef.current = stored.token;
           startTimeRef.current    = stored.startedAt;
+          startedRef.current      = Object.keys(stored.answers ?? {}).length > 0;
           setAnswers(stored.answers);
           setCurrentStepIndex(stored.currentStepIndex);
           setScreen("step");
@@ -264,6 +293,8 @@ export function useFormularioRenderer(slug: string, initialForm: Form | null = n
           void ensureSession();
         } else {
           setScreen("welcome");
+          // A sessão registra o acesso já na tela de boas-vindas.
+          void ensureSession();
         }
 
         void (async () => {
@@ -332,6 +363,9 @@ export function useFormularioRenderer(slug: string, initialForm: Form | null = n
           } else if (loadedForm.welcome_screen?.enabled) {
             bus.publish("form.welcome.viewed", { formSlug: slug });
           }
+          if (screenRef.current === "step") {
+            publishStepView(loadedForm.steps, currentStepIdxRef.current);
+          }
         })().catch(err => console.error("[useFormularioRenderer] runtime init error:", err));
       })
       .catch((err) => {
@@ -361,9 +395,17 @@ export function useFormularioRenderer(slug: string, initialForm: Form | null = n
   // ── startForm — called by welcome screen CTA ───────────────────────────────
   const startForm = useCallback(async () => {
     await ensureSession();
+    markStarted();
     setScreen("step");
     setCurrentStepIndex(0);
-  }, [ensureSession]);
+  }, [ensureSession, markStarted]);
+
+  // ── Step view + per-step timer ─────────────────────────────────────────────
+  useEffect(() => {
+    if (screen !== "step" || !form) return;
+    stepStartRef.current = Date.now();
+    publishStepView(form.steps, currentStepIndex);
+  }, [screen, currentStepIndex, form, publishStepView]);
 
   // ── Partial save on abandonment ────────────────────────────────────────────
   useEffect(() => {
@@ -371,6 +413,8 @@ export function useFormularioRenderer(slug: string, initialForm: Form | null = n
     const handleUnload = () => {
       const token = sessionTokenRef.current;
       if (!token || screenRef.current === "submitted") return;
+      // Quem só abriu e saiu não abandonou nada: sem respostas, nada a salvar.
+      if (!startedRef.current && Object.keys(answersRef.current).length === 0) return;
 
       // Best-effort: publish abandoned event (may not complete before unload)
       busRef.current?.publish("form.abandoned", {
@@ -378,6 +422,8 @@ export function useFormularioRenderer(slug: string, initialForm: Form | null = n
         lastStepIndex: currentStepIdxRef.current,
         answersCount:  Object.keys(answersRef.current).length,
       });
+
+      if (Object.keys(answersRef.current).length === 0) return;
 
       // Guaranteed delivery via sendBeacon for partial save
       const payload = JSON.stringify({
@@ -518,7 +564,9 @@ export function useFormularioRenderer(slug: string, initialForm: Form | null = n
     const step = form.steps[currentStepIndex];
     if (!step) return;
 
-    const durationSeconds = Math.round((Date.now() - startTimeRef.current) / 1000);
+    markStarted();
+    // Tempo gasto nesta etapa (não desde o início da sessão).
+    const durationSeconds = Math.round((Date.now() - stepStartRef.current) / 1000);
 
     if (step.type === "phone" && !phoneLeadSentRef.current) {
       const rawPhone = answersRef.current[step.id];
@@ -576,12 +624,6 @@ export function useFormularioRenderer(slug: string, initialForm: Form | null = n
         const idx = form.steps.findIndex(s => s.id === result.stepId);
         if (idx >= 0) {
           setCurrentStepIndex(idx);
-          busRef.current?.publish("form.step.viewed", {
-            formSlug:  slug,
-            stepId:    form.steps[idx].id,
-            stepIndex: idx,
-            stepType:  form.steps[idx].type,
-          });
           return;
         }
         break; // target not found — fall through to sequential
@@ -631,14 +673,8 @@ export function useFormularioRenderer(slug: string, initialForm: Form | null = n
       setScreen("ending");
     } else {
       setCurrentStepIndex(nextIndex);
-      busRef.current?.publish("form.step.viewed", {
-        formSlug:  slug,
-        stepId:    form.steps[nextIndex].id,
-        stepIndex: nextIndex,
-        stepType:  form.steps[nextIndex].type,
-      });
     }
-  }, [form, currentStepIndex, engine, slug, savePartialForCrmCapture, selectEnding]);
+  }, [form, currentStepIndex, engine, slug, savePartialForCrmCapture, selectEnding, markStarted]);
 
   // ── goBack ─────────────────────────────────────────────────────────────────
   const goBack = useCallback(() => {
@@ -755,6 +791,8 @@ export function useFormularioRenderer(slug: string, initialForm: Form | null = n
     earlyCaptureInFlightRef.current = false;
     phoneLeadSentRef.current     = false;
     pendingRedirectUrlRef.current = null;
+    startedRef.current           = false;
+    lastViewedStepRef.current    = null;
     // Generate a new correlationId for the restarted session
     correlationIdRef.current     = generateCorrelationId();
     setAnswers({});
@@ -766,8 +804,8 @@ export function useFormularioRenderer(slug: string, initialForm: Form | null = n
       busRef.current?.publish("form.welcome.viewed", { formSlug: slug });
     } else {
       setScreen("step");
-      await ensureSession();
     }
+    await ensureSession();
   }, [form, ensureSession, storageKey, slug, selectEnding]);
 
   const currentStep = form?.steps?.[currentStepIndex] ?? null;

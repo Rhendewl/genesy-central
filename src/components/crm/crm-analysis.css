@@ -70,3 +70,7 @@
 .crm-analysis-stage-wrapper > .crm-analysis-stage { width: 100%; }
 .crm-analysis-stage-wrapper.is-expanded { grid-column: span 2; }
 @media (max-width: 479px) { .crm-analysis-stage-wrapper.is-expanded { grid-column: span 1; } }
+/* Abas da análise: Comercial | Origens e rastreamento */
+.crm-analysis-view-switch { width: fit-content; max-width: 100%; overflow-x: auto; }
+.crm-analysis-view-switch button { min-height: 40px; padding: 0 16px; font-size: 12px; font-weight: 600; white-space: nowrap; display: inline-flex; align-items: center; }
+.crm-analysis-view-switch button[aria-selected=true] { color: var(--text-title); }

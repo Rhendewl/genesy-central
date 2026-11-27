@@ -1,13 +1,14 @@
 "use client";
 import { useEffect, useId, useMemo, useState, type ReactNode } from "react";
 import { useSegmentIndicator } from "@/components/ui/useSegmentIndicator";
-import { Clock3, ArrowRight, RefreshCw, Info, ChevronDown, Users, Timer, CheckCircle2, CircleAlert, ArrowUpRight, BarChart3, Moon, Sun } from "lucide-react";
+import { Clock3, ArrowRight, RefreshCw, Info, ChevronDown, Users, Timer, CheckCircle2, CircleAlert, ArrowUpRight, BarChart3, Moon, Sun, Radar } from "lucide-react";
 import type { Lead } from "@/types";
 import type { TimingStage, TimingEvent } from "@/lib/crm/operation-analytics";
 import { analyzeOperation, crmDate, CRM_TIME_ZONE, durationLabel, summarizeDurations } from "@/lib/crm/operation-analytics";
 import { MobileFilterDisclosure } from "./MobileFilterDisclosure";
 import "./crm-mobile.css";
 import { AnalyticsPeriodPicker } from "./AnalyticsPeriodPicker";
+import { LeadTrackingAnalytics } from "./LeadTrackingAnalytics";
 import { useUsers } from "@/hooks/useUsers";
 import "./crm-analysis.css";
 
@@ -17,6 +18,8 @@ const panel = "crm-analysis-panel";
 const SLA_OPTIONS = [5, 15, 30, 60, 120, 240, 1440];
 const SLA_STORAGE_KEY = "genesy:crm-analysis:sla";
 const DEFAULT_SLA = 5;
+const VIEW_STORAGE_KEY = "genesy:crm-analysis:view";
+type AnalysisView = "comercial" | "rastreamento";
 
 /** Hora (0–23) da chegada no fuso do CRM. */
 const arrivalHour = new Intl.DateTimeFormat("en-US", { timeZone: CRM_TIME_ZONE, hour: "numeric", hourCycle: "h23" });
@@ -68,11 +71,17 @@ export function OperationAnalytics({ leads, history, stages, pipelines, refresh,
   const [metric, setMetric] = useState<TimeMetric>("average");
   const metricSeg = useSegmentIndicator({ background: "var(--background)", boxShadow: "0 1px 5px rgba(0,0,0,.1)" }, { activeSelector: '[aria-pressed="true"]' });
   const [expandedStage, setExpandedStage] = useState<string | null>(null);
+  // Aba da análise: visão comercial (tempos e atendimento) ou origens e rastreamento.
+  const [view, setView] = useState<AnalysisView>("comercial");
+  useEffect(() => { try { const saved = localStorage.getItem(VIEW_STORAGE_KEY); if (saved === "rastreamento" || saved === "comercial") setView(saved); } catch { /* navegação privada */ } }, []);
+  const chooseView = (next: AnalysisView) => { setView(next); try { localStorage.setItem(VIEW_STORAGE_KEY, next); } catch { /* navegação privada */ } };
+  const viewSeg = useSegmentIndicator({ background: "var(--background)", boxShadow: "0 1px 5px rgba(0,0,0,.1)" }, { activeSelector: '[aria-selected="true"]' });
   const cohort = useMemo(() => leads.filter(lead => {
     const day = lead.received_at ? crmDate(lead.received_at) : lead.entered_at;
     return (!start || day >= start) && (!end || day <= end) && (assignee === "all" || (lead.assigned_to ?? "none") === assignee);
   }), [leads, start, end, assignee]);
   const data = useMemo(() => analyzeOperation(cohort, history, stages, now, sla), [cohort, history, stages, now, sla]);
+  const firstContactMs = useMemo(() => new Map(data.timings.map(t => [t.lead.id, t.firstAdvanceMs] as [string, number | null])), [data.timings]);
   const stageName = (id: string) => stages.find(stage => stage.id === id)?.name ?? "Etapa removida";
   const pipelineName = (id: string) => pipelines.find(p => p.id === id)?.name ?? "Pipeline";
   const responsible = (id: string | null) => profiles.find(p => p.id === id)?.full_name ?? "Sem responsável";
@@ -96,7 +105,7 @@ export function OperationAnalytics({ leads, history, stages, pipelines, refresh,
   const pct = (value: number) => arrivals.length ? `${Math.round(value / arrivals.length * 100)}%` : "—";
   const arrivalVerdict = !arrivals.length ? "Sem horários de chegada no período" : nightCount === dayCount ? "Chegadas divididas entre dia e noite" : nightCount > dayCount ? "A maior parte dos leads chega à noite" : "A maior parte dos leads chega de dia";
   return <section className="crm-analysis mb-8 space-y-6 px-4 sm:px-6" aria-label="Análise de tempo e atendimento">
-    <header className="flex flex-wrap items-center justify-between gap-4"><div><p className="crm-analysis-eyebrow">Visão da operação</p><h2 className="mt-1 text-xl font-semibold tracking-tight text-[var(--text-title)] sm:text-2xl">Onde o atendimento avança. Onde ele demora.</h2><p className="mt-2 text-sm text-[var(--muted-foreground)]">Veja quanto tempo os leads levam para sair de cada etapa.</p></div><button onClick={() => { setNow(Date.now()); refresh(); }} className="crm-analysis-refresh"><RefreshCw size={15}/>Atualizar análise</button></header>
+    <header className="flex flex-wrap items-center justify-between gap-4"><div><p className="crm-analysis-eyebrow">{view === "comercial" ? "Visão da operação" : "Origens e rastreamento"}</p><h2 className="mt-1 text-xl font-semibold tracking-tight text-[var(--text-title)] sm:text-2xl">{view === "comercial" ? "Onde o atendimento avança. Onde ele demora." : "De onde vêm os leads e o que mais converte."}</h2><p className="mt-2 text-sm text-[var(--muted-foreground)]">{view === "comercial" ? "Veja quanto tempo os leads levam para sair de cada etapa." : "Origem cadastrada, canais e UTMs, campanhas, criativos e dispositivos — com a conversão de cada um."}</p></div><button onClick={() => { setNow(Date.now()); refresh(); }} className="crm-analysis-refresh"><RefreshCw size={15}/>Atualizar análise</button></header>
 
     <MobileFilterDisclosure summary={`${pipelineIds.length===1?pipelineName(pipelineIds[0]):`${pipelineIds.length} pipelines`} · ${start ? start.slice(5).split("-").reverse().join("/") : "Todo o histórico"}${end ? ` — ${end.slice(5).split("-").reverse().join("/")}` : ""}`} label="Filtros da análise" active={assignee!=="all"}>
     <div className="crm-analysis-toolbar">
@@ -110,6 +119,15 @@ export function OperationAnalytics({ leads, history, stages, pipelines, refresh,
 
     <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-[var(--muted-foreground)]"><span className="inline-flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full bg-sky-400"/><strong className="font-semibold text-[var(--text-title)]">{cohort.length} leads</strong> no período selecionado</span><details className="crm-analysis-method"><summary className="inline-flex cursor-pointer items-center gap-1.5"><Info size={13}/>Como os tempos são calculados<ChevronDown size={12}/></summary><p>Consideramos os leads que chegaram no período e seus movimentos até agora. Primeiro atendimento é a primeira saída da etapa inicial para a próxima etapa de atendimento. Com uma pipeline selecionada, o topo e o cartão da etapa inicial usam os mesmos leads, horários e medida. Com várias pipelines, o topo consolida a seleção e cada cartão mostra sua própria pipeline. Descartes, saltos e retornos não alteram esse indicador. Aguardando atendimento inclui todos os leads atualmente na etapa inicial, inclusive os que retornaram. São tempos corridos, incluindo noites e fins de semana. Horário de João Pessoa. A meta é uma referência desta análise.</p></details></div>
 
+    <div ref={viewSeg.trackRef} role="tablist" aria-label="Tipo de análise" className="crm-analysis-metric-switch crm-analysis-view-switch">
+      {viewSeg.indicator}
+      <button type="button" role="tab" aria-selected={view === "comercial"} onClick={() => chooseView("comercial")}><Timer size={14} className="mr-1.5 inline" />Comercial</button>
+      <button type="button" role="tab" aria-selected={view === "rastreamento"} onClick={() => chooseView("rastreamento")}><Radar size={14} className="mr-1.5 inline" />Origens e rastreamento</button>
+    </div>
+
+    {view === "rastreamento" && <LeadTrackingAnalytics leads={cohort} stages={stages} history={history} firstContactMs={firstContactMs} />}
+
+    {view === "comercial" && <>
     <div className="crm-analysis-summary">
       <article className={`${panel} crm-analysis-hero crm-analysis-feature`}><div className="crm-analysis-card-heading"><span className="crm-analysis-icon text-sky-400"><Timer size={19}/></span><span>Primeiro atendimento</span></div><p className="crm-analysis-big-number">{durationLabel(data.firstContact[metric])}</p><p className="text-xs text-[var(--muted-foreground)]">{routeLabel} · {metricLabels[metric].toLowerCase()}</p><div className="crm-analysis-card-footer"><span>Mediana <strong>{durationLabel(data.firstContact.median)}</strong></span><span>{data.firstContact.count} tempos medidos</span></div></article>
       <article className={`${panel} crm-analysis-feature`}><div className="crm-analysis-card-heading"><span className="crm-analysis-icon text-emerald-400"><CheckCircle2 size={19}/></span><span>Atendidos em até {durationLabel(sla*60000)}</span></div><div className="mt-5 flex items-center justify-between gap-3"><div><p className="text-3xl font-semibold tracking-tight sm:text-4xl">{data.withinSla===null?"—":`${data.withinSla.toFixed(0)}%`}</p><p className="mt-2 text-xs text-[var(--muted-foreground)]">{data.firstContact.count} primeiros atendimentos medidos</p></div><div className="crm-analysis-ring" role="img" aria-label={data.withinSla===null?"Sem tempos de atendimento medidos":`${data.withinSla.toFixed(0)}% atendidos em até ${durationLabel(sla*60000)}`} style={{background:`conic-gradient(#34d399 ${progress*3.6}deg, var(--border) 0deg)`}}><CheckCircle2 size={18} className="relative z-10 text-emerald-400"/></div></div><div className="crm-analysis-card-footer"><span>P90 <strong>{durationLabel(data.firstContact.p90)}</strong></span><span title="90% dos tempos de primeiro atendimento estão abaixo desse valor">90% dos tempos até esse valor</span></div></article>
@@ -148,6 +166,7 @@ export function OperationAnalytics({ leads, history, stages, pipelines, refresh,
 
     <div className="grid gap-5 xl:grid-cols-2"><section className={panel}><div className="flex items-start justify-between gap-3"><div><p className="crm-analysis-eyebrow">Equipe</p><h3 className="mt-1 text-base font-semibold">Ritmo por responsável</h3></div><Users size={18} className="text-[var(--muted-foreground)]"/></div><p className="mt-2 text-xs text-[var(--muted-foreground)]">Tempo médio da etapa inicial para a próxima etapa de atendimento, na primeira passagem.</p><div className="mt-5 space-y-5">{assigneeRows.map(row=>{const max=Math.max(1,...assigneeRows.map(r=>r.stats.average??0));return <div key={row.id}><div className="flex items-center justify-between gap-3"><div className="flex min-w-0 items-center gap-3"><span className="crm-analysis-avatar">{responsible(row.id).split(" ").slice(0,2).map(s=>s[0]).join("")}</span><div className="min-w-0"><p className="truncate text-sm font-medium">{responsible(row.id)}</p><p className="mt-1 text-[11px] text-[var(--muted-foreground)]">{row.rows.length} leads · {row.rows.filter(t=>t.waiting).length} aguardando</p></div></div><p className="shrink-0 text-lg font-semibold">{durationLabel(row.stats.average)}</p></div><div className="ml-12 mt-2 h-1.5 overflow-hidden rounded-full bg-[var(--hover)]"><div className="h-full rounded-full bg-sky-400/70" style={{width:row.stats.average===null?0:`${Math.max(2,row.stats.average/max*100)}%`}}/></div><p className="ml-12 mt-1 text-[10px] text-[var(--muted-foreground)]">{row.stats.count} tempos registrados</p></div>})}{!assigneeRows.length&&<div className="crm-analysis-empty"><Users size={23}/><p>Nenhum lead no período selecionado.</p></div>}</div></section>
       <section className={panel}><div className="flex items-start justify-between gap-3"><div><p className="crm-analysis-eyebrow">Prioridades</p><h3 className="mt-1 text-base font-semibold">Quem precisa de atenção agora</h3></div><span className="crm-analysis-count">{pending.length}</span></div><p className="mt-2 text-xs text-[var(--muted-foreground)]">Todos os leads atualmente na etapa inicial. Em retornos, a espera conta desde a última entrada nessa etapa.</p><div className="mt-4 max-h-[420px] space-y-2 overflow-y-auto">{pending.map(t=>{const wait=t.waitingSince?now-Date.parse(t.waitingSince):null,late=wait!==null&&wait>sla*60000;return <a className={`crm-analysis-priority ${late?"is-overdue":""}`} href={`/crm?lead=${encodeURIComponent(t.lead.id)}`} key={t.lead.id}><span className="min-w-0 flex-1"><span className="block truncate text-sm font-medium">{t.lead.name}</span><span className="mt-1 block truncate text-[11px] text-[var(--muted-foreground)]">{responsible(t.lead.assigned_to)}{t.visits.some(v=>v.stageId===t.lead.stage_id&&v.exitedAt!==null)?" · retornou à etapa inicial":""}</span></span><span className="shrink-0 text-right"><span className="block text-base font-semibold">{durationLabel(wait)}</span><span className={`mt-1 block text-[10px] ${late?"text-amber-500":"text-[var(--muted-foreground)]"}`}>{wait===null?"Hora desconhecida":late?"Acima da meta":"Dentro da meta"}</span></span><ArrowUpRight size={14} className="shrink-0 text-[var(--muted-foreground)]"/></a>})}{!pending.length&&<div className="crm-analysis-empty"><CheckCircle2 size={26} className="text-emerald-400"/><p>Nenhum lead aguardando atendimento na etapa inicial.</p></div>}</div></section></div>
+    </>}
 
     {data.missingArrival>0&&<details className="crm-analysis-data-note"><summary><Info size={14}/>{data.missingArrival} lead(s) sem hora original de chegada<ChevronDown size={13}/></summary><p>Esses leads aparecem nos volumes. Os cálculos que dependem do horário original usam apenas registros conhecidos; nenhum horário é estimado.</p></details>}
     <details className={`${panel} crm-analysis-audit`}><summary className="flex cursor-pointer items-center justify-between gap-3 text-sm font-medium"><span className="flex items-center gap-2"><Clock3 size={15}/>Consultar todos os tempos em detalhe</span><ChevronDown size={15}/></summary><div className="mt-5 overflow-x-auto"><table className="w-full min-w-[700px] text-left text-xs"><thead className="text-[var(--muted-foreground)]"><tr>{["Pipeline / etapa","Leads agora","Saídas medidas","Média até sair","Mediana até sair","P90 até sair","Espera atual · mediana"].map(h=><th key={h} className="p-3 font-medium">{h}</th>)}</tr></thead><tbody>{data.stages.map(row=><tr key={row.stage.id} className="border-t border-[var(--border)]"><td className="p-3"><span className="text-[var(--muted-foreground)]">{pipelineName(row.stage.pipeline_id)}</span><p className="mt-1 font-medium">{row.stage.name||"Etapa"}</p></td><td className="p-3">{row.current}</td><td className="p-3">{row.completed.count}</td><td className="p-3">{durationLabel(row.completed.average)}</td><td className="p-3">{durationLabel(row.completed.median)}</td><td className="p-3">{durationLabel(row.completed.p90)}</td><td className="p-3">{durationLabel(row.open.median)}</td></tr>)}</tbody></table></div></details>
