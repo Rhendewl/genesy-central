@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminSupabaseClient } from "@/lib/supabase-admin";
 import type { AnalyticsEventRecord } from "@/lib/analytics/types";
+import { insertFormEvents } from "@/lib/analytics/insert-events";
 
 type Params = { params: Promise<{ slug: string }> };
 
@@ -58,13 +59,12 @@ export async function POST(req: NextRequest, { params }: Params) {
     idempotency_key: evt.idempotency_key ?? null,
   }));
 
-  const { error } = await supabase
-    .from("form_events")
-    .upsert(rows, { onConflict: "idempotency_key", ignoreDuplicates: true });
+  const { saved, error } = await insertFormEvents(supabase, rows);
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error(`[form/evento/batch] falha ao gravar eventos form=${session.form_id}: ${error}`);
+    return NextResponse.json({ error }, { status: 500 });
   }
 
-  return NextResponse.json({ ok: true, saved: rows.length });
+  return NextResponse.json({ ok: true, saved });
 }

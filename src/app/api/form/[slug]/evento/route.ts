@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminSupabaseClient } from "@/lib/supabase-admin";
+import { insertFormEvents } from "@/lib/analytics/insert-events";
 
 type Params = { params: Promise<{ slug: string }> };
 
@@ -41,20 +42,21 @@ export async function POST(req: NextRequest, { params }: Params) {
 
   if (!form) return NextResponse.json({ error: "Formulário inválido" }, { status: 403 });
 
-  const row: Record<string, unknown> = {
-    form_id:    session.form_id,
-    user_id:    session.user_id,
-    session_id: session.id,
-    step_id:    body.step_id ?? null,
-    event:      body.event,
-    duration:   body.duration ?? null,
-    meta:       body.meta ?? null,
-  };
-  if (body.idempotency_key) row.idempotency_key = body.idempotency_key;
+  const { error } = await insertFormEvents(supabase, [{
+    form_id:         session.form_id,
+    user_id:         session.user_id,
+    session_id:      session.id,
+    step_id:         body.step_id ?? null,
+    event:           body.event,
+    duration:        typeof body.duration === "number" ? Math.max(0, Math.round(body.duration)) : null,
+    meta:            body.meta ?? null,
+    idempotency_key: body.idempotency_key ?? null,
+  }]);
 
-  await supabase
-    .from("form_events")
-    .upsert(row, { onConflict: "idempotency_key", ignoreDuplicates: true });
+  if (error) {
+    console.error(`[form/evento] falha ao gravar evento ${body.event} form=${session.form_id}: ${error}`);
+    return NextResponse.json({ error }, { status: 500 });
+  }
 
   return NextResponse.json({ ok: true });
 }
