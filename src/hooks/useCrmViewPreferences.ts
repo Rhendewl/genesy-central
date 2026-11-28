@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 
 export type CrmView = "kanban" | "list";
-export type LeadListColumn = "assignee" | "tags" | "entered_at" | "origin" | "ig" | "value";
-export type LeadListSort = "name" | "stage" | "assignee" | "entered_at" | "origin" | "ig" | "value";
+export type LeadListColumn = "perfil" | "assignee" | "tags" | "entered_at" | "origin" | "ig" | "value";
+export type LeadListSort = "name" | "stage" | "perfil" | "assignee" | "entered_at" | "origin" | "ig" | "value";
 export interface CrmViewPreferences {
   view: CrmView;
   columns: LeadListColumn[];
@@ -12,11 +12,11 @@ export interface CrmViewPreferences {
   direction: "asc" | "desc";
 }
 const defaults: CrmViewPreferences = {
-  view: "kanban", columns: ["assignee", "tags", "entered_at", "origin", "value"], sort: "stage", direction: "asc",
+  view: "kanban", columns: ["perfil", "assignee", "tags", "entered_at", "origin", "value"], sort: "stage", direction: "asc",
 };
-const PREFERENCES_VERSION = 2;
-const columnKeys: LeadListColumn[] = ["assignee", "tags", "entered_at", "origin", "ig", "value"];
-const sortKeys: LeadListSort[] = ["name", "stage", "assignee", "entered_at", "origin", "ig", "value"];
+const PREFERENCES_VERSION = 3;
+const columnKeys: LeadListColumn[] = ["perfil", "assignee", "tags", "entered_at", "origin", "ig", "value"];
+const sortKeys: LeadListSort[] = ["name", "stage", "perfil", "assignee", "entered_at", "origin", "ig", "value"];
 
 export function useCrmViewPreferences(memberId?: string) {
   const key = memberId ? `crm-view:${memberId}` : null;
@@ -31,11 +31,13 @@ export function useCrmViewPreferences(memberId?: string) {
         if (saved && typeof saved === "object") {
           const savedColumns = Array.isArray(saved.columns) ? columnKeys.filter(column => saved.columns.includes(column)) : defaults.columns;
           const migrate = saved.version !== PREFERENCES_VERSION;
+          // v2 → v3 só acrescenta a coluna Perfil; a ordenação escolhida continua.
+          const keepSort = !migrate || saved.version === 2;
           value = {
             view: saved.view === "list" ? "list" : "kanban",
-            columns: migrate ? columnKeys.filter(column => savedColumns.includes(column) || column === "origin" || column === "value") : savedColumns,
-            sort: !migrate && sortKeys.includes(saved.sort) ? saved.sort : defaults.sort,
-            direction: !migrate && (saved.direction === "asc" || saved.direction === "desc") ? saved.direction : defaults.direction,
+            columns: migrate ? columnKeys.filter(column => savedColumns.includes(column) || column === "perfil" || (saved.version !== 2 && (column === "origin" || column === "value"))) : savedColumns,
+            sort: keepSort && sortKeys.includes(saved.sort) ? saved.sort : defaults.sort,
+            direction: keepSort && (saved.direction === "asc" || saved.direction === "desc") ? saved.direction : defaults.direction,
           };
           if (migrate) localStorage.setItem(key, JSON.stringify({ ...value, version: PREFERENCES_VERSION }));
         }

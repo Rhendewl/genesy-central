@@ -85,7 +85,7 @@ describe("CRM list and kanban", () => {
     await render();
     expect(button("Lista").getAttribute("aria-pressed")).toBe("true");
     expect(host.querySelector('th[aria-sort="ascending"]')?.textContent).toBe("Etapa");
-    expect(Array.from(host.querySelectorAll("thead th")).map(th => th.textContent)).toEqual(["Lead", "Etapa", "WhatsApp", "Responsável", "Origem", "Valor do negócio"]);
+    expect(Array.from(host.querySelectorAll("thead th")).map(th => th.textContent)).toEqual(["Lead", "Etapa", "WhatsApp", "Perfil", "Responsável", "Origem", "Valor do negócio"]);
     await click("Lead");
     await act(async () => root.unmount()); root = createRoot(host); await render();
     expect(host.querySelector('th[aria-sort="ascending"]')?.textContent).toBe("Lead");

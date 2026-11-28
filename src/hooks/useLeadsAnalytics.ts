@@ -9,6 +9,7 @@ import { analyzeOperation } from "@/lib/crm/operation-analytics";
 import { LeadScoreEngine } from "@/lib/crm/lead-score-engine";
 import type { StageHistoryRow, StageOrderRow } from "./useLeadsAnalyticsData";
 import type { CrmGoal, CrmStageMetricType } from "@/types/crm";
+import { campaignPerfilMatrix, perfilBreakdown, type CampaignPerfilRow, type PerfilBreakdownRow } from "@/lib/crm/perfil-analytics";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // useLeadsAnalytics
@@ -105,6 +106,10 @@ export interface LeadsAnalyticsData {
   ieBuckets:  ScoreBucketPoint[];
   avgTimeToIe100Hours:          number | null;
   avgTimeBetweenIeBracketsHours: number | null;
+
+  // ── Perfil (Corretor / Imobiliária / Construtora) ─────────────────────────
+  perfilBreakdown: PerfilBreakdownRow[];
+  campaignByPerfil: CampaignPerfilRow[];
 }
 
 export interface CrmGoalMetrics {
@@ -133,6 +138,15 @@ const SOURCE_LABELS: Record<string, string> = {
 
 function sourceLabel(s: string): string {
   return SOURCE_LABELS[s] ?? s;
+}
+
+/** Campanha do anúncio; sem anúncio, o formulário; sem formulário, a origem. */
+function campaignOf(lead: Lead) {
+  if (lead.campaign_name?.trim()) return { key: `c:${lead.campaign_name.trim()}`, label: lead.campaign_name.trim() };
+  if (lead.form_name?.trim()) return { key: `f:${lead.form_name.trim()}`, label: `Formulário · ${lead.form_name.trim()}` };
+  const source = lead.source || "manual";
+  const label = SOURCE_LABELS[source] ?? source.replaceAll("_", " ").replace(/(^|\s)\S/g, letter => letter.toUpperCase());
+  return { key: `s:${source}`, label: `Origem · ${label}` };
 }
 
 const MEETING_STAGES = new Set([
@@ -557,7 +571,13 @@ export function useLeadsAnalytics(
     });
     const avgTimeBetweenIeBracketsHours = avgOf(bracketTransitionHours);
 
+    const isMeeting = (lead: Lead) => stages.length ? reached(lead, "meeting_scheduled") || reached(lead, "meeting_held") : MEETING_STAGES.has(lead.kanban_column);
+    const perfilRows = perfilBreakdown(leads, isMeeting, won);
+    const campaignByPerfil = campaignPerfilMatrix(leads, campaignOf);
+
     return {
+      perfilBreakdown: perfilRows,
+      campaignByPerfil,
       todayCount,
       last7Count,
       last30Count,
