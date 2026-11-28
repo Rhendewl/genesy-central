@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { LeadPerfil } from "@/lib/crm/lead-perfil";
 
 export interface LeadRow {
   id:            string;
@@ -30,6 +31,8 @@ export interface CreateLeadParams {
   deal_value?:   number;
   notes?:        string | null;
   integration_notes?: string | null;
+  /** Só para criação manual: perfil escolhido no formulário do CRM. */
+  perfil?:       LeadPerfil | null;
   entered_at?:   string;
   received_at?:  string | null;
   is_duplicate?: boolean;
@@ -94,6 +97,7 @@ export class LeadRepository {
         deal_value:    params.deal_value    ?? 0,
         notes:         params.notes         ?? null,
         integration_notes: params.integration_notes ?? null,
+        ...(params.perfil ? { perfil: params.perfil, perfil_manual: true } : {}),
         ...(params.received_at !== undefined ? { received_at: params.received_at } : {}),
         entered_at:    params.entered_at    ?? new Date().toISOString().split("T")[0],
         is_duplicate:  params.is_duplicate  ?? false,

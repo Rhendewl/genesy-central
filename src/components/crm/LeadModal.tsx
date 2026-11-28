@@ -31,6 +31,7 @@ import type { KanbanColumn, Lead, NewLead, UpdateLead } from "@/types";
 import { KANBAN_COLUMNS } from "@/types";
 import type { CrmStage, CrmPipelineWithStages } from "@/types/crm";
 import { LeadScoreEngine } from "@/lib/crm/lead-score-engine";
+import { LEAD_PERFIS, isLeadPerfil, type LeadPerfil } from "@/lib/crm/lead-perfil";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Utilitários
@@ -79,6 +80,7 @@ function emptyForm() {
     stage_id:    null as string | null,
     assigned_to: null as string | null,
     origin_id:    null as string | null,
+    perfil:      null as LeadPerfil | null,
     tags:        [] as string[],
     notes:       "",
     entered_at:  TODAY,
@@ -158,6 +160,7 @@ export function LeadModal({
           stage_id:    lead.stage_id ?? null,
           assigned_to: lead.assigned_to ?? null,
           origin_id:    lead.origin_id ?? origins.find(origin => origin.slug === lead.source)?.id ?? null,
+          perfil:      lead.perfil ?? null,
           tags:        lead.tags as string[],
           notes:       lead.notes ?? "",
           entered_at:  lead.entered_at,
@@ -168,6 +171,7 @@ export function LeadModal({
           entered_at: lead.entered_at, assigned_to: lead.assigned_to ?? null,
           origin_id: lead.origin_id ?? null,
           source: lead.source,
+          perfil: lead.perfil ?? null, perfil_manual: lead.perfil_manual ?? false,
         };
         setDealValue(lead.deal_value ?? 0);
         setAutosaveSession(lead.id);
@@ -194,7 +198,9 @@ export function LeadModal({
     notes: form.notes.trim() || null, deal_value: dealValue,
     entered_at: form.entered_at, assigned_to: form.assigned_to, origin_id: originTouched ? form.origin_id : lead?.origin_id ?? null,
     source: originTouched ? origins.find(origin => origin.id === form.origin_id)?.slug ?? lead?.source : lead?.source,
-  }), [form, dealValue, origins, lead?.source, lead?.origin_id, originTouched]);
+    // Escolha feita aqui é manual: a classificação automática não sobrescreve.
+    perfil: form.perfil, perfil_manual: form.perfil !== (lead?.perfil ?? null) ? true : lead?.perfil_manual ?? false,
+  }), [form, dealValue, origins, lead?.source, lead?.origin_id, lead?.perfil, lead?.perfil_manual, originTouched]);
   const autosave = useLeadAutosave(isOpen && lead && autosaveSession === lead.id ? lead.id : null,
     initialDraft.current, draft, Boolean(form.name.trim() && form.contact.trim() && form.entered_at && Number.isFinite(dealValue) && dealValue >= 0), onUpdate);
   const flushDraft = async () => {
@@ -323,6 +329,7 @@ export function LeadModal({
         entered_at:    form.entered_at,
         ie_score:      ieScore,
         origin_id:     form.origin_id,
+        perfil:        form.perfil,
       };
       const result = await onCreate(createPayload);
       setIsSubmitting(false);
@@ -591,6 +598,29 @@ export function LeadModal({
                   <div className="space-y-1.5">
                     <Label className="text-[11px] font-medium text-[var(--muted-foreground)]">Origem</Label>
                     <LeadOriginSelector value={form.origin_id} onChange={(originId) => { setOriginTouched(true); setForm(current => ({ ...current, origin_id: originId })); }} />
+                  </div>
+
+                  {/* Perfil do cliente — automático pelo formulário, editável aqui */}
+                  <div className="space-y-1.5">
+                    <Label htmlFor="lead-perfil" className="text-[11px] font-medium text-[var(--muted-foreground)]">
+                      Perfil
+                    </Label>
+                    <select
+                      id="lead-perfil"
+                      value={form.perfil ?? ""}
+                      onChange={(e) => setForm((p) => ({ ...p, perfil: isLeadPerfil(e.target.value) ? e.target.value : null }))}
+                      className="h-9 w-full rounded-md border border-[var(--border)] bg-[var(--input)] px-3 text-xs text-[var(--text-title)] focus:outline-none focus:ring-1 focus:ring-[var(--silver)]/40"
+                    >
+                      <option value="">Sem perfil</option>
+                      {LEAD_PERFIS.map((perfil) => (
+                        <option key={perfil.value} value={perfil.value} style={{ background: "var(--background)" }}>
+                          {perfil.label}
+                        </option>
+                      ))}
+                    </select>
+                    {isEditing && lead?.perfil && !lead.perfil_manual && form.perfil === lead.perfil && (
+                      <p className="text-[10px] text-[var(--muted-foreground)]">Preenchido automaticamente pela resposta do formulário.</p>
+                    )}
                   </div>
 
                   {/* Qualificação — IQ / IE (só em edição, lead recém-criado ainda não tem) */}

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { LeadService } from "@/lib/crm/lead-service";
+import { isLeadPerfil } from "@/lib/crm/lead-perfil";
 
 interface CreateLeadBody {
   name?: string;
@@ -13,6 +14,7 @@ interface CreateLeadBody {
   deal_value?: number;
   entered_at?: string;
   origin_id?: string | null;
+  perfil?: string | null;
 }
 
 export async function POST(req: NextRequest) {
@@ -75,6 +77,7 @@ export async function POST(req: NextRequest) {
     integration_notes: body.integration_notes?.trim() || null,
     deal_value: Number.isFinite(body.deal_value) ? Number(body.deal_value) : 0,
     entered_at: body.entered_at,
+    perfil: isLeadPerfil(body.perfil) ? body.perfil : null,
   });
 
   if (!result.ok || !result.leadId) {

@@ -21,6 +21,9 @@ import { ChevronDown, Cog, LayoutGrid, List, Loader2, Search, X, UserPlus, Slide
 import { toast } from "sonner";
 
 import { matchesLeadSearch } from "@/lib/crm/lead-search";
+import { EMPTY_LEAD_FILTERS, countActiveFilters, matchesLeadFilters, type LeadFilters } from "@/lib/crm/lead-filters";
+import { LeadFiltersPanel } from "./LeadFiltersPanel";
+import { leadPerfilLabel, perfilFromSearch } from "@/lib/crm/lead-perfil";
 import { useLeads, UNASSIGNED_STAGE_KEY } from "@/hooks/useLeads";
 import { usePipelines } from "@/hooks/usePipelines";
 import type { Lead } from "@/types";
@@ -57,6 +60,7 @@ interface PendingMove {
 
 export function KanbanBoard() {
   const [search, setSearch] = useState("");
+  const [leadFilters, setLeadFilters] = useState<LeadFilters>(EMPTY_LEAD_FILTERS);
   const [mobileToolsOpen, setMobileToolsOpen] = useState(false);
   const viewSeg = useSegmentIndicator({ background: "var(--segment-active-bg)", boxShadow: "var(--segment-active-shadow)" });
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
@@ -105,6 +109,9 @@ export function KanbanBoard() {
   }, [activePipelines, selectedPipelineId]);
 
   const selectedPipeline = activePipelines.find((p) => p.id === selectedPipelineId) ?? null;
+
+  // Etiquetas, responsáveis e formulários mudam de uma pipeline para outra.
+  useEffect(() => { setLeadFilters(EMPTY_LEAD_FILTERS); }, [selectedPipelineId]);
 
   // Stages ativas do pipeline selecionado, ordenadas por order_index
   const stages: CrmStage[] = (selectedPipeline?.crm_stages ?? [])
@@ -266,7 +273,9 @@ export function KanbanBoard() {
   const leadActivities=useLeadActivityIndicators(leads.map(lead=>lead.id));
   const activeLead    = activeId ? getLeadById(activeId) : null;
   const isFiltered    = dateFilter !== null;
-  const visibleLeads = leads.filter((lead) => (lead.pipeline_id === selectedPipelineId || (!lead.pipeline_id && !lead.stage_id)) && matchesLeadSearch(lead, search));
+  const pipelineLeads = leads.filter((lead) => lead.pipeline_id === selectedPipelineId || (!lead.pipeline_id && !lead.stage_id));
+  const visibleLeads = pipelineLeads.filter((lead) => matchesLeadSearch(lead, search) && matchesLeadFilters(lead, leadFilters));
+  const activeFilterCount = countActiveFilters(leadFilters);
   const leadsByStage = visibleLeads.reduce<Record<string, Lead[]>>((groups, lead) => {
     const key = lead.stage_id ?? UNASSIGNED_STAGE_KEY;
     (groups[key] ??= []).push(lead); return groups;
@@ -374,7 +383,7 @@ export function KanbanBoard() {
           )}
           {(!hasFullCrmAccess || activePipelines.length <= 1) && <p className="crm-kanban-single-pipeline md:hidden">{selectedPipeline?.name ?? "Funil"}</p>}
           <div className="crm-kanban-mobile-actions md:hidden">
-            <button type="button" aria-label={mobileSearchOpen?"Ocultar busca de leads":"Buscar leads"} aria-expanded={mobileSearchOpen} aria-controls="crm-kanban-search" onClick={()=>setMobileSearchOpen(value=>!value)} className={`crm-mobile-icon-button ${search?"is-active":""}`}><Search size={17}/></button>
+            <button type="button" aria-label={mobileSearchOpen?"Ocultar busca de leads":"Buscar leads"} aria-expanded={mobileSearchOpen} aria-controls="crm-kanban-search" onClick={()=>setMobileSearchOpen(value=>!value)} className={`crm-mobile-icon-button ${search||activeFilterCount?"is-active":""}`}><Search size={17}/></button>
             <button type="button" aria-label={mobileToolsOpen?"Ocultar filtros e opções":"Filtros e opções do funil"} aria-expanded={mobileToolsOpen} aria-controls="crm-kanban-options" onClick={()=>setMobileToolsOpen(value=>!value)} className={`crm-mobile-icon-button ${isFiltered?"is-active":""}`}><SlidersHorizontal size={17}/>{isFiltered&&<span className="crm-mobile-active-dot"/>}</button>
             <button type="button" aria-label="Adicionar novo lead" title="Novo lead" onClick={openCreateModal} className="crm-mobile-icon-button crm-mobile-add"><Plus size={19}/></button>
           </div>
@@ -426,12 +435,15 @@ export function KanbanBoard() {
       </div>
 
       <div id="crm-kanban-search" className={`crm-kanban-search flex-none px-4 pb-3 sm:px-6 ${mobileSearchOpen?"is-open":""}`}>
-        <label className="flex min-h-11 items-center gap-3 rounded-2xl border border-[var(--glass-border)] bg-[var(--glass-bg-soft)] px-4 focus-within:ring-2 focus-within:ring-sky-500/40">
+        <div className="flex items-center gap-2">
+        <label className="flex min-h-11 min-w-0 flex-1 items-center gap-3 rounded-2xl border border-[var(--glass-border)] bg-[var(--glass-bg-soft)] px-4 focus-within:ring-2 focus-within:ring-sky-500/40">
           <Search size={18} className="shrink-0 text-[var(--muted-foreground)]" aria-hidden="true" />
-          <input ref={searchInputRef} type="search" aria-label="Pesquisar lead por nome ou telefone" placeholder="Pesquisar lead por nome ou telefone…" value={search} onChange={(event) => setSearch(event.target.value)} className="min-h-11 min-w-0 flex-1 bg-transparent text-sm text-[var(--text-title)] outline-none placeholder:text-[var(--muted-foreground)]" />
+          <input ref={searchInputRef} type="search" aria-label="Pesquisar lead por nome, telefone ou perfil" placeholder="Pesquisar por nome, telefone ou perfil (ex.: Corretor)…" value={search} onChange={(event) => setSearch(event.target.value)} className="min-h-11 min-w-0 flex-1 bg-transparent text-sm text-[var(--text-title)] outline-none placeholder:text-[var(--muted-foreground)]" />
           {search && <button type="button" aria-label="Limpar pesquisa" onClick={() => setSearch("")} className="grid h-9 w-9 shrink-0 place-items-center rounded-lg hover:bg-[var(--hover)]"><X size={16} /></button>}
         </label>
-        {search && <p role="status" className="mt-2 text-xs text-[var(--muted-foreground)]">{filteredCount ? `${filteredCount} ${filteredCount === 1 ? "lead encontrado" : "leads encontrados"}` : "Nenhum lead encontrado nesta pipeline com os filtros atuais."}</p>}
+        <LeadFiltersPanel leads={pipelineLeads} pipelineId={selectedPipelineId} filters={leadFilters} onChange={setLeadFilters} />
+        </div>
+        {(search || activeFilterCount > 0) && <p role="status" className="mt-2 text-xs text-[var(--muted-foreground)]">{filteredCount ? `${filteredCount} ${filteredCount === 1 ? "lead encontrado" : "leads encontrados"}${perfilFromSearch(search) ? ` com perfil ${leadPerfilLabel(perfilFromSearch(search))}` : ""}` : "Nenhum lead encontrado nesta pipeline com os filtros atuais."}</p>}
       </div>
       {preferences.view === "list" ? (
         <LeadList leads={visibleLeads} stages={stages} pipelineId={selectedPipelineId} activities={leadActivities}

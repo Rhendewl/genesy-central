@@ -11,6 +11,7 @@ import { useLeadOrigins } from "@/hooks/useLeadOrigins";
 import { LeadScoreEngine } from "@/lib/crm/lead-score-engine";
 import { semanticChipStyle } from "@/lib/semantic-chip";
 import { privateFinancialValue } from "@/store/financial-privacy";
+import { leadPerfilInfo } from "@/lib/crm/lead-perfil";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // LeadCard
@@ -49,6 +50,7 @@ export function LeadCard({ lead, isDragOverlay = false, onEdit, activity }: Lead
   const leadTags = allTags.filter((t) =>
     (lead.tags as string[]).includes(t.id)
   );
+  const perfil = leadPerfilInfo(lead.perfil);
 
   return (
     <div
@@ -125,9 +127,18 @@ export function LeadCard({ lead, isDragOverlay = false, onEdit, activity }: Lead
         </div>
       )}
 
-      {/* Tags */}
-      {leadTags.length > 0 && (
+      {/* Perfil + Tags */}
+      {(perfil || leadTags.length > 0) && (
         <div className="mt-2.5 flex flex-wrap gap-1">
+          {perfil && (
+            <span
+              className="lc-semantic-chip rounded-full border px-2 py-0.5 text-[10px] font-semibold leading-none"
+              style={semanticChipStyle(perfil.color)}
+              title="Perfil do lead"
+            >
+              {perfil.label}
+            </span>
+          )}
           {leadTags.slice(0, 3).map((tag) => (
             <span
               key={tag.id}

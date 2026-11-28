@@ -14,8 +14,10 @@ import { leadContactLinks } from "@/lib/crm/contact-links";
 import { LeadScoreEngine } from "@/lib/crm/lead-score-engine";
 import { semanticChipStyle } from "@/lib/semantic-chip";
 import { privateFinancialValue } from "@/store/financial-privacy";
+import { leadPerfilInfo, leadPerfilLabel } from "@/lib/crm/lead-perfil";
 
 const columns: { key: LeadListColumn; label: string; sort?: LeadListSort }[] = [
+  { key: "perfil", label: "Perfil", sort: "perfil" },
   { key: "assignee", label: "Responsável", sort: "assignee" },
   { key: "tags", label: "Etiquetas" },
   { key: "entered_at", label: "Entrada", sort: "entered_at" },
@@ -55,6 +57,7 @@ export function LeadList({ leads, stages, pipelineId, activities, preferences, o
         case "stage": return stageOrder.get(lead.stage_id ?? "") ?? null;
         case "assignee": return assigneeName(lead);
         case "origin": return originName(lead);
+        case "perfil": return lead.perfil ? leadPerfilLabel(lead.perfil) : null;
         case "ig": return LeadScoreEngine.calculateIG(lead.iq_score, lead.ie_score);
         case "value": return lead.deal_value ?? 0;
         default: return lead.received_at ?? lead.entered_at;
@@ -107,6 +110,10 @@ export function LeadList({ leads, stages, pipelineId, activities, preferences, o
   }
   function cell(lead: Lead, column: LeadListColumn) {
     switch (column) {
+      case "perfil": {
+        const perfil = leadPerfilInfo(lead.perfil);
+        return perfil ? <span className="lc-semantic-chip whitespace-nowrap rounded-full border px-2 py-1 text-[10px] font-semibold" style={semanticChipStyle(perfil.color)}>{perfil.label}</span> : "—";
+      }
       case "assignee": return assigneeName(lead);
       case "origin": return originName(lead) || "—";
       case "ig": return LeadScoreEngine.calculateIG(lead.iq_score, lead.ie_score) ?? "—";
@@ -122,7 +129,7 @@ export function LeadList({ leads, stages, pipelineId, activities, preferences, o
     <div className="mb-3 flex flex-none flex-wrap items-center justify-between gap-2">
       <label className="flex items-center gap-2 text-xs text-[var(--muted-foreground)]">Ordenar por
         <select aria-label="Ordenar lista de leads" value={preferences.sort} onChange={event => { onPreferencesChange({ sort: event.target.value as LeadListSort }); setPage(0); }} className="min-h-11 rounded-xl border border-[var(--border)] bg-[var(--background)] px-2 text-[var(--text-title)]">
-          <option value="name">Nome</option><option value="stage">Etapa</option><option value="entered_at">Entrada</option><option value="assignee">Responsável</option><option value="origin">Origem</option><option value="ig">IG</option><option value="value">Valor do negócio</option>
+          <option value="name">Nome</option><option value="stage">Etapa</option><option value="entered_at">Entrada</option><option value="assignee">Responsável</option><option value="origin">Origem</option><option value="perfil">Perfil</option><option value="ig">IG</option><option value="value">Valor do negócio</option>
         </select>
         <button type="button" aria-label={preferences.direction === "asc" ? "Ordem crescente; inverter" : "Ordem decrescente; inverter"} onClick={() => onPreferencesChange({ direction: preferences.direction === "asc" ? "desc" : "asc" })} className="grid min-h-11 min-w-11 place-items-center rounded-xl hover:bg-[var(--hover)]">{preferences.direction === "asc" ? <ArrowUp size={16} /> : <ArrowDown size={16} />}</button>
       </label>

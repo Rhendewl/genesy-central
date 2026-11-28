@@ -26,6 +26,9 @@ import { useCurrentMember } from "@/context/CurrentMemberContext";
 import { isAdministrativeMember } from "@/lib/user-access";
 import { KpiReadingGuide } from "@/components/insights/KpiReadingGuide";
 import { privateFinancialValue } from "@/store/financial-privacy";
+import { LEAD_PERFIS, leadPerfilInfo } from "@/lib/crm/lead-perfil";
+import { PERFIL_KEYS } from "@/lib/crm/perfil-analytics";
+import { semanticChipStyle } from "@/lib/semantic-chip";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // LeadsAnalytics
@@ -172,6 +175,7 @@ export function LeadsAnalytics() {
   const [search,       setSearch]       = useState("");
   const [sourceFilter, setSourceFilter] = useState("all");
   const [stageFilter,  setStageFilter]  = useState("all");
+  const [perfilFilter, setPerfilFilter] = useState("all");
   const [showAll,      setShowAll]      = useState(false);
   const [iqMin, setIqMin] = useState("");
   const [iqMax, setIqMax] = useState("");
@@ -202,12 +206,13 @@ export function LeadsAnalytics() {
       if (q && !l.name.toLowerCase().includes(q) && !(l.contact ?? "").toLowerCase().includes(q)) return false;
       if (sourceFilter !== "all" && (l.source || "manual") !== sourceFilter) return false;
       if (stageFilter  !== "all" && (stages.length ? l.stage_id : l.kanban_column) !== stageFilter)          return false;
+      if (perfilFilter !== "all" && (l.perfil ?? "sem_perfil") !== perfilFilter) return false;
       if (min !== null && (l.iq_score === null || l.iq_score < min)) return false;
       if (max !== null && (l.iq_score === null || l.iq_score > max)) return false;
       if (ieBucketFilter !== "all" && (l.ie_score === null || bucketOf(l.ie_score) !== ieBucketFilter)) return false;
       return true;
     });
-  }, [leads, stages, search, sourceFilter, stageFilter, iqMin, iqMax, ieBucketFilter]);
+  }, [leads, stages, search, sourceFilter, stageFilter, perfilFilter, iqMin, iqMax, ieBucketFilter]);
 
   const visibleLeads = showAll ? filteredLeads : filteredLeads.slice(0, 20);
 
@@ -459,6 +464,81 @@ export function LeadsAnalytics() {
         </div>
       </Section>
 
+      {/* ── Perfil dos leads ───────────────────────────────────────────────── */}
+      <Section title="Perfil dos leads">
+        <div className="grid grid-cols-1 xl:grid-cols-5 gap-4 px-4 sm:px-6">
+          <ChartCard title="Leads por perfil" className="xl:col-span-2">
+            {analytics.totalLeads === 0 ? (
+              <div className="h-[120px] flex items-center justify-center text-sm text-[var(--muted-foreground)]">Sem dados</div>
+            ) : (
+              <div className="space-y-3">
+                <div className="grid grid-cols-[1fr_52px_64px_56px] gap-1 text-[10px] font-semibold text-[var(--muted-foreground)] uppercase tracking-widest pb-2 border-b border-[var(--border-card)]">
+                  <span>Perfil</span><span className="text-right">Leads</span><span className="text-right">Reunião</span><span className="text-right">Venda</span>
+                </div>
+                {analytics.perfilBreakdown.map(row => (
+                  <div key={row.perfil}>
+                    <div className="grid grid-cols-[1fr_52px_64px_56px] items-center gap-1">
+                      <span className="flex items-center gap-2 min-w-0">
+                        <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: row.color }} />
+                        <span className="text-xs text-[var(--text-body)] truncate">{row.label}</span>
+                      </span>
+                      <span className="text-xs text-right text-[var(--text-title)]">{row.total} <span className="text-[var(--muted-foreground)]">· {row.pct}%</span></span>
+                      <span className="text-xs text-right text-[var(--text-body)]" title={`${row.reunioes} com reunião`}>{row.meetingRate}%</span>
+                      <span className={cn("text-xs text-right font-semibold", row.saleRate >= 20 ? "text-emerald-400" : row.saleRate > 0 ? "text-amber-400" : "text-[var(--muted-foreground)]")} title={`${row.vendas} vendas`}>{row.saleRate}%</span>
+                    </div>
+                    <div className="mt-1.5 h-1.5 rounded-full" style={{ background: "var(--hover)" }}>
+                      <motion.div className="h-1.5 rounded-full" style={{ background: row.color }} initial={{ width: 0 }} animate={{ width: `${row.pct}%` }} transition={{ duration: 0.6, ease: "easeOut" }} />
+                    </div>
+                  </div>
+                ))}
+                <p className="text-[10px] text-[var(--muted-foreground)]">Reunião e venda: % dos leads de cada perfil que chegaram a essas etapas.</p>
+              </div>
+            )}
+          </ChartCard>
+
+          <ChartCard title="Campanha × Perfil" className="xl:col-span-3">
+            {analytics.campaignByPerfil.length === 0 ? (
+              <div className="h-[120px] flex items-center justify-center text-sm text-[var(--muted-foreground)]">Sem dados</div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[480px] text-xs">
+                  <caption className="sr-only">Quantos leads de cada perfil cada campanha, formulário ou origem trouxe</caption>
+                  <thead>
+                    <tr className="text-[10px] font-semibold text-[var(--muted-foreground)] uppercase tracking-widest border-b border-[var(--border-card)]">
+                      <th scope="col" className="pb-2 text-left font-semibold">Campanha / origem</th>
+                      <th scope="col" className="pb-2 text-right font-semibold">Leads</th>
+                      {PERFIL_KEYS.map(key => (
+                        <th key={key} scope="col" className="pb-2 pl-2 text-right font-semibold whitespace-nowrap">{key === "sem_perfil" ? "Sem perfil" : key === "construtora" ? "Constr./Incorp." : leadPerfilInfo(key)?.label}</th>
+                      ))}
+                      <th scope="col" className="pb-2 pl-2 text-right font-semibold">Predomina</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {analytics.campaignByPerfil.map(row => {
+                      const top = leadPerfilInfo(row.topPerfil);
+                      return (
+                        <tr key={row.key} className="border-b border-[var(--border-card)] last:border-0">
+                          <th scope="row" className="py-2 pr-2 text-left font-normal text-[var(--text-body)] max-w-[220px] truncate" title={row.label}>{row.label}</th>
+                          <td className="py-2 text-right text-[var(--text-title)] font-medium">{row.total}</td>
+                          {PERFIL_KEYS.map(key => (
+                            <td key={key} className={cn("py-2 pl-2 text-right", row.counts[key] ? "text-[var(--text-title)]" : "text-[var(--muted-foreground)]")}>
+                              {row.counts[key] || "—"}
+                            </td>
+                          ))}
+                          <td className="py-2 pl-2 text-right">
+                            {top ? <span className="lc-semantic-chip inline-block whitespace-nowrap rounded-full border px-2 py-0.5 text-[10px] font-semibold" style={semanticChipStyle(top.color)}>{top.label} · {row.topPct}%</span> : <span className="text-[var(--muted-foreground)]">—</span>}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </ChartCard>
+        </div>
+      </Section>
+
       {/* ── Section 2: Charts ───────────────────────────────────────────────── */}
       <Section title="Gráficos">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 px-4 sm:px-6">
@@ -665,6 +745,20 @@ export function LeadsAnalytics() {
             <ChevronDown size={12} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)] pointer-events-none" />
           </div>
 
+          <div className="relative">
+            <select
+              aria-label="Filtrar por perfil"
+              value={perfilFilter}
+              onChange={e => setPerfilFilter(e.target.value)}
+              className="appearance-none pl-3 pr-8 py-2 rounded-xl text-sm text-[var(--text-body)] outline-none lc-filter-control cursor-pointer"
+            >
+              <option value="all">Todos os perfis</option>
+              {LEAD_PERFIS.map(perfil => <option key={perfil.value} value={perfil.value}>{perfil.label}</option>)}
+              <option value="sem_perfil">Sem perfil</option>
+            </select>
+            <ChevronDown size={12} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)] pointer-events-none" />
+          </div>
+
           {/* IQ min/max */}
           <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm" style={{ background: "var(--hover)", border: "1px solid var(--glass-border)" }}>
             <span className="text-[10px] text-[var(--muted-foreground)] flex-shrink-0">IQ</span>
@@ -806,7 +900,10 @@ export function LeadsAnalytics() {
                         aria-label={`Selecionar lead ${lead.name}`}
                         className="cursor-pointer"
                       />
-                      <span className="text-[var(--text-title)] font-medium truncate pr-2">{lead.name}</span>
+                      <span className="text-[var(--text-title)] font-medium truncate pr-2" title={leadPerfilInfo(lead.perfil)?.label}>
+                        {leadPerfilInfo(lead.perfil) && <span className="mr-1.5 inline-block h-2 w-2 rounded-full align-middle" style={{ background: leadPerfilInfo(lead.perfil)!.color }} aria-label={`Perfil ${leadPerfilInfo(lead.perfil)!.label}`} />}
+                        {lead.name}
+                      </span>
                       <span className="text-[var(--text-body)] truncate pr-2">{lead.contact || "—"}</span>
                       <span className="text-[var(--text-body)] truncate pr-2">{srcLabel(lead.source || "manual")}</span>
                       <span className="truncate pr-2">
